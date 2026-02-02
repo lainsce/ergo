@@ -230,7 +230,7 @@ entry () (( -- )) {
 ### `stdr`
 
 - `writef(fmt: string, ...): void` — Print formatted output.
-- `readf(fmt: string, ...): void` — Read formatted input.
+- `readf(fmt: string, ...): (string, any)` — Print a prompt, read a line, and return `(line, parsed)` where `parsed` is a tuple of values parsed from `{}` placeholders (types inferred from the provided argument values, e.g. `0` for int, `0.0` for float, `@""` for string).
 - `write(x: any): void` — Print a value.
 - `len(x: any): int` — Length of array or string.
 - `is_null(x: any): bool` — True if value is null.

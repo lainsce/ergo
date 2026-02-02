@@ -8,6 +8,7 @@ from .ast import (
     BoolLit,
     Call,
     ClassDecl,
+    ConstDecl,
     ConstStmt,
     Decl,
     EntryDecl,
@@ -97,6 +98,8 @@ class Parser:
                 decls.append(self.parse_entry())
             elif self.at("KW_fun"):
                 decls.append(self.parse_fun())
+            elif self.at("KW_const"):
+                decls.append(self.parse_const_decl())
             else:
                 if (
                     self.at("KW_pub")
@@ -257,6 +260,10 @@ class Parser:
         self.eat("=")
         e = self.parse_expr(0)
         return ConstStmt(name=name, expr=e)
+
+    def parse_const_decl(self) -> ConstDecl:
+        stmt = self.parse_const()
+        return ConstDecl(name=stmt.name, expr=stmt.expr)
 
     def parse_if(self) -> IfStmt:
         arms: List[IfArm] = []

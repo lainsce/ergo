@@ -20,7 +20,7 @@ class Import:
     name: str  # "stdr", "math", or "file.e"
 
 
-Decl = Union["FunDecl", "EntryDecl", "ClassDecl"]
+Decl = Union["FunDecl", "EntryDecl", "ClassDecl", "ConstDecl"]
 
 # --- Function and Class Declarations ---
 
@@ -45,6 +45,12 @@ class FunDecl:
     params: List[Param]
     ret: RetSpec
     body: "Block"
+
+
+@dataclass
+class ConstDecl:
+    name: str
+    expr: "Expr"
 
 
 @dataclass

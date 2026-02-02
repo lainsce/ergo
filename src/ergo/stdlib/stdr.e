@@ -1,16 +1,41 @@
 -- Ergo Standard Library: stdr.e
 
--- Print formatted output (compiler intrinsic)
-fun writef(fmt = string) (( -- )) { }
+-- Internal formatted output primitive (compiler intrinsic)
+fun __writef(fmt = string, args = any) (( -- )) { }
 
--- Read formatted input (compiler intrinsic)
-fun readf(fmt = string) (( -- )) { }
+-- Internal line input primitive (compiler intrinsic)
+fun __read_line() (( string )) { }
 
--- Print a value (compiler intrinsic)
-fun write(x = any) (( -- )) { }
+-- Internal readf parser (compiler intrinsic)
+fun __readf_parse(fmt = string, line = string, args = any) (( any )) { }
+
+-- Print formatted output
+fun writef(fmt = string, args = any) (( -- )) {
+  __writef(fmt, args)
+}
+
+-- Read formatted input (returns line and parsed values)
+fun readf(fmt = string, args = any) (( string, any )) {
+  __writef(fmt, args)
+  let line = __read_line()
+  let parsed = __readf_parse(fmt, line, args)
+  return (line, parsed)
+}
+
+-- Print a value
+fun write(x = any) (( -- )) {
+  writef(@"{}", x)
+}
 
 -- Check if a value is null
-fun is_null(x = any) (( bool )) { }
+fun is_null(x = any) (( bool )) {
+  return x == null
+}
+
+-- Internal length primitive (compiler intrinsic)
+fun __len(x = any) (( int )) { }
 
 -- Get the length of an array or string
-fun len(x = any) (( int )) { }
+fun len(x = any) (( int )) {
+  return __len(x)
+}

@@ -1,18 +1,112 @@
 -- Ergo Standard Library: math.e
 
-let PI = 3.141592653589793
+-- Math constants
+const PI = 3.141592653589793
+const TAU = 6.283185307179586
+const E = 2.718281828459045
+const HALF_PI = 1.5707963267948966
+const PHI = 1.618033988749895
+const SQRT_TWO = 1.4142135623730951
+const SQRT_THREE = 1.7320508075688772
+const INV_PI = 0.3183098861837907
+const INV_TAU = 0.15915494309189535
+const LN_TWO = 0.6931471805599453
+const LN_TEN = 2.302585092994046
+const LOG_TWO_E = 1.4426950408889634
+const LOG_TEN_E = 0.4342944819032518
 
--- Sine function (compiler intrinsic)
-fun sin(x = float) (( float )) { }
+-- Internal: wrap angle to [-pi, pi] using a bounded loop.
+fun _wrap_angle(x = float) (( float )) {
+  let pi = math.PI
+  let two_pi = pi + pi
+  let ?y = x
+  for (let ?i = 0; i < 128 && (y > pi || y < -pi); i = i + 1) {
+    if y > pi {
+      y = y - two_pi
+    } elif y < -pi {
+      y = y + two_pi
+    }
+  }
+  return y
+}
 
--- Cosine function (compiler intrinsic)
-fun cos(x = float) (( float )) { }
+-- Internal: sine via Taylor series on small |x|.
+fun _sin_taylor(x = float) (( float )) {
+  let x2 = x * x
+  let ?term = x
+  let ?sum = x
+  for (let ?i = 0; i < 7; i = i + 1) {
+    term = -term * x2 / ((2.0 * i + 2.0) * (2.0 * i + 3.0))
+    sum = sum + term
+  }
+  return sum
+}
 
--- Tangent function (compiler intrinsic)
-fun tan(x = float) (( float )) { }
+-- Internal: cosine via Taylor series on small |x|.
+fun _cos_taylor(x = float) (( float )) {
+  let x2 = x * x
+  let ?term = 1.0
+  let ?sum = 1.0
+  for (let ?i = 0; i < 7; i = i + 1) {
+    term = -term * x2 / ((2.0 * i + 1.0) * (2.0 * i + 2.0))
+    sum = sum + term
+  }
+  return sum
+}
 
--- Square root function (compiler intrinsic)
-fun sqrt(x = float) (( float )) { }
+-- Sine function (implemented in Ergo)
+fun sin(x = float) (( float )) {
+  let pi = math.PI
+  let half_pi = pi / 2.0
+  let ?y = _wrap_angle(x)
+  let ?sign = 1.0
+  if y > half_pi {
+    y = pi - y
+  } elif y < -half_pi {
+    y = pi + y
+    sign = -1.0
+  }
+  return sign * _sin_taylor(y)
+}
+
+-- Cosine function (implemented in Ergo)
+fun cos(x = float) (( float )) {
+  let pi = math.PI
+  let half_pi = pi / 2.0
+  let ?y = _wrap_angle(x)
+  if y < 0.0 {
+    y = -y
+  }
+  let ?sign = 1.0
+  if y > half_pi {
+    y = pi - y
+    sign = -1.0
+  }
+  return sign * _cos_taylor(y)
+}
+
+-- Tangent function (implemented in Ergo)
+fun tan(x = float) (( float )) {
+  let s = sin(x)
+  let c = cos(x)
+  return s / c
+}
+
+-- Square root function (implemented in Ergo)
+fun sqrt(x = float) (( float )) {
+  if x <= 0.0 {
+    return 0.0
+  }
+  let ?guess = 1.0
+  if x > 1.0 {
+    guess = x
+  }
+  let eps = 0.000000000001
+  for (let ?i = 0; i < 30 && abs(guess * guess - x) > eps; i = i + 1) {
+    guess = 0.5 * (guess + x / guess)
+  }
+  return guess
+}
 
 -- Absolute value
 fun abs(x = float) (( float )) {

@@ -46,6 +46,7 @@ from .typechecker import (
     Binding,
     Ctx,
     Locals,
+    MODULE_CONSTS,
     Ty,
     TypeErr,
     T_prim,
@@ -206,6 +207,198 @@ static void writef(ErgoVal fmt, int argc, ErgoVal* argv) {
     i++;
   }
   fflush(stdout);
+}
+
+static void stdr_writef_args(ErgoVal fmt, ErgoVal args) {
+  if (args.tag != EVT_ARR) ergo_trap("writef expects args tuple");
+  ErgoArr* a = (ErgoArr*)args.as.p;
+  writef(fmt, (int)a->len, a->items);
+}
+
+static ErgoStr* stdr_read_line(void) {
+  size_t cap = 128;
+  size_t len = 0;
+  char* buf = (char*)malloc(cap);
+  if (!buf) ergo_trap("out of memory");
+  int c;
+  while ((c = fgetc(stdin)) != EOF) {
+    if (c == '\n') break;
+    if (len + 1 >= cap) {
+      cap *= 2;
+      buf = (char*)realloc(buf, cap);
+      if (!buf) ergo_trap("out of memory");
+    }
+    buf[len++] = (char)c;
+  }
+  if (len > 0 && buf[len - 1] == '\r') len--;
+  buf[len] = 0;
+  ErgoStr* s = (ErgoStr*)malloc(sizeof(ErgoStr));
+  if (!s) ergo_trap("out of memory");
+  s->ref = 1;
+  s->len = len;
+  s->data = buf;
+  return s;
+}
+
+static size_t stdr_find_sub(const char* s, size_t slen, const char* sub, size_t sublen, size_t start) {
+  if (sublen == 0) return start;
+  if (start > slen) return (size_t)-1;
+  for (size_t i = start; i + sublen <= slen; i++) {
+    if (memcmp(s + i, sub, sublen) == 0) return i;
+  }
+  return (size_t)-1;
+}
+
+static void stdr_trim_span(const char* s, size_t len, size_t* out_start, size_t* out_len) {
+  size_t a = 0;
+  while (a < len && (s[a] == ' ' || s[a] == '\t')) a++;
+  size_t b = len;
+  while (b > a && (s[b - 1] == ' ' || s[b - 1] == '\t')) b--;
+  *out_start = a;
+  *out_len = b - a;
+}
+
+static ErgoStr* stdr_str_from_slice(const char* s, size_t len) {
+  ErgoStr* st = (ErgoStr*)malloc(sizeof(ErgoStr));
+  if (!st) ergo_trap("out of memory");
+  st->ref = 1;
+  st->len = len;
+  st->data = (char*)malloc(len + 1);
+  if (!st->data) ergo_trap("out of memory");
+  if (len > 0) memcpy(st->data, s, len);
+  st->data[len] = 0;
+  return st;
+}
+
+static int64_t stdr_parse_int_slice(const char* s, size_t len) {
+  if (len == 0) return 0;
+  char* tmp = (char*)malloc(len + 1);
+  if (!tmp) ergo_trap("out of memory");
+  memcpy(tmp, s, len);
+  tmp[len] = 0;
+  char* end = NULL;
+  long long v = strtoll(tmp, &end, 10);
+  free(tmp);
+  if (end == tmp) return 0;
+  return (int64_t)v;
+}
+
+static double stdr_parse_float_slice(const char* s, size_t len) {
+  if (len == 0) return 0.0;
+  char* tmp = (char*)malloc(len + 1);
+  if (!tmp) ergo_trap("out of memory");
+  memcpy(tmp, s, len);
+  tmp[len] = 0;
+  char* end = NULL;
+  double v = strtod(tmp, &end);
+  free(tmp);
+  if (end == tmp) return 0.0;
+  return v;
+}
+
+static bool stdr_parse_bool_slice(const char* s, size_t len) {
+  if (len == 1) {
+    if (s[0] == '1') return true;
+    if (s[0] == '0') return false;
+  }
+  if (len == 4) {
+    return ((s[0] == 't' || s[0] == 'T') &&
+            (s[1] == 'r' || s[1] == 'R') &&
+            (s[2] == 'u' || s[2] == 'U') &&
+            (s[3] == 'e' || s[3] == 'E'));
+  }
+  return false;
+}
+
+static ErgoVal stdr_readf_parse(ErgoVal fmt, ErgoVal line, ErgoVal args) {
+  if (fmt.tag != EVT_STR) ergo_trap("readf expects string format");
+  if (line.tag != EVT_STR) ergo_trap("readf expects string input");
+  if (args.tag != EVT_ARR) ergo_trap("readf expects args tuple");
+
+  ErgoStr* fs = (ErgoStr*)fmt.as.p;
+  ErgoStr* ls = (ErgoStr*)line.as.p;
+  ErgoArr* a = (ErgoArr*)args.as.p;
+
+  const char* f = fs->data;
+  size_t flen = fs->len;
+  const char* s = ls->data;
+  size_t slen = ls->len;
+
+  int segs = 1;
+  for (size_t i = 0; i + 1 < flen; i++) {
+    if (f[i] == '{' && f[i + 1] == '}') {
+      segs++;
+      i++;
+    }
+  }
+
+  const char** seg_ptrs = (const char**)malloc(sizeof(char*) * segs);
+  size_t* seg_lens = (size_t*)malloc(sizeof(size_t) * segs);
+  if (!seg_ptrs || !seg_lens) ergo_trap("out of memory");
+
+  size_t seg_start = 0;
+  int seg_idx = 0;
+  for (size_t i = 0; i + 1 < flen; i++) {
+    if (f[i] == '{' && f[i + 1] == '}') {
+      seg_ptrs[seg_idx] = f + seg_start;
+      seg_lens[seg_idx] = i - seg_start;
+      seg_idx++;
+      i++;
+      seg_start = i + 1;
+    }
+  }
+  seg_ptrs[seg_idx] = f + seg_start;
+  seg_lens[seg_idx] = flen - seg_start;
+
+  int placeholders = segs - 1;
+
+  size_t spos = 0;
+  if (seg_lens[0] > 0) {
+    size_t found = stdr_find_sub(s, slen, seg_ptrs[0], seg_lens[0], 0);
+    if (found != (size_t)-1) spos = found + seg_lens[0];
+  }
+
+  ErgoArr* out = stdr_arr_new((int)a->len);
+
+  for (size_t i = 0; i < a->len; i++) {
+    size_t cap_start = spos;
+    size_t cap_len = 0;
+    if ((int)i < placeholders) {
+      size_t found = stdr_find_sub(s, slen, seg_ptrs[i + 1], seg_lens[i + 1], spos);
+      if (found == (size_t)-1) {
+        cap_len = slen - spos;
+        spos = slen;
+      } else {
+        cap_len = found - spos;
+        spos = found + seg_lens[i + 1];
+      }
+    }
+
+    size_t trim_start = 0;
+    size_t trim_len = cap_len;
+    stdr_trim_span(s + cap_start, cap_len, &trim_start, &trim_len);
+    const char* cap = (cap_len > 0) ? (s + cap_start + trim_start) : "";
+
+    ErgoVal hint = a->items[i];
+    ErgoVal v;
+    if (hint.tag == EVT_INT) {
+      v = EV_INT(stdr_parse_int_slice(cap, trim_len));
+    } else if (hint.tag == EVT_FLOAT) {
+      v = EV_FLOAT(stdr_parse_float_slice(cap, trim_len));
+    } else if (hint.tag == EVT_BOOL) {
+      v = EV_BOOL(stdr_parse_bool_slice(cap, trim_len));
+    } else if (hint.tag == EVT_STR) {
+      v = EV_STR(stdr_str_from_slice(cap, trim_len));
+    } else {
+      v = EV_STR(stdr_str_from_slice(cap, trim_len));
+    }
+    ergo_arr_add(out, v);
+  }
+
+  free(seg_ptrs);
+  free(seg_lens);
+
+  return EV_ARR(out);
 }
 
 static ErgoStr* stdr_to_string(ErgoVal v) {
@@ -1137,12 +1330,33 @@ class CGen:
                 e.a, Ctx(module_path=path), self.ty_loc, self.classes, self.funs
             )
             if base_ty.tag == "mod":
-                if base_ty.name == "math" and e.name == "PI":
+                mod_consts = MODULE_CONSTS.get(base_ty.name, {})
+                if e.name in mod_consts:
+                    cv = mod_consts[e.name]
                     t = self.new_tmp()
-                    self.w(f"ErgoVal {t} = EV_FLOAT(3.141592653589793);")
+                    if cv.ty.tag == "prim" and cv.ty.name == "int":
+                        self.w(f"ErgoVal {t} = EV_INT({cv.value});")
+                    elif cv.ty.tag == "prim" and cv.ty.name == "float":
+                        self.w(f"ErgoVal {t} = EV_FLOAT({cv.value});")
+                    elif cv.ty.tag == "prim" and cv.ty.name == "bool":
+                        self.w(
+                            f"ErgoVal {t} = EV_BOOL({'true' if cv.value else 'false'});"
+                        )
+                    elif cv.ty.tag == "prim" and cv.ty.name == "string":
+                        self.w(
+                            f'ErgoVal {t} = EV_STR(stdr_str_lit("{c_escape(str(cv.value))}"));'
+                        )
+                    elif cv.ty.tag == "null":
+                        self.w(f"ErgoVal {t} = EV_NULLV;")
+                    else:
+                        raise TypeErr(
+                            f"{path}: unsupported const type for '{base_ty.name}.{e.name}'"
+                        )
                     cleanup.append(t)
                     return t, cleanup
-                raise TypeErr(f"{path}: unknown module member '{base_ty.name}.{e.name}'")
+                raise TypeErr(
+                    f"{path}: unknown module member '{base_ty.name}.{e.name}'"
+                )
 
             if base_ty.tag == "class":
                 bt, bc = self.gen_expr(path, e.a)
@@ -1538,42 +1752,6 @@ class CGen:
                     cleanup.append(t)
                     return t, cleanup
 
-                if m == "writef":
-                    fmt_t, fc = self.gen_expr(path, e.args[0])
-                    fmt_args_ts: List[str] = []
-                    fmt_extra_cleanup: List[str] = []
-                    for a in e.args[1:]:
-                        at, ac = self.gen_expr(path, a)
-                        fmt_args_ts.append(at)
-                        fmt_extra_cleanup.extend(ac)
-
-                    fmt_name = self.new_sym("fmt")
-                    argv_name = self.new_sym("argv")
-
-                    self.w("{")
-                    self.ind += 1
-                    self.w(f"ErgoVal {fmt_name} = {fmt_t};")
-                    self.w(
-                        f"ErgoVal {argv_name}[{len(fmt_args_ts)}] = {{ "
-                        + ", ".join(fmt_args_ts)
-                        + " };"
-                    )
-                    self.w(f"writef({fmt_name}, {len(fmt_args_ts)}, {argv_name});")
-                    self.ind -= 1
-                    self.w("}")
-
-                    self.w(f"ergo_release_val({fmt_t});")
-                    for z in fc:
-                        if z != fmt_t:
-                            self.w(f"ergo_release_val({z});")
-                    for z in fmt_extra_cleanup:
-                        self.w(f"ergo_release_val({z});")
-
-                    t = self.new_tmp()
-                    self.w(f"ErgoVal {t} = EV_NULLV;")
-                    cleanup.append(t)
-                    return t, cleanup
-
             # method calls: obj.method(...)
             if isinstance(e.fn, Member):
                 base = e.fn.a
@@ -1691,11 +1869,11 @@ class CGen:
 
                 raise TypeErr(f"{path}: unknown member call '{m}'")
 
-            # global prelude calls: write/writef/len/is_null
+            # global prelude calls: internal stdr primitives
             if isinstance(e.fn, Ident):
                 fname = e.fn.name
 
-                if fname == "len":
+                if fname == "__len":
                     at, ac = self.gen_expr(path, e.args[0])
                     t = self.new_tmp()
                     self.w(f"ErgoVal {t} = EV_INT(stdr_len({at}));")
@@ -1706,62 +1884,47 @@ class CGen:
                     cleanup.append(t)
                     return t, cleanup
 
-                if fname == "is_null":
-                    at, ac = self.gen_expr(path, e.args[0])
-                    t = self.new_tmp()
-                    self.w(f"ErgoVal {t} = EV_BOOL(stdr_is_null({at}));")
-                    self.w(f"ergo_release_val({at});")
-                    for z in ac:
-                        if z != at:
-                            self.w(f"ergo_release_val({z});")
-                    cleanup.append(t)
-                    return t, cleanup
-
-                if fname == "write":
-                    at, ac = self.gen_expr(path, e.args[0])
-                    self.w(f"write({at});")
-                    self.w(f"ergo_release_val({at});")
-                    for z in ac:
-                        if z != at:
-                            self.w(f"ergo_release_val({z});")
-                    t = self.new_tmp()
-                    self.w(f"ErgoVal {t} = EV_NULLV;")
-                    cleanup.append(t)
-                    return t, cleanup
-
-                if fname == "writef":
+                if fname == "__writef":
                     fmt_t, fc = self.gen_expr(path, e.args[0])
-                    args_ts: List[str] = []
-                    extra_cleanup: List[str] = []
-                    for a in e.args[1:]:
-                        at, ac = self.gen_expr(path, a)
-                        args_ts.append(at)
-                        extra_cleanup.extend(ac)
-
-                    fmt_name = self.new_sym("fmt")
-                    argv_name = self.new_sym("argv")
-
-                    self.w("{")
-                    self.ind += 1
-                    self.w(f"ErgoVal {fmt_name} = {fmt_t};")
-                    self.w(
-                        f"ErgoVal {argv_name}[{len(args_ts)}] = {{ "
-                        + ", ".join(args_ts)
-                        + " };"
-                    )
-                    self.w(f"writef({fmt_name}, {len(args_ts)}, {argv_name});")
-                    self.ind -= 1
-                    self.w("}")
-
+                    args_t, ac = self.gen_expr(path, e.args[1])
+                    self.w(f"stdr_writef_args({fmt_t}, {args_t});")
                     self.w(f"ergo_release_val({fmt_t});")
+                    self.w(f"ergo_release_val({args_t});")
                     for z in fc:
                         if z != fmt_t:
                             self.w(f"ergo_release_val({z});")
-                    for z in extra_cleanup:
-                        self.w(f"ergo_release_val({z});")
-
+                    for z in ac:
+                        if z != args_t:
+                            self.w(f"ergo_release_val({z});")
                     t = self.new_tmp()
                     self.w(f"ErgoVal {t} = EV_NULLV;")
+                    cleanup.append(t)
+                    return t, cleanup
+
+                if fname == "__read_line":
+                    t = self.new_tmp()
+                    self.w(f"ErgoVal {t} = EV_STR(stdr_read_line());")
+                    cleanup.append(t)
+                    return t, cleanup
+
+                if fname == "__readf_parse":
+                    fmt_t, fc = self.gen_expr(path, e.args[0])
+                    line_t, lc = self.gen_expr(path, e.args[1])
+                    args_t, ac = self.gen_expr(path, e.args[2])
+                    t = self.new_tmp()
+                    self.w(f"ErgoVal {t} = stdr_readf_parse({fmt_t}, {line_t}, {args_t});")
+                    self.w(f"ergo_release_val({fmt_t});")
+                    self.w(f"ergo_release_val({line_t});")
+                    self.w(f"ergo_release_val({args_t});")
+                    for z in fc:
+                        if z != fmt_t:
+                            self.w(f"ergo_release_val({z});")
+                    for z in lc:
+                        if z != line_t:
+                            self.w(f"ergo_release_val({z});")
+                    for z in ac:
+                        if z != args_t:
+                            self.w(f"ergo_release_val({z});")
                     cleanup.append(t)
                     return t, cleanup
 

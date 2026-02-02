@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from .ast import (
@@ -9,6 +10,7 @@ from .ast import (
     BoolLit,
     Call,
     ClassDecl,
+    ConstDecl,
     ConstStmt,
     EntryDecl,
     Expr,
@@ -110,6 +112,16 @@ PRIMS = {"int", "bool", "string", "void", "float", "char", "byte"}
 NUMERIC = {"int", "float", "char", "byte"}
 
 
+@dataclass(frozen=True)
+class ConstVal:
+    ty: Ty
+    value: Any
+
+
+# Module constants collected at build_global_env time.
+MODULE_CONSTS: Dict[str, Dict[str, ConstVal]] = {}
+
+
 def is_numeric_ty(t: Ty) -> bool:
     return t.tag == "prim" and t.name in NUMERIC
 
@@ -122,6 +134,84 @@ def numeric_result(a: Ty, b: Ty, op: str, where: str = "") -> Ty:
     if a.name == "float" or b.name == "float":
         return T_prim("float")
     return T_prim("int")
+
+
+def _module_name_for(path: str) -> Optional[str]:
+    base = os.path.basename(path)
+    if base == "stdr.e":
+        return "stdr"
+    if base == "math.e":
+        return "math"
+    return None
+
+
+def _eval_const_expr(e: Expr) -> ConstVal:
+    if isinstance(e, IntLit):
+        return ConstVal(T_prim("int"), e.v)
+    if isinstance(e, FloatLit):
+        return ConstVal(T_prim("float"), e.v)
+    if isinstance(e, BoolLit):
+        return ConstVal(T_prim("bool"), e.v)
+    if isinstance(e, NullLit):
+        return ConstVal(T_null(), None)
+    if isinstance(e, StrLit):
+        parts: List[str] = []
+        for kind, val in e.parts:
+            if kind != "text":
+                raise TypeErr("const string cannot interpolate")
+            parts.append(val)
+        return ConstVal(T_prim("string"), "".join(parts))
+    if isinstance(e, Paren):
+        return _eval_const_expr(e.x)
+    if isinstance(e, Unary):
+        cv = _eval_const_expr(e.x)
+        if e.op == "-":
+            if cv.ty.tag != "prim" or cv.ty.name not in ("int", "float"):
+                raise TypeErr("const unary - expects numeric")
+            return ConstVal(cv.ty, -cv.value)
+        if e.op == "!":
+            if cv.ty.tag != "prim" or cv.ty.name != "bool":
+                raise TypeErr("const ! expects bool")
+            return ConstVal(T_prim("bool"), not cv.value)
+        raise TypeErr("unsupported const unary op")
+    if isinstance(e, Binary) and e.op in ("+", "-", "*", "/", "%"):
+        a = _eval_const_expr(e.a)
+        b = _eval_const_expr(e.b)
+        if (
+            a.ty.tag != "prim"
+            or b.ty.tag != "prim"
+            or a.ty.name not in ("int", "float")
+            or b.ty.name not in ("int", "float")
+        ):
+            raise TypeErr("const numeric op expects numeric literals")
+        res_float = a.ty.name == "float" or b.ty.name == "float"
+        if e.op == "%" and res_float:
+            raise TypeErr("const % not supported for float")
+        if res_float:
+            av = float(a.value)
+            bv = float(b.value)
+            if e.op == "+":
+                return ConstVal(T_prim("float"), av + bv)
+            if e.op == "-":
+                return ConstVal(T_prim("float"), av - bv)
+            if e.op == "*":
+                return ConstVal(T_prim("float"), av * bv)
+            if e.op == "/":
+                return ConstVal(T_prim("float"), av / bv)
+        else:
+            av = int(a.value)
+            bv = int(b.value)
+            if e.op == "+":
+                return ConstVal(T_prim("int"), av + bv)
+            if e.op == "-":
+                return ConstVal(T_prim("int"), av - bv)
+            if e.op == "*":
+                return ConstVal(T_prim("int"), av * bv)
+            if e.op == "/":
+                return ConstVal(T_prim("int"), int(av / bv))
+            if e.op == "%":
+                return ConstVal(T_prim("int"), av % bv)
+    raise TypeErr("const expression must be a literal or simple numeric expression")
 
 
 def is_null_ty(t: Ty) -> bool:
@@ -276,6 +366,24 @@ def build_global_env(
     classes: Dict[str, ClassInfo] = {}
     funs: Dict[str, FunSig] = {}
     entry: Optional[EntryDecl] = None
+
+    # module constants (stdr/math only)
+    MODULE_CONSTS.clear()
+    for m in prog.mods:
+        mod_name = _module_name_for(m.path)
+        if mod_name is None:
+            for d in m.decls:
+                if isinstance(d, ConstDecl):
+                    raise TypeErr(
+                        f"{m.path}: module-level consts are only supported in stdr/math"
+                    )
+            continue
+        mod_consts = MODULE_CONSTS.setdefault(mod_name, {})
+        for d in m.decls:
+            if isinstance(d, ConstDecl):
+                if d.name in mod_consts:
+                    raise TypeErr(f"{m.path}: duplicate const '{d.name}'")
+                mod_consts[d.name] = _eval_const_expr(d.expr)
 
     # class shells
     for m in prog.mods:
@@ -474,7 +582,7 @@ def tc_call(
         name = c.fn.name
 
         if mod == "stdr":
-            if name in ("write", "writef"):
+            if name == "write":
                 for a in c.args:
                     tc_expr(a, ctx, loc, classes, funs)
                 return T_void()
@@ -600,11 +708,7 @@ def tc_call(
         fname = c.fn.name
 
         # Prelude: unqualified stdr calls (v0 assumes stdr is available)
-        if fname in ("write", "writef", "str", "len", "is_null"):
-            if fname in ("write", "writef"):
-                for a in c.args:
-                    tc_expr(a, ctx, loc, classes, funs)
-                return T_void()
+        if fname in ("str", "len"):
 
             if fname == "str":
                 for a in c.args:
@@ -618,12 +722,6 @@ def tc_call(
                 if not (t.tag == "array" or (t.tag == "prim" and t.name == "string")):
                     raise TypeErr(f"{ctx.module_path}: len expects array or string")
                 return T_prim("int")
-
-            if fname == "is_null":
-                if len(c.args) != 1:
-                    raise TypeErr(f"{ctx.module_path}: is_null expects 1 arg")
-                tc_expr(c.args[0], ctx, loc, classes, funs)
-                return T_prim("bool")
 
         if fname not in funs:
             fn_ty = tc_expr(c.fn, ctx, loc, classes, funs)
@@ -812,9 +910,12 @@ def tc_expr(
         ta = strip_nullable(ta)
 
         if ta.tag == "mod":
-            if ta.name == "math" and e.name == "PI":
-                return T_prim("float")
-            raise TypeErr(f"{ctx.module_path}: unknown module member '{ta.name}.{e.name}'")
+            mod_consts = MODULE_CONSTS.get(ta.name, {})
+            if e.name in mod_consts:
+                return mod_consts[e.name].ty
+            raise TypeErr(
+                f"{ctx.module_path}: unknown module member '{ta.name}.{e.name}'"
+            )
 
         if ta.tag == "class":
             ci = classes.get(ta.name)
@@ -850,6 +951,13 @@ def tc_expr(
         ta = strip_nullable(ta)
         if ta.tag == "array" and ta.elem:
             return ta.elem
+        if ta.tag == "tuple" and ta.items is not None:
+            if isinstance(e.i, IntLit):
+                idx = e.i.v
+                if idx < 0 or idx >= len(ta.items):
+                    raise TypeErr(f"{ctx.module_path}: tuple index out of range")
+                return ta.items[idx]
+            raise TypeErr(f"{ctx.module_path}: tuple index must be int literal")
         if ta.tag == "prim" and ta.name == "string":
             return T_prim("char")
         raise TypeErr(f"{ctx.module_path}: indexing requires array or string")
@@ -1078,6 +1186,35 @@ def lower_expr(e: Expr) -> Expr:
     if isinstance(e, Unary) and e.op == "#":
         return Call(fn=Member(a=Ident("stdr"), name="len"), args=[lower_expr(e.x)])
 
+    # Lower stdr.writef/readf(...) to writef/readf(...)
+    if (
+        isinstance(e, Call)
+        and isinstance(e.fn, Member)
+        and isinstance(e.fn.a, Ident)
+        and e.fn.a.name == "stdr"
+        and e.fn.name in ("writef", "readf")
+    ):
+        return lower_expr(Call(fn=Ident(e.fn.name), args=e.args))
+
+    # Lower writef/readf varargs into writef/readf(fmt, (args...))
+    if isinstance(e, Call) and isinstance(e.fn, Ident) and e.fn.name in (
+        "writef",
+        "readf",
+    ):
+        if not e.args:
+            return e
+        if (
+            len(e.args) == 2
+            and isinstance(e.args[1], TupleLit)
+        ):
+            return Call(
+                fn=e.fn,
+                args=[lower_expr(e.args[0]), lower_expr(e.args[1])],
+            )
+        fmt = lower_expr(e.args[0])
+        rest = [lower_expr(a) for a in e.args[1:]]
+        return Call(fn=e.fn, args=[fmt, TupleLit(items=rest)])
+
     # Lower move(x) to MoveExpr(x)
     if (
         isinstance(e, Call)
@@ -1158,13 +1295,15 @@ def lower_stmt(s: Stmt) -> Stmt:
 
 
 def lower_decl(
-    d: Union[FunDecl, EntryDecl, ClassDecl],
-) -> Union[FunDecl, EntryDecl, ClassDecl]:
+    d: Union[FunDecl, EntryDecl, ClassDecl, ConstDecl],
+) -> Union[FunDecl, EntryDecl, ClassDecl, ConstDecl]:
     if isinstance(d, FunDecl):
         fun_body = lower_stmt(d.body)
         if not isinstance(fun_body, Block):
             fun_body = Block(stmts=[fun_body])
         return FunDecl(name=d.name, params=d.params, ret=d.ret, body=fun_body)
+    if isinstance(d, ConstDecl):
+        return ConstDecl(name=d.name, expr=lower_expr(d.expr))
     if isinstance(d, EntryDecl):
         entry_body = lower_stmt(d.body)
         if not isinstance(entry_body, Block):
