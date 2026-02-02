@@ -95,6 +95,9 @@ bring math;
 let pi = math.PI;
 ```
 
+Imports are **namespaced only**: you must use `module.member` to access them.
+`stdr` is a special case — its core functions are available unqualified when brought.
+
 ---
 
 ## Entry Point

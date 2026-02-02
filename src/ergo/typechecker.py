@@ -49,6 +49,8 @@ from .ast import (
     StrLit,
     Ternary,
     TupleLit,
+    TypeArray,
+    TypeName,
     Unary,
 )
 
@@ -136,13 +138,13 @@ def numeric_result(a: Ty, b: Ty, op: str, where: str = "") -> Ty:
     return T_prim("int")
 
 
-def _module_name_for(path: str) -> Optional[str]:
+def module_name_for_path(path: str) -> str:
     base = os.path.basename(path)
-    if base == "stdr.e":
-        return "stdr"
-    if base == "math.e":
-        return "math"
-    return None
+    return base[:-2] if base.endswith(".e") else base
+
+
+def normalize_import_name(name: str) -> str:
+    return name[:-2] if name.endswith(".e") else name
 
 
 def _eval_const_expr(e: Expr) -> ConstVal:
@@ -327,6 +329,7 @@ def apply_subst(t: Ty, subst: Dict[str, Ty]) -> Ty:
 @dataclass
 class FunSig:
     name: str
+    module: str
     params: List[Ty]
     param_names: List[str]
     ret: Ty
@@ -339,6 +342,8 @@ class FunSig:
 @dataclass
 class ClassInfo:
     name: str
+    module: str
+    qname: str
     vis: str
     is_seal: bool
     module_path: str
@@ -346,32 +351,69 @@ class ClassInfo:
     methods: Dict[str, FunSig]
 
 
-def ty_from_name(n: str, known_classes: Dict[str, ClassInfo]) -> Ty:
-    if n == "str":
-        n = "string"
-    if n in PRIMS:
-        return T_void() if n == "void" else T_prim(n)
-    if n in ("stdr", "math"):
-        return T_mod(n)
-    if n in known_classes:
-        return T_class(n)
-    if all(ch.isalpha() or ch == "_" for ch in n):
-        return Ty("gen", name=n)
-    raise TypeErr(f"unknown type '{n}'")
+@dataclass
+class GlobalEnv:
+    classes: Dict[str, ClassInfo]
+    funs: Dict[str, FunSig]
+    entry: EntryDecl
+    module_names: Dict[str, str]  # path -> module name
+    module_imports: Dict[str, List[str]]
 
 
-def build_global_env(
-    prog: Program,
-) -> Tuple[Dict[str, ClassInfo], Dict[str, FunSig], EntryDecl]:
+def _qualify_class_name(mod: str, name: str) -> str:
+    return name if "." in name else f"{mod}.{name}"
+
+
+def ty_from_type(
+    tref: Any,
+    known_classes: Dict[str, ClassInfo],
+    ctx_mod: str,
+    ctx_imports: List[str],
+) -> Ty:
+    if isinstance(tref, TypeArray):
+        return T_array(ty_from_type(tref.elem, known_classes, ctx_mod, ctx_imports))
+    if isinstance(tref, TypeName):
+        n = tref.name
+        if n == "str":
+            n = "string"
+        if n in PRIMS:
+            return T_void() if n == "void" else T_prim(n)
+        if "." in n:
+            mod, _ = n.split(".", 1)
+            if mod != ctx_mod and mod not in ctx_imports:
+                raise TypeErr(f"unknown type '{n}'")
+            qn = n
+            if qn in known_classes:
+                return T_class(qn)
+            raise TypeErr(f"unknown type '{n}'")
+        qn = _qualify_class_name(ctx_mod, n)
+        if qn in known_classes:
+            return T_class(qn)
+        if all(ch.isalpha() or ch == "_" for ch in n):
+            return Ty("gen", name=n)
+        raise TypeErr(f"unknown type '{n}'")
+    raise TypeErr("invalid type expression")
+
+
+def build_global_env(prog: Program) -> GlobalEnv:
     classes: Dict[str, ClassInfo] = {}
     funs: Dict[str, FunSig] = {}
     entry: Optional[EntryDecl] = None
+    module_names: Dict[str, str] = {}
+    module_imports: Dict[str, List[str]] = {}
+
+    for m in prog.mods:
+        module_names[m.path] = module_name_for_path(m.path)
+
+    for m in prog.mods:
+        mod_name = module_names[m.path]
+        module_imports[mod_name] = [normalize_import_name(i.name) for i in m.imports]
 
     # module constants (stdr/math only)
     MODULE_CONSTS.clear()
     for m in prog.mods:
-        mod_name = _module_name_for(m.path)
-        if mod_name is None:
+        mod_name = module_names[m.path]
+        if mod_name not in ("stdr", "math"):
             for d in m.decls:
                 if isinstance(d, ConstDecl):
                     raise TypeErr(
@@ -387,12 +429,16 @@ def build_global_env(
 
     # class shells
     for m in prog.mods:
+        mod_name = module_names[m.path]
         for d in m.decls:
             if isinstance(d, ClassDecl):
-                if d.name in classes:
-                    raise TypeErr(f"duplicate class '{d.name}'")
-                classes[d.name] = ClassInfo(
+                qname = _qualify_class_name(mod_name, d.name)
+                if qname in classes:
+                    raise TypeErr(f"{m.path}: duplicate class '{d.name}'")
+                classes[qname] = ClassInfo(
                     name=d.name,
+                    module=mod_name,
+                    qname=qname,
                     vis=d.vis,
                     is_seal=d.is_seal,
                     module_path=m.path,
@@ -402,11 +448,15 @@ def build_global_env(
 
     # fill class fields + methods
     for m in prog.mods:
+        mod_name = module_names[m.path]
         for d in m.decls:
             if isinstance(d, ClassDecl):
-                ci = classes[d.name]
+                qname = _qualify_class_name(mod_name, d.name)
+                ci = classes[qname]
                 for f in d.fields:
-                    ci.fields[f.name] = ty_from_name(f.typ, classes)
+                    ci.fields[f.name] = ty_from_type(
+                        f.typ, classes, mod_name, module_imports[mod_name]
+                    )
 
                 for md in d.methods:
                     if not md.params or not md.params[0].is_this:
@@ -419,10 +469,20 @@ def build_global_env(
                         T_void()
                         if md.ret.is_void
                         else (
-                            ty_from_name(md.ret.types[0], classes)
+                            ty_from_type(
+                                md.ret.types[0],
+                                classes,
+                                mod_name,
+                                module_imports[mod_name],
+                            )
                             if len(md.ret.types) == 1
                             else T_tuple(
-                                [ty_from_name(x, classes) for x in md.ret.types]
+                                [
+                                    ty_from_type(
+                                        x, classes, mod_name, module_imports[mod_name]
+                                    )
+                                    for x in md.ret.types
+                                ]
                             )
                         )
                     )
@@ -433,17 +493,22 @@ def build_global_env(
                         if p.is_this:
                             raise TypeErr(f"{m.path}: only first param may be this")
                         assert p.typ is not None
-                        param_types.append(ty_from_name(p.typ, classes))
+                        param_types.append(
+                            ty_from_type(
+                                p.typ, classes, mod_name, module_imports[mod_name]
+                            )
+                        )
                         param_names.append(p.name)
 
                     sig = FunSig(
                         name=md.name,
+                        module=mod_name,
                         params=param_types,
                         param_names=param_names,
                         ret=ret_ty,
                         is_method=True,
                         recv_mut=recv_mut,
-                        owner_class=d.name,
+                        owner_class=ci.qname,
                         module_path=m.path,
                     )
 
@@ -455,9 +520,11 @@ def build_global_env(
 
     # top-level funs + entry
     for m in prog.mods:
+        mod_name = module_names[m.path]
         for d in m.decls:
             if isinstance(d, FunDecl):
-                if d.name in funs:
+                key = f"{mod_name}.{d.name}"
+                if key in funs:
                     raise TypeErr(f"{m.path}: duplicate function '{d.name}'")
                 if d.params and d.params[0].is_this:
                     raise TypeErr(
@@ -468,9 +535,18 @@ def build_global_env(
                     T_void()
                     if d.ret.is_void
                     else (
-                        ty_from_name(d.ret.types[0], classes)
+                        ty_from_type(
+                            d.ret.types[0], classes, mod_name, module_imports[mod_name]
+                        )
                         if len(d.ret.types) == 1
-                        else T_tuple([ty_from_name(x, classes) for x in d.ret.types])
+                        else T_tuple(
+                            [
+                                ty_from_type(
+                                    x, classes, mod_name, module_imports[mod_name]
+                                )
+                                for x in d.ret.types
+                            ]
+                        )
                     )
                 )
 
@@ -478,11 +554,16 @@ def build_global_env(
                 pnames: List[str] = []
                 for p in d.params:
                     assert p.typ is not None
-                    ps.append(ty_from_name(p.typ, classes))
+                    ps.append(
+                        ty_from_type(
+                            p.typ, classes, mod_name, module_imports[mod_name]
+                        )
+                    )
                     pnames.append(p.name)
 
-                funs[d.name] = FunSig(
+                funs[key] = FunSig(
                     name=d.name,
+                    module=mod_name,
                     params=ps,
                     param_names=pnames,
                     ret=ret_ty,
@@ -496,7 +577,13 @@ def build_global_env(
     if entry is None:
         raise TypeErr("missing entry() in init.e")
 
-    return classes, funs, entry
+    return GlobalEnv(
+        classes=classes,
+        funs=funs,
+        entry=entry,
+        module_names=module_names,
+        module_imports=module_imports,
+    )
 
 
 @dataclass
@@ -557,7 +644,28 @@ def is_mut_lvalue(e: Expr, loc: Locals) -> bool:
 @dataclass
 class Ctx:
     module_path: str
+    module_name: str
+    imports: List[str]
     current_class: Optional[str] = None
+
+
+STDR_PRELUDE = {"write", "writef", "readf", "len", "is_null", "str"}
+
+
+def _fun_key(mod: str, name: str) -> str:
+    return f"{mod}.{name}"
+
+
+def _class_key(mod: str, name: str) -> str:
+    return f"{mod}.{name}"
+
+
+def _module_in_scope(name: str, ctx: Ctx, loc: Locals) -> bool:
+    if loc.lookup(name):
+        return False
+    if name == ctx.module_name:
+        return True
+    return name in ctx.imports
 
 
 # ----------------------------
@@ -572,43 +680,43 @@ def tc_call(
     classes: Dict[str, ClassInfo],
     funs: Dict[str, FunSig],
 ) -> Ty:
-    # qualified stdr/math calls: stdr.xxx(...)
-    if (
-        isinstance(c.fn, Member)
-        and isinstance(c.fn.a, Ident)
-        and c.fn.a.name in ("stdr", "math")
-    ):
+    # module-qualified calls: mod.fn(...)
+    if isinstance(c.fn, Member) and isinstance(c.fn.a, Ident):
         mod = c.fn.a.name
-        name = c.fn.name
-
-        if mod == "stdr":
-            if name == "write":
-                for a in c.args:
-                    tc_expr(a, ctx, loc, classes, funs)
-                return T_void()
-
-            if name == "str":
-                for a in c.args:
-                    tc_expr(a, ctx, loc, classes, funs)
-                return T_prim("string")
-
-            if name == "len":
-                if len(c.args) != 1:
-                    raise TypeErr(f"{ctx.module_path}: stdr.len expects 1 arg")
-                t = tc_expr(c.args[0], ctx, loc, classes, funs)
-                if not (t.tag == "array" or (t.tag == "prim" and t.name == "string")):
-                    raise TypeErr(
-                        f"{ctx.module_path}: stdr.len expects array or string"
-                    )
-                return T_prim("int")
-
-            if name == "is_null":
-                if len(c.args) != 1:
-                    raise TypeErr(f"{ctx.module_path}: stdr.is_null expects 1 arg")
-                tc_expr(c.args[0], ctx, loc, classes, funs)
-                return T_prim("bool")
-
-        raise TypeErr(f"{ctx.module_path}: unknown {mod}.{name}")
+        if _module_in_scope(mod, ctx, loc):
+            name = c.fn.name
+            key = _fun_key(mod, name)
+            sig = funs.get(key)
+            if sig is None:
+                raise TypeErr(f"{ctx.module_path}: unknown {mod}.{name}")
+            if len(c.args) != len(sig.params):
+                raise TypeErr(
+                    f"{ctx.module_path}: '{mod}.{name}' expects {len(sig.params)} args"
+                )
+            subst: Dict[str, Ty] = {}
+            for a, pt in zip(c.args, sig.params):
+                at = tc_expr(a, ctx, loc, classes, funs)
+                if pt.tag == "class" and classes[pt.name].is_seal:
+                    if isinstance(a, NullLit):
+                        pass
+                    elif isinstance(a, MoveExpr):
+                        if not isinstance(a.x, Ident):
+                            raise TypeErr(
+                                f"{ctx.module_path}: move(...) must wrap a variable name"
+                            )
+                        b = loc.lookup(a.x.name)
+                        if not b or not b.is_mut:
+                            raise TypeErr(
+                                f"{ctx.module_path}: move({a.x.name}) requires mutable binding (let ?{a.x.name})"
+                            )
+                        unify(b.ty, pt, "move arg type", subst)
+                    else:
+                        raise TypeErr(
+                            f"{ctx.module_path}: sealed param requires move(x) or null"
+                        )
+                else:
+                    unify(pt, at, f"arg for {mod}.{name}", subst)
+            return apply_subst(sig.ret, subst)
 
     # method call: obj.method(...)
     if isinstance(c.fn, Member):
@@ -707,23 +815,7 @@ def tc_call(
     if isinstance(c.fn, Ident):
         fname = c.fn.name
 
-        # Prelude: unqualified stdr calls (v0 assumes stdr is available)
-        if fname in ("str", "len"):
-
-            if fname == "str":
-                for a in c.args:
-                    tc_expr(a, ctx, loc, classes, funs)
-                return T_prim("string")
-
-            if fname == "len":
-                if len(c.args) != 1:
-                    raise TypeErr(f"{ctx.module_path}: len expects 1 arg")
-                t = tc_expr(c.args[0], ctx, loc, classes, funs)
-                if not (t.tag == "array" or (t.tag == "prim" and t.name == "string")):
-                    raise TypeErr(f"{ctx.module_path}: len expects array or string")
-                return T_prim("int")
-
-        if fname not in funs:
+        if loc.lookup(fname):
             fn_ty = tc_expr(c.fn, ctx, loc, classes, funs)
             if fn_ty.tag != "fn" or fn_ty.params is None or fn_ty.ret is None:
                 raise TypeErr(f"{ctx.module_path}: unknown function '{fname}'")
@@ -737,7 +829,32 @@ def tc_call(
                 unify(pt, at, "fn value call", subst)
             return apply_subst(fn_ty.ret, subst)
 
-        sig = funs[fname]
+        if fname == "str":
+            if len(c.args) != 1:
+                raise TypeErr(f"{ctx.module_path}: str expects 1 arg")
+            tc_expr(c.args[0], ctx, loc, classes, funs)
+            return T_prim("string")
+
+        sig = funs.get(_fun_key(ctx.module_name, fname))
+        if sig is None and fname in STDR_PRELUDE and (
+            ctx.module_name == "stdr" or "stdr" in ctx.imports
+        ):
+            sig = funs.get(_fun_key("stdr", fname))
+
+        if sig is None:
+            fn_ty = tc_expr(c.fn, ctx, loc, classes, funs)
+            if fn_ty.tag != "fn" or fn_ty.params is None or fn_ty.ret is None:
+                raise TypeErr(f"{ctx.module_path}: unknown function '{fname}'")
+            if len(c.args) != len(fn_ty.params):
+                raise TypeErr(
+                    f"{ctx.module_path}: call expects {len(fn_ty.params)} args"
+                )
+            subst: Dict[str, Ty] = {}
+            for a, pt in zip(c.args, fn_ty.params):
+                at = tc_expr(a, ctx, loc, classes, funs)
+                unify(pt, at, "fn value call", subst)
+            return apply_subst(fn_ty.ret, subst)
+
         if len(c.args) != len(sig.params):
             raise TypeErr(
                 f"{ctx.module_path}: '{fname}' expects {len(sig.params)} args"
@@ -809,10 +926,14 @@ def tc_expr(
         b = loc.lookup(e.name)
         if b:
             return b.ty
-        if e.name in ("stdr", "math"):
+        if _module_in_scope(e.name, ctx, loc):
             return T_mod(e.name)
-        if e.name in funs:
-            sig = funs[e.name]
+        sig = funs.get(_fun_key(ctx.module_name, e.name))
+        if sig is None and e.name in STDR_PRELUDE and (
+            ctx.module_name == "stdr" or "stdr" in ctx.imports
+        ):
+            sig = funs.get(_fun_key("stdr", e.name))
+        if sig:
             return T_fn(sig.params, sig.ret)
         raise TypeErr(f"{ctx.module_path}: unknown name '{e.name}'")
 
@@ -913,6 +1034,10 @@ def tc_expr(
             mod_consts = MODULE_CONSTS.get(ta.name, {})
             if e.name in mod_consts:
                 return mod_consts[e.name].ty
+            if _fun_key(ta.name, e.name) in funs:
+                raise TypeErr(
+                    f"{ctx.module_path}: module function '{ta.name}.{e.name}' must be called"
+                )
             raise TypeErr(
                 f"{ctx.module_path}: unknown module member '{ta.name}.{e.name}'"
             )
@@ -923,7 +1048,7 @@ def tc_expr(
 
             if ci.vis == "lock":
                 in_same_file = ctx.module_path == ci.module_path
-                in_own_method = ctx.current_class == ci.name
+                in_own_method = ctx.current_class == ci.qname
                 if not (in_same_file or in_own_method):
                     raise TypeErr(
                         f"{ctx.module_path}: cannot access field '{e.name}' of lock class '{ci.name}'"
@@ -994,31 +1119,38 @@ def tc_expr(
                 gen_id += 1
                 ty = Ty("gen", name=f"_{p.name}_{gen_id}")
             else:
-                ty = ty_from_name(p.typ, classes)
+                ty = ty_from_type(p.typ, classes, ctx.module_name, ctx.imports)
             lambda_loc.define(p.name, Binding(ty=ty, is_mut=p.is_mut, is_const=False))
             param_tys.append(ty)
         body_ty = tc_expr(e.body, ctx, lambda_loc, classes, funs)
         return T_fn(param_tys, body_ty)
 
     if isinstance(e, NewExpr):
-        if e.name not in classes:
+        if "." in e.name:
+            mod, _ = e.name.split(".", 1)
+            if mod != ctx.module_name and mod not in ctx.imports:
+                raise TypeErr(f"{ctx.module_path}: unknown class '{e.name}'")
+            qname = e.name
+        else:
+            qname = _qualify_class_name(ctx.module_name, e.name)
+        if qname not in classes:
             raise TypeErr(f"{ctx.module_path}: unknown class '{e.name}'")
-        ci = classes[e.name]
+        ci = classes[qname]
         if "init" in ci.methods:
             sig = ci.methods["init"]
             if len(e.args) != len(sig.params):
                 raise TypeErr(
-                    f"{ctx.module_path}: '{e.name}.init' expects {len(sig.params)} args"
+                    f"{ctx.module_path}: '{ci.name}.init' expects {len(sig.params)} args"
                 )
             subst: Dict[str, Ty] = {}
             for a, pt in zip(e.args, sig.params):
                 at = tc_expr(a, ctx, loc, classes, funs)
-                unify(pt, at, f"arg for {e.name}.init", subst)
+                unify(pt, at, f"arg for {ci.name}.init", subst)
             if not is_void_ty(sig.ret):
-                raise TypeErr(f"{ctx.module_path}: '{e.name}.init' must return void")
+                raise TypeErr(f"{ctx.module_path}: '{ci.name}.init' must return void")
         elif e.args:
-            raise TypeErr(f"{ctx.module_path}: class '{e.name}' has no init method")
-        return T_class(e.name)
+            raise TypeErr(f"{ctx.module_path}: class '{ci.name}' has no init method")
+        return T_class(qname)
 
     if isinstance(e, MoveExpr):
         return tc_expr(e.x, ctx, loc, classes, funs)
@@ -1192,7 +1324,7 @@ def lower_expr(e: Expr) -> Expr:
         and isinstance(e.fn, Member)
         and isinstance(e.fn.a, Ident)
         and e.fn.a.name == "stdr"
-        and e.fn.name in ("writef", "readf")
+        and e.fn.name in ("writef", "readf", "str")
     ):
         return lower_expr(Call(fn=Ident(e.fn.name), args=e.args))
 
@@ -1329,33 +1461,45 @@ def lower_program(p: Program) -> Program:
 
 
 def typecheck_program(prog: Program) -> None:
-    classes, funs, entry = build_global_env(prog)
+    env = build_global_env(prog)
+    classes = env.classes
+    funs = env.funs
 
     for m in prog.mods:
+        mod_name = env.module_names[m.path]
+        imports = env.module_imports.get(mod_name, [])
         for d in m.decls:
             if isinstance(d, FunDecl):
                 loc = Locals()
-                ctx = Ctx(module_path=m.path)
+                ctx = Ctx(module_path=m.path, module_name=mod_name, imports=imports)
                 for p in d.params:
                     assert p.typ is not None
-                    ty = ty_from_name(p.typ, classes)
+                    ty = ty_from_type(p.typ, classes, mod_name, imports)
                     loc.define(p.name, Binding(ty=ty, is_mut=p.is_mut, is_const=False))
 
                 ret_ty = (
                     T_void()
                     if d.ret.is_void
                     else (
-                        ty_from_name(d.ret.types[0], classes)
+                        ty_from_type(d.ret.types[0], classes, mod_name, imports)
                         if len(d.ret.types) == 1
-                        else T_tuple([ty_from_name(x, classes) for x in d.ret.types])
+                        else T_tuple(
+                            [ty_from_type(x, classes, mod_name, imports) for x in d.ret.types]
+                        )
                     )
                 )
                 tc_stmt(d.body, ctx, loc, classes, funs, ret_ty)
 
             if isinstance(d, ClassDecl):
+                qname = _qualify_class_name(mod_name, d.name)
                 for md in d.methods:
                     loc = Locals()
-                    ctx = Ctx(module_path=m.path, current_class=d.name)
+                    ctx = Ctx(
+                        module_path=m.path,
+                        module_name=mod_name,
+                        imports=imports,
+                        current_class=qname,
+                    )
 
                     if not md.params or not md.params[0].is_this:
                         raise TypeErr(
@@ -1365,29 +1509,36 @@ def typecheck_program(prog: Program) -> None:
                     loc.define(
                         "this",
                         Binding(
-                            ty=T_class(d.name), is_mut=recv_mut, is_const=False
+                            ty=T_class(qname), is_mut=recv_mut, is_const=False
                         ),
                     )
 
                     for p in md.params[1:]:
                         assert p.typ is not None
-                        ty = ty_from_name(p.typ, classes)
-                        loc.define(p.name, Binding(ty=ty, is_mut=p.is_mut, is_const=False))
+                        ty = ty_from_type(p.typ, classes, mod_name, imports)
+                        loc.define(
+                            p.name, Binding(ty=ty, is_mut=p.is_mut, is_const=False)
+                        )
 
                     ret_ty = (
                         T_void()
                         if md.ret.is_void
                         else (
-                            ty_from_name(md.ret.types[0], classes)
+                            ty_from_type(md.ret.types[0], classes, mod_name, imports)
                             if len(md.ret.types) == 1
-                            else T_tuple([ty_from_name(x, classes) for x in md.ret.types])
+                            else T_tuple(
+                                [
+                                    ty_from_type(x, classes, mod_name, imports)
+                                    for x in md.ret.types
+                                ]
+                            )
                         )
                     )
                     tc_stmt(md.body, ctx, loc, classes, funs, ret_ty)
 
             if isinstance(d, EntryDecl):
                 loc = Locals()
-                ctx = Ctx(module_path=m.path)
+                ctx = Ctx(module_path=m.path, module_name=mod_name, imports=imports)
                 if not d.ret.is_void:
                     raise TypeErr(f"{m.path}: entry() must return void")
                 ret_ty = T_void()

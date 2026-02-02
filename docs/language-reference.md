@@ -76,6 +76,7 @@ let, const, fun, entry, bring, if, elif, else, for, match, return, true, false, 
 
 - **Arrays:** `[T]` — array of type `T`
   - Example: `[int]` is an array of integers.
+- **Qualified types:** `mod.Type` — type defined in another module.
 
 ### Function Types
 
@@ -205,8 +206,10 @@ bring math;
 
 - Standard library modules: `stdr`, `math`, etc.
 - User modules: You can bring another Ergo source file (e.g., `utils.e`) with `bring utils;` (omit the `.e` extension).
+- Imported modules are **namespaced only**. Use `module.member` to access their members.
 - Access module constants: `math.PI`, `utils.MY_CONST`
 - Access module functions: `math.funcname(args)`, `utils.helper(x)`
+- `stdr` is a special case: its core functions are available unqualified as language keywords *and* via `stdr.*` when brought.
 
 ---
 
@@ -234,6 +237,7 @@ entry () (( -- )) {
 - `write(x: any): void` — Print a value.
 - `len(x: any): int` — Length of array or string.
 - `is_null(x: any): bool` — True if value is null.
+- `str(x: any): string` — Convert a value to a string.
 
 ### `math`
 

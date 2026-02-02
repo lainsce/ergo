@@ -2,12 +2,17 @@ bring stdr
 
 -- Ergo Example: Array Operations
 
+fun first(arr = [string]) (( string )) {
+    arr[0]
+}
+
 entry () (( -- )) {
     write(@"-- Array Operations Example --")
 
     -- Create an array of strings
     let ?arr = [@"apple", @"banana", @"cherry"]
     writef(@"Initial array: {}\n", arr)
+    writef(@"First via typed fn: {}\n", first(arr))
 
     -- Get array length
     let len = len(arr)

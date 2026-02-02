@@ -25,16 +25,29 @@ Decl = Union["FunDecl", "EntryDecl", "ClassDecl", "ConstDecl"]
 # --- Function and Class Declarations ---
 
 
+TypeRef = Union["TypeName", "TypeArray"]
+
+
+@dataclass
+class TypeName:
+    name: str
+
+
+@dataclass
+class TypeArray:
+    elem: "TypeRef"
+
+
 @dataclass
 class RetSpec:
     is_void: bool
-    types: List[str]
+    types: List["TypeRef"]
 
 
 @dataclass
 class Param:
     name: str
-    typ: Optional[str]  # None for this/?this
+    typ: Optional["TypeRef"]  # None for this/?this
     is_mut: bool
     is_this: bool
 
@@ -62,7 +75,7 @@ class EntryDecl:
 @dataclass
 class FieldDecl:
     name: str
-    typ: str
+    typ: "TypeRef"
 
 
 @dataclass

@@ -48,6 +48,8 @@ from .ast import (
     StrLit,
     Ternary,
     TupleLit,
+    TypeArray,
+    TypeName,
     Unary,
 )
 from .lexer import ParseErr, Tok
@@ -139,8 +141,16 @@ class Parser:
         self.eat("))")
         return RetSpec(is_void=False, types=types)
 
-    def parse_type(self) -> str:
-        return self.eat("IDENT").val
+    def parse_type(self):
+        if self.at("LBRACK"):
+            self.eat("LBRACK")
+            elem = self.parse_type()
+            self.eat("RBRACK")
+            return TypeArray(elem=elem)
+        name = self.eat("IDENT").val
+        if self.maybe("DOT"):
+            name = f"{name}.{self.eat('IDENT').val}"
+        return TypeName(name=name)
 
     def parse_params(self) -> List[Param]:
         ps: List[Param] = []
@@ -535,6 +545,8 @@ class Parser:
     def parse_new(self) -> NewExpr:
         self.eat("KW_new")
         name = self.eat("IDENT").val
+        if self.maybe("DOT"):
+            name = f"{name}.{self.eat('IDENT').val}"
         args: List[Expr] = []
         if self.at("LPAR"):
             args = self.parse_call_args()

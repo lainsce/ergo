@@ -47,12 +47,15 @@ from .typechecker import (
     Ctx,
     Locals,
     MODULE_CONSTS,
+    STDR_PRELUDE,
     Ty,
     TypeErr,
+    T_class,
     T_prim,
     build_global_env,
+    module_name_for_path,
     tc_expr,  # Import separately to avoid circular import issues
-    ty_from_name,
+    ty_from_type,
 )
 
 
@@ -67,16 +70,26 @@ def c_escape(s: str) -> str:
     )
 
 
-def mangle_global(name: str) -> str:
-    return f"ergo_{name}"
+def _mangle_mod(name: str) -> str:
+    return "".join(ch if (ch.isalnum() or ch == "_") else "_" for ch in name)
 
 
-def mangle_method(cls: str, name: str) -> str:
-    return f"ergo_m_{cls}_{name}"
+def mangle_global(mod: str, name: str) -> str:
+    return f"ergo_{_mangle_mod(mod)}_{name}"
 
 
-def mangle_class(name: str) -> str:
-    return f"ergo_cls_{name}"
+def mangle_method(mod: str, cls: str, name: str) -> str:
+    return f"ergo_m_{_mangle_mod(mod)}_{cls}_{name}"
+
+
+def mangle_class(mod: str, name: str) -> str:
+    return f"ergo_cls_{_mangle_mod(mod)}_{name}"
+
+
+def split_qname(qname: str) -> Tuple[str, str]:
+    if "." not in qname:
+        return ("", qname)
+    return qname.split(".", 1)
 
 
 RUNTIME_C = r"""// ---- Ergo runtime (minimal) ----
@@ -641,13 +654,20 @@ class CGen:
         self.sym_id = 0
         self.lambda_id = 0
 
-        self.classes, self.funs, self.entry = build_global_env(prog)
+        env = build_global_env(prog)
+        self.classes = env.classes
+        self.funs = env.funs
+        self.entry = env.entry
+        self.module_names = env.module_names
+        self.module_imports = env.module_imports
 
         self.class_decls: Dict[str, ClassDecl] = {}
         for m in prog.mods:
+            mod_name = self.module_names[m.path]
             for d in m.decls:
                 if isinstance(d, ClassDecl):
-                    self.class_decls[d.name] = d
+                    qname = f"{mod_name}.{d.name}"
+                    self.class_decls[qname] = d
 
         self.lambda_names: Dict[int, str] = {}
         self.lambda_order: List[Tuple[LambdaExpr, str]] = []
@@ -659,6 +679,9 @@ class CGen:
         self.ty_loc = Locals()
 
         self.fn_locals: List[str] = []
+        self.current_module: str = ""
+        self.current_imports: List[str] = []
+        self.current_class: Optional[str] = None
 
     def w(self, s: str = ""):
         self.lines.append(("  " * self.ind) + s)
@@ -697,11 +720,29 @@ class CGen:
         self.lambda_id += 1
         return f"ergo_lambda_{self.lambda_id}"
 
-    def c_class_name(self, name: str) -> str:
-        return f"ErgoObj_{name}"
+    def c_class_name(self, qname: str) -> str:
+        mod, name = split_qname(qname)
+        return f"ErgoObj_{_mangle_mod(mod)}_{name}" if mod else f"ErgoObj_{name}"
 
     def c_field_name(self, name: str) -> str:
         return f"f_{name}"
+
+    def ctx_for(self, path: str) -> Ctx:
+        mod = self.current_module or self.module_names.get(path, module_name_for_path(path))
+        imports = self.current_imports or self.module_imports.get(mod, [])
+        return Ctx(
+            module_path=path,
+            module_name=mod,
+            imports=imports,
+            current_class=self.current_class,
+        )
+
+    def module_in_scope(self, name: str) -> bool:
+        if self.ty_loc.lookup(name):
+            return False
+        if name == self.current_module:
+            return True
+        return name in self.current_imports
 
     def w_raw(self, block: str):
         self.lines.extend(block.splitlines())
@@ -816,24 +857,31 @@ class CGen:
         saved_scopes = self.name_scopes
         saved_loc = self.ty_loc
         saved_fn_locals = self.fn_locals
+        saved_module = self.current_module
+        saved_imports = self.current_imports
+        saved_class = self.current_class
 
         self.lines = []
         self.ind = 0
         self.name_scopes = [dict()]
         self.ty_loc = Locals()
         self.fn_locals = []
+        self.current_module = self.module_names.get(path, module_name_for_path(path))
+        self.current_imports = self.module_imports.get(self.current_module, [])
+        self.current_class = None
 
         self.w(f"static ErgoVal {lname}(void* env, int argc, ErgoVal* argv) {{")
         self.ind += 1
         self.w("(void)env;")
         self.w(f"if (argc != {len(lam.params)}) ergo_trap(\"lambda arity mismatch\");")
 
+        ctx = self.ctx_for(path)
         for i, p in enumerate(lam.params):
             cname = f"arg{i}"
             self.w(f"ErgoVal {cname} = argv[{i}];")
             self.name_scopes[-1][p.name] = cname
             if p.typ is not None:
-                ty = ty_from_name(p.typ, self.classes)
+                ty = ty_from_type(p.typ, self.classes, ctx.module_name, ctx.imports)
             else:
                 ty = Ty("gen", name=f"_{p.name}_{i}")
             self.ty_loc.define(p.name, Binding(ty=ty, is_mut=p.is_mut, is_const=False))
@@ -856,6 +904,9 @@ class CGen:
         self.name_scopes = saved_scopes
         self.ty_loc = saved_loc
         self.fn_locals = saved_fn_locals
+        self.current_module = saved_module
+        self.current_imports = saved_imports
+        self.current_class = saved_class
 
         return lname
 
@@ -878,18 +929,19 @@ class CGen:
 
         self.w("// ---- forward decls ----")
         for m in self.prog.mods:
+            mod_name = self.module_names[m.path]
             for d in m.decls:
                 if isinstance(d, ClassDecl):
                     for md in d.methods:
                         r = "void" if md.ret.is_void else "ErgoVal"
                         self.w(
-                            f"static {r} {mangle_method(d.name, md.name)}("
+                            f"static {r} {mangle_method(mod_name, d.name, md.name)}("
                             f"ErgoVal self{self.c_params(md.params[1:], leading_comma=True)});"
                         )
                 if isinstance(d, FunDecl):
                     r = "void" if d.ret.is_void else "ErgoVal"
                     self.w(
-                        f"static {r} {mangle_global(d.name)}({self.c_params(d.params)});"
+                        f"static {r} {mangle_global(mod_name, d.name)}({self.c_params(d.params)});"
                     )
         self.w("static void ergo_entry(void);")
         self.w("")
@@ -902,6 +954,10 @@ class CGen:
 
         self.w("// ---- compiled functions ----")
         for m in self.prog.mods:
+            mod_name = self.module_names[m.path]
+            self.current_module = mod_name
+            self.current_imports = self.module_imports.get(mod_name, [])
+            self.current_class = None
             for d in m.decls:
                 if isinstance(d, ClassDecl):
                     for md in d.methods:
@@ -921,8 +977,10 @@ class CGen:
         return "\n".join(self.lines)
 
     def gen_class_defs(self):
-        for name, decl in self.class_decls.items():
-            cname = self.c_class_name(name)
+        for qname, decl in self.class_decls.items():
+            mod, name = split_qname(qname)
+            cname = self.c_class_name(qname)
+            drop_sym = f"ergo_drop_{_mangle_mod(mod)}_{name}" if mod else f"ergo_drop_{name}"
             self.w(f"typedef struct {cname} {{")
             self.ind += 1
             self.w("ErgoObj base;")
@@ -930,12 +988,14 @@ class CGen:
                 self.w(f"ErgoVal {self.c_field_name(f.name)};")
             self.ind -= 1
             self.w(f"}} {cname};")
-            self.w(f"static void ergo_drop_{name}(ErgoObj* o);")
+            self.w(f"static void {drop_sym}(ErgoObj* o);")
             self.w("")
 
-        for name, decl in self.class_decls.items():
-            cname = self.c_class_name(name)
-            self.w(f"static void ergo_drop_{name}(ErgoObj* o) {{")
+        for qname, decl in self.class_decls.items():
+            mod, name = split_qname(qname)
+            cname = self.c_class_name(qname)
+            drop_sym = f"ergo_drop_{_mangle_mod(mod)}_{name}" if mod else f"ergo_drop_{name}"
+            self.w(f"static void {drop_sym}(ErgoObj* o) {{")
             self.ind += 1
             self.w(f"{cname}* self = ({cname}*)o;")
             for f in decl.fields:
@@ -957,6 +1017,8 @@ class CGen:
         self.fn_locals = []
         self.name_scopes = [dict()]
         self.ty_loc = Locals()
+        qname = f"{self.current_module}.{cls.name}"
+        self.current_class = qname
 
         # receiver
         self.name_scopes[-1]["this"] = "self"
@@ -964,7 +1026,7 @@ class CGen:
         self.ty_loc.define(
             "this",
             Binding(
-                ty=ty_from_name(cls.name, self.classes),
+                ty=T_class(qname),
                 is_mut=recv_mut,
                 is_const=False,
             ),
@@ -973,14 +1035,14 @@ class CGen:
         # params after this
         for i, p in enumerate(fn.params[1:]):
             assert p.typ is not None
-            ty = ty_from_name(p.typ, self.classes)
+            ty = ty_from_type(p.typ, self.classes, self.current_module, self.current_imports)
             self.name_scopes[-1][p.name] = f"a{i}"
             self.ty_loc.define(p.name, Binding(ty=ty, is_mut=p.is_mut, is_const=False))
 
         ret_void = fn.ret.is_void
         r = "void" if ret_void else "ErgoVal"
         self.w(
-            f"static {r} {mangle_method(cls.name, fn.name)}("
+            f"static {r} {mangle_method(self.current_module, cls.name, fn.name)}("
             f"ErgoVal self{self.c_params(fn.params[1:], leading_comma=True)}) {{"
         )
         self.ind += 1
@@ -997,21 +1059,25 @@ class CGen:
         self.ind -= 1
         self.w("}")
         self.w("")
+        self.current_class = None
 
     def gen_fun(self, path: str, fn: FunDecl):
         self.fn_locals = []
         self.name_scopes = [dict()]
         self.ty_loc = Locals()
+        self.current_class = None
 
         for i, p in enumerate(fn.params):
             assert p.typ is not None
-            ty = ty_from_name(p.typ, self.classes)
+            ty = ty_from_type(p.typ, self.classes, self.current_module, self.current_imports)
             self.name_scopes[-1][p.name] = f"a{i}"
             self.ty_loc.define(p.name, Binding(ty=ty, is_mut=p.is_mut, is_const=False))
 
         ret_void = fn.ret.is_void
         r = "void" if ret_void else "ErgoVal"
-        self.w(f"static {r} {mangle_global(fn.name)}({self.c_params(fn.params)}) {{")
+        self.w(
+            f"static {r} {mangle_global(self.current_module, fn.name)}({self.c_params(fn.params)}) {{"
+        )
         self.ind += 1
         if not ret_void:
             self.w("ErgoVal __ret = EV_NULLV;")
@@ -1041,6 +1107,11 @@ class CGen:
         self.fn_locals = []
         self.name_scopes = [dict()]
         self.ty_loc = Locals()
+        if entry_path:
+            mod_name = self.module_names[entry_path]
+            self.current_module = mod_name
+            self.current_imports = self.module_imports.get(mod_name, [])
+            self.current_class = None
 
         self.w("static void ergo_entry(void) {")
         self.ind += 1
@@ -1097,7 +1168,7 @@ class CGen:
     def gen_stmt(self, path: str, s: Any, ret_void: bool):
         if isinstance(s, LetStmt):
             ty = tc_expr(
-                s.expr, Ctx(module_path=path), self.ty_loc, self.classes, self.funs
+                s.expr, self.ctx_for(path), self.ty_loc, self.classes, self.funs
             )
             cvar = self.define_local(s.name, ty, s.is_mut, False)
             self.w(f"ErgoVal {cvar} = EV_NULLV;")
@@ -1110,7 +1181,7 @@ class CGen:
 
         if isinstance(s, ConstStmt):
             ty = tc_expr(
-                s.expr, Ctx(module_path=path), self.ty_loc, self.classes, self.funs
+                s.expr, self.ctx_for(path), self.ty_loc, self.classes, self.funs
             )
             cvar = self.define_local(s.name, ty, False, True)
             self.w(f"ErgoVal {cvar} = EV_NULLV;")
@@ -1199,7 +1270,7 @@ class CGen:
 
             # element binding
             elem_ty = tc_expr(
-                s.expr, Ctx(module_path=path), self.ty_loc, self.classes, self.funs
+                s.expr, self.ctx_for(path), self.ty_loc, self.classes, self.funs
             )
             if elem_ty.tag == "array" and elem_ty.elem:
                 ety = elem_ty.elem
@@ -1327,7 +1398,7 @@ class CGen:
 
         if isinstance(e, Member):
             base_ty = tc_expr(
-                e.a, Ctx(module_path=path), self.ty_loc, self.classes, self.funs
+                e.a, self.ctx_for(path), self.ty_loc, self.classes, self.funs
             )
             if base_ty.tag == "mod":
                 mod_consts = MODULE_CONSTS.get(base_ty.name, {})
@@ -1386,7 +1457,7 @@ class CGen:
 
         if isinstance(e, MatchExpr):
             scrut_ty = tc_expr(
-                e.scrut, Ctx(module_path=path), self.ty_loc, self.classes, self.funs
+                e.scrut, self.ctx_for(path), self.ty_loc, self.classes, self.funs
             )
             scrut, sc = self.gen_expr(path, e.scrut)
             t = self.new_tmp()
@@ -1471,18 +1542,29 @@ class CGen:
             return t, cleanup
 
         if isinstance(e, NewExpr):
-            if e.name not in self.class_decls:
+            if "." in e.name:
+                mod, _ = e.name.split(".", 1)
+                if mod != self.current_module and mod not in self.current_imports:
+                    raise TypeErr(f"{path}: unknown class '{e.name}'")
+                qname = e.name
+            else:
+                qname = f"{self.current_module}.{e.name}"
+            if qname not in self.class_decls:
                 raise TypeErr(f"{path}: unknown class '{e.name}'")
-            decl = self.class_decls[e.name]
-            cname = self.c_class_name(e.name)
+            decl = self.class_decls[qname]
+            mod, cname_short = split_qname(qname)
+            cname = self.c_class_name(qname)
+            drop_sym = f"ergo_drop_{_mangle_mod(mod)}_{cname_short}" if mod else f"ergo_drop_{cname_short}"
             obj_name = self.new_sym("obj")
-            self.w(f"{cname}* {obj_name} = ({cname}*)ergo_obj_new(sizeof({cname}), ergo_drop_{e.name});")
+            self.w(
+                f"{cname}* {obj_name} = ({cname}*)ergo_obj_new(sizeof({cname}), {drop_sym});"
+            )
             for f in decl.fields:
                 self.w(f"{obj_name}->{self.c_field_name(f.name)} = EV_NULLV;")
             t = self.new_tmp()
             self.w(f"ErgoVal {t} = EV_OBJ({obj_name});")
 
-            if "init" in self.classes[e.name].methods:
+            if "init" in self.classes[qname].methods:
                 arg_ts: List[str] = []
                 all_cleanup: List[str] = []
                 for a in e.args:
@@ -1490,7 +1572,7 @@ class CGen:
                     arg_ts.append(at)
                     all_cleanup.extend(ac)
                 self.w(
-                    f"{mangle_method(e.name, 'init')}("
+                    f"{mangle_method(mod, cname_short, 'init')}("
                     + ", ".join([t] + arg_ts)
                     + ");"
                 )
@@ -1507,7 +1589,7 @@ class CGen:
                 self.w(f"ErgoVal {t} = EV_BOOL(!ergo_as_bool({xt}));")
             elif e.op == "-":
                 xty = tc_expr(
-                    e.x, Ctx(module_path=path), self.ty_loc, self.classes, self.funs
+                    e.x, self.ctx_for(path), self.ty_loc, self.classes, self.funs
                 )
                 if xty.tag == "prim" and xty.name == "float":
                     self.w(f"ErgoVal {t} = EV_FLOAT(-ergo_as_float({xt}));")
@@ -1611,7 +1693,7 @@ class CGen:
 
         if isinstance(e, Index):
             base_ty = tc_expr(
-                e.a, Ctx(module_path=path), self.ty_loc, self.classes, self.funs
+                e.a, self.ctx_for(path), self.ty_loc, self.classes, self.funs
             )
             at, ac = self.gen_expr(path, e.a)
             it, ic = self.gen_expr(path, e.i)
@@ -1684,7 +1766,7 @@ class CGen:
             elif isinstance(e.target, Member):
                 base_ty = tc_expr(
                     e.target.a,
-                    Ctx(module_path=path),
+                    self.ctx_for(path),
                     self.ty_loc,
                     self.classes,
                     self.funs,
@@ -1710,45 +1792,41 @@ class CGen:
             return tret, cleanup
 
         if isinstance(e, Call):
-            # module-qualified calls: stdr.xxx(...)
-            if (
-                isinstance(e.fn, Member)
-                and isinstance(e.fn.a, Ident)
-                and e.fn.a.name == "stdr"
-            ):
-                m = e.fn.name
+            # module-qualified calls: mod.fn(...)
+            if isinstance(e.fn, Member) and isinstance(e.fn.a, Ident):
+                mod = e.fn.a.name
+                if self.module_in_scope(mod):
+                    name = e.fn.name
+                    key = f"{mod}.{name}"
+                    sig = self.funs.get(key)
+                    if sig is None:
+                        raise TypeErr(f"{path}: unknown {mod}.{name}")
+                    arg_ts: List[str] = []
+                    all_cleanup: List[str] = []
+                    for a in e.args:
+                        at, ac = self.gen_expr(path, a)
+                        arg_ts.append(at)
+                        all_cleanup.extend(ac)
 
-                if m == "len":
-                    at, ac = self.gen_expr(path, e.args[0])
-                    t = self.new_tmp()
-                    self.w(f"ErgoVal {t} = EV_INT(stdr_len({at}));")
-                    self.w(f"ergo_release_val({at});")
-                    for z in ac:
-                        if z != at:
+                    ret_void = sig.ret.tag == "void"
+                    if ret_void:
+                        self.w(
+                            f"{mangle_global(mod, name)}(" + ", ".join(arg_ts) + ");"
+                        )
+                        for z in all_cleanup:
                             self.w(f"ergo_release_val({z});")
-                    cleanup.append(t)
-                    return t, cleanup
-
-                if m == "is_null":
-                    at, ac = self.gen_expr(path, e.args[0])
+                        t = self.new_tmp()
+                        self.w(f"ErgoVal {t} = EV_NULLV;")
+                        cleanup.append(t)
+                        return t, cleanup
                     t = self.new_tmp()
-                    self.w(f"ErgoVal {t} = EV_BOOL(stdr_is_null({at}));")
-                    self.w(f"ergo_release_val({at});")
-                    for z in ac:
-                        if z != at:
-                            self.w(f"ergo_release_val({z});")
-                    cleanup.append(t)
-                    return t, cleanup
-
-                if m == "write":
-                    at, ac = self.gen_expr(path, e.args[0])
-                    self.w(f"write({at});")
-                    self.w(f"ergo_release_val({at});")
-                    for z in ac:
-                        if z != at:
-                            self.w(f"ergo_release_val({z});")
-                    t = self.new_tmp()
-                    self.w(f"ErgoVal {t} = EV_NULLV;")
+                    self.w(
+                        f"ErgoVal {t} = {mangle_global(mod, name)}("
+                        + ", ".join(arg_ts)
+                        + ");"
+                    )
+                    for z in all_cleanup:
+                        self.w(f"ergo_release_val({z});")
                     cleanup.append(t)
                     return t, cleanup
 
@@ -1818,13 +1896,14 @@ class CGen:
 
                 # class methods
                 base_ty = tc_expr(
-                    base, Ctx(module_path=path), self.ty_loc, self.classes, self.funs
+                    base, self.ctx_for(path), self.ty_loc, self.classes, self.funs
                 )
                 if base_ty.tag == "class":
                     ci = self.classes[base_ty.name]
                     if m not in ci.methods:
                         raise TypeErr(f"{path}: unknown method '{base_ty.name}.{m}'")
                     sig = ci.methods[m]
+                    mod, cls_name = split_qname(ci.qname)
 
                     bt, bc = self.gen_expr(path, base)
                     arg_ts: List[str] = []
@@ -1837,7 +1916,7 @@ class CGen:
                     ret_void = sig.ret.tag == "void"
                     if ret_void:
                         self.w(
-                            f"{mangle_method(base_ty.name, m)}("
+                            f"{mangle_method(mod, cls_name, m)}("
                             + ", ".join([bt] + arg_ts)
                             + ");"
                         )
@@ -1854,7 +1933,7 @@ class CGen:
                     else:
                         t = self.new_tmp()
                         self.w(
-                            f"ErgoVal {t} = {mangle_method(base_ty.name, m)}("
+                            f"ErgoVal {t} = {mangle_method(mod, cls_name, m)}("
                             + ", ".join([bt] + arg_ts)
                             + ");"
                         )
@@ -1872,83 +1951,106 @@ class CGen:
             # global prelude calls: internal stdr primitives
             if isinstance(e.fn, Ident):
                 fname = e.fn.name
+                if not self.ty_loc.lookup(fname):
+                    if fname == "str":
+                        if len(e.args) != 1:
+                            raise TypeErr(f"{path}: str expects 1 arg")
+                        at, ac = self.gen_expr(path, e.args[0])
+                        t = self.new_tmp()
+                        self.w(f"ErgoVal {t} = EV_STR(stdr_to_string({at}));")
+                        self.w(f"ergo_release_val({at});")
+                        for z in ac:
+                            if z != at:
+                                self.w(f"ergo_release_val({z});")
+                        cleanup.append(t)
+                        return t, cleanup
 
-                if fname == "__len":
-                    at, ac = self.gen_expr(path, e.args[0])
-                    t = self.new_tmp()
-                    self.w(f"ErgoVal {t} = EV_INT(stdr_len({at}));")
-                    self.w(f"ergo_release_val({at});")
-                    for z in ac:
-                        if z != at:
-                            self.w(f"ergo_release_val({z});")
-                    cleanup.append(t)
-                    return t, cleanup
+                    if fname == "__len":
+                        at, ac = self.gen_expr(path, e.args[0])
+                        t = self.new_tmp()
+                        self.w(f"ErgoVal {t} = EV_INT(stdr_len({at}));")
+                        self.w(f"ergo_release_val({at});")
+                        for z in ac:
+                            if z != at:
+                                self.w(f"ergo_release_val({z});")
+                        cleanup.append(t)
+                        return t, cleanup
 
-                if fname == "__writef":
-                    fmt_t, fc = self.gen_expr(path, e.args[0])
-                    args_t, ac = self.gen_expr(path, e.args[1])
-                    self.w(f"stdr_writef_args({fmt_t}, {args_t});")
-                    self.w(f"ergo_release_val({fmt_t});")
-                    self.w(f"ergo_release_val({args_t});")
-                    for z in fc:
-                        if z != fmt_t:
-                            self.w(f"ergo_release_val({z});")
-                    for z in ac:
-                        if z != args_t:
-                            self.w(f"ergo_release_val({z});")
-                    t = self.new_tmp()
-                    self.w(f"ErgoVal {t} = EV_NULLV;")
-                    cleanup.append(t)
-                    return t, cleanup
-
-                if fname == "__read_line":
-                    t = self.new_tmp()
-                    self.w(f"ErgoVal {t} = EV_STR(stdr_read_line());")
-                    cleanup.append(t)
-                    return t, cleanup
-
-                if fname == "__readf_parse":
-                    fmt_t, fc = self.gen_expr(path, e.args[0])
-                    line_t, lc = self.gen_expr(path, e.args[1])
-                    args_t, ac = self.gen_expr(path, e.args[2])
-                    t = self.new_tmp()
-                    self.w(f"ErgoVal {t} = stdr_readf_parse({fmt_t}, {line_t}, {args_t});")
-                    self.w(f"ergo_release_val({fmt_t});")
-                    self.w(f"ergo_release_val({line_t});")
-                    self.w(f"ergo_release_val({args_t});")
-                    for z in fc:
-                        if z != fmt_t:
-                            self.w(f"ergo_release_val({z});")
-                    for z in lc:
-                        if z != line_t:
-                            self.w(f"ergo_release_val({z});")
-                    for z in ac:
-                        if z != args_t:
-                            self.w(f"ergo_release_val({z});")
-                    cleanup.append(t)
-                    return t, cleanup
-
-                if fname in self.funs:
-                    arg_ts: List[str] = []
-                    all_cleanup: List[str] = []
-                    for a in e.args:
-                        at, ac = self.gen_expr(path, a)
-                        arg_ts.append(at)
-                        all_cleanup.extend(ac)
-
-                    ret_void = self.funs[fname].ret.tag == "void"
-                    if ret_void:
-                        self.w(f"{mangle_global(fname)}(" + ", ".join(arg_ts) + ");")
-                        for z in all_cleanup:
-                            self.w(f"ergo_release_val({z});")
+                    if fname == "__writef":
+                        fmt_t, fc = self.gen_expr(path, e.args[0])
+                        args_t, ac = self.gen_expr(path, e.args[1])
+                        self.w(f"stdr_writef_args({fmt_t}, {args_t});")
+                        self.w(f"ergo_release_val({fmt_t});")
+                        self.w(f"ergo_release_val({args_t});")
+                        for z in fc:
+                            if z != fmt_t:
+                                self.w(f"ergo_release_val({z});")
+                        for z in ac:
+                            if z != args_t:
+                                self.w(f"ergo_release_val({z});")
                         t = self.new_tmp()
                         self.w(f"ErgoVal {t} = EV_NULLV;")
                         cleanup.append(t)
                         return t, cleanup
-                    else:
+
+                    if fname == "__read_line":
+                        t = self.new_tmp()
+                        self.w(f"ErgoVal {t} = EV_STR(stdr_read_line());")
+                        cleanup.append(t)
+                        return t, cleanup
+
+                    if fname == "__readf_parse":
+                        fmt_t, fc = self.gen_expr(path, e.args[0])
+                        line_t, lc = self.gen_expr(path, e.args[1])
+                        args_t, ac = self.gen_expr(path, e.args[2])
                         t = self.new_tmp()
                         self.w(
-                            f"ErgoVal {t} = {mangle_global(fname)}("
+                            f"ErgoVal {t} = stdr_readf_parse({fmt_t}, {line_t}, {args_t});"
+                        )
+                        self.w(f"ergo_release_val({fmt_t});")
+                        self.w(f"ergo_release_val({line_t});")
+                        self.w(f"ergo_release_val({args_t});")
+                        for z in fc:
+                            if z != fmt_t:
+                                self.w(f"ergo_release_val({z});")
+                        for z in lc:
+                            if z != line_t:
+                                self.w(f"ergo_release_val({z});")
+                        for z in ac:
+                            if z != args_t:
+                                self.w(f"ergo_release_val({z});")
+                        cleanup.append(t)
+                        return t, cleanup
+
+                    sig = self.funs.get(f"{self.current_module}.{fname}")
+                    if sig is None and fname in STDR_PRELUDE and (
+                        self.current_module == "stdr" or "stdr" in self.current_imports
+                    ):
+                        sig = self.funs.get(f"stdr.{fname}")
+                    if sig is not None:
+                        arg_ts: List[str] = []
+                        all_cleanup: List[str] = []
+                        for a in e.args:
+                            at, ac = self.gen_expr(path, a)
+                            arg_ts.append(at)
+                            all_cleanup.extend(ac)
+
+                        ret_void = sig.ret.tag == "void"
+                        if ret_void:
+                            self.w(
+                                f"{mangle_global(sig.module, fname)}("
+                                + ", ".join(arg_ts)
+                                + ");"
+                            )
+                            for z in all_cleanup:
+                                self.w(f"ergo_release_val({z});")
+                            t = self.new_tmp()
+                            self.w(f"ErgoVal {t} = EV_NULLV;")
+                            cleanup.append(t)
+                            return t, cleanup
+                        t = self.new_tmp()
+                        self.w(
+                            f"ErgoVal {t} = {mangle_global(sig.module, fname)}("
                             + ", ".join(arg_ts)
                             + ");"
                         )

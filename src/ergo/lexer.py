@@ -20,6 +20,9 @@ KW = {
     "fun",
     "entry",
     "class",
+    "pub",
+    "lock",
+    "seal",
     "let",
     "const",
     "if",
@@ -69,7 +72,7 @@ def is_ident_start(ch: str) -> bool:
 
 
 def is_ident_mid(ch: str) -> bool:
-    return ch.isalpha() or ch == "_"
+    return ch.isalnum() or ch == "_"
 
 
 def lex(src: str) -> List[Tok]:

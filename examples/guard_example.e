@@ -18,7 +18,7 @@ fun safe_divide(a = int, b = int) (( -- )) {
         null
     }
     let output = if result != null {
-        result.to_string()
+        str(result)
     } else {
         @"(div by zero)"
     }

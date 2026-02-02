@@ -1,4 +1,5 @@
 bring stdr
+bring math
 
 class Point {
     x = int
@@ -27,6 +28,9 @@ fun feature_smoke() (( -- )) {
 
     let total = 0.5 + 1.23
     writef(@"total={}\n", total)
+
+    let s = math.sin(math.PI / 2.0)
+    writef(@"sin(pi/2)={}\n", s)
 
     for (let ?i = 0; i < 3; i = i + 1) {
         writef(@"i={}\n", i)
