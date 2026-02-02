@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "file.h"
 #include "lexer.h"
@@ -53,6 +54,22 @@ static void set_err(Diag *err, const char *path, const char *msg) {
     err->message = msg;
 }
 
+static uint64_t hash_update(uint64_t h, const void *data, size_t len) {
+    const unsigned char *p = (const unsigned char *)data;
+    for (size_t i = 0; i < len; i++) {
+        h ^= (uint64_t)p[i];
+        h *= 1099511628211ULL;
+    }
+    return h;
+}
+
+static uint64_t hash_cstr(uint64_t h, const char *s) {
+    if (!s) {
+        return hash_update(h, "", 0);
+    }
+    return hash_update(h, s, strlen(s));
+}
+
 static char *str_to_c(Str s) {
     char *buf = (char *)malloc(s.len + 1);
     if (!buf) return NULL;
@@ -101,6 +118,7 @@ static Module *load_file(const char *path,
                          const char *stdlib_dir,
                          Arena *arena,
                          ModVec *visited,
+                         uint64_t *hash,
                          Diag *err) {
     char *abs_path = path_abs(path);
     if (!abs_path) {
@@ -118,6 +136,14 @@ static Module *load_file(const char *path,
     if (!src) {
         free(abs_path);
         return NULL;
+    }
+    if (hash) {
+        uint64_t h = *hash;
+        h = hash_cstr(h, abs_path);
+        h = hash_update(h, "\0", 1);
+        h = hash_update(h, src, len);
+        h = hash_update(h, "\0", 1);
+        *hash = h;
     }
 
     TokVec toks = {0};
@@ -169,7 +195,7 @@ static Module *load_file(const char *path,
                 free(p);
                 return NULL;
             }
-            if (!load_file(p, root_dir, stdlib_dir, arena, visited, err)) {
+            if (!load_file(p, root_dir, stdlib_dir, arena, visited, hash, err)) {
                 free(p);
                 return NULL;
             }
@@ -183,7 +209,7 @@ static Module *load_file(const char *path,
                 free(p);
                 return NULL;
             }
-            if (!load_file(p, root_dir, stdlib_dir, arena, visited, err)) {
+            if (!load_file(p, root_dir, stdlib_dir, arena, visited, hash, err)) {
                 free(p);
                 return NULL;
             }
@@ -215,7 +241,7 @@ static Module *load_file(const char *path,
             free(child);
             return NULL;
         }
-        if (!load_file(child, root_dir, stdlib_dir, arena, visited, err)) {
+        if (!load_file(child, root_dir, stdlib_dir, arena, visited, hash, err)) {
             free(child);
             return NULL;
         }
@@ -225,10 +251,12 @@ static Module *load_file(const char *path,
     return mod;
 }
 
-bool load_project(const char *entry_path, Arena *arena, Program **out_prog, Diag *err) {
+bool load_project(const char *entry_path, Arena *arena, Program **out_prog, uint64_t *out_hash, Diag *err) {
     if (!entry_path || !arena || !out_prog) {
         return false;
     }
+    uint64_t hash = 1469598103934665603ULL;
+    uint64_t *hash_ptr = out_hash ? &hash : NULL;
     char *entry_abs = path_abs(entry_path);
     if (!entry_abs) {
         set_err(err, entry_path, "failed to resolve entry path");
@@ -236,12 +264,17 @@ bool load_project(const char *entry_path, Arena *arena, Program **out_prog, Diag
     }
     char *root_dir = path_dirname(entry_abs);
     const char *stdlib_dir = stdlib_dir_default();
+    char *stdlib_abs = path_abs(stdlib_dir);
+    if (stdlib_abs) {
+        stdlib_dir = stdlib_abs;
+    }
     ModVec visited = {0};
 
-    Module *init_mod = load_file(entry_abs, root_dir, stdlib_dir, arena, &visited, err);
+    Module *init_mod = load_file(entry_abs, root_dir, stdlib_dir, arena, &visited, hash_ptr, err);
     if (!init_mod) {
         free(entry_abs);
         free(root_dir);
+        free(stdlib_abs);
         for (size_t i = 0; i < visited.len; i++) {
             free(visited.data[i].path);
         }
@@ -259,6 +292,7 @@ bool load_project(const char *entry_path, Arena *arena, Program **out_prog, Diag
         set_err(err, entry_abs, "init.e must contain exactly one entry() decl");
         free(entry_abs);
         free(root_dir);
+        free(stdlib_abs);
         for (size_t i = 0; i < visited.len; i++) {
             free(visited.data[i].path);
         }
@@ -276,6 +310,7 @@ bool load_project(const char *entry_path, Arena *arena, Program **out_prog, Diag
                 set_err(err, visited.data[i].path, "entry() is only allowed in init.e");
                 free(entry_abs);
                 free(root_dir);
+                free(stdlib_abs);
                 for (size_t k = 0; k < visited.len; k++) {
                     free(visited.data[k].path);
                 }
@@ -290,6 +325,7 @@ bool load_project(const char *entry_path, Arena *arena, Program **out_prog, Diag
         set_err(err, entry_abs, "out of memory");
         free(entry_abs);
         free(root_dir);
+        free(stdlib_abs);
         for (size_t i = 0; i < visited.len; i++) {
             free(visited.data[i].path);
         }
@@ -302,6 +338,7 @@ bool load_project(const char *entry_path, Arena *arena, Program **out_prog, Diag
         set_err(err, entry_abs, "out of memory");
         free(entry_abs);
         free(root_dir);
+        free(stdlib_abs);
         for (size_t i = 0; i < visited.len; i++) {
             free(visited.data[i].path);
         }
@@ -318,6 +355,10 @@ bool load_project(const char *entry_path, Arena *arena, Program **out_prog, Diag
     free(visited.data);
     free(entry_abs);
     free(root_dir);
+    free(stdlib_abs);
     *out_prog = prog;
+    if (out_hash) {
+        *out_hash = hash;
+    }
     return true;
 }

@@ -1,13 +1,86 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
+#include <errno.h>
+
+#if defined(_WIN32)
+#include <direct.h>
+#define ergo_getcwd _getcwd
+#define ergo_mkdir(path) _mkdir(path)
+#else
+#include <unistd.h>
+#include <sys/stat.h>
+#define ergo_getcwd getcwd
+#define ergo_mkdir(path) mkdir((path), 0755)
+#endif
 
 #include "arena.h"
 #include "codegen.h"
 #include "diag.h"
+#include "file.h"
 #include "platform.h"
 #include "project.h"
 #include "typecheck.h"
+
+#define ERGO_CACHE_VERSION __DATE__ " " __TIME__
+
+static uint64_t hash_update(uint64_t h, const void *data, size_t len) {
+    const unsigned char *p = (const unsigned char *)data;
+    for (size_t i = 0; i < len; i++) {
+        h ^= (uint64_t)p[i];
+        h *= 1099511628211ULL;
+    }
+    return h;
+}
+
+static uint64_t hash_cstr(uint64_t h, const char *s) {
+    if (!s) {
+        return hash_update(h, "", 0);
+    }
+    return hash_update(h, s, strlen(s));
+}
+
+static char *dup_cstr(const char *s) {
+    if (!s) return NULL;
+    size_t len = strlen(s);
+    char *out = (char *)malloc(len + 1);
+    if (!out) return NULL;
+    memcpy(out, s, len + 1);
+    return out;
+}
+
+static bool ensure_dir(const char *path) {
+    if (!path || !path[0]) {
+        return false;
+    }
+    if (ergo_mkdir(path) == 0) {
+        return true;
+    }
+    return errno == EEXIST;
+}
+
+static char *cache_base_dir(void) {
+    const char *env = getenv("ERGO_CACHE_DIR");
+    if (env && env[0]) {
+        return dup_cstr(env);
+    }
+    char buf[4096];
+    if (!ergo_getcwd(buf, sizeof(buf))) {
+        return NULL;
+    }
+    return path_join(buf, ".ergo-cache");
+}
+
+static int run_binary(const char *path) {
+    if (!path) return 1;
+    char cmd[4096];
+    int n = snprintf(cmd, sizeof(cmd), "\"%s\"", path);
+    if (n < 0 || (size_t)n >= sizeof(cmd)) {
+        return 1;
+    }
+    return system(cmd);
+}
 
 static void print_usage(FILE *out) {
     fprintf(out, "usage: ergo <source.e>\n");
@@ -62,32 +135,85 @@ int main(int argc, char **argv) {
         arena_init(&arena);
         Diag err = {0};
         Program *prog = NULL;
-        if (!load_project(entry, &arena, &prog, &err)) {
+        uint64_t proj_hash = 0;
+        if (!load_project(entry, &arena, &prog, &proj_hash, &err)) {
             diag_print(&err);
             arena_free(&arena);
             return 1;
         }
+
+        uint64_t build_hash = proj_hash;
+        build_hash = hash_cstr(build_hash, cc_path());
+        build_hash = hash_cstr(build_hash, cc_flags());
+        build_hash = hash_cstr(build_hash, ERGO_CACHE_VERSION);
+
+        const char *no_cache_env = getenv("ERGO_NO_CACHE");
+        bool cache_enabled = !(no_cache_env && no_cache_env[0] && no_cache_env[0] != '0');
+
+        char *cache_base = NULL;
+        char *cache_dir = NULL;
+        char *cache_c = NULL;
+        char *cache_bin = NULL;
+        if (cache_enabled) {
+            cache_base = cache_base_dir();
+            if (cache_base && ensure_dir(cache_base)) {
+                char hex[17];
+                snprintf(hex, sizeof(hex), "%016llx", (unsigned long long)build_hash);
+                cache_dir = path_join(cache_base, hex);
+                if (cache_dir && ensure_dir(cache_dir)) {
+                    cache_c = path_join(cache_dir, "run.c");
+#if defined(_WIN32)
+                    cache_bin = path_join(cache_dir, "run.exe");
+#else
+                    cache_bin = path_join(cache_dir, "run");
+#endif
+                }
+            }
+        }
+
+        if (cache_enabled && cache_bin && path_is_file(cache_bin)) {
+            int rc = run_binary(cache_bin);
+            free(cache_base);
+            free(cache_dir);
+            free(cache_c);
+            free(cache_bin);
+            arena_free(&arena);
+            return rc == 0 ? 0 : 1;
+        }
+
         prog = lower_program(prog, &arena, &err);
         if (!prog || err.message) {
             diag_print(&err);
+            free(cache_base);
+            free(cache_dir);
+            free(cache_c);
+            free(cache_bin);
             arena_free(&arena);
             return 1;
         }
         if (!typecheck_program(prog, &arena, &err)) {
             diag_print(&err);
+            free(cache_base);
+            free(cache_dir);
+            free(cache_c);
+            free(cache_bin);
             arena_free(&arena);
             return 1;
         }
-        const char *c_path = ".ergo_run.c";
+        const char *c_path = cache_c ? cache_c : ".ergo_run.c";
 #if defined(_WIN32)
-        const char *bin_path = "run.exe";
-        const char *run_cmd = ".\\run.exe";
+        const char *bin_path = cache_bin ? cache_bin : "run.exe";
+        const char *run_cmd = cache_bin ? cache_bin : ".\\run.exe";
 #else
-        const char *bin_path = "run";
-        const char *run_cmd = "./run";
+        const char *bin_path = cache_bin ? cache_bin : "run";
+        const char *run_cmd = cache_bin ? cache_bin : "./run";
 #endif
         if (!emit_c(prog, c_path, &err)) {
             diag_print(&err);
+            free(cache_base);
+            free(cache_dir);
+            free(cache_c);
+            free(cache_bin);
             arena_free(&arena);
             return 1;
         }
@@ -95,17 +221,29 @@ int main(int argc, char **argv) {
         int n = snprintf(cmd, sizeof(cmd), "%s %s %s -o %s", cc_path(), cc_flags(), c_path, bin_path);
         if (n < 0 || (size_t)n >= sizeof(cmd)) {
             fprintf(stderr, "error: compile command too long\n");
+            free(cache_base);
+            free(cache_dir);
+            free(cache_c);
+            free(cache_bin);
             arena_free(&arena);
             return 1;
         }
         int rc = system(cmd);
         if (rc != 0) {
             fprintf(stderr, "error: C compiler failed (code %d)\n", rc);
+            free(cache_base);
+            free(cache_dir);
+            free(cache_c);
+            free(cache_bin);
             arena_free(&arena);
             return rc;
         }
         (void)remove(c_path);
-        rc = system(run_cmd);
+        rc = run_binary(run_cmd);
+        free(cache_base);
+        free(cache_dir);
+        free(cache_c);
+        free(cache_bin);
         arena_free(&arena);
         return rc == 0 ? 0 : 1;
     }
@@ -124,7 +262,7 @@ int main(int argc, char **argv) {
     arena_init(&arena);
     Diag err = {0};
     Program *prog = NULL;
-    if (!load_project(argv[1], &arena, &prog, &err)) {
+    if (!load_project(argv[1], &arena, &prog, NULL, &err)) {
         diag_print(&err);
         arena_free(&arena);
         return 1;

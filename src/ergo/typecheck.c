@@ -876,6 +876,53 @@ static bool ty_is_numeric(Ty *t) {
     return t && t->tag == TY_PRIM && str_eq_c(t->name, "num");
 }
 
+static bool ty_is_any(Ty *t) {
+    return t && t->tag == TY_PRIM && str_eq_c(t->name, "any");
+}
+
+static void ty_desc(Ty *t, char *buf, size_t cap) {
+    if (!buf || cap == 0) return;
+    if (!t) {
+        snprintf(buf, cap, "<null>");
+        return;
+    }
+    switch (t->tag) {
+        case TY_PRIM:
+            snprintf(buf, cap, "%.*s", (int)t->name.len, t->name.data);
+            return;
+        case TY_CLASS:
+            snprintf(buf, cap, "class %.*s", (int)t->name.len, t->name.data);
+            return;
+        case TY_ARRAY:
+            snprintf(buf, cap, "array");
+            return;
+        case TY_TUPLE:
+            snprintf(buf, cap, "tuple");
+            return;
+        case TY_VOID:
+            snprintf(buf, cap, "void");
+            return;
+        case TY_NULL:
+            snprintf(buf, cap, "null");
+            return;
+        case TY_MOD:
+            snprintf(buf, cap, "module");
+            return;
+        case TY_FN:
+            snprintf(buf, cap, "fn");
+            return;
+        case TY_NULLABLE:
+            snprintf(buf, cap, "nullable");
+            return;
+        case TY_GEN:
+            snprintf(buf, cap, "gen %.*s", (int)t->name.len, t->name.data);
+            return;
+        default:
+            snprintf(buf, cap, "type");
+            return;
+    }
+}
+
 static bool ty_is_null(Ty *t) {
     return t && t->tag == TY_NULL;
 }
@@ -982,6 +1029,8 @@ static Ty *ty_apply_subst(Arena *arena, Ty *t, Subst *subst) {
 
 static Ty *unify(Arena *arena, Ty *a, Ty *b, Str path, const char *where, Subst *subst, Diag *err) {
     if (!a || !b) return NULL;
+    if (ty_is_any(a)) return a;
+    if (ty_is_any(b)) return b;
     if (ty_is_null(a) && ty_is_null(b)) {
         return ty_null(arena);
     }
@@ -1015,7 +1064,12 @@ static Ty *unify(Arena *arena, Ty *a, Ty *b, Str path, const char *where, Subst 
         return a;
     }
     if (a->tag != b->tag) {
-        set_errf(err, path, 0, 0, "type mismatch%s%s", where && where[0] ? ": " : "", where ? where : "");
+        char ea[64];
+        char eb[64];
+        ty_desc(a, ea, sizeof(ea));
+        ty_desc(b, eb, sizeof(eb));
+        set_errf(err, path, 0, 0, "type mismatch%s%s (expected %s, got %s)",
+                 where && where[0] ? ": " : "", where ? where : "", ea, eb);
         return NULL;
     }
     switch (a->tag) {
@@ -1059,11 +1113,21 @@ static Ty *unify(Arena *arena, Ty *a, Ty *b, Str path, const char *where, Subst 
         case TY_NULL:
         case TY_GEN: {
             if (a->tag == TY_PRIM && !str_eq(a->name, b->name)) {
-                set_errf(err, path, 0, 0, "type mismatch%s%s", where && where[0] ? ": " : "", where ? where : "");
+                char ea[64];
+                char eb[64];
+                ty_desc(a, ea, sizeof(ea));
+                ty_desc(b, eb, sizeof(eb));
+                set_errf(err, path, 0, 0, "type mismatch%s%s (expected %s, got %s)",
+                         where && where[0] ? ": " : "", where ? where : "", ea, eb);
                 return NULL;
             }
             if (a->tag == TY_CLASS && !str_eq(a->name, b->name)) {
-                set_errf(err, path, 0, 0, "type mismatch%s%s", where && where[0] ? ": " : "", where ? where : "");
+                char ea[64];
+                char eb[64];
+                ty_desc(a, ea, sizeof(ea));
+                ty_desc(b, eb, sizeof(eb));
+                set_errf(err, path, 0, 0, "type mismatch%s%s (expected %s, got %s)",
+                         where && where[0] ? ": " : "", where ? where : "", ea, eb);
                 return NULL;
             }
             return a;
@@ -1113,7 +1177,12 @@ static bool ensure_assignable(Arena *arena, Ty *expected, Ty *actual, Str path, 
     }
     if (expected->tag == TY_PRIM && actual->tag == TY_PRIM) {
         if (!str_eq(expected->name, actual->name)) {
-            set_errf(err, path, 0, 0, "type mismatch%s%s", where && where[0] ? ": " : "", where ? where : "");
+            char ea[64];
+            char eb[64];
+            ty_desc(expected, ea, sizeof(ea));
+            ty_desc(actual, eb, sizeof(eb));
+            set_errf(err, path, 0, 0, "type mismatch%s%s (expected %s, got %s)",
+                     where && where[0] ? ": " : "", where ? where : "", ea, eb);
             return false;
         }
     }
@@ -1224,11 +1293,20 @@ static Ty *ty_from_type_ref(GlobalEnv *env, TypeRef *tref, Str ctx_mod, Str *imp
         set_errf(err, ctx_mod, tref->line, tref->col, "unknown type '%.*s' (use num)", (int)n.len, n.data);
         return NULL;
     }
-    if (str_eq_c(n, "bool") || str_eq_c(n, "string") || str_eq_c(n, "void") || str_eq_c(n, "num") || str_eq_c(n, "any")) {
-        if (str_eq_c(n, "void")) {
-            return ty_void(env->arena);
-        }
-        return ty_prim(env->arena, n.data);
+    if (str_eq_c(n, "bool")) {
+        return ty_prim(env->arena, "bool");
+    }
+    if (str_eq_c(n, "string")) {
+        return ty_prim(env->arena, "string");
+    }
+    if (str_eq_c(n, "void")) {
+        return ty_void(env->arena);
+    }
+    if (str_eq_c(n, "num")) {
+        return ty_prim(env->arena, "num");
+    }
+    if (str_eq_c(n, "any")) {
+        return ty_prim(env->arena, "any");
     }
     if (memchr(n.data, '.', n.len)) {
         // module-qualified class
