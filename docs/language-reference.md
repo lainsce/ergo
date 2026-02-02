@@ -39,7 +39,7 @@ x1
 
 Reserved words include:
 ```
-let, const, fun, entry, bring, if, elif, else, for, match, return, true, false, null, class, pub, lock, seal, new, in, int, float, bool, char, byte, string
+let, const, fun, entry, bring, if, elif, else, for, match, return, true, false, null, class, pub, lock, seal, new, in, bool, num, string
 ```
 
 ### Literals
@@ -65,25 +65,32 @@ let, const, fun, entry, bring, if, elif, else, for, match, return, true, false, 
 
 ### Primitive Types
 
-- `int` — 64-bit signed integer
-- `float` — double-precision floating point
 - `bool` — Boolean value (`true` or `false`)
-- `char` — Unicode scalar value
-- `byte` — 0–255 integer
+- `num` — numeric type (integer or float values)
 - `string` — Unicode string
+
+### Numeric Semantics (`num`)
+
+- `num` is the only numeric type. Integer and float literals both have type `num`.
+- Use a decimal point to force floating arithmetic (e.g. `1.0`, `3.14`).
+- `+`, `-`, `*` operate on `num` and preserve integer or float behavior based on operands.
+- `/` performs integer division when both operands are integer literals/values; otherwise it performs floating division.
+- `%` is only valid for integer numeric values. Using a floating operand (including literals like `5.0`) is a runtime error.
+- Comparisons (`<`, `<=`, `>`, `>=`) compare numeric values.
+- `len(...)` returns `num` but is always integer‑valued.
 
 ### Composite Types
 
 - **Arrays:** `[T]` — array of type `T`
-  - Example: `[int]` is an array of integers.
+  - Example: `[num]` is an array of numbers.
 - **Qualified types:** `mod.Type` — type defined in another module.
 
 ### Function Types
 
 - Functions are declared with parameter and return types using a return spec.
-  - Example: `fun add(a = int, b = int) (( int )) { ... }`
+  - Example: `fun add(a = num, b = num) (( num )) { ... }`
 - Multiple return types are separated by `;` in the return spec:
-  - Example: `(( int; string ))`
+  - Example: `(( num; string ))`
 
 ---
 
@@ -114,7 +121,7 @@ fun name(param1 = Type1, param2 = Type2) (( ReturnType )) {
 
 Example:
 ```
-fun add(a = int, b = int) (( int )) {
+fun add(a = num, b = num) (( num )) {
     a + b
 }
 ```
@@ -177,7 +184,7 @@ for (item in collection) {
 ```
 match x: 0 => @"zero", _ => @"other"
 ```
-- Lambda expression: `|x = int| x + 1`
+- Lambda expression: `|x = num| x + 1`
 - Lambdas are non-capturing in v0 (they can only use parameters and globals).
 - Class construction: `new Foo()`
 
@@ -233,16 +240,16 @@ entry () (( -- )) {
 ### `stdr`
 
 - `writef(fmt: string, ...): void` — Print formatted output.
-- `readf(fmt: string, ...): (string, any)` — Print a prompt, read a line, and return `(line, parsed)` where `parsed` is a tuple of values parsed from `{}` placeholders (types inferred from the provided argument values, e.g. `0` for int, `0.0` for float, `@""` for string).
+- `readf(fmt: string, ...): (string, any)` — Print a prompt, read a line, and return `(line, parsed)` where `parsed` is a tuple of values parsed from `{}` placeholders (types inferred from the provided argument values, e.g. `0` or `0.0` for num, `@""` for string).
 - `write(x: any): void` — Print a value.
-- `len(x: any): int` — Length of array or string.
+- `len(x: any): num` — Length of array or string.
 - `is_null(x: any): bool` — True if value is null.
 - `str(x: any): string` — Convert a value to a string.
 
 ### `math`
 
-- `math.PI: float` — The constant π.
-- `math.sin(x: float): float` — Sine function.
+- `math.PI: num` — The constant π.
+- `math.sin(x: num): num` — Sine function.
 - (Expand as needed.)
 
 ---
@@ -271,7 +278,7 @@ let x = 5; -- Inline comment
 ```
 bring stdr;
 
-fun fib(n = int) (( int )) {
+fun fib(n = num) (( num )) {
     if n <= 1 {
         n
     } else {

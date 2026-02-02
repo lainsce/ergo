@@ -40,7 +40,7 @@ let z = true;
 ## Functions
 
 ```ergo
-fun add(a = int, b = int) (( int )) {
+fun add(a = num, b = num) (( num )) {
     a + b
 }
 let result = add(2, 3);

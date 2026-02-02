@@ -109,9 +109,9 @@ def T_nullable(elem: Ty) -> Ty:
     return Ty("nullable", elem=elem)
 
 
-PRIMS = {"int", "bool", "string", "void", "float", "char", "byte"}
+PRIMS = {"bool", "string", "void", "num"}
 
-NUMERIC = {"int", "float", "char", "byte"}
+NUMERIC = {"num"}
 
 
 @dataclass(frozen=True)
@@ -131,11 +131,7 @@ def is_numeric_ty(t: Ty) -> bool:
 def numeric_result(a: Ty, b: Ty, op: str, where: str = "") -> Ty:
     if not (is_numeric_ty(a) and is_numeric_ty(b)):
         raise TypeErr(f"{where}: numeric op {op} expects numeric types")
-    if op == "%" and (a.name == "float" or b.name == "float"):
-        raise TypeErr(f"{where}: % not supported for float")
-    if a.name == "float" or b.name == "float":
-        return T_prim("float")
-    return T_prim("int")
+    return T_prim("num")
 
 
 def module_name_for_path(path: str) -> str:
@@ -149,9 +145,9 @@ def normalize_import_name(name: str) -> str:
 
 def _eval_const_expr(e: Expr) -> ConstVal:
     if isinstance(e, IntLit):
-        return ConstVal(T_prim("int"), e.v)
+        return ConstVal(T_prim("num"), e.v)
     if isinstance(e, FloatLit):
-        return ConstVal(T_prim("float"), e.v)
+        return ConstVal(T_prim("num"), e.v)
     if isinstance(e, BoolLit):
         return ConstVal(T_prim("bool"), e.v)
     if isinstance(e, NullLit):
@@ -168,7 +164,7 @@ def _eval_const_expr(e: Expr) -> ConstVal:
     if isinstance(e, Unary):
         cv = _eval_const_expr(e.x)
         if e.op == "-":
-            if cv.ty.tag != "prim" or cv.ty.name not in ("int", "float"):
+            if cv.ty.tag != "prim" or cv.ty.name != "num":
                 raise TypeErr("const unary - expects numeric")
             return ConstVal(cv.ty, -cv.value)
         if e.op == "!":
@@ -182,37 +178,26 @@ def _eval_const_expr(e: Expr) -> ConstVal:
         if (
             a.ty.tag != "prim"
             or b.ty.tag != "prim"
-            or a.ty.name not in ("int", "float")
-            or b.ty.name not in ("int", "float")
+            or a.ty.name != "num"
+            or b.ty.name != "num"
         ):
             raise TypeErr("const numeric op expects numeric literals")
-        res_float = a.ty.name == "float" or b.ty.name == "float"
-        if e.op == "%" and res_float:
-            raise TypeErr("const % not supported for float")
-        if res_float:
-            av = float(a.value)
-            bv = float(b.value)
-            if e.op == "+":
-                return ConstVal(T_prim("float"), av + bv)
-            if e.op == "-":
-                return ConstVal(T_prim("float"), av - bv)
-            if e.op == "*":
-                return ConstVal(T_prim("float"), av * bv)
-            if e.op == "/":
-                return ConstVal(T_prim("float"), av / bv)
-        else:
-            av = int(a.value)
-            bv = int(b.value)
-            if e.op == "+":
-                return ConstVal(T_prim("int"), av + bv)
-            if e.op == "-":
-                return ConstVal(T_prim("int"), av - bv)
-            if e.op == "*":
-                return ConstVal(T_prim("int"), av * bv)
-            if e.op == "/":
-                return ConstVal(T_prim("int"), int(av / bv))
-            if e.op == "%":
-                return ConstVal(T_prim("int"), av % bv)
+        av = a.value
+        bv = b.value
+        if e.op == "%":
+            if isinstance(av, float) or isinstance(bv, float):
+                raise TypeErr("const % not supported for float")
+            return ConstVal(T_prim("num"), int(av) % int(bv))
+        if e.op == "+":
+            return ConstVal(T_prim("num"), av + bv)
+        if e.op == "-":
+            return ConstVal(T_prim("num"), av - bv)
+        if e.op == "*":
+            return ConstVal(T_prim("num"), av * bv)
+        if e.op == "/":
+            if isinstance(av, float) or isinstance(bv, float):
+                return ConstVal(T_prim("num"), av / bv)
+            return ConstVal(T_prim("num"), int(av / bv))
     raise TypeErr("const expression must be a literal or simple numeric expression")
 
 
@@ -266,11 +251,11 @@ def unify(a: Ty, b: Ty, where: str = "", subst: Optional[Dict[str, Ty]] = None) 
         raise TypeErr(f"type mismatch{': ' + where if where else ''}: {a} vs {b}")
 
     if a.tag == "prim":
-        if a.name != b.name:
-            raise TypeErr(
-                f"type mismatch{': ' + where if where else ''}: {a.name} vs {b.name}"
-            )
-        return a
+        if a.name == b.name:
+            return a
+        raise TypeErr(
+            f"type mismatch{': ' + where if where else ''}: {a.name} vs {b.name}"
+        )
 
     if a.tag == "class":
         if a.name != b.name:
@@ -326,6 +311,39 @@ def apply_subst(t: Ty, subst: Dict[str, Ty]) -> Ty:
     return t
 
 
+def ensure_assignable(expected: Ty, actual: Ty, where: str = "") -> None:
+    if is_null_ty(expected) or is_null_ty(actual):
+        return
+    if is_nullable_ty(expected) or is_nullable_ty(actual):
+        ensure_assignable(strip_nullable(expected), strip_nullable(actual), where)
+        return
+    if expected.tag == "array" and actual.tag == "array":
+        assert expected.elem and actual.elem
+        ensure_assignable(expected.elem, actual.elem, where)
+        return
+    if expected.tag == "tuple" and actual.tag == "tuple":
+        assert expected.items and actual.items
+        if len(expected.items) != len(actual.items):
+            raise TypeErr(f"tuple arity mismatch{': ' + where if where else ''}")
+        for a, b in zip(expected.items, actual.items):
+            ensure_assignable(a, b, where)
+        return
+    if expected.tag == "fn" and actual.tag == "fn":
+        assert expected.params is not None and actual.params is not None
+        if len(expected.params) != len(actual.params):
+            raise TypeErr(f"fn arity mismatch{': ' + where if where else ''}")
+        for ep, ap in zip(expected.params, actual.params):
+            ensure_assignable(ep, ap, where)
+        assert expected.ret and actual.ret
+        ensure_assignable(expected.ret, actual.ret, where)
+        return
+    if expected.tag == "prim" and actual.tag == "prim":
+        if expected.name != actual.name:
+            raise TypeErr(
+                f"type mismatch{': ' + where if where else ''}: {expected.name} vs {actual.name}"
+            )
+
+
 @dataclass
 class FunSig:
     name: str
@@ -376,6 +394,8 @@ def ty_from_type(
         n = tref.name
         if n == "str":
             n = "string"
+        if n in ("int", "float", "char", "byte"):
+            raise TypeErr(f"unknown type '{n}' (use num)")
         if n in PRIMS:
             return T_void() if n == "void" else T_prim(n)
         if "." in n:
@@ -696,6 +716,7 @@ def tc_call(
             subst: Dict[str, Ty] = {}
             for a, pt in zip(c.args, sig.params):
                 at = tc_expr(a, ctx, loc, classes, funs)
+                ensure_assignable(pt, at, f"arg for {mod}.{name}")
                 if pt.tag == "class" and classes[pt.name].is_seal:
                     if isinstance(a, NullLit):
                         pass
@@ -737,6 +758,7 @@ def tc_call(
                         f"{ctx.module_path}: array.add requires mutable binding (let ?name)"
                     )
                 ta = tc_expr(c.args[0], ctx, loc, classes, funs)
+                ensure_assignable(base_ty.elem, ta, "array.add")
                 unify(base_ty.elem, ta, "array.add")
                 return T_void()
 
@@ -748,19 +770,13 @@ def tc_call(
                         f"{ctx.module_path}: array.remove requires mutable binding (let ?name)"
                     )
                 ti = tc_expr(c.args[0], ctx, loc, classes, funs)
-                unify(ti, T_prim("int"), "array.remove index")
+                unify(ti, T_prim("num"), "array.remove index")
                 return base_ty.elem
 
             raise TypeErr(f"{ctx.module_path}: unknown array method '{mname}'")
 
         # primitive methods
-        if base_ty.tag == "prim" and base_ty.name in (
-            "int",
-            "bool",
-            "float",
-            "char",
-            "byte",
-        ):
+        if base_ty.tag == "prim" and base_ty.name in ("bool", "num"):
             if mname == "to_string":
                 if len(c.args) != 0:
                     raise TypeErr(f"{ctx.module_path}: to_string takes no args")
@@ -786,6 +802,7 @@ def tc_call(
             subst: Dict[str, Ty] = {}
             for a, pt in zip(c.args, sig.params):
                 at = tc_expr(a, ctx, loc, classes, funs)
+                ensure_assignable(pt, at, f"arg for {ci.name}.{mname}")
                 if pt.tag == "class" and classes[pt.name].is_seal:
                     if isinstance(a, NullLit):
                         pass
@@ -863,6 +880,7 @@ def tc_call(
         subst: Dict[str, Ty] = {}
         for a, pt in zip(c.args, sig.params):
             at = tc_expr(a, ctx, loc, classes, funs)
+            ensure_assignable(pt, at, f"arg for {fname}")
             if pt.tag == "class" and classes[pt.name].is_seal:
                 if isinstance(a, NullLit):
                     pass
@@ -910,9 +928,9 @@ def tc_expr(
     funs: Dict[str, FunSig],
 ) -> Ty:
     if isinstance(e, IntLit):
-        return T_prim("int")
+        return T_prim("num")
     if isinstance(e, FloatLit):
-        return T_prim("float")
+        return T_prim("num")
     if isinstance(e, BoolLit):
         return T_prim("bool")
     if isinstance(e, NullLit):
@@ -957,12 +975,12 @@ def tc_expr(
                 raise TypeErr(f"{ctx.module_path}: unary - on nullable value")
             if not is_numeric_ty(strip_nullable(tx)):
                 raise TypeErr(f"{ctx.module_path}: unary - expects numeric")
-            return T_prim("float") if strip_nullable(tx).name == "float" else T_prim("int")
+            return T_prim("num")
         if e.op == "#":
             if is_nullable_ty(tx):
                 raise TypeErr(f"{ctx.module_path}: # on nullable value")
             if tx.tag == "array" or (tx.tag == "prim" and tx.name == "string"):
-                return T_prim("int")
+                return T_prim("num")
             raise TypeErr(f"{ctx.module_path}: # expects array or string")
         return tx
 
@@ -1009,6 +1027,7 @@ def tc_expr(
                     f"{ctx.module_path}: cannot assign to immutable '{e.target.name}' (use let ?{e.target.name})"
                 )
             tv = tc_expr(e.value, ctx, loc, classes, funs)
+            ensure_assignable(b.ty, tv, "assignment")
             new_ty = unify(b.ty, tv, "assignment")
             b.ty = new_ty
             return new_ty
@@ -1020,6 +1039,7 @@ def tc_expr(
                 )
             tt = tc_expr(e.target, ctx, loc, classes, funs)
             tv = tc_expr(e.value, ctx, loc, classes, funs)
+            ensure_assignable(tt, tv, "assignment")
             return unify(tt, tv, "assignment")
 
         raise TypeErr(f"{ctx.module_path}: invalid assignment target")
@@ -1070,7 +1090,7 @@ def tc_expr(
     if isinstance(e, Index):
         ta = tc_expr(e.a, ctx, loc, classes, funs)
         ti = tc_expr(e.i, ctx, loc, classes, funs)
-        unify(ti, T_prim("int"), "index")
+        unify(ti, T_prim("num"), "index")
         if is_nullable_ty(ta):
             raise TypeErr(f"{ctx.module_path}: indexing nullable value")
         ta = strip_nullable(ta)
@@ -1082,9 +1102,9 @@ def tc_expr(
                 if idx < 0 or idx >= len(ta.items):
                     raise TypeErr(f"{ctx.module_path}: tuple index out of range")
                 return ta.items[idx]
-            raise TypeErr(f"{ctx.module_path}: tuple index must be int literal")
+            raise TypeErr(f"{ctx.module_path}: tuple index must be integer literal")
         if ta.tag == "prim" and ta.name == "string":
-            return T_prim("char")
+            return T_prim("string")
         raise TypeErr(f"{ctx.module_path}: indexing requires array or string")
 
     if isinstance(e, Ternary):
@@ -1145,6 +1165,7 @@ def tc_expr(
             subst: Dict[str, Ty] = {}
             for a, pt in zip(e.args, sig.params):
                 at = tc_expr(a, ctx, loc, classes, funs)
+                ensure_assignable(pt, at, f"arg for {ci.name}.init")
                 unify(pt, at, f"arg for {ci.name}.init", subst)
             if not is_void_ty(sig.ret):
                 raise TypeErr(f"{ctx.module_path}: '{ci.name}.init' must return void")
@@ -1178,7 +1199,7 @@ def tc_pat(
         loc.define(pat.name, Binding(ty=scrut_ty, is_mut=False, is_const=False))
         return
     if isinstance(pat, PatInt):
-        unify(scrut_ty, T_prim("int"), "match pattern")
+        unify(scrut_ty, T_prim("num"), "match pattern")
         return
     if isinstance(pat, PatStr):
         unify(scrut_ty, T_prim("string"), "match pattern")
@@ -1234,6 +1255,7 @@ def tc_stmt(
         if s.expr is None:
             raise TypeErr(f"{ctx.module_path}: missing return value")
         t = tc_expr(s.expr, ctx, loc, classes, funs)
+        ensure_assignable(ret_ty, t, "return")
         unify(ret_ty, t, "return")
         return
 
@@ -1289,7 +1311,7 @@ def tc_stmt(
         if it.tag == "array" and it.elem:
             elem_ty = it.elem
         elif it.tag == "prim" and it.name == "string":
-            elem_ty = T_prim("char")
+            elem_ty = T_prim("string")
         else:
             raise TypeErr(f"{ctx.module_path}: foreach expects array or string")
         loc.push()

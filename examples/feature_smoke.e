@@ -2,15 +2,15 @@ bring stdr
 bring math
 
 class Point {
-    x = int
-    y = int
+    x = num
+    y = num
 
-    fun init(?this, x = int, y = int) (( -- )) {
+    fun init(?this, x = num, y = num) (( -- )) {
         this.x = x
         this.y = y
     }
 
-    fun sum(this) (( int )) {
+    fun sum(this) (( num )) {
         this.x + this.y
     }
 }
@@ -20,7 +20,7 @@ fun feature_smoke() (( -- )) {
     let s = p.sum()
     writef(@"sum={}\n", s)
 
-    let f = |x = int| x + 1
+    let f = |x = num| x + 1
     let v = f(10)
 
     let m = match v: 11 => 1, n => n + 1

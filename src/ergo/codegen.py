@@ -177,13 +177,13 @@ static ErgoStr* stdr_str_lit(const char* s) {
 
 static ErgoStr* stdr_str_from_parts(int n, ErgoVal* parts);
 static ErgoStr* stdr_to_string(ErgoVal v);
+static ErgoStr* stdr_str_from_slice(const char* s, size_t len);
 
 static ErgoVal stdr_str_at(ErgoVal v, int64_t idx) {
   if (v.tag != EVT_STR) ergo_trap("str_at expects string");
   ErgoStr* s = (ErgoStr*)v.as.p;
-  if (idx < 0 || (size_t)idx >= s->len) return EV_INT(0);
-  unsigned char c = (unsigned char)s->data[idx];
-  return EV_INT((int64_t)c);
+  if (idx < 0 || (size_t)idx >= s->len) return EV_STR(stdr_str_lit(""));
+  return EV_STR(stdr_str_from_slice(s->data + idx, 1));
 }
 
 static int stdr_len(ErgoVal v) {
@@ -548,7 +548,13 @@ static ErgoVal ergo_div(ErgoVal a, ErgoVal b) {
 }
 
 static ErgoVal ergo_mod(ErgoVal a, ErgoVal b) {
+  if (a.tag == EVT_FLOAT || b.tag == EVT_FLOAT) ergo_trap("% expects integer");
   return EV_INT(ergo_as_int(a) % ergo_as_int(b));
+}
+
+static ErgoVal ergo_neg(ErgoVal a) {
+  if (a.tag == EVT_FLOAT) return EV_FLOAT(-a.as.f);
+  return EV_INT(-ergo_as_int(a));
 }
 
 static ErgoVal ergo_eq(ErgoVal a, ErgoVal b) {
@@ -1276,7 +1282,7 @@ class CGen:
                 ety = elem_ty.elem
                 get_expr = f"ergo_arr_get((ErgoArr*){it}.as.p, {idx_name})"
             elif elem_ty.tag == "prim" and elem_ty.name == "string":
-                ety = T_prim("char")
+                ety = T_prim("string")
                 get_expr = f"stdr_str_at({it}, {idx_name})"
             else:
                 raise TypeErr(f"{path}: foreach expects array or string")
@@ -1405,10 +1411,11 @@ class CGen:
                 if e.name in mod_consts:
                     cv = mod_consts[e.name]
                     t = self.new_tmp()
-                    if cv.ty.tag == "prim" and cv.ty.name == "int":
-                        self.w(f"ErgoVal {t} = EV_INT({cv.value});")
-                    elif cv.ty.tag == "prim" and cv.ty.name == "float":
-                        self.w(f"ErgoVal {t} = EV_FLOAT({cv.value});")
+                    if cv.ty.tag == "prim" and cv.ty.name == "num":
+                        if isinstance(cv.value, float):
+                            self.w(f"ErgoVal {t} = EV_FLOAT({cv.value});")
+                        else:
+                            self.w(f"ErgoVal {t} = EV_INT({cv.value});")
                     elif cv.ty.tag == "prim" and cv.ty.name == "bool":
                         self.w(
                             f"ErgoVal {t} = EV_BOOL({'true' if cv.value else 'false'});"
@@ -1591,8 +1598,8 @@ class CGen:
                 xty = tc_expr(
                     e.x, self.ctx_for(path), self.ty_loc, self.classes, self.funs
                 )
-                if xty.tag == "prim" and xty.name == "float":
-                    self.w(f"ErgoVal {t} = EV_FLOAT(-ergo_as_float({xt}));")
+                if xty.tag == "prim" and xty.name == "num":
+                    self.w(f"ErgoVal {t} = ergo_neg({xt});")
                 else:
                     self.w(f"ErgoVal {t} = EV_INT(-ergo_as_int({xt}));")
             else:

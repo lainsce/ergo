@@ -33,9 +33,9 @@ fun is_null(x = any) (( bool )) {
 }
 
 -- Internal length primitive (compiler intrinsic)
-fun __len(x = any) (( int )) { }
+fun __len(x = any) (( num )) { }
 
 -- Get the length of an array or string
-fun len(x = any) (( int )) {
+fun len(x = any) (( num )) {
   return __len(x)
 }

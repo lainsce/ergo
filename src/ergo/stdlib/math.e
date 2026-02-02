@@ -16,7 +16,7 @@ const LOG_TWO_E = 1.4426950408889634
 const LOG_TEN_E = 0.4342944819032518
 
 -- Internal: wrap angle to [-pi, pi] using a bounded loop.
-fun _wrap_angle(x = float) (( float )) {
+fun _wrap_angle(x = num) (( num )) {
   let pi = math.PI
   let two_pi = pi + pi
   let ?y = x
@@ -31,7 +31,7 @@ fun _wrap_angle(x = float) (( float )) {
 }
 
 -- Internal: sine via Taylor series on small |x|.
-fun _sin_taylor(x = float) (( float )) {
+fun _sin_taylor(x = num) (( num )) {
   let x2 = x * x
   let ?term = x
   let ?sum = x
@@ -43,7 +43,7 @@ fun _sin_taylor(x = float) (( float )) {
 }
 
 -- Internal: cosine via Taylor series on small |x|.
-fun _cos_taylor(x = float) (( float )) {
+fun _cos_taylor(x = num) (( num )) {
   let x2 = x * x
   let ?term = 1.0
   let ?sum = 1.0
@@ -55,7 +55,7 @@ fun _cos_taylor(x = float) (( float )) {
 }
 
 -- Sine function (implemented in Ergo)
-fun sin(x = float) (( float )) {
+fun sin(x = num) (( num )) {
   let pi = math.PI
   let half_pi = pi / 2.0
   let ?y = _wrap_angle(x)
@@ -70,7 +70,7 @@ fun sin(x = float) (( float )) {
 }
 
 -- Cosine function (implemented in Ergo)
-fun cos(x = float) (( float )) {
+fun cos(x = num) (( num )) {
   let pi = math.PI
   let half_pi = pi / 2.0
   let ?y = _wrap_angle(x)
@@ -86,14 +86,14 @@ fun cos(x = float) (( float )) {
 }
 
 -- Tangent function (implemented in Ergo)
-fun tan(x = float) (( float )) {
+fun tan(x = num) (( num )) {
   let s = sin(x)
   let c = cos(x)
   return s / c
 }
 
 -- Square root function (implemented in Ergo)
-fun sqrt(x = float) (( float )) {
+fun sqrt(x = num) (( num )) {
   if x <= 0.0 {
     return 0.0
   }
@@ -109,7 +109,7 @@ fun sqrt(x = float) (( float )) {
 }
 
 -- Absolute value
-fun abs(x = float) (( float )) {
+fun abs(x = num) (( num )) {
   if x < 0.0 {
     return -x
   } else {
@@ -118,7 +118,7 @@ fun abs(x = float) (( float )) {
 }
 
 -- Minimum of two floats
-fun min(a = float, b = float) (( float )) {
+fun min(a = num, b = num) (( num )) {
   if a < b {
     return a
   } else {
@@ -127,7 +127,7 @@ fun min(a = float, b = float) (( float )) {
 }
 
 -- Maximum of two floats
-fun max(a = float, b = float) (( float )) {
+fun max(a = num, b = num) (( num )) {
   if a > b {
     return a
   } else {

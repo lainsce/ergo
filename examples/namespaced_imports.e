@@ -3,7 +3,7 @@ bring math
 
 -- Ergo Example: Namespaced Imports and Array Types
 
-fun sum(arr = [int]) (( int )) {
+fun sum(arr = [num]) (( num )) {
     let ?total = 0
     for (let ?i = 0; i < len(arr); i = i + 1) {
         total = total + arr[i]

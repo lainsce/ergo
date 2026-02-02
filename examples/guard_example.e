@@ -3,7 +3,7 @@ bring stdr
 -- Ergo Example: Optionals and Safe Operations
 -- Example: Optionals and Safe Division in Ergo
 
-fun describe_number(n = int) (( -- )) {
+fun describe_number(n = num) (( -- )) {
     if n != null {
         writef(@"number={}\n", n)
     } else {
@@ -11,7 +11,7 @@ fun describe_number(n = int) (( -- )) {
     }
 }
 
-fun safe_divide(a = int, b = int) (( -- )) {
+fun safe_divide(a = num, b = num) (( -- )) {
     let result = if b != 0 {
         a / b
     } else {

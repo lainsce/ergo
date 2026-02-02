@@ -2,7 +2,7 @@ bring stdr
 
 -- Ergo Example: FizzBuzz
 
-fun fizzbuzz(n = int) (( -- )) {
+fun fizzbuzz(n = num) (( -- )) {
     for (let ?i = 1; i <= n; i = i + 1) {
         let ?flag = false
         if (i % 3) == 0 {
