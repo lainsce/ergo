@@ -178,6 +178,11 @@ static ErgoStr* stdr_str_lit(const char* s) {
 static ErgoStr* stdr_str_from_parts(int n, ErgoVal* parts);
 static ErgoStr* stdr_to_string(ErgoVal v);
 static ErgoStr* stdr_str_from_slice(const char* s, size_t len);
+static ErgoArr* stdr_arr_new(int n);
+static void ergo_arr_add(ErgoArr* a, ErgoVal v);
+static ErgoVal ergo_arr_get(ErgoArr* a, int64_t idx);
+static void ergo_arr_set(ErgoArr* a, int64_t idx, ErgoVal v);
+static ErgoVal ergo_arr_remove(ErgoArr* a, int64_t idx);
 
 static ErgoVal stdr_str_at(ErgoVal v, int64_t idx) {
   if (v.tag != EVT_STR) ergo_trap("str_at expects string");
@@ -682,6 +687,7 @@ class CGen:
         self.lambda_emitted: Dict[str, bool] = {}
 
         self.name_scopes: List[Dict[str, str]] = [dict()]
+        self.scope_locals: List[List[str]] = [[]]
         self.ty_loc = Locals()
 
         self.fn_locals: List[str] = []
@@ -695,10 +701,13 @@ class CGen:
     def push_scope(self):
         self.name_scopes.append(dict())
         self.ty_loc.push()
+        self.scope_locals.append([])
 
-    def pop_scope(self):
+    def pop_scope(self) -> List[str]:
+        locals_in_scope = self.scope_locals.pop()
         self.name_scopes.pop()
         self.ty_loc.pop()
+        return locals_in_scope
 
     def cname_of(self, name: str) -> str:
         for sc in reversed(self.name_scopes):
@@ -711,8 +720,12 @@ class CGen:
         c = f"{name}__{self.var_id}"
         self.name_scopes[-1][name] = c
         self.ty_loc.define(name, Binding(ty=ty, is_mut=is_mut, is_const=is_const))
-        self.fn_locals.append(c)
+        self.scope_locals[-1].append(c)
         return c
+
+    def release_scope(self, locals_in_scope: List[str]):
+        for c in reversed(locals_in_scope):
+            self.w(f"ergo_release_val({c});")
 
     def new_tmp(self) -> str:
         self.tmp_id += 1
@@ -861,6 +874,7 @@ class CGen:
         saved_lines = self.lines
         saved_ind = self.ind
         saved_scopes = self.name_scopes
+        saved_scope_locals = self.scope_locals
         saved_loc = self.ty_loc
         saved_fn_locals = self.fn_locals
         saved_module = self.current_module
@@ -870,6 +884,7 @@ class CGen:
         self.lines = []
         self.ind = 0
         self.name_scopes = [dict()]
+        self.scope_locals = [[]]
         self.ty_loc = Locals()
         self.fn_locals = []
         self.current_module = self.module_names.get(path, module_name_for_path(path))
@@ -892,12 +907,14 @@ class CGen:
                 ty = Ty("gen", name=f"_{p.name}_{i}")
             self.ty_loc.define(p.name, Binding(ty=ty, is_mut=p.is_mut, is_const=False))
 
+        self.push_scope()
         self.w("ErgoVal __ret = EV_NULLV;")
         tmp, cleanup = self.gen_expr(path, lam.body)
         self.w(f"ergo_move_into(&__ret, {tmp});")
         for z in cleanup:
             if z != tmp:
                 self.w(f"ergo_release_val({z});")
+        self.release_scope(self.pop_scope())
         self.w("return __ret;")
         self.ind -= 1
         self.w("}")
@@ -908,6 +925,7 @@ class CGen:
         self.lines = saved_lines
         self.ind = saved_ind
         self.name_scopes = saved_scopes
+        self.scope_locals = saved_scope_locals
         self.ty_loc = saved_loc
         self.fn_locals = saved_fn_locals
         self.current_module = saved_module
@@ -1022,6 +1040,7 @@ class CGen:
     def gen_method(self, path: str, cls: ClassDecl, fn: FunDecl):
         self.fn_locals = []
         self.name_scopes = [dict()]
+        self.scope_locals = [[]]
         self.ty_loc = Locals()
         qname = f"{self.current_module}.{cls.name}"
         self.current_class = qname
@@ -1055,10 +1074,9 @@ class CGen:
         if not ret_void:
             self.w("ErgoVal __ret = EV_NULLV;")
 
+        self.push_scope()
         self.gen_block(path, fn.body, ret_void)
-
-        for c in reversed(self.fn_locals):
-            self.w(f"ergo_release_val({c});")
+        self.release_scope(self.pop_scope())
 
         if not ret_void:
             self.w("return __ret;")
@@ -1070,6 +1088,7 @@ class CGen:
     def gen_fun(self, path: str, fn: FunDecl):
         self.fn_locals = []
         self.name_scopes = [dict()]
+        self.scope_locals = [[]]
         self.ty_loc = Locals()
         self.current_class = None
 
@@ -1088,10 +1107,9 @@ class CGen:
         if not ret_void:
             self.w("ErgoVal __ret = EV_NULLV;")
 
+        self.push_scope()
         self.gen_block(path, fn.body, ret_void)
-
-        for c in reversed(self.fn_locals):
-            self.w(f"ergo_release_val({c});")
+        self.release_scope(self.pop_scope())
 
         if not ret_void:
             self.w("return __ret;")
@@ -1112,6 +1130,7 @@ class CGen:
 
         self.fn_locals = []
         self.name_scopes = [dict()]
+        self.scope_locals = [[]]
         self.ty_loc = Locals()
         if entry_path:
             mod_name = self.module_names[entry_path]
@@ -1121,9 +1140,9 @@ class CGen:
 
         self.w("static void ergo_entry(void) {")
         self.ind += 1
+        self.push_scope()
         self.gen_block(entry_path or "<init>", entry_decl.body, True)
-        for c in reversed(self.fn_locals):
-            self.w(f"ergo_release_val({c});")
+        self.release_scope(self.pop_scope())
         self.ind -= 1
         self.w("}")
         self.w("")
@@ -1156,10 +1175,12 @@ class CGen:
 
         self.w(f"if ({bname}) {{")
         self.ind += 1
+        self.push_scope()
         if isinstance(arm.body, Block):
             self.gen_block(path, arm.body, ret_void)
         else:
             self.gen_stmt(path, arm.body, ret_void)
+        self.release_scope(self.pop_scope())
         self.ind -= 1
 
         if idx + 1 < len(arms):
@@ -1253,10 +1274,12 @@ class CGen:
                 self.ind -= 1
                 self.w("}")
 
+            self.push_scope()
             if isinstance(s.body, Block):
                 self.gen_block(path, s.body, ret_void)
             else:
                 self.gen_stmt(path, s.body, ret_void)
+            self.release_scope(self.pop_scope())
 
             if s.step is not None:
                 st, sc = self.gen_expr(path, s.step)
@@ -1287,6 +1310,7 @@ class CGen:
             else:
                 raise TypeErr(f"{path}: foreach expects array or string")
 
+            self.push_scope()
             cvar = self.define_local(s.name, ety, False, False)
             self.w(f"ErgoVal {cvar} = EV_NULLV;")
 
@@ -1294,6 +1318,7 @@ class CGen:
             self.w(f"int {len_name} = stdr_len({it});")
             self.w(f"for (int {idx_name} = 0; {idx_name} < {len_name}; {idx_name}++) {{")
             self.ind += 1
+            self.push_scope()
 
             self.w(f"ErgoVal __e = {get_expr};")
             self.w(f"ergo_move_into(&{cvar}, __e);")
@@ -1303,9 +1328,11 @@ class CGen:
             else:
                 self.gen_stmt(path, s.body, ret_void)
 
+            self.release_scope(self.pop_scope())
             self.ind -= 1
             self.w("}")
 
+            self.release_scope(self.pop_scope())
             self.w(f"ergo_release_val({it});")
             for z in ic:
                 if z != it:
@@ -1313,7 +1340,13 @@ class CGen:
             return
 
         if isinstance(s, Block):
+            self.w("{")
+            self.ind += 1
+            self.push_scope()
             self.gen_block(path, s, ret_void)
+            self.release_scope(self.pop_scope())
+            self.ind -= 1
+            self.w("}")
             return
 
         raise TypeErr(f"{path}: unhandled stmt {type(s).__name__}")

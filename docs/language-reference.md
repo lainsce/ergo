@@ -68,6 +68,7 @@ let, const, fun, entry, bring, if, elif, else, for, match, return, true, false, 
 - `bool` — Boolean value (`true` or `false`)
 - `num` — numeric type (integer or float values)
 - `string` — Unicode string
+- `any` — dynamic type; can hold any value and is assignable to/from any type
 
 ### Numeric Semantics (`num`)
 
@@ -190,6 +191,47 @@ match x: 0 => @"zero", _ => @"other"
 
 ---
 
+## Semantics
+
+### Truthiness
+
+Values used in conditionals (`if`, `for`, `&&`, `||`, `!`) are coerced to boolean:
+
+- `null` is false
+- `bool` is itself
+- `num` is false when zero, true otherwise
+- `string` is false when empty, true otherwise
+- arrays are false when empty, true otherwise
+- objects/functions are always true
+
+### Nullability
+
+- `null` can unify with any type and produces a nullable type.
+- Accessing members, indexing, calling, or using logical ops on a nullable value is a type error.
+- Simple null checks (`x == null` / `x != null`) narrow the type inside an `if`/`else`.
+
+### Short‑Circuit Logic
+
+`&&` and `||` are short‑circuiting:
+
+- `a && b` evaluates `b` only if `a` is truthy.
+- `a || b` evaluates `b` only if `a` is falsy.
+
+### Indexing and Bounds
+
+- Arrays: `arr[i]` returns `null` when `i` is out of bounds.
+- Arrays: `arr[i] = v` ignores writes when `i` is out of bounds.
+- Arrays: `arr.remove(i)` returns `null` when `i` is out of bounds.
+- Strings: `s[i]` returns a one‑character string, or `""` if out of bounds.
+- Tuples: `t[i]` requires `i` to be an integer literal and must be in range.
+
+### Move and Sealed Classes
+
+- A class declared `seal` can be used as a parameter type only with `move(x)` or `null`.
+- `move(x)` requires `x` to be a mutable binding (`let ?x = ...`) and transfers ownership.
+
+---
+
 ## Statements
 
 - Variable declaration: `let x = 1;`
@@ -213,10 +255,16 @@ bring math;
 
 - Standard library modules: `stdr`, `math`, etc.
 - User modules: You can bring another Ergo source file (e.g., `utils.e`) with `bring utils;` (omit the `.e` extension).
+- `bring utils.e;` is also allowed; module names are derived from the file name (no aliasing in v1).
 - Imported modules are **namespaced only**. Use `module.member` to access their members.
 - Access module constants: `math.PI`, `utils.MY_CONST`
 - Access module functions: `math.funcname(args)`, `utils.helper(x)`
-- `stdr` is a special case: its core functions are available unqualified as language keywords *and* via `stdr.*` when brought.
+- `stdr` is a special case: its core functions are available unqualified when brought *and* via `stdr.*`.
+
+Name resolution notes:
+
+- `bring` only introduces a module namespace. It does **not** import members into the local scope.
+- Local bindings can shadow module names. If you write `let math = ...`, you can no longer access `math.*` from the imported module in that scope. Rename the local to use the module.
 
 ---
 
@@ -269,7 +317,7 @@ let x = 5; -- Inline comment
 ## Errors and Diagnostics
 
 - Syntax errors, type errors, and undefined variables/functions are reported at compile time.
-- Error messages include file, line, and column information.
+- Parse errors include file, line, and column. Type errors currently include the file path (line/column tracking for type errors is not yet implemented).
 
 ---
 

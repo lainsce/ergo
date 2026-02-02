@@ -32,6 +32,9 @@ fun is_null(x = any) (( bool )) {
   return x == null
 }
 
+-- Convert a value to a string (compiler intrinsic)
+fun str(x = any) (( string )) { }
+
 -- Internal length primitive (compiler intrinsic)
 fun __len(x = any) (( num )) { }
 

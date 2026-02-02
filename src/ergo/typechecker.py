@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import os
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from .ast import (
     ArrayLit,
@@ -109,7 +109,7 @@ def T_nullable(elem: Ty) -> Ty:
     return Ty("nullable", elem=elem)
 
 
-PRIMS = {"bool", "string", "void", "num"}
+PRIMS = {"bool", "string", "void", "num", "any"}
 
 NUMERIC = {"num"}
 
@@ -236,15 +236,32 @@ def unify(a: Ty, b: Ty, where: str = "", subst: Optional[Dict[str, Ty]] = None) 
         return T_nullable(unify(ua, ub, where, subst))
 
     if a.tag == "gen":
+        if b.tag == "gen" and a.name == b.name:
+            return a
         if a.name in subst:
             return unify(subst[a.name], b, where, subst)
+        if _occurs_in(a.name, b, subst):
+            raise TypeErr(
+                f"recursive type{': ' + where if where else ''}: {a.name} in {b}"
+            )
         subst[a.name] = b
         return b
 
     if b.tag == "gen":
+        if a.tag == "gen" and b.name == a.name:
+            return b
         if b.name in subst:
             return unify(a, subst[b.name], where, subst)
+        if _occurs_in(b.name, a, subst):
+            raise TypeErr(
+                f"recursive type{': ' + where if where else ''}: {b.name} in {a}"
+            )
         subst[b.name] = a
+        return a
+
+    if a.tag == "prim" and a.name == "any":
+        return b
+    if b.tag == "prim" and b.name == "any":
         return a
 
     if a.tag != b.tag:
@@ -297,9 +314,42 @@ def unify(a: Ty, b: Ty, where: str = "", subst: Optional[Dict[str, Ty]] = None) 
     raise TypeErr(f"unsupported unify{': ' + where if where else ''}: {a} vs {b}")
 
 
+def _occurs_in(name: str, t: Ty, subst: Dict[str, Ty]) -> bool:
+    seen: Set[str] = set()
+
+    def walk(x: Ty) -> bool:
+        if x.tag == "gen":
+            if x.name == name:
+                return True
+            if x.name in seen:
+                return False
+            if x.name in subst:
+                seen.add(x.name)
+                return walk(subst[x.name])
+            return False
+        if x.tag == "array" and x.elem:
+            return walk(x.elem)
+        if x.tag == "tuple" and x.items:
+            return any(walk(it) for it in x.items)
+        if x.tag == "fn" and x.params and x.ret:
+            return any(walk(it) for it in x.params) or walk(x.ret)
+        if x.tag == "nullable" and x.elem:
+            return walk(x.elem)
+        return False
+
+    return walk(t)
+
+
 def apply_subst(t: Ty, subst: Dict[str, Ty]) -> Ty:
     if t.tag == "gen" and t.name in subst:
-        return apply_subst(subst[t.name], subst)
+        seen: Set[str] = set()
+        cur = t
+        while cur.tag == "gen" and cur.name in subst:
+            if cur.name in seen:
+                return cur
+            seen.add(cur.name)
+            cur = subst[cur.name]
+        return apply_subst(cur, subst)
     if t.tag == "array" and t.elem:
         return T_array(apply_subst(t.elem, subst))
     if t.tag == "tuple" and t.items:
@@ -313,6 +363,10 @@ def apply_subst(t: Ty, subst: Dict[str, Ty]) -> Ty:
 
 def ensure_assignable(expected: Ty, actual: Ty, where: str = "") -> None:
     if is_null_ty(expected) or is_null_ty(actual):
+        return
+    if expected.tag == "prim" and expected.name == "any":
+        return
+    if actual.tag == "prim" and actual.name == "any":
         return
     if is_nullable_ty(expected) or is_nullable_ty(actual):
         ensure_assignable(strip_nullable(expected), strip_nullable(actual), where)
@@ -688,6 +742,14 @@ def _module_in_scope(name: str, ctx: Ctx, loc: Locals) -> bool:
     return name in ctx.imports
 
 
+def _shadowed_module_name(base: Expr, ctx: Ctx, loc: Locals) -> Optional[str]:
+    if isinstance(base, Ident):
+        name = base.name
+        if loc.lookup(name) and (name == ctx.module_name or name in ctx.imports):
+            return name
+    return None
+
+
 # ----------------------------
 # Expression Typechecking
 # ----------------------------
@@ -738,6 +800,10 @@ def tc_call(
                 else:
                     unify(pt, at, f"arg for {mod}.{name}", subst)
             return apply_subst(sig.ret, subst)
+        if loc.lookup(mod) is None:
+            raise TypeErr(
+                f"{ctx.module_path}: unknown name '{mod}' (module not in scope; did you bring {mod}?)"
+            )
 
     # method call: obj.method(...)
     if isinstance(c.fn, Member):
@@ -826,6 +892,11 @@ def tc_call(
 
             return apply_subst(sig.ret, subst)
 
+        shadowed = _shadowed_module_name(base, ctx, loc)
+        if shadowed:
+            raise TypeErr(
+                f"{ctx.module_path}: '{shadowed}' is a local binding that shadows module '{shadowed}'"
+            )
         raise TypeErr(f"{ctx.module_path}: cannot call member on {base_ty}")
 
     # global function call: f(...)
@@ -1085,6 +1156,11 @@ def tc_expr(
                 f"{ctx.module_path}: unknown member '{e.name}' on '{ci.name}'"
             )
 
+        shadowed = _shadowed_module_name(e.a, ctx, loc)
+        if shadowed:
+            raise TypeErr(
+                f"{ctx.module_path}: '{shadowed}' is a local binding that shadows module '{shadowed}'"
+            )
         raise TypeErr(f"{ctx.module_path}: member access on non-object")
 
     if isinstance(e, Index):

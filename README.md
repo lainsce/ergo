@@ -8,6 +8,8 @@ Ergo is an experimental programming language and this repository contains its re
 - **Parser**: Builds an abstract syntax tree (AST) from tokens.
 - **Type Checker**: Ensures type safety and reports errors.
 - **Code Generator**: Emits C code from Ergo programs.
+- **Modules**: Namespaced `bring` imports with a small standard library.
+- **Docs + Examples**: Language reference, quickstart guide, and sample programs.
 - **Modular Design**: Easy to extend and modify.
 - **GPLv3 Licensed**: Open source and free to use.
 
@@ -18,13 +20,15 @@ Ergo/
 ├── src/
 │   └── ergo/
 │       └── main.py     # Main compiler implementation
-├── tests/              # Unit and integration tests
+├── docs/               # Language reference + quickstart
 ├── examples/           # Example Ergo programs
+├── tests/              # Compiler tests
 ├── build.sh            # Convenience script
+├── ergo_cli.py         # CLI wrapper
+├── meson.build         # Build metadata
 ├── README.md           # This file
 ├── LICENSE             # GPLv3 license
-├── .gitignore          # Git ignore rules
-└── requirements.txt    # Python dependencies
+└── .gitignore          # Git ignore rules
 ```
 
 ## Getting Started
@@ -32,6 +36,7 @@ Ergo/
 ### Prerequisites
 
 - Python 3.8 or newer
+- A C compiler (clang/gcc) for `ergo run`
 
 ### Installation
 
@@ -41,10 +46,7 @@ Ergo/
     cd ergo
     ```
 
-2. Install dependencies:
-    ```
-    pip install -r requirements.txt
-    ```
+2. No external Python dependencies are required for the compiler.
 
 ### Usage
 
@@ -84,6 +86,14 @@ After `pyinstaller`, use the standalone binary:
 
 See `examples/hello.e` for a simple Ergo program.
 
+### Tests
+
+Compile-check all examples:
+
+```
+python3 -m unittest discover tests
+```
+
 ## Contributing
 
 Contributions are welcome! To contribute:
@@ -97,7 +107,7 @@ Contributions are welcome! To contribute:
 
 3. Run the test suite:
     ```
-    python -m unittest discover tests
+    python3 -m unittest discover tests
     ```
 
 4. Commit and push your changes, then open a pull request.

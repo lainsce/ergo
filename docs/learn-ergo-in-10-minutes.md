@@ -96,7 +96,9 @@ let pi = math.PI;
 ```
 
 Imports are **namespaced only**: you must use `module.member` to access them.
+`bring utils.e;` is allowed, but module names come from the file name (no aliasing in v1).
 `stdr` is a special case — its core functions are available unqualified when brought.
+Local bindings can shadow module names, so avoid `let math = ...` if you need `math.*`.
 
 ---
 

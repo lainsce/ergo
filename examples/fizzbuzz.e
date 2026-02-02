@@ -5,10 +5,10 @@ bring stdr
 fun fizzbuzz(n = num) (( -- )) {
     for (let ?i = 1; i <= n; i = i + 1) {
         let ?flag = false
-        if (i % 3) == 0 {
+        if i % 3 == 0 {
             write(@"Fizz")
             flag = true
-        } elif (i % 5) == 0 {
+        } elif i % 5 == 0 {
             write(@"Buzz")
             flag = true
         } elif !flag {

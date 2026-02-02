@@ -16,3 +16,10 @@ __pycache__/
 
 # Folders
 .vscode/
+build/
+dist/
+
+# Outputs of ergo compilation
+./run
+run
+run.exe
