@@ -1,0 +1,38 @@
+bring stdr
+
+-- Ergo Example: Array Operations
+
+entry () (( -- )) {
+    write(@"-- Array Operations Example --")
+
+    -- Create an array of strings
+    let ?arr = [@"apple", @"banana", @"cherry"]
+    writef(@"Initial array: {}\n", arr)
+
+    -- Get array length
+    let len = len(arr)
+    writef(@"Length: {}\n", len)
+
+    -- Access elements
+    writef(@"First element: {}\n", arr[0])
+    writef(@"Second element: {}\n", arr[1])
+
+    -- Modify elements
+    arr[1] = @"blueberry"
+    writef(@"Modified array: {}\n", arr)
+
+    -- Add an element
+    arr.add(@"date")
+    writef(@"After adding: {}\n", arr)
+
+    -- Remove an element
+    let removed = arr.remove(0)
+    writef(@"Removed: {}\n", removed)
+    writef(@"After removal: {}\n", arr)
+
+    -- Iterate over array
+    write(@"Iterating over array:")
+    for (let ?i = 0; i < len(arr); i = i + 1) {
+        writef(@"  arr[{}] = {}\n", i, arr[i])
+    }
+}

@@ -1,0 +1,39 @@
+bring stdr
+
+-- Ergo Example: Short-Circuit Logic
+
+fun short_circuit_demo () (( -- )) {
+    write(@"-- short_circuit_demo --")
+
+    let lhs = false
+    let ?rhs = false
+
+    -- OR short-circuit: rhs should be assigned only if lhs is false
+    let result_or = lhs || (rhs = true)
+    writef(@"result_or={} rhs_after_or={}\n", result_or, rhs)
+
+    let lhs_two = true
+    rhs = false
+
+    -- OR short-circuit: rhs should NOT be assigned because lhs_two is true
+    let result_or_two = lhs_two || (rhs = true)
+    writef(@"result_or_two={} rhs_after_or_two={}\n", result_or_two, rhs)
+
+    let a = false
+    let ?b = true
+
+    -- AND short-circuit: b should NOT be assigned because a is false
+    let result_and = a && (b = false)
+    writef(@"result_and={} b_after_and={}\n", result_and, b)
+
+    let a_two = true
+    b = true
+
+    -- AND short-circuit: b should be assigned because a_two is true
+    let result_and_two = a_two && (b = false)
+    writef(@"result_and_two={} b_after_and_two={}\n", result_and_two, b)
+}
+
+entry () (( -- )) {
+    short_circuit_demo()
+}

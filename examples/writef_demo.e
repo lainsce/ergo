@@ -1,0 +1,17 @@
+bring stdr
+
+-- Example: Formatted Output with writef
+
+fun writef_demo () (( -- )) {
+    write(@"-- writef_demo --\n")
+    let name = @"Ergo"
+    let count = 3
+    writef(@"Hello, {}\n", name)
+    writef(@"{} can count: {}, {}, {}\n", name, 1, 2, 3)
+    writef(@"{} repeated: {} {} {}\n", name, name, name, name)
+    writef(@"Mixing types: {} {} times\n", name, count)
+}
+
+entry () (( -- )) {
+    writef_demo()
+}

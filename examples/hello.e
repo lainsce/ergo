@@ -1,0 +1,7 @@
+-- Ergo Example: Hello World
+
+bring stdr
+
+entry () (( -- )) {
+    write(@"Hello, Ergo World!\n")
+}

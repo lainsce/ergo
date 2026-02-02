@@ -1,0 +1,42 @@
+bring stdr
+
+-- Ergo Example: String Features
+
+fun string_features () (( -- )) {
+    write(@"-- string_features --\n")
+
+    -- Simple string
+    let greeting = @"Hello, Ergo!\n"
+    write(greeting)
+
+    -- String interpolation
+    let name = @"World"
+    write(@"Hello, $name!\n")
+
+    -- Unicode string
+    let emoji = @"Smile: 😊\n"
+    write(emoji)
+
+    -- Escaped characters
+    let escaped = @"Line1\nLine2\tTabbed\n"
+    write(escaped)
+
+    -- Interpolation with expressions
+    let a = 5
+    let b = 7
+    writef(@"Sum: {}\n", a + b)
+
+    -- Mixing interpolation and raw text
+    let lang = @"Ergo"
+    let msg = @"Welcome to $lang programming!\n"
+    write(msg)
+
+    -- String length (Unicode-aware)
+    let word = @"héllo"
+    let chars = len(word)
+    writef(@"word={} chars={}\n", word, chars)
+}
+
+entry () (( -- )) {
+    string_features()
+}
