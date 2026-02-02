@@ -1,6 +1,6 @@
 # Ergo Compiler
 
-Ergo is an experimental programming language and this repository contains its reference compiler, written in Python. The compiler performs lexing, parsing, type checking, and code generation for the Ergo language.
+Ergo is an experimental programming language and this repository contains its reference compiler, written in C. The compiler performs lexing, parsing, type checking, and code generation for the Ergo language.
 
 ## Features
 
@@ -18,13 +18,9 @@ Ergo is an experimental programming language and this repository contains its re
 ```
 Ergo/
 ├── src/
-│   └── ergo/
-│       └── main.py     # Main compiler implementation
+│   └── ergo/           # Main compiler implementation (C)
 ├── docs/               # Language reference + quickstart
 ├── examples/           # Example Ergo programs
-├── tests/              # Compiler tests
-├── build.sh            # Convenience script
-├── ergo_cli.py         # CLI wrapper
 ├── meson.build         # Build metadata
 ├── README.md           # This file
 ├── LICENSE             # GPLv3 license
@@ -35,8 +31,8 @@ Ergo/
 
 ### Prerequisites
 
-- Python 3.8 or newer
-- A C compiler (clang/gcc) for `ergo run`
+- A C compiler (clang/gcc)
+- Meson + Ninja (or another Meson backend)
 
 ### Installation
 
@@ -46,53 +42,39 @@ Ergo/
     cd ergo
     ```
 
-2. No external Python dependencies are required for the compiler.
-
 ### Usage
 
-To compile an Ergo source file:
+Build the compiler:
 
 ```
-PYTHONPATH=src python -m ergo.main path/to/source.e
+meson setup build
+meson compile -C build
 ```
 
-Emit C:
+Compile an Ergo source file:
 
 ```
-PYTHONPATH=src python -m ergo.main path/to/source.e --emit-c out.c
+./build/ergo path/to/source.e
 ```
 
-Compile to native and run (produces `./run` with `-O3`):
+Compile to native and run:
 
 ```
-PYTHONPATH=src python -m ergo.main run path/to/source.e
+./build/ergo run path/to/source.e
 ```
 
-Using the build script:
+Environment variables:
 
 ```
-./build.sh run path/to/source.e
-./build.sh pyinstaller
-```
-
-After `pyinstaller`, use the standalone binary:
-
-```
-./dist/ergo run path/to/source.e
-./dist/ergo path/to/source.e --emit-c out.c
+ERGO_STDLIB=src/ergo/stdlib
+ERGO_RUNTIME=src/ergo/runtime.inc
+CC=cc
+ERGO_CC_FLAGS="-O3 -std=c11 -pipe"
 ```
 
 ### Example
 
 See `examples/hello.e` for a simple Ergo program.
-
-### Tests
-
-Compile-check all examples:
-
-```
-python3 -m unittest discover tests
-```
 
 ## Contributing
 
@@ -105,10 +87,7 @@ Contributions are welcome! To contribute:
 
 2. Make your changes and add tests if applicable.
 
-3. Run the test suite:
-    ```
-    python3 -m unittest discover tests
-    ```
+3. Run the test suite (when available).
 
 4. Commit and push your changes, then open a pull request.
 

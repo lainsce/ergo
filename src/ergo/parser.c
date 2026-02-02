@@ -1,0 +1,1159 @@
+#include "parser.h"
+
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "str.h"
+
+typedef struct {
+    Tok *toks;
+    size_t len;
+    size_t i;
+    const char *path;
+    Arena *arena;
+    Diag *err;
+    bool ok;
+} Parser;
+
+typedef struct {
+    void **data;
+    size_t len;
+    size_t cap;
+} PtrVec;
+
+static void parser_set_error(Parser *p, Tok *t, const char *fmt, ...) {
+    if (!p || !p->ok) {
+        return;
+    }
+    p->ok = false;
+    if (!p->err) {
+        return;
+    }
+    char buf[256];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+    p->err->path = p->path;
+    p->err->line = t ? t->line : 0;
+    p->err->col = t ? t->col : 0;
+    size_t len = strlen(buf);
+    char *msg = (char *)arena_alloc(p->arena, len + 1);
+    if (!msg) {
+        p->err->message = "parse error";
+        return;
+    }
+    memcpy(msg, buf, len + 1);
+    p->err->message = msg;
+}
+
+static void parser_set_oom(Parser *p) {
+    if (!p || !p->ok) {
+        return;
+    }
+    p->ok = false;
+    if (p->err) {
+        p->err->path = p->path;
+        p->err->line = 0;
+        p->err->col = 0;
+        p->err->message = "out of memory";
+    }
+}
+
+static bool ptrvec_push(Parser *p, PtrVec *v, void *item) {
+    if (v->len + 1 > v->cap) {
+        size_t next = v->cap ? v->cap * 2 : 8;
+        while (next < v->len + 1) {
+            next *= 2;
+        }
+        void **data = (void **)realloc(v->data, next * sizeof(void *));
+        if (!data) {
+            parser_set_oom(p);
+            return false;
+        }
+        v->data = data;
+        v->cap = next;
+    }
+    v->data[v->len++] = item;
+    return true;
+}
+
+static void **ptrvec_finalize(Parser *p, PtrVec *v) {
+    if (v->len == 0) {
+        free(v->data);
+        v->data = NULL;
+        v->cap = 0;
+        return NULL;
+    }
+    void **arr = (void **)arena_alloc(p->arena, sizeof(void *) * v->len);
+    if (!arr) {
+        parser_set_oom(p);
+        free(v->data);
+        v->data = NULL;
+        v->len = 0;
+        v->cap = 0;
+        return NULL;
+    }
+    memcpy(arr, v->data, sizeof(void *) * v->len);
+    free(v->data);
+    v->data = NULL;
+    v->cap = 0;
+    return arr;
+}
+
+static Tok eof_tok = {0};
+
+static Tok *peek(Parser *p, size_t k) {
+    if (p->i + k < p->len) {
+        return &p->toks[p->i + k];
+    }
+    eof_tok.kind = TOK_EOF;
+    eof_tok.text.data = "";
+    eof_tok.text.len = 0;
+    eof_tok.line = -1;
+    eof_tok.col = -1;
+    return &eof_tok;
+}
+
+static bool at(Parser *p, TokKind kind) {
+    return peek(p, 0)->kind == kind;
+}
+
+static Tok *eat(Parser *p, TokKind kind) {
+    Tok *t = peek(p, 0);
+    if (t->kind != kind) {
+        parser_set_error(
+            p,
+            t,
+            "expected %s, got %s",
+            tok_kind_name(kind),
+            tok_kind_name(t->kind)
+        );
+        return t;
+    }
+    p->i += 1;
+    return t;
+}
+
+static Tok *maybe(Parser *p, TokKind kind) {
+    if (at(p, kind)) {
+        return eat(p, kind);
+    }
+    return NULL;
+}
+
+static void skip_semi(Parser *p) {
+    while (at(p, TOK_SEMI)) {
+        eat(p, TOK_SEMI);
+    }
+}
+
+static Str str_concat(Parser *p, Str a, const char *sep, Str b) {
+    size_t sep_len = sep ? strlen(sep) : 0;
+    size_t len = a.len + sep_len + b.len;
+    char *buf = (char *)arena_alloc(p->arena, len + 1);
+    if (!buf) {
+        parser_set_oom(p);
+        Str out = {"", 0};
+        return out;
+    }
+    size_t off = 0;
+    if (a.len) {
+        memcpy(buf + off, a.data, a.len);
+        off += a.len;
+    }
+    if (sep_len) {
+        memcpy(buf + off, sep, sep_len);
+        off += sep_len;
+    }
+    if (b.len) {
+        memcpy(buf + off, b.data, b.len);
+        off += b.len;
+    }
+    buf[len] = '\0';
+    Str out;
+    out.data = buf;
+    out.len = len;
+    return out;
+}
+
+static TypeRef *parse_type(Parser *p);
+static Expr *parse_expr(Parser *p, int min_prec);
+static Stmt *parse_stmt(Parser *p);
+static Stmt *parse_block(Parser *p);
+static Expr *parse_primary(Parser *p);
+static Expr *parse_unary(Parser *p);
+static Expr *parse_postfix(Parser *p);
+static Expr **parse_call_args(Parser *p, size_t *out_len);
+static Expr *parse_match(Parser *p);
+static Expr *parse_new(Parser *p);
+static Expr *parse_lambda(Parser *p);
+static Expr *parse_array_lit(Parser *p);
+static Pat *parse_pattern(Parser *p);
+static MatchArm *parse_match_arm(Parser *p);
+static RetSpec parse_ret_spec(Parser *p);
+static FunDecl *parse_fun_decl(Parser *p);
+static Decl *parse_fun(Parser *p);
+static Decl *parse_entry(Parser *p);
+static Decl *parse_const_decl(Parser *p);
+static Decl *parse_class(Parser *p);
+static Import *parse_import(Parser *p);
+
+static TypeRef *new_type(Parser *p, TypeKind kind, Tok *t) {
+    TypeRef *ty = (TypeRef *)ast_alloc(p->arena, sizeof(TypeRef));
+    if (!ty) {
+        parser_set_oom(p);
+        return NULL;
+    }
+    ty->kind = kind;
+    ty->line = t ? t->line : 0;
+    ty->col = t ? t->col : 0;
+    return ty;
+}
+
+static Expr *new_expr(Parser *p, ExprKind kind, Tok *t) {
+    Expr *e = (Expr *)ast_alloc(p->arena, sizeof(Expr));
+    if (!e) {
+        parser_set_oom(p);
+        return NULL;
+    }
+    e->kind = kind;
+    e->line = t ? t->line : 0;
+    e->col = t ? t->col : 0;
+    return e;
+}
+
+static Stmt *new_stmt(Parser *p, StmtKind kind, Tok *t) {
+    Stmt *s = (Stmt *)ast_alloc(p->arena, sizeof(Stmt));
+    if (!s) {
+        parser_set_oom(p);
+        return NULL;
+    }
+    s->kind = kind;
+    s->line = t ? t->line : 0;
+    s->col = t ? t->col : 0;
+    return s;
+}
+
+static Decl *new_decl(Parser *p, DeclKind kind, Tok *t) {
+    Decl *d = (Decl *)ast_alloc(p->arena, sizeof(Decl));
+    if (!d) {
+        parser_set_oom(p);
+        return NULL;
+    }
+    d->kind = kind;
+    d->line = t ? t->line : 0;
+    d->col = t ? t->col : 0;
+    return d;
+}
+
+static Pat *new_pat(Parser *p, PatKind kind, Tok *t) {
+    Pat *pat = (Pat *)ast_alloc(p->arena, sizeof(Pat));
+    if (!pat) {
+        parser_set_oom(p);
+        return NULL;
+    }
+    pat->kind = kind;
+    pat->line = t ? t->line : 0;
+    pat->col = t ? t->col : 0;
+    return pat;
+}
+
+static int prec_of(TokKind kind) {
+    switch (kind) {
+        case TOK_EQ: return 1;
+        case TOK_OROR: return 2;
+        case TOK_ANDAND: return 3;
+        case TOK_EQEQ:
+        case TOK_NEQ: return 4;
+        case TOK_LT:
+        case TOK_LTE:
+        case TOK_GT:
+        case TOK_GTE: return 5;
+        case TOK_PLUS:
+        case TOK_MINUS: return 6;
+        case TOK_STAR:
+        case TOK_SLASH:
+        case TOK_PERCENT: return 7;
+        default: return -1;
+    }
+}
+
+static Import *parse_import(Parser *p) {
+    eat(p, TOK_KW_bring);
+    if (!p->ok) return NULL;
+    Tok *t = eat(p, TOK_IDENT);
+    if (!p->ok) return NULL;
+    Str name = t->val.ident;
+    if (maybe(p, TOK_DOT)) {
+        Tok *ext = eat(p, TOK_IDENT);
+        if (!p->ok) return NULL;
+        name = str_concat(p, name, ".", ext->val.ident);
+    }
+    Import *imp = (Import *)ast_alloc(p->arena, sizeof(Import));
+    if (!imp) {
+        parser_set_oom(p);
+        return NULL;
+    }
+    imp->name = name;
+    return imp;
+}
+
+static RetSpec parse_ret_spec(Parser *p) {
+    RetSpec spec;
+    memset(&spec, 0, sizeof(spec));
+    eat(p, TOK_RET_L);
+    if (!p->ok) return spec;
+    if (at(p, TOK_RET_VOID)) {
+        eat(p, TOK_RET_VOID);
+        eat(p, TOK_RET_R);
+        spec.is_void = true;
+        spec.types = NULL;
+        spec.types_len = 0;
+        return spec;
+    }
+    PtrVec types = {0};
+    TypeRef *ty = parse_type(p);
+    if (!p->ok) return spec;
+    ptrvec_push(p, &types, ty);
+    while (at(p, TOK_SEMI) || at(p, TOK_COMMA)) {
+        eat(p, peek(p, 0)->kind);
+        TypeRef *next = parse_type(p);
+        if (!p->ok) return spec;
+        ptrvec_push(p, &types, next);
+    }
+    eat(p, TOK_RET_R);
+    spec.is_void = false;
+    spec.types_len = types.len;
+    spec.types = (TypeRef **)ptrvec_finalize(p, &types);
+    return spec;
+}
+
+static TypeRef *parse_type(Parser *p) {
+    Tok *t = peek(p, 0);
+    if (at(p, TOK_LBRACK)) {
+        eat(p, TOK_LBRACK);
+        TypeRef *elem = parse_type(p);
+        eat(p, TOK_RBRACK);
+        TypeRef *ty = new_type(p, TYPE_ARRAY, t);
+        if (!ty) return NULL;
+        ty->as.elem = elem;
+        return ty;
+    }
+    Tok *name_tok = eat(p, TOK_IDENT);
+    if (!p->ok) return NULL;
+    Str name = name_tok->val.ident;
+    if (maybe(p, TOK_DOT)) {
+        Tok *ext = eat(p, TOK_IDENT);
+        if (!p->ok) return NULL;
+        name = str_concat(p, name, ".", ext->val.ident);
+    }
+    TypeRef *ty = new_type(p, TYPE_NAME, name_tok);
+    if (!ty) return NULL;
+    ty->as.name = name;
+    return ty;
+}
+
+static Param **parse_params(Parser *p, size_t *out_len) {
+    PtrVec params = {0};
+    if (at(p, TOK_RPAR)) {
+        if (out_len) *out_len = 0;
+        return NULL;
+    }
+    while (true) {
+        bool is_mut = maybe(p, TOK_QMARK) != NULL;
+        Tok *name_tok = eat(p, TOK_IDENT);
+        if (!p->ok) return NULL;
+        Param *param = (Param *)ast_alloc(p->arena, sizeof(Param));
+        if (!param) {
+            parser_set_oom(p);
+            return NULL;
+        }
+        param->name = name_tok->val.ident;
+        param->is_mut = is_mut;
+        param->is_this = false;
+        param->typ = NULL;
+        if (str_eq_c(param->name, "this") && !at(p, TOK_EQ)) {
+            param->is_this = true;
+        } else {
+            eat(p, TOK_EQ);
+            param->typ = parse_type(p);
+        }
+        if (!p->ok) return NULL;
+        ptrvec_push(p, &params, param);
+        if (!maybe(p, TOK_COMMA)) {
+            break;
+        }
+    }
+    if (out_len) *out_len = params.len;
+    return (Param **)ptrvec_finalize(p, &params);
+}
+
+static FunDecl *parse_fun_decl(Parser *p) {
+    Tok *kw = eat(p, TOK_KW_fun);
+    if (!p->ok) return NULL;
+    Tok *name_tok = eat(p, TOK_IDENT);
+    if (!p->ok) return NULL;
+    eat(p, TOK_LPAR);
+    size_t params_len = 0;
+    Param **params = parse_params(p, &params_len);
+    eat(p, TOK_RPAR);
+    RetSpec ret = parse_ret_spec(p);
+    Stmt *body = parse_block(p);
+    FunDecl *fun = (FunDecl *)ast_alloc(p->arena, sizeof(FunDecl));
+    if (!fun) {
+        parser_set_oom(p);
+        return NULL;
+    }
+    fun->name = name_tok->val.ident;
+    fun->params = params;
+    fun->params_len = params_len;
+    fun->ret = ret;
+    fun->body = body;
+    (void)kw;
+    return fun;
+}
+
+static Decl *parse_fun(Parser *p) {
+    Tok *kw = peek(p, 0);
+    FunDecl *fun = parse_fun_decl(p);
+    if (!p->ok) return NULL;
+    Decl *decl = new_decl(p, DECL_FUN, kw);
+    if (!decl) return NULL;
+    decl->as.fun = *fun;
+    return decl;
+}
+
+static Decl *parse_entry(Parser *p) {
+    Tok *kw = eat(p, TOK_KW_entry);
+    if (!p->ok) return NULL;
+    eat(p, TOK_LPAR);
+    eat(p, TOK_RPAR);
+    RetSpec ret = parse_ret_spec(p);
+    Stmt *body = parse_block(p);
+    Decl *decl = new_decl(p, DECL_ENTRY, kw);
+    if (!decl) return NULL;
+    decl->as.entry.ret = ret;
+    decl->as.entry.body = body;
+    return decl;
+}
+
+static Stmt *parse_block(Parser *p) {
+    Tok *t = eat(p, TOK_LBRACE);
+    if (!p->ok) return NULL;
+    PtrVec stmts = {0};
+    skip_semi(p);
+    while (!at(p, TOK_RBRACE) && p->ok) {
+        Stmt *st = parse_stmt(p);
+        if (!p->ok) return NULL;
+        ptrvec_push(p, &stmts, st);
+        skip_semi(p);
+    }
+    eat(p, TOK_RBRACE);
+    Stmt *block = new_stmt(p, STMT_BLOCK, t);
+    if (!block) return NULL;
+    block->as.block_s.stmts = (Stmt **)ptrvec_finalize(p, &stmts);
+    block->as.block_s.stmts_len = stmts.len;
+    return block;
+}
+
+static Stmt *parse_stmt(Parser *p) {
+    Tok *t = peek(p, 0);
+    if (at(p, TOK_KW_let)) {
+        eat(p, TOK_KW_let);
+        bool is_mut = maybe(p, TOK_QMARK) != NULL;
+        Tok *name_tok = eat(p, TOK_IDENT);
+        eat(p, TOK_EQ);
+        Expr *expr = parse_expr(p, 0);
+        Stmt *st = new_stmt(p, STMT_LET, t);
+        if (!st) return NULL;
+        st->as.let_s.name = name_tok->val.ident;
+        st->as.let_s.is_mut = is_mut;
+        st->as.let_s.expr = expr;
+        return st;
+    }
+    if (at(p, TOK_KW_const)) {
+        eat(p, TOK_KW_const);
+        Tok *name_tok = eat(p, TOK_IDENT);
+        eat(p, TOK_EQ);
+        Expr *expr = parse_expr(p, 0);
+        Stmt *st = new_stmt(p, STMT_CONST, t);
+        if (!st) return NULL;
+        st->as.const_s.name = name_tok->val.ident;
+        st->as.const_s.expr = expr;
+        return st;
+    }
+    if (at(p, TOK_KW_if)) {
+        eat(p, TOK_KW_if);
+        PtrVec arms = {0};
+        Expr *cond = NULL;
+        if (at(p, TOK_LPAR)) {
+            eat(p, TOK_LPAR);
+            cond = parse_expr(p, 0);
+            eat(p, TOK_RPAR);
+        } else {
+            cond = parse_expr(p, 0);
+        }
+        Stmt *body = NULL;
+        if (at(p, TOK_COLON)) {
+            eat(p, TOK_COLON);
+            body = parse_stmt(p);
+        } else {
+            body = parse_block(p);
+        }
+        IfArm *arm0 = (IfArm *)ast_alloc(p->arena, sizeof(IfArm));
+        if (!arm0) {
+            parser_set_oom(p);
+            return NULL;
+        }
+        arm0->cond = cond;
+        arm0->body = body;
+        ptrvec_push(p, &arms, arm0);
+        skip_semi(p);
+        while (at(p, TOK_KW_elif)) {
+            eat(p, TOK_KW_elif);
+            Expr *c2 = NULL;
+            if (at(p, TOK_LPAR)) {
+                eat(p, TOK_LPAR);
+                c2 = parse_expr(p, 0);
+                eat(p, TOK_RPAR);
+            } else {
+                c2 = parse_expr(p, 0);
+            }
+            Stmt *b2 = NULL;
+            if (at(p, TOK_COLON)) {
+                eat(p, TOK_COLON);
+                b2 = parse_stmt(p);
+            } else {
+                b2 = parse_block(p);
+            }
+            IfArm *arm = (IfArm *)ast_alloc(p->arena, sizeof(IfArm));
+            if (!arm) {
+                parser_set_oom(p);
+                return NULL;
+            }
+            arm->cond = c2;
+            arm->body = b2;
+            ptrvec_push(p, &arms, arm);
+            skip_semi(p);
+        }
+        if (at(p, TOK_KW_else)) {
+            eat(p, TOK_KW_else);
+            Stmt *b3 = NULL;
+            if (at(p, TOK_COLON)) {
+                eat(p, TOK_COLON);
+                b3 = parse_stmt(p);
+            } else {
+                b3 = parse_block(p);
+            }
+            IfArm *arm = (IfArm *)ast_alloc(p->arena, sizeof(IfArm));
+            if (!arm) {
+                parser_set_oom(p);
+                return NULL;
+            }
+            arm->cond = NULL;
+            arm->body = b3;
+            ptrvec_push(p, &arms, arm);
+            skip_semi(p);
+        }
+        Stmt *st = new_stmt(p, STMT_IF, t);
+        if (!st) return NULL;
+        st->as.if_s.arms = (IfArm **)ptrvec_finalize(p, &arms);
+        st->as.if_s.arms_len = arms.len;
+        return st;
+    }
+    if (at(p, TOK_KW_for)) {
+        eat(p, TOK_KW_for);
+        eat(p, TOK_LPAR);
+        if (at(p, TOK_IDENT) && peek(p, 1)->kind == TOK_KW_in) {
+            Tok *name_tok = eat(p, TOK_IDENT);
+            eat(p, TOK_KW_in);
+            Expr *expr = parse_expr(p, 0);
+            eat(p, TOK_RPAR);
+            Stmt *body = NULL;
+            if (at(p, TOK_COLON)) {
+                eat(p, TOK_COLON);
+                body = parse_stmt(p);
+            } else {
+                body = parse_block(p);
+            }
+            Stmt *st = new_stmt(p, STMT_FOREACH, t);
+            if (!st) return NULL;
+            st->as.foreach_s.name = name_tok->val.ident;
+            st->as.foreach_s.expr = expr;
+            st->as.foreach_s.body = body;
+            return st;
+        }
+        Stmt *init = NULL;
+        if (!at(p, TOK_SEMI)) {
+            if (at(p, TOK_KW_let)) {
+                init = parse_stmt(p);
+            } else if (at(p, TOK_KW_const)) {
+                init = parse_stmt(p);
+            } else {
+                Expr *init_expr = parse_expr(p, 0);
+                Stmt *es = new_stmt(p, STMT_EXPR, t);
+                if (!es) return NULL;
+                es->as.expr_s.expr = init_expr;
+                init = es;
+            }
+        }
+        eat(p, TOK_SEMI);
+        Expr *cond = NULL;
+        if (!at(p, TOK_SEMI)) {
+            cond = parse_expr(p, 0);
+        }
+        eat(p, TOK_SEMI);
+        Expr *step = NULL;
+        if (!at(p, TOK_RPAR)) {
+            step = parse_expr(p, 0);
+        }
+        eat(p, TOK_RPAR);
+        Stmt *body = NULL;
+        if (at(p, TOK_COLON)) {
+            eat(p, TOK_COLON);
+            body = parse_stmt(p);
+        } else {
+            body = parse_block(p);
+        }
+        Stmt *st = new_stmt(p, STMT_FOR, t);
+        if (!st) return NULL;
+        st->as.for_s.init = init;
+        st->as.for_s.cond = cond;
+        st->as.for_s.step = step;
+        st->as.for_s.body = body;
+        return st;
+    }
+    if (at(p, TOK_KW_return)) {
+        eat(p, TOK_KW_return);
+        if (at(p, TOK_SEMI) || at(p, TOK_RBRACE)) {
+            Stmt *st = new_stmt(p, STMT_RETURN, t);
+            if (!st) return NULL;
+            st->as.ret_s.expr = NULL;
+            return st;
+        }
+        Expr *expr = parse_expr(p, 0);
+        Stmt *st = new_stmt(p, STMT_RETURN, t);
+        if (!st) return NULL;
+        st->as.ret_s.expr = expr;
+        return st;
+    }
+    if (at(p, TOK_LBRACE)) {
+        return parse_block(p);
+    }
+    Expr *expr = parse_expr(p, 0);
+    Stmt *st = new_stmt(p, STMT_EXPR, t);
+    if (!st) return NULL;
+    st->as.expr_s.expr = expr;
+    return st;
+}
+
+static Decl *parse_const_decl(Parser *p) {
+    Tok *kw = eat(p, TOK_KW_const);
+    if (!p->ok) return NULL;
+    Tok *name_tok = eat(p, TOK_IDENT);
+    eat(p, TOK_EQ);
+    Expr *expr = parse_expr(p, 0);
+    Decl *decl = new_decl(p, DECL_CONST, kw);
+    if (!decl) return NULL;
+    decl->as.const_decl.name = name_tok->val.ident;
+    decl->as.const_decl.expr = expr;
+    return decl;
+}
+
+static Decl *parse_class(Parser *p) {
+    Tok *t = peek(p, 0);
+    Str vis = str_from_c("priv");
+    bool is_seal = false;
+    if (at(p, TOK_KW_pub)) {
+        eat(p, TOK_KW_pub);
+        vis = str_from_c("pub");
+    } else if (at(p, TOK_KW_lock)) {
+        eat(p, TOK_KW_lock);
+        vis = str_from_c("lock");
+    }
+    if (at(p, TOK_KW_seal)) {
+        eat(p, TOK_KW_seal);
+        is_seal = true;
+    }
+    eat(p, TOK_KW_class);
+    Tok *name_tok = eat(p, TOK_IDENT);
+    eat(p, TOK_LBRACE);
+
+    PtrVec fields = {0};
+    PtrVec methods = {0};
+    skip_semi(p);
+    while (!at(p, TOK_RBRACE) && p->ok) {
+        if (at(p, TOK_KW_pub) && peek(p, 1)->kind == TOK_KW_fun) {
+            eat(p, TOK_KW_pub);
+            FunDecl *fun = parse_fun_decl(p);
+            if (!p->ok) return NULL;
+            ptrvec_push(p, &methods, fun);
+        } else if (at(p, TOK_KW_fun)) {
+            FunDecl *fun = parse_fun_decl(p);
+            if (!p->ok) return NULL;
+            ptrvec_push(p, &methods, fun);
+        } else {
+            Tok *fname = eat(p, TOK_IDENT);
+            eat(p, TOK_EQ);
+            TypeRef *ftyp = parse_type(p);
+            FieldDecl *field = (FieldDecl *)ast_alloc(p->arena, sizeof(FieldDecl));
+            if (!field) {
+                parser_set_oom(p);
+                return NULL;
+            }
+            field->name = fname->val.ident;
+            field->typ = ftyp;
+            ptrvec_push(p, &fields, field);
+        }
+        skip_semi(p);
+    }
+    eat(p, TOK_RBRACE);
+
+    Decl *decl = new_decl(p, DECL_CLASS, t);
+    if (!decl) return NULL;
+    decl->as.class_decl.name = name_tok->val.ident;
+    decl->as.class_decl.vis = vis;
+    decl->as.class_decl.is_seal = is_seal;
+    decl->as.class_decl.fields = (FieldDecl **)ptrvec_finalize(p, &fields);
+    decl->as.class_decl.fields_len = fields.len;
+    decl->as.class_decl.methods = (FunDecl **)ptrvec_finalize(p, &methods);
+    decl->as.class_decl.methods_len = methods.len;
+    return decl;
+}
+
+static Expr *parse_expr(Parser *p, int min_prec) {
+    Expr *x = parse_unary(p);
+    while (p->ok) {
+        Tok *t = peek(p, 0);
+        int prec = prec_of(t->kind);
+        if (prec < min_prec) {
+            break;
+        }
+        TokKind op = t->kind;
+        eat(p, op);
+        int next_min = prec + (op == TOK_EQ ? 0 : 1);
+        Expr *rhs = parse_expr(p, next_min);
+        if (!p->ok) return NULL;
+        if (op == TOK_EQ) {
+            Expr *assign = new_expr(p, EXPR_ASSIGN, t);
+            if (!assign) return NULL;
+            assign->as.assign.target = x;
+            assign->as.assign.value = rhs;
+            x = assign;
+        } else {
+            Expr *bin = new_expr(p, EXPR_BINARY, t);
+            if (!bin) return NULL;
+            bin->as.binary.op = op;
+            bin->as.binary.a = x;
+            bin->as.binary.b = rhs;
+            x = bin;
+        }
+    }
+    return x;
+}
+
+static Expr *parse_unary(Parser *p) {
+    if (at(p, TOK_HASH) || at(p, TOK_BANG) || at(p, TOK_MINUS)) {
+        Tok *t = peek(p, 0);
+        TokKind op = t->kind;
+        eat(p, op);
+        Expr *x = parse_unary(p);
+        Expr *u = new_expr(p, EXPR_UNARY, t);
+        if (!u) return NULL;
+        u->as.unary.op = op;
+        u->as.unary.x = x;
+        return u;
+    }
+    return parse_postfix(p);
+}
+
+static Expr *parse_postfix(Parser *p) {
+    Expr *x = parse_primary(p);
+    while (p->ok) {
+        if (at(p, TOK_LPAR)) {
+            size_t argc = 0;
+            Expr **args = parse_call_args(p, &argc);
+            Expr *call = new_expr(p, EXPR_CALL, peek(p, 0));
+            if (!call) return NULL;
+            call->as.call.fn = x;
+            call->as.call.args = args;
+            call->as.call.args_len = argc;
+            x = call;
+            continue;
+        }
+        if (at(p, TOK_LBRACK)) {
+            Tok *t = eat(p, TOK_LBRACK);
+            Expr *idx = parse_expr(p, 0);
+            eat(p, TOK_RBRACK);
+            Expr *ix = new_expr(p, EXPR_INDEX, t);
+            if (!ix) return NULL;
+            ix->as.index.a = x;
+            ix->as.index.i = idx;
+            x = ix;
+            continue;
+        }
+        if (at(p, TOK_DOT)) {
+            Tok *t = eat(p, TOK_DOT);
+            Tok *name_tok = eat(p, TOK_IDENT);
+            Expr *mem = new_expr(p, EXPR_MEMBER, t);
+            if (!mem) return NULL;
+            mem->as.member.a = x;
+            mem->as.member.name = name_tok->val.ident;
+            x = mem;
+            continue;
+        }
+        break;
+    }
+    return x;
+}
+
+static Expr **parse_call_args(Parser *p, size_t *out_len) {
+    eat(p, TOK_LPAR);
+    PtrVec args = {0};
+    if (!at(p, TOK_RPAR)) {
+        Expr *first = parse_expr(p, 0);
+        if (!p->ok) return NULL;
+        ptrvec_push(p, &args, first);
+        while (maybe(p, TOK_COMMA)) {
+            Expr *arg = parse_expr(p, 0);
+            if (!p->ok) return NULL;
+            ptrvec_push(p, &args, arg);
+        }
+    }
+    eat(p, TOK_RPAR);
+    if (out_len) *out_len = args.len;
+    return (Expr **)ptrvec_finalize(p, &args);
+}
+
+static Expr *parse_primary(Parser *p) {
+    Tok *t = peek(p, 0);
+    if (t->kind == TOK_INT) {
+        eat(p, TOK_INT);
+        Expr *e = new_expr(p, EXPR_INT, t);
+        if (!e) return NULL;
+        e->as.int_lit.v = t->val.i;
+        return e;
+    }
+    if (t->kind == TOK_FLOAT) {
+        eat(p, TOK_FLOAT);
+        Expr *e = new_expr(p, EXPR_FLOAT, t);
+        if (!e) return NULL;
+        e->as.float_lit.v = t->val.f;
+        return e;
+    }
+    if (t->kind == TOK_STR) {
+        eat(p, TOK_STR);
+        Expr *e = new_expr(p, EXPR_STR, t);
+        if (!e) return NULL;
+        e->as.str_lit.parts = t->val.str;
+        return e;
+    }
+    if (t->kind == TOK_KW_match) {
+        return parse_match(p);
+    }
+    if (t->kind == TOK_KW_new) {
+        return parse_new(p);
+    }
+    if (t->kind == TOK_BAR) {
+        return parse_lambda(p);
+    }
+    if (t->kind == TOK_IDENT) {
+        eat(p, TOK_IDENT);
+        Expr *e = new_expr(p, EXPR_IDENT, t);
+        if (!e) return NULL;
+        e->as.ident.name = t->val.ident;
+        return e;
+    }
+    if (t->kind == TOK_KW_null) {
+        eat(p, TOK_KW_null);
+        Expr *e = new_expr(p, EXPR_NULL, t);
+        return e;
+    }
+    if (t->kind == TOK_KW_true) {
+        eat(p, TOK_KW_true);
+        Expr *e = new_expr(p, EXPR_BOOL, t);
+        if (!e) return NULL;
+        e->as.bool_lit.v = true;
+        return e;
+    }
+    if (t->kind == TOK_KW_false) {
+        eat(p, TOK_KW_false);
+        Expr *e = new_expr(p, EXPR_BOOL, t);
+        if (!e) return NULL;
+        e->as.bool_lit.v = false;
+        return e;
+    }
+    if (t->kind == TOK_LBRACK) {
+        return parse_array_lit(p);
+    }
+    if (t->kind == TOK_LPAR) {
+        eat(p, TOK_LPAR);
+        Expr *x = parse_expr(p, 0);
+        if (!p->ok) return NULL;
+        if (at(p, TOK_COMMA)) {
+            PtrVec items = {0};
+            ptrvec_push(p, &items, x);
+            while (maybe(p, TOK_COMMA)) {
+                Expr *item = parse_expr(p, 0);
+                if (!p->ok) return NULL;
+                ptrvec_push(p, &items, item);
+            }
+            eat(p, TOK_RPAR);
+            Expr *e = new_expr(p, EXPR_TUPLE, t);
+            if (!e) return NULL;
+            e->as.tuple_lit.items = (Expr **)ptrvec_finalize(p, &items);
+            e->as.tuple_lit.items_len = items.len;
+            return e;
+        }
+        eat(p, TOK_RPAR);
+        Expr *e = new_expr(p, EXPR_PAREN, t);
+        if (!e) return NULL;
+        e->as.paren.x = x;
+        return e;
+    }
+    parser_set_error(p, t, "bad expr token %s", tok_kind_name(t->kind));
+    return NULL;
+}
+
+static Expr *parse_match(Parser *p) {
+    Tok *t = eat(p, TOK_KW_match);
+    if (!p->ok) return NULL;
+    Expr *scrut = parse_expr(p, 0);
+    PtrVec arms = {0};
+    if (at(p, TOK_COLON)) {
+        eat(p, TOK_COLON);
+        MatchArm *arm = parse_match_arm(p);
+        if (!p->ok) return NULL;
+        ptrvec_push(p, &arms, arm);
+        while (maybe(p, TOK_COMMA)) {
+            MatchArm *next = parse_match_arm(p);
+            if (!p->ok) return NULL;
+            ptrvec_push(p, &arms, next);
+        }
+        Expr *e = new_expr(p, EXPR_MATCH, t);
+        if (!e) return NULL;
+        e->as.match_expr.scrut = scrut;
+        e->as.match_expr.arms = (MatchArm **)ptrvec_finalize(p, &arms);
+        e->as.match_expr.arms_len = arms.len;
+        return e;
+    }
+    eat(p, TOK_LBRACE);
+    skip_semi(p);
+    while (!at(p, TOK_RBRACE) && p->ok) {
+        MatchArm *arm = parse_match_arm(p);
+        if (!p->ok) return NULL;
+        ptrvec_push(p, &arms, arm);
+        skip_semi(p);
+    }
+    eat(p, TOK_RBRACE);
+    Expr *e = new_expr(p, EXPR_MATCH, t);
+    if (!e) return NULL;
+    e->as.match_expr.scrut = scrut;
+    e->as.match_expr.arms = (MatchArm **)ptrvec_finalize(p, &arms);
+    e->as.match_expr.arms_len = arms.len;
+    return e;
+}
+
+static MatchArm *parse_match_arm(Parser *p) {
+    Pat *pat = parse_pattern(p);
+    eat(p, TOK_ARROW);
+    Expr *expr = parse_expr(p, 0);
+    MatchArm *arm = (MatchArm *)ast_alloc(p->arena, sizeof(MatchArm));
+    if (!arm) {
+        parser_set_oom(p);
+        return NULL;
+    }
+    arm->pat = pat;
+    arm->expr = expr;
+    return arm;
+}
+
+static Pat *parse_pattern(Parser *p) {
+    Tok *t = peek(p, 0);
+    if (t->kind == TOK_INT) {
+        eat(p, TOK_INT);
+        Pat *pat = new_pat(p, PAT_INT, t);
+        if (!pat) return NULL;
+        pat->as.i = t->val.i;
+        return pat;
+    }
+    if (t->kind == TOK_STR) {
+        eat(p, TOK_STR);
+        Pat *pat = new_pat(p, PAT_STR, t);
+        if (!pat) return NULL;
+        pat->as.str = t->val.str;
+        return pat;
+    }
+    if (t->kind == TOK_KW_true) {
+        eat(p, TOK_KW_true);
+        Pat *pat = new_pat(p, PAT_BOOL, t);
+        if (!pat) return NULL;
+        pat->as.b = true;
+        return pat;
+    }
+    if (t->kind == TOK_KW_false) {
+        eat(p, TOK_KW_false);
+        Pat *pat = new_pat(p, PAT_BOOL, t);
+        if (!pat) return NULL;
+        pat->as.b = false;
+        return pat;
+    }
+    if (t->kind == TOK_KW_null) {
+        eat(p, TOK_KW_null);
+        Pat *pat = new_pat(p, PAT_NULL, t);
+        return pat;
+    }
+    if (t->kind == TOK_IDENT) {
+        Tok *name_tok = eat(p, TOK_IDENT);
+        if (str_eq_c(name_tok->val.ident, "_")) {
+            Pat *pat = new_pat(p, PAT_WILD, t);
+            return pat;
+        }
+        Pat *pat = new_pat(p, PAT_IDENT, t);
+        if (!pat) return NULL;
+        pat->as.name = name_tok->val.ident;
+        return pat;
+    }
+    parser_set_error(p, t, "bad pattern token %s", tok_kind_name(t->kind));
+    return NULL;
+}
+
+static Expr *parse_lambda(Parser *p) {
+    Tok *t = eat(p, TOK_BAR);
+    PtrVec params = {0};
+    if (!at(p, TOK_BAR)) {
+        while (true) {
+            bool is_mut = maybe(p, TOK_QMARK) != NULL;
+            Tok *name_tok = eat(p, TOK_IDENT);
+            Param *param = (Param *)ast_alloc(p->arena, sizeof(Param));
+            if (!param) {
+                parser_set_oom(p);
+                return NULL;
+            }
+            param->name = name_tok->val.ident;
+            param->is_mut = is_mut;
+            param->is_this = false;
+            param->typ = NULL;
+            if (maybe(p, TOK_EQ)) {
+                param->typ = parse_type(p);
+            }
+            if (!p->ok) return NULL;
+            ptrvec_push(p, &params, param);
+            if (!maybe(p, TOK_COMMA)) {
+                break;
+            }
+        }
+    }
+    eat(p, TOK_BAR);
+    Expr *body = parse_expr(p, 0);
+    Expr *lam = new_expr(p, EXPR_LAMBDA, t);
+    if (!lam) return NULL;
+    lam->as.lambda.params = (Param **)ptrvec_finalize(p, &params);
+    lam->as.lambda.params_len = params.len;
+    lam->as.lambda.body = body;
+    return lam;
+}
+
+static Expr *parse_new(Parser *p) {
+    Tok *t = eat(p, TOK_KW_new);
+    Tok *name_tok = eat(p, TOK_IDENT);
+    Str name = name_tok->val.ident;
+    if (maybe(p, TOK_DOT)) {
+        Tok *ext = eat(p, TOK_IDENT);
+        name = str_concat(p, name, ".", ext->val.ident);
+    }
+    size_t args_len = 0;
+    Expr **args = NULL;
+    if (at(p, TOK_LPAR)) {
+        args = parse_call_args(p, &args_len);
+    }
+    Expr *e = new_expr(p, EXPR_NEW, t);
+    if (!e) return NULL;
+    e->as.new_expr.name = name;
+    e->as.new_expr.args = args;
+    e->as.new_expr.args_len = args_len;
+    return e;
+}
+
+static Expr *parse_array_lit(Parser *p) {
+    Tok *t = eat(p, TOK_LBRACK);
+    PtrVec items = {0};
+    if (!at(p, TOK_RBRACK)) {
+        Expr *first = parse_expr(p, 0);
+        if (!p->ok) return NULL;
+        ptrvec_push(p, &items, first);
+        while (maybe(p, TOK_COMMA)) {
+            Expr *item = parse_expr(p, 0);
+            if (!p->ok) return NULL;
+            ptrvec_push(p, &items, item);
+        }
+    }
+    eat(p, TOK_RBRACK);
+    Expr *e = new_expr(p, EXPR_ARRAY, t);
+    if (!e) return NULL;
+    e->as.array_lit.items = (Expr **)ptrvec_finalize(p, &items);
+    e->as.array_lit.items_len = items.len;
+    return e;
+}
+
+Module *parse_module(Tok *toks, size_t len, const char *path, Arena *arena, Diag *err) {
+    Parser p;
+    p.toks = toks;
+    p.len = len;
+    p.i = 0;
+    p.path = path ? path : "";
+    p.arena = arena;
+    p.err = err;
+    p.ok = true;
+
+    PtrVec imports = {0};
+    PtrVec decls = {0};
+
+    skip_semi(&p);
+    while (!at(&p, TOK_EOF) && p.ok) {
+        if (at(&p, TOK_KW_bring)) {
+            Import *imp = parse_import(&p);
+            if (!p.ok) return NULL;
+            ptrvec_push(&p, &imports, imp);
+        } else if (at(&p, TOK_KW_entry)) {
+            Decl *decl = parse_entry(&p);
+            if (!p.ok) return NULL;
+            ptrvec_push(&p, &decls, decl);
+        } else if (at(&p, TOK_KW_fun)) {
+            Decl *decl = parse_fun(&p);
+            if (!p.ok) return NULL;
+            ptrvec_push(&p, &decls, decl);
+        } else if (at(&p, TOK_KW_const)) {
+            Decl *decl = parse_const_decl(&p);
+            if (!p.ok) return NULL;
+            ptrvec_push(&p, &decls, decl);
+        } else if (at(&p, TOK_KW_pub) || at(&p, TOK_KW_lock) || at(&p, TOK_KW_seal) || at(&p, TOK_KW_class)) {
+            Decl *decl = parse_class(&p);
+            if (!p.ok) return NULL;
+            ptrvec_push(&p, &decls, decl);
+        } else {
+            Tok *t = peek(&p, 0);
+            parser_set_error(&p, t, "unexpected token %s", tok_kind_name(t->kind));
+            return NULL;
+        }
+        skip_semi(&p);
+    }
+
+    Module *mod = (Module *)ast_alloc(arena, sizeof(Module));
+    if (!mod) {
+        parser_set_oom(&p);
+        return NULL;
+    }
+    Str pstr = {0};
+    pstr.data = path ? path : "";
+    pstr.len = path ? strlen(path) : 0;
+    mod->path = pstr;
+    mod->imports = (Import **)ptrvec_finalize(&p, &imports);
+    mod->imports_len = imports.len;
+    mod->decls = (Decl **)ptrvec_finalize(&p, &decls);
+    mod->decls_len = decls.len;
+    return mod;
+}

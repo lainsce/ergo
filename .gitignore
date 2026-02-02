@@ -1,14 +1,6 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
-
 # C extensions
 *.so
-
-# PyInstaller
-*.manifest
-*.spec
+*.o
 
 # Translations
 *.mo
@@ -17,7 +9,8 @@ __pycache__/
 # Folders
 .vscode/
 build/
-dist/
+_build/
+.DS_Store
 
 # Outputs of ergo compilation
 ./run

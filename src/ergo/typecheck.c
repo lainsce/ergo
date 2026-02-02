@@ -1,0 +1,2672 @@
+#include "typecheck.h"
+
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+
+#include "str.h"
+
+static void set_err(Diag *err, const char *msg) {
+    if (!err) {
+        return;
+    }
+    err->path = NULL;
+    err->line = 0;
+    err->col = 0;
+    err->message = msg;
+}
+
+static void *arena_array(Arena *arena, size_t count, size_t size) {
+    if (count == 0) {
+        return NULL;
+    }
+    return arena_alloc(arena, count * size);
+}
+
+static Expr *lower_expr(Arena *arena, Expr *e, Diag *err);
+static Stmt *lower_stmt(Arena *arena, Stmt *s, Diag *err);
+
+static Expr **lower_expr_list(Arena *arena, Expr **items, size_t len, Diag *err) {
+    if (len == 0) {
+        return NULL;
+    }
+    Expr **out = (Expr **)arena_array(arena, len, sizeof(Expr *));
+    if (!out) {
+        set_err(err, "out of memory");
+        return NULL;
+    }
+    for (size_t i = 0; i < len; i++) {
+        out[i] = lower_expr(arena, items[i], err);
+        if (!out[i] && err && err->message) {
+            return NULL;
+        }
+    }
+    return out;
+}
+
+static bool is_ident_name(Expr *e, const char *name) {
+    if (!e || e->kind != EXPR_IDENT) {
+        return false;
+    }
+    return str_eq_c(e->as.ident.name, name);
+}
+
+static Expr *new_expr_like(Arena *arena, Expr *src, ExprKind kind, Diag *err) {
+    Expr *e = (Expr *)ast_alloc(arena, sizeof(Expr));
+    if (!e) {
+        set_err(err, "out of memory");
+        return NULL;
+    }
+    e->kind = kind;
+    e->line = src ? src->line : 0;
+    e->col = src ? src->col : 0;
+    return e;
+}
+
+static Stmt *new_stmt_like(Arena *arena, Stmt *src, StmtKind kind, Diag *err) {
+    Stmt *s = (Stmt *)ast_alloc(arena, sizeof(Stmt));
+    if (!s) {
+        set_err(err, "out of memory");
+        return NULL;
+    }
+    s->kind = kind;
+    s->line = src ? src->line : 0;
+    s->col = src ? src->col : 0;
+    return s;
+}
+
+static Decl *new_decl_like(Arena *arena, Decl *src, DeclKind kind, Diag *err) {
+    Decl *d = (Decl *)ast_alloc(arena, sizeof(Decl));
+    if (!d) {
+        set_err(err, "out of memory");
+        return NULL;
+    }
+    d->kind = kind;
+    d->line = src ? src->line : 0;
+    d->col = src ? src->col : 0;
+    return d;
+}
+
+static Expr *lower_expr(Arena *arena, Expr *e, Diag *err) {
+    if (!e) {
+        return NULL;
+    }
+
+    // Lower #x to stdr.len(x)
+    if (e->kind == EXPR_UNARY && e->as.unary.op == TOK_HASH) {
+        Expr *inner = lower_expr(arena, e->as.unary.x, err);
+        if (!inner && err && err->message) {
+            return NULL;
+        }
+        Expr *id = new_expr_like(arena, e, EXPR_IDENT, err);
+        if (!id) return NULL;
+        id->as.ident.name = str_from_c("stdr");
+        Expr *mem = new_expr_like(arena, e, EXPR_MEMBER, err);
+        if (!mem) return NULL;
+        mem->as.member.a = id;
+        mem->as.member.name = str_from_c("len");
+        Expr *call = new_expr_like(arena, e, EXPR_CALL, err);
+        if (!call) return NULL;
+        call->as.call.fn = mem;
+        call->as.call.args_len = 1;
+        call->as.call.args = (Expr **)arena_array(arena, 1, sizeof(Expr *));
+        if (!call->as.call.args) {
+            set_err(err, "out of memory");
+            return NULL;
+        }
+        call->as.call.args[0] = inner;
+        return call;
+    }
+
+    // Lower stdr.writef/readf/str to writef/readf/str
+    if (e->kind == EXPR_CALL) {
+        Expr *fn = e->as.call.fn;
+        if (fn && fn->kind == EXPR_MEMBER) {
+            Expr *base = fn->as.member.a;
+            if (base && base->kind == EXPR_IDENT && str_eq_c(base->as.ident.name, "stdr")) {
+                if (str_eq_c(fn->as.member.name, "writef") ||
+                    str_eq_c(fn->as.member.name, "readf") ||
+                    str_eq_c(fn->as.member.name, "str")) {
+                    Expr *id = new_expr_like(arena, fn, EXPR_IDENT, err);
+                    if (!id) return NULL;
+                    id->as.ident.name = fn->as.member.name;
+                    Expr *call = new_expr_like(arena, e, EXPR_CALL, err);
+                    if (!call) return NULL;
+                    call->as.call.fn = id;
+                    call->as.call.args_len = e->as.call.args_len;
+                    call->as.call.args = lower_expr_list(arena, e->as.call.args, e->as.call.args_len, err);
+                    return call;
+                }
+            }
+        }
+    }
+
+    // Lower writef/readf varargs into writef/readf(fmt, (args...))
+    if (e->kind == EXPR_CALL && e->as.call.fn && e->as.call.fn->kind == EXPR_IDENT) {
+        Str fname = e->as.call.fn->as.ident.name;
+        bool is_writef = str_eq_c(fname, "writef");
+        bool is_readf = str_eq_c(fname, "readf");
+        if (is_writef || is_readf) {
+            size_t argc = e->as.call.args_len;
+            if (argc == 0) {
+                Expr *call = new_expr_like(arena, e, EXPR_CALL, err);
+                if (!call) return NULL;
+                call->as.call.fn = lower_expr(arena, e->as.call.fn, err);
+                call->as.call.args_len = 0;
+                call->as.call.args = NULL;
+                return call;
+            }
+            if (argc == 2 && e->as.call.args[1] && e->as.call.args[1]->kind == EXPR_TUPLE) {
+                Expr *call = new_expr_like(arena, e, EXPR_CALL, err);
+                if (!call) return NULL;
+                call->as.call.fn = lower_expr(arena, e->as.call.fn, err);
+                call->as.call.args_len = 2;
+                call->as.call.args = (Expr **)arena_array(arena, 2, sizeof(Expr *));
+                if (!call->as.call.args) {
+                    set_err(err, "out of memory");
+                    return NULL;
+                }
+                call->as.call.args[0] = lower_expr(arena, e->as.call.args[0], err);
+                call->as.call.args[1] = lower_expr(arena, e->as.call.args[1], err);
+                return call;
+            }
+            Expr *fmt = lower_expr(arena, e->as.call.args[0], err);
+            if (!fmt && err && err->message) return NULL;
+            size_t rest_len = argc > 1 ? argc - 1 : 0;
+            Expr **rest_items = NULL;
+            if (rest_len > 0) {
+                rest_items = (Expr **)arena_array(arena, rest_len, sizeof(Expr *));
+                if (!rest_items) {
+                    set_err(err, "out of memory");
+                    return NULL;
+                }
+                for (size_t i = 0; i < rest_len; i++) {
+                    rest_items[i] = lower_expr(arena, e->as.call.args[i + 1], err);
+                    if (!rest_items[i] && err && err->message) return NULL;
+                }
+            }
+            Expr *tuple = new_expr_like(arena, e, EXPR_TUPLE, err);
+            if (!tuple) return NULL;
+            tuple->as.tuple_lit.items = rest_items;
+            tuple->as.tuple_lit.items_len = rest_len;
+            Expr *call = new_expr_like(arena, e, EXPR_CALL, err);
+            if (!call) return NULL;
+            call->as.call.fn = lower_expr(arena, e->as.call.fn, err);
+            call->as.call.args_len = 2;
+            call->as.call.args = (Expr **)arena_array(arena, 2, sizeof(Expr *));
+            if (!call->as.call.args) {
+                set_err(err, "out of memory");
+                return NULL;
+            }
+            call->as.call.args[0] = fmt;
+            call->as.call.args[1] = tuple;
+            return call;
+        }
+    }
+
+    // Lower move(x) to MoveExpr(x)
+    if (e->kind == EXPR_CALL && e->as.call.fn && is_ident_name(e->as.call.fn, "move") && e->as.call.args_len == 1) {
+        Expr *inner = lower_expr(arena, e->as.call.args[0], err);
+        if (!inner && err && err->message) return NULL;
+        Expr *mv = new_expr_like(arena, e, EXPR_MOVE, err);
+        if (!mv) return NULL;
+        mv->as.move.x = inner;
+        return mv;
+    }
+
+    // Recurse
+    switch (e->kind) {
+        case EXPR_UNARY: {
+            Expr *x = lower_expr(arena, e->as.unary.x, err);
+            Expr *u = new_expr_like(arena, e, EXPR_UNARY, err);
+            if (!u) return NULL;
+            u->as.unary.op = e->as.unary.op;
+            u->as.unary.x = x;
+            return u;
+        }
+        case EXPR_BINARY: {
+            Expr *a = lower_expr(arena, e->as.binary.a, err);
+            Expr *b = lower_expr(arena, e->as.binary.b, err);
+            Expr *bin = new_expr_like(arena, e, EXPR_BINARY, err);
+            if (!bin) return NULL;
+            bin->as.binary.op = e->as.binary.op;
+            bin->as.binary.a = a;
+            bin->as.binary.b = b;
+            return bin;
+        }
+        case EXPR_ASSIGN: {
+            Expr *t = lower_expr(arena, e->as.assign.target, err);
+            Expr *v = lower_expr(arena, e->as.assign.value, err);
+            Expr *a = new_expr_like(arena, e, EXPR_ASSIGN, err);
+            if (!a) return NULL;
+            a->as.assign.target = t;
+            a->as.assign.value = v;
+            return a;
+        }
+        case EXPR_CALL: {
+            Expr *fn = lower_expr(arena, e->as.call.fn, err);
+            Expr **args = lower_expr_list(arena, e->as.call.args, e->as.call.args_len, err);
+            Expr *call = new_expr_like(arena, e, EXPR_CALL, err);
+            if (!call) return NULL;
+            call->as.call.fn = fn;
+            call->as.call.args = args;
+            call->as.call.args_len = e->as.call.args_len;
+            return call;
+        }
+        case EXPR_INDEX: {
+            Expr *a = lower_expr(arena, e->as.index.a, err);
+            Expr *i = lower_expr(arena, e->as.index.i, err);
+            Expr *ix = new_expr_like(arena, e, EXPR_INDEX, err);
+            if (!ix) return NULL;
+            ix->as.index.a = a;
+            ix->as.index.i = i;
+            return ix;
+        }
+        case EXPR_MEMBER: {
+            Expr *a = lower_expr(arena, e->as.member.a, err);
+            Expr *m = new_expr_like(arena, e, EXPR_MEMBER, err);
+            if (!m) return NULL;
+            m->as.member.a = a;
+            m->as.member.name = e->as.member.name;
+            return m;
+        }
+        case EXPR_PAREN: {
+            Expr *x = lower_expr(arena, e->as.paren.x, err);
+            Expr *p = new_expr_like(arena, e, EXPR_PAREN, err);
+            if (!p) return NULL;
+            p->as.paren.x = x;
+            return p;
+        }
+        case EXPR_ARRAY: {
+            Expr **items = lower_expr_list(arena, e->as.array_lit.items, e->as.array_lit.items_len, err);
+            Expr *arr = new_expr_like(arena, e, EXPR_ARRAY, err);
+            if (!arr) return NULL;
+            arr->as.array_lit.items = items;
+            arr->as.array_lit.items_len = e->as.array_lit.items_len;
+            return arr;
+        }
+        case EXPR_TUPLE: {
+            Expr **items = lower_expr_list(arena, e->as.tuple_lit.items, e->as.tuple_lit.items_len, err);
+            Expr *t = new_expr_like(arena, e, EXPR_TUPLE, err);
+            if (!t) return NULL;
+            t->as.tuple_lit.items = items;
+            t->as.tuple_lit.items_len = e->as.tuple_lit.items_len;
+            return t;
+        }
+        case EXPR_MATCH: {
+            Expr *scrut = lower_expr(arena, e->as.match_expr.scrut, err);
+            size_t n = e->as.match_expr.arms_len;
+            MatchArm **arms = NULL;
+            if (n > 0) {
+                arms = (MatchArm **)arena_array(arena, n, sizeof(MatchArm *));
+                if (!arms) {
+                    set_err(err, "out of memory");
+                    return NULL;
+                }
+                for (size_t i = 0; i < n; i++) {
+                    MatchArm *src = e->as.match_expr.arms[i];
+                    MatchArm *arm = (MatchArm *)ast_alloc(arena, sizeof(MatchArm));
+                    if (!arm) {
+                        set_err(err, "out of memory");
+                        return NULL;
+                    }
+                    arm->pat = src->pat;
+                    arm->expr = lower_expr(arena, src->expr, err);
+                    arms[i] = arm;
+                }
+            }
+            Expr *m = new_expr_like(arena, e, EXPR_MATCH, err);
+            if (!m) return NULL;
+            m->as.match_expr.scrut = scrut;
+            m->as.match_expr.arms = arms;
+            m->as.match_expr.arms_len = n;
+            return m;
+        }
+        case EXPR_LAMBDA: {
+            Expr *body = lower_expr(arena, e->as.lambda.body, err);
+            Expr *lam = new_expr_like(arena, e, EXPR_LAMBDA, err);
+            if (!lam) return NULL;
+            lam->as.lambda.params = e->as.lambda.params;
+            lam->as.lambda.params_len = e->as.lambda.params_len;
+            lam->as.lambda.body = body;
+            return lam;
+        }
+        case EXPR_NEW: {
+            Expr **args = lower_expr_list(arena, e->as.new_expr.args, e->as.new_expr.args_len, err);
+            Expr *n = new_expr_like(arena, e, EXPR_NEW, err);
+            if (!n) return NULL;
+            n->as.new_expr.name = e->as.new_expr.name;
+            n->as.new_expr.args = args;
+            n->as.new_expr.args_len = e->as.new_expr.args_len;
+            return n;
+        }
+        case EXPR_TERNARY: {
+            Expr *c = lower_expr(arena, e->as.ternary.cond, err);
+            Expr *a = lower_expr(arena, e->as.ternary.then_expr, err);
+            Expr *b = lower_expr(arena, e->as.ternary.else_expr, err);
+            Expr *t = new_expr_like(arena, e, EXPR_TERNARY, err);
+            if (!t) return NULL;
+            t->as.ternary.cond = c;
+            t->as.ternary.then_expr = a;
+            t->as.ternary.else_expr = b;
+            return t;
+        }
+        case EXPR_MOVE: {
+            Expr *x = lower_expr(arena, e->as.move.x, err);
+            Expr *m = new_expr_like(arena, e, EXPR_MOVE, err);
+            if (!m) return NULL;
+            m->as.move.x = x;
+            return m;
+        }
+        case EXPR_INT:
+        case EXPR_FLOAT:
+        case EXPR_STR:
+        case EXPR_IDENT:
+        case EXPR_NULL:
+        case EXPR_BOOL: {
+            Expr *c = new_expr_like(arena, e, e->kind, err);
+            if (!c) return NULL;
+            c->as = e->as;
+            return c;
+        }
+        default:
+            return e;
+    }
+}
+
+static Stmt *lower_stmt(Arena *arena, Stmt *s, Diag *err) {
+    if (!s) return NULL;
+    switch (s->kind) {
+        case STMT_LET: {
+            Stmt *out = new_stmt_like(arena, s, STMT_LET, err);
+            if (!out) return NULL;
+            out->as.let_s.name = s->as.let_s.name;
+            out->as.let_s.is_mut = s->as.let_s.is_mut;
+            out->as.let_s.expr = lower_expr(arena, s->as.let_s.expr, err);
+            return out;
+        }
+        case STMT_CONST: {
+            Stmt *out = new_stmt_like(arena, s, STMT_CONST, err);
+            if (!out) return NULL;
+            out->as.const_s.name = s->as.const_s.name;
+            out->as.const_s.expr = lower_expr(arena, s->as.const_s.expr, err);
+            return out;
+        }
+        case STMT_RETURN: {
+            Stmt *out = new_stmt_like(arena, s, STMT_RETURN, err);
+            if (!out) return NULL;
+            out->as.ret_s.expr = s->as.ret_s.expr ? lower_expr(arena, s->as.ret_s.expr, err) : NULL;
+            return out;
+        }
+        case STMT_EXPR: {
+            Stmt *out = new_stmt_like(arena, s, STMT_EXPR, err);
+            if (!out) return NULL;
+            out->as.expr_s.expr = lower_expr(arena, s->as.expr_s.expr, err);
+            return out;
+        }
+        case STMT_IF: {
+            size_t n = s->as.if_s.arms_len;
+            IfArm **arms = NULL;
+            if (n > 0) {
+                arms = (IfArm **)arena_array(arena, n, sizeof(IfArm *));
+                if (!arms) {
+                    set_err(err, "out of memory");
+                    return NULL;
+                }
+                for (size_t i = 0; i < n; i++) {
+                    IfArm *src = s->as.if_s.arms[i];
+                    IfArm *arm = (IfArm *)ast_alloc(arena, sizeof(IfArm));
+                    if (!arm) {
+                        set_err(err, "out of memory");
+                        return NULL;
+                    }
+                    arm->cond = src->cond ? lower_expr(arena, src->cond, err) : NULL;
+                    arm->body = lower_stmt(arena, src->body, err);
+                    arms[i] = arm;
+                }
+            }
+            Stmt *out = new_stmt_like(arena, s, STMT_IF, err);
+            if (!out) return NULL;
+            out->as.if_s.arms = arms;
+            out->as.if_s.arms_len = n;
+            return out;
+        }
+        case STMT_FOR: {
+            Stmt *out = new_stmt_like(arena, s, STMT_FOR, err);
+            if (!out) return NULL;
+            out->as.for_s.init = s->as.for_s.init ? lower_stmt(arena, s->as.for_s.init, err) : NULL;
+            out->as.for_s.cond = s->as.for_s.cond ? lower_expr(arena, s->as.for_s.cond, err) : NULL;
+            out->as.for_s.step = s->as.for_s.step ? lower_expr(arena, s->as.for_s.step, err) : NULL;
+            out->as.for_s.body = lower_stmt(arena, s->as.for_s.body, err);
+            return out;
+        }
+        case STMT_FOREACH: {
+            Stmt *out = new_stmt_like(arena, s, STMT_FOREACH, err);
+            if (!out) return NULL;
+            out->as.foreach_s.name = s->as.foreach_s.name;
+            out->as.foreach_s.expr = lower_expr(arena, s->as.foreach_s.expr, err);
+            out->as.foreach_s.body = lower_stmt(arena, s->as.foreach_s.body, err);
+            return out;
+        }
+        case STMT_BLOCK: {
+            size_t n = s->as.block_s.stmts_len;
+            Stmt **stmts = NULL;
+            if (n > 0) {
+                stmts = (Stmt **)arena_array(arena, n, sizeof(Stmt *));
+                if (!stmts) {
+                    set_err(err, "out of memory");
+                    return NULL;
+                }
+                for (size_t i = 0; i < n; i++) {
+                    stmts[i] = lower_stmt(arena, s->as.block_s.stmts[i], err);
+                }
+            }
+            Stmt *out = new_stmt_like(arena, s, STMT_BLOCK, err);
+            if (!out) return NULL;
+            out->as.block_s.stmts = stmts;
+            out->as.block_s.stmts_len = n;
+            return out;
+        }
+        default:
+            return s;
+    }
+}
+
+static Stmt *wrap_block(Arena *arena, Stmt *body, Diag *err) {
+    if (!body) return NULL;
+    if (body->kind == STMT_BLOCK) {
+        return body;
+    }
+    Stmt *block = (Stmt *)ast_alloc(arena, sizeof(Stmt));
+    if (!block) {
+        set_err(err, "out of memory");
+        return NULL;
+    }
+    block->kind = STMT_BLOCK;
+    block->line = body->line;
+    block->col = body->col;
+    block->as.block_s.stmts_len = 1;
+    block->as.block_s.stmts = (Stmt **)arena_array(arena, 1, sizeof(Stmt *));
+    if (!block->as.block_s.stmts) {
+        set_err(err, "out of memory");
+        return NULL;
+    }
+    block->as.block_s.stmts[0] = body;
+    return block;
+}
+
+static Decl *lower_decl(Arena *arena, Decl *d, Diag *err) {
+    if (!d) return NULL;
+    switch (d->kind) {
+        case DECL_FUN: {
+            Stmt *body = lower_stmt(arena, d->as.fun.body, err);
+            body = wrap_block(arena, body, err);
+            Decl *out = new_decl_like(arena, d, DECL_FUN, err);
+            if (!out) return NULL;
+            out->as.fun = d->as.fun;
+            out->as.fun.body = body;
+            return out;
+        }
+        case DECL_ENTRY: {
+            Stmt *body = lower_stmt(arena, d->as.entry.body, err);
+            body = wrap_block(arena, body, err);
+            Decl *out = new_decl_like(arena, d, DECL_ENTRY, err);
+            if (!out) return NULL;
+            out->as.entry = d->as.entry;
+            out->as.entry.body = body;
+            return out;
+        }
+        case DECL_CONST: {
+            Decl *out = new_decl_like(arena, d, DECL_CONST, err);
+            if (!out) return NULL;
+            out->as.const_decl = d->as.const_decl;
+            out->as.const_decl.expr = lower_expr(arena, d->as.const_decl.expr, err);
+            return out;
+        }
+        case DECL_CLASS: {
+            Decl *out = new_decl_like(arena, d, DECL_CLASS, err);
+            if (!out) return NULL;
+            out->as.class_decl = d->as.class_decl;
+            size_t n = d->as.class_decl.methods_len;
+            FunDecl **methods = NULL;
+            if (n > 0) {
+                methods = (FunDecl **)arena_array(arena, n, sizeof(FunDecl *));
+                if (!methods) {
+                    set_err(err, "out of memory");
+                    return NULL;
+                }
+                for (size_t i = 0; i < n; i++) {
+                    FunDecl *src = d->as.class_decl.methods[i];
+                    FunDecl *fn = (FunDecl *)ast_alloc(arena, sizeof(FunDecl));
+                    if (!fn) {
+                        set_err(err, "out of memory");
+                        return NULL;
+                    }
+                    *fn = *src;
+                    fn->body = wrap_block(arena, lower_stmt(arena, src->body, err), err);
+                    methods[i] = fn;
+                }
+            }
+            out->as.class_decl.methods = methods;
+            out->as.class_decl.methods_len = n;
+            return out;
+        }
+        default:
+            return d;
+    }
+}
+
+Program *lower_program(Program *prog, Arena *arena, Diag *err) {
+    if (!prog) return NULL;
+    Program *out = (Program *)ast_alloc(arena, sizeof(Program));
+    if (!out) {
+        set_err(err, "out of memory");
+        return NULL;
+    }
+    out->mods_len = prog->mods_len;
+    out->mods = (Module **)arena_array(arena, prog->mods_len, sizeof(Module *));
+    if (!out->mods && prog->mods_len > 0) {
+        set_err(err, "out of memory");
+        return NULL;
+    }
+    for (size_t i = 0; i < prog->mods_len; i++) {
+        Module *m = prog->mods[i];
+        Module *nm = (Module *)ast_alloc(arena, sizeof(Module));
+        if (!nm) {
+            set_err(err, "out of memory");
+            return NULL;
+        }
+        nm->path = m->path;
+        nm->imports = m->imports;
+        nm->imports_len = m->imports_len;
+        nm->decls_len = m->decls_len;
+        nm->decls = (Decl **)arena_array(arena, m->decls_len, sizeof(Decl *));
+        if (!nm->decls && m->decls_len > 0) {
+            set_err(err, "out of memory");
+            return NULL;
+        }
+        for (size_t j = 0; j < m->decls_len; j++) {
+            nm->decls[j] = lower_decl(arena, m->decls[j], err);
+        }
+        out->mods[i] = nm;
+    }
+    return out;
+}
+
+// ----------------------------
+// Type system helpers
+// ----------------------------
+
+typedef struct {
+    Str name;
+    Ty *ty;
+} SubstEntry;
+
+typedef struct {
+    SubstEntry *data;
+    size_t len;
+    size_t cap;
+} Subst;
+
+void locals_init(Locals *loc) {
+    loc->scopes = NULL;
+    loc->len = 0;
+    loc->cap = 0;
+    // push root scope
+    if (loc->len + 1 > loc->cap) {
+        size_t next = loc->cap ? loc->cap * 2 : 4;
+        LocalScope *sc = (LocalScope *)malloc(next * sizeof(LocalScope));
+        if (!sc) {
+            return;
+        }
+        loc->scopes = sc;
+        loc->cap = next;
+    }
+    loc->scopes[0].entries = NULL;
+    loc->scopes[0].len = 0;
+    loc->scopes[0].cap = 0;
+    loc->len = 1;
+}
+
+void locals_free(Locals *loc) {
+    if (!loc) return;
+    for (size_t i = 0; i < loc->len; i++) {
+        free(loc->scopes[i].entries);
+    }
+    free(loc->scopes);
+    loc->scopes = NULL;
+    loc->len = 0;
+    loc->cap = 0;
+}
+
+void locals_push(Locals *loc) {
+    if (loc->len + 1 > loc->cap) {
+        size_t next = loc->cap ? loc->cap * 2 : 4;
+        LocalScope *sc = (LocalScope *)realloc(loc->scopes, next * sizeof(LocalScope));
+        if (!sc) {
+            return;
+        }
+        loc->scopes = sc;
+        loc->cap = next;
+    }
+    LocalScope *s = &loc->scopes[loc->len++];
+    s->entries = NULL;
+    s->len = 0;
+    s->cap = 0;
+}
+
+void locals_pop(Locals *loc) {
+    if (loc->len == 0) return;
+    LocalScope *s = &loc->scopes[loc->len - 1];
+    free(s->entries);
+    loc->len -= 1;
+}
+
+static LocalEntry *locals_find_in_scope(LocalScope *scope, Str name) {
+    for (size_t i = 0; i < scope->len; i++) {
+        if (str_eq(scope->entries[i].name, name)) {
+            return &scope->entries[i];
+        }
+    }
+    return NULL;
+}
+
+void locals_define(Locals *loc, Str name, Binding b) {
+    if (loc->len == 0) {
+        return;
+    }
+    LocalScope *scope = &loc->scopes[loc->len - 1];
+    LocalEntry *existing = locals_find_in_scope(scope, name);
+    if (existing) {
+        existing->binding = b;
+        return;
+    }
+    if (scope->len + 1 > scope->cap) {
+        size_t next = scope->cap ? scope->cap * 2 : 8;
+        LocalEntry *ents = (LocalEntry *)realloc(scope->entries, next * sizeof(LocalEntry));
+        if (!ents) {
+            return;
+        }
+        scope->entries = ents;
+        scope->cap = next;
+    }
+    scope->entries[scope->len].name = name;
+    scope->entries[scope->len].binding = b;
+    scope->len += 1;
+}
+
+Binding *locals_lookup(Locals *loc, Str name) {
+    for (size_t i = loc->len; i-- > 0;) {
+        LocalScope *scope = &loc->scopes[i];
+        LocalEntry *entry = locals_find_in_scope(scope, name);
+        if (entry) {
+            return &entry->binding;
+        }
+    }
+    return NULL;
+}
+
+static Locals locals_clone(Locals *src) {
+    Locals out;
+    out.scopes = NULL;
+    out.len = 0;
+    out.cap = 0;
+    if (!src) return out;
+    out.len = src->len;
+    out.cap = src->len;
+    out.scopes = (LocalScope *)malloc(out.cap * sizeof(LocalScope));
+    if (!out.scopes) {
+        out.len = 0;
+        out.cap = 0;
+        return out;
+    }
+    for (size_t i = 0; i < src->len; i++) {
+        LocalScope *s = &out.scopes[i];
+        LocalScope *os = &src->scopes[i];
+        s->len = os->len;
+        s->cap = os->len;
+        if (os->len == 0) {
+            s->entries = NULL;
+            continue;
+        }
+        s->entries = (LocalEntry *)malloc(os->len * sizeof(LocalEntry));
+        if (!s->entries) {
+            s->len = 0;
+            s->cap = 0;
+            continue;
+        }
+        memcpy(s->entries, os->entries, os->len * sizeof(LocalEntry));
+    }
+    return out;
+}
+
+static bool set_errf(Diag *err, Str path, int line, int col, const char *fmt, ...) {
+    if (!err) return false;
+    char buf[512];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+    char *msg = (char *)malloc(strlen(buf) + 1);
+    if (!msg) {
+        err->message = "type error";
+    } else {
+        strcpy(msg, buf);
+        err->message = msg;
+    }
+    err->path = path.data;
+    err->line = line;
+    err->col = col;
+    return false;
+}
+
+static Str arena_str_copy(Arena *arena, const char *s, size_t len) {
+    Str out = {"", 0};
+    if (!arena) return out;
+    char *buf = (char *)arena_alloc(arena, len + 1);
+    if (!buf) return out;
+    memcpy(buf, s, len);
+    buf[len] = '\0';
+    out.data = buf;
+    out.len = len;
+    return out;
+}
+
+static bool str_ends_with(Str s, const char *suffix) {
+    size_t slen = s.len;
+    size_t suf = strlen(suffix);
+    if (slen < suf) return false;
+    return memcmp(s.data + (slen - suf), suffix, suf) == 0;
+}
+
+static Str str_slice(Str s, size_t start, size_t len) {
+    Str out;
+    out.data = s.data + start;
+    out.len = len;
+    return out;
+}
+
+static bool str_is_ident_like(Str s) {
+    for (size_t i = 0; i < s.len; i++) {
+        char c = s.data[i];
+        if (!(c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))) {
+            return false;
+        }
+    }
+    return s.len > 0;
+}
+
+static Ty *ty_new(Arena *arena, TyTag tag) {
+    Ty *t = (Ty *)arena_alloc(arena, sizeof(Ty));
+    if (!t) return NULL;
+    memset(t, 0, sizeof(Ty));
+    t->tag = tag;
+    return t;
+}
+
+static Ty *ty_prim(Arena *arena, const char *name) {
+    Ty *t = ty_new(arena, TY_PRIM);
+    if (!t) return NULL;
+    t->name = str_from_c(name);
+    return t;
+}
+
+static Ty *ty_class(Arena *arena, Str name) {
+    Ty *t = ty_new(arena, TY_CLASS);
+    if (!t) return NULL;
+    t->name = name;
+    return t;
+}
+
+static Ty *ty_array(Arena *arena, Ty *elem) {
+    Ty *t = ty_new(arena, TY_ARRAY);
+    if (!t) return NULL;
+    t->elem = elem;
+    return t;
+}
+
+static Ty *ty_tuple(Arena *arena, Ty **items, size_t len) {
+    Ty *t = ty_new(arena, TY_TUPLE);
+    if (!t) return NULL;
+    t->items = items;
+    t->items_len = len;
+    return t;
+}
+
+static Ty *ty_void(Arena *arena) {
+    return ty_new(arena, TY_VOID);
+}
+
+static Ty *ty_null(Arena *arena) {
+    return ty_new(arena, TY_NULL);
+}
+
+static Ty *ty_mod(Arena *arena, Str name) {
+    Ty *t = ty_new(arena, TY_MOD);
+    if (!t) return NULL;
+    t->name = name;
+    return t;
+}
+
+static Ty *ty_fn(Arena *arena, Ty **params, size_t params_len, Ty *ret) {
+    Ty *t = ty_new(arena, TY_FN);
+    if (!t) return NULL;
+    t->params = params;
+    t->params_len = params_len;
+    t->ret = ret;
+    return t;
+}
+
+static Ty *ty_nullable(Arena *arena, Ty *elem) {
+    Ty *t = ty_new(arena, TY_NULLABLE);
+    if (!t) return NULL;
+    t->elem = elem;
+    return t;
+}
+
+static Ty *ty_gen(Arena *arena, Str name) {
+    Ty *t = ty_new(arena, TY_GEN);
+    if (!t) return NULL;
+    t->name = name;
+    return t;
+}
+
+static bool ty_is_numeric(Ty *t) {
+    return t && t->tag == TY_PRIM && str_eq_c(t->name, "num");
+}
+
+static bool ty_is_null(Ty *t) {
+    return t && t->tag == TY_NULL;
+}
+
+static bool ty_is_void(Ty *t) {
+    return t && t->tag == TY_VOID;
+}
+
+static bool ty_is_nullable(Ty *t) {
+    return t && t->tag == TY_NULLABLE;
+}
+
+static Ty *ty_strip_nullable(Ty *t) {
+    if (ty_is_nullable(t) && t->elem) {
+        return t->elem;
+    }
+    return t;
+}
+
+static Subst subst_init(void) {
+    Subst s;
+    s.data = NULL;
+    s.len = 0;
+    s.cap = 0;
+    return s;
+}
+
+static void subst_free(Subst *s) {
+    free(s->data);
+    s->data = NULL;
+    s->len = 0;
+    s->cap = 0;
+}
+
+static Ty *subst_get(Subst *s, Str name) {
+    if (!s) return NULL;
+    for (size_t i = 0; i < s->len; i++) {
+        if (str_eq(s->data[i].name, name)) {
+            return s->data[i].ty;
+        }
+    }
+    return NULL;
+}
+
+static bool subst_set(Subst *s, Str name, Ty *ty) {
+    if (!s) return false;
+    for (size_t i = 0; i < s->len; i++) {
+        if (str_eq(s->data[i].name, name)) {
+            s->data[i].ty = ty;
+            return true;
+        }
+    }
+    if (s->len + 1 > s->cap) {
+        size_t next = s->cap ? s->cap * 2 : 8;
+        SubstEntry *data = (SubstEntry *)realloc(s->data, next * sizeof(SubstEntry));
+        if (!data) return false;
+        s->data = data;
+        s->cap = next;
+    }
+    s->data[s->len].name = name;
+    s->data[s->len].ty = ty;
+    s->len += 1;
+    return true;
+}
+
+static Ty *ty_apply_subst(Arena *arena, Ty *t, Subst *subst);
+
+static Ty *ty_apply_subst(Arena *arena, Ty *t, Subst *subst) {
+    if (!t) return NULL;
+    if (t->tag == TY_GEN) {
+        Ty *sub = subst_get(subst, t->name);
+        if (sub) return sub;
+        return t;
+    }
+    if (t->tag == TY_ARRAY) {
+        Ty *elem = ty_apply_subst(arena, t->elem, subst);
+        return ty_array(arena, elem);
+    }
+    if (t->tag == TY_TUPLE) {
+        size_t n = t->items_len;
+        Ty **items = (Ty **)arena_array(arena, n, sizeof(Ty *));
+        if (!items) return NULL;
+        for (size_t i = 0; i < n; i++) {
+            items[i] = ty_apply_subst(arena, t->items[i], subst);
+        }
+        return ty_tuple(arena, items, n);
+    }
+    if (t->tag == TY_FN) {
+        size_t n = t->params_len;
+        Ty **params = (Ty **)arena_array(arena, n, sizeof(Ty *));
+        if (!params) return NULL;
+        for (size_t i = 0; i < n; i++) {
+            params[i] = ty_apply_subst(arena, t->params[i], subst);
+        }
+        Ty *ret = ty_apply_subst(arena, t->ret, subst);
+        return ty_fn(arena, params, n, ret);
+    }
+    if (t->tag == TY_NULLABLE) {
+        Ty *elem = ty_apply_subst(arena, t->elem, subst);
+        return ty_nullable(arena, elem);
+    }
+    return t;
+}
+
+static Ty *unify(Arena *arena, Ty *a, Ty *b, Str path, const char *where, Subst *subst, Diag *err) {
+    if (!a || !b) return NULL;
+    if (ty_is_null(a) && ty_is_null(b)) {
+        return ty_null(arena);
+    }
+    if (ty_is_null(a)) {
+        return ty_is_nullable(b) ? b : ty_nullable(arena, b);
+    }
+    if (ty_is_null(b)) {
+        return ty_is_nullable(a) ? a : ty_nullable(arena, a);
+    }
+    if (ty_is_nullable(a) || ty_is_nullable(b)) {
+        Ty *ua = ty_strip_nullable(a);
+        Ty *ub = ty_strip_nullable(b);
+        Ty *u = unify(arena, ua, ub, path, where, subst, err);
+        if (!u) return NULL;
+        return ty_nullable(arena, u);
+    }
+    if (a->tag == TY_GEN) {
+        Ty *sub = subst_get(subst, a->name);
+        if (sub) {
+            return unify(arena, sub, b, path, where, subst, err);
+        }
+        subst_set(subst, a->name, b);
+        return b;
+    }
+    if (b->tag == TY_GEN) {
+        Ty *sub = subst_get(subst, b->name);
+        if (sub) {
+            return unify(arena, a, sub, path, where, subst, err);
+        }
+        subst_set(subst, b->name, a);
+        return a;
+    }
+    if (a->tag != b->tag) {
+        set_errf(err, path, 0, 0, "type mismatch%s%s", where && where[0] ? ": " : "", where ? where : "");
+        return NULL;
+    }
+    switch (a->tag) {
+        case TY_ARRAY: {
+            Ty *elem = unify(arena, a->elem, b->elem, path, where, subst, err);
+            if (!elem) return NULL;
+            return ty_array(arena, elem);
+        }
+        case TY_TUPLE: {
+            if (a->items_len != b->items_len) {
+                set_errf(err, path, 0, 0, "tuple arity mismatch%s%s", where && where[0] ? ": " : "", where ? where : "");
+                return NULL;
+            }
+            Ty **items = (Ty **)arena_array(arena, a->items_len, sizeof(Ty *));
+            if (!items) return NULL;
+            for (size_t i = 0; i < a->items_len; i++) {
+                items[i] = unify(arena, a->items[i], b->items[i], path, where, subst, err);
+                if (!items[i]) return NULL;
+            }
+            return ty_tuple(arena, items, a->items_len);
+        }
+        case TY_FN: {
+            if (a->params_len != b->params_len) {
+                set_errf(err, path, 0, 0, "fn arity mismatch%s%s", where && where[0] ? ": " : "", where ? where : "");
+                return NULL;
+            }
+            Ty **params = (Ty **)arena_array(arena, a->params_len, sizeof(Ty *));
+            if (!params) return NULL;
+            for (size_t i = 0; i < a->params_len; i++) {
+                params[i] = unify(arena, a->params[i], b->params[i], path, where, subst, err);
+                if (!params[i]) return NULL;
+            }
+            Ty *ret = unify(arena, a->ret, b->ret, path, where, subst, err);
+            if (!ret) return NULL;
+            return ty_fn(arena, params, a->params_len, ret);
+        }
+        case TY_PRIM:
+        case TY_CLASS:
+        case TY_MOD:
+        case TY_VOID:
+        case TY_NULL:
+        case TY_GEN: {
+            if (a->tag == TY_PRIM && !str_eq(a->name, b->name)) {
+                set_errf(err, path, 0, 0, "type mismatch%s%s", where && where[0] ? ": " : "", where ? where : "");
+                return NULL;
+            }
+            if (a->tag == TY_CLASS && !str_eq(a->name, b->name)) {
+                set_errf(err, path, 0, 0, "type mismatch%s%s", where && where[0] ? ": " : "", where ? where : "");
+                return NULL;
+            }
+            return a;
+        }
+        default:
+            return a;
+    }
+}
+
+static bool ensure_assignable(Arena *arena, Ty *expected, Ty *actual, Str path, const char *where, Diag *err) {
+    if (!expected || !actual) return false;
+    if (ty_is_null(expected) || ty_is_null(actual)) return true;
+    if (expected->tag == TY_PRIM && str_eq_c(expected->name, "any")) return true;
+    if (actual->tag == TY_PRIM && str_eq_c(actual->name, "any")) return true;
+    if (ty_is_nullable(expected) || ty_is_nullable(actual)) {
+        return ensure_assignable(arena, ty_strip_nullable(expected), ty_strip_nullable(actual), path, where, err);
+    }
+    if (expected->tag == TY_ARRAY && actual->tag == TY_ARRAY) {
+        return ensure_assignable(arena, expected->elem, actual->elem, path, where, err);
+    }
+    if (expected->tag == TY_TUPLE && actual->tag == TY_TUPLE) {
+        if (expected->items_len != actual->items_len) {
+            set_errf(err, path, 0, 0, "tuple arity mismatch%s%s", where && where[0] ? ": " : "", where ? where : "");
+            return false;
+        }
+        for (size_t i = 0; i < expected->items_len; i++) {
+            if (!ensure_assignable(arena, expected->items[i], actual->items[i], path, where, err)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    if (expected->tag == TY_FN && actual->tag == TY_FN) {
+        if (expected->params_len != actual->params_len) {
+            set_errf(err, path, 0, 0, "fn arity mismatch%s%s", where && where[0] ? ": " : "", where ? where : "");
+            return false;
+        }
+        for (size_t i = 0; i < expected->params_len; i++) {
+            if (!ensure_assignable(arena, expected->params[i], actual->params[i], path, where, err)) {
+                return false;
+            }
+        }
+        if (!ensure_assignable(arena, expected->ret, actual->ret, path, where, err)) {
+            return false;
+        }
+        return true;
+    }
+    if (expected->tag == TY_PRIM && actual->tag == TY_PRIM) {
+        if (!str_eq(expected->name, actual->name)) {
+            set_errf(err, path, 0, 0, "type mismatch%s%s", where && where[0] ? ": " : "", where ? where : "");
+            return false;
+        }
+    }
+    return true;
+}
+
+static Str qualify_class_name(Arena *arena, Str mod, Str name) {
+    if (memchr(name.data, '.', name.len)) {
+        return name;
+    }
+    size_t len = mod.len + 1 + name.len;
+    char *buf = (char *)arena_alloc(arena, len + 1);
+    if (!buf) {
+        Str out = {"", 0};
+        return out;
+    }
+    memcpy(buf, mod.data, mod.len);
+    buf[mod.len] = '.';
+    memcpy(buf + mod.len + 1, name.data, name.len);
+    buf[len] = '\0';
+    Str out;
+    out.data = buf;
+    out.len = len;
+    return out;
+}
+
+static Str module_name_for_path(Arena *arena, Str path) {
+    const char *p = path.data;
+    size_t len = path.len;
+    size_t start = 0;
+    for (size_t i = 0; i < len; i++) {
+        char c = p[i];
+        if (c == '/' || c == '\\') {
+            start = i + 1;
+        }
+    }
+    size_t name_len = len - start;
+    if (name_len >= 2 && p[start + name_len - 2] == '.' && p[start + name_len - 1] == 'e') {
+        name_len -= 2;
+    }
+    return arena_str_copy(arena, p + start, name_len);
+}
+
+static Str normalize_import_name(Arena *arena, Str name) {
+    if (str_ends_with(name, ".e")) {
+        return arena_str_copy(arena, name.data, name.len - 2);
+    }
+    return name;
+}
+
+static ClassInfo *find_class(GlobalEnv *env, Str qname) {
+    for (size_t i = 0; i < env->classes_len; i++) {
+        if (str_eq(env->classes[i].qname, qname)) {
+            return &env->classes[i];
+        }
+    }
+    return NULL;
+}
+
+static FunSig *find_fun(GlobalEnv *env, Str module, Str name) {
+    for (size_t i = 0; i < env->funs_len; i++) {
+        if (str_eq(env->funs[i].module, module) && str_eq(env->funs[i].name, name)) {
+            return &env->funs[i];
+        }
+    }
+    return NULL;
+}
+
+static ModuleImport *find_imports(GlobalEnv *env, Str module) {
+    for (size_t i = 0; i < env->module_imports_len; i++) {
+        if (str_eq(env->module_imports[i].module, module)) {
+            return &env->module_imports[i];
+        }
+    }
+    return NULL;
+}
+
+static ModuleConsts *find_module_consts(GlobalEnv *env, Str module) {
+    for (size_t i = 0; i < env->module_consts_len; i++) {
+        if (str_eq(env->module_consts[i].module, module)) {
+            return &env->module_consts[i];
+        }
+    }
+    return NULL;
+}
+
+static ConstEntry *find_const(ModuleConsts *mc, Str name) {
+    if (!mc) return NULL;
+    for (size_t i = 0; i < mc->len; i++) {
+        if (str_eq(mc->entries[i].name, name)) {
+            return &mc->entries[i];
+        }
+    }
+    return NULL;
+}
+
+static Ty *ty_from_type_ref(GlobalEnv *env, TypeRef *tref, Str ctx_mod, Str *imports, size_t imports_len, Diag *err) {
+    if (!tref) return NULL;
+    if (tref->kind == TYPE_ARRAY) {
+        Ty *elem = ty_from_type_ref(env, tref->as.elem, ctx_mod, imports, imports_len, err);
+        return ty_array(env->arena, elem);
+    }
+    Str n = tref->as.name;
+    if (str_eq_c(n, "str")) {
+        n = str_from_c("string");
+    }
+    if (str_eq_c(n, "int") || str_eq_c(n, "float") || str_eq_c(n, "char") || str_eq_c(n, "byte")) {
+        set_errf(err, ctx_mod, tref->line, tref->col, "unknown type '%.*s' (use num)", (int)n.len, n.data);
+        return NULL;
+    }
+    if (str_eq_c(n, "bool") || str_eq_c(n, "string") || str_eq_c(n, "void") || str_eq_c(n, "num") || str_eq_c(n, "any")) {
+        if (str_eq_c(n, "void")) {
+            return ty_void(env->arena);
+        }
+        return ty_prim(env->arena, n.data);
+    }
+    if (memchr(n.data, '.', n.len)) {
+        // module-qualified class
+        size_t dot = 0;
+        for (; dot < n.len; dot++) {
+            if (n.data[dot] == '.') break;
+        }
+        Str mod = str_slice(n, 0, dot);
+        bool in_scope = false;
+        if (str_eq(mod, ctx_mod)) in_scope = true;
+        for (size_t i = 0; i < imports_len && !in_scope; i++) {
+            if (str_eq(imports[i], mod)) in_scope = true;
+        }
+        if (!in_scope) {
+            set_errf(err, ctx_mod, tref->line, tref->col, "unknown type '%.*s'", (int)n.len, n.data);
+            return NULL;
+        }
+        ClassInfo *ci = find_class(env, n);
+        if (ci) return ty_class(env->arena, n);
+        set_errf(err, ctx_mod, tref->line, tref->col, "unknown type '%.*s'", (int)n.len, n.data);
+        return NULL;
+    }
+    Str qn = qualify_class_name(env->arena, ctx_mod, n);
+    ClassInfo *ci = find_class(env, qn);
+    if (ci) return ty_class(env->arena, qn);
+    if (str_is_ident_like(n)) {
+        return ty_gen(env->arena, n);
+    }
+    set_errf(err, ctx_mod, tref->line, tref->col, "unknown type '%.*s'", (int)n.len, n.data);
+    return NULL;
+}
+
+static bool eval_const_expr(GlobalEnv *env, Expr *e, ConstVal *out, Diag *err) {
+    if (!e || !out) return false;
+    if (e->kind == EXPR_INT) {
+        out->ty = ty_prim(env->arena, "num");
+        out->is_float = false;
+        out->i = e->as.int_lit.v;
+        return true;
+    }
+    if (e->kind == EXPR_FLOAT) {
+        out->ty = ty_prim(env->arena, "num");
+        out->is_float = true;
+        out->f = e->as.float_lit.v;
+        return true;
+    }
+    if (e->kind == EXPR_BOOL) {
+        out->ty = ty_prim(env->arena, "bool");
+        out->b = e->as.bool_lit.v;
+        return true;
+    }
+    if (e->kind == EXPR_NULL) {
+        out->ty = ty_null(env->arena);
+        return true;
+    }
+    if (e->kind == EXPR_STR) {
+        StrParts *parts = e->as.str_lit.parts;
+        size_t total = 0;
+        for (size_t i = 0; i < parts->len; i++) {
+            if (parts->parts[i].kind != STR_PART_TEXT) {
+                set_err(err, "const string cannot interpolate");
+                return false;
+            }
+            total += parts->parts[i].text.len;
+        }
+        Str s = arena_str_copy(env->arena, "", 0);
+        if (total > 0) {
+            char *buf = (char *)arena_alloc(env->arena, total + 1);
+            if (!buf) {
+                set_err(err, "out of memory");
+                return false;
+            }
+            size_t off = 0;
+            for (size_t i = 0; i < parts->len; i++) {
+                memcpy(buf + off, parts->parts[i].text.data, parts->parts[i].text.len);
+                off += parts->parts[i].text.len;
+            }
+            buf[total] = '\0';
+            s.data = buf;
+            s.len = total;
+        }
+        out->ty = ty_prim(env->arena, "string");
+        out->s = s;
+        return true;
+    }
+    if (e->kind == EXPR_PAREN) {
+        return eval_const_expr(env, e->as.paren.x, out, err);
+    }
+    if (e->kind == EXPR_UNARY) {
+        ConstVal cv = {0};
+        if (!eval_const_expr(env, e->as.unary.x, &cv, err)) return false;
+        if (e->as.unary.op == TOK_MINUS) {
+            if (!cv.ty || cv.ty->tag != TY_PRIM || !str_eq_c(cv.ty->name, "num")) {
+                set_err(err, "const unary - expects numeric");
+                return false;
+            }
+            *out = cv;
+            if (cv.is_float) {
+                out->f = -cv.f;
+            } else {
+                out->i = -cv.i;
+            }
+            return true;
+        }
+        if (e->as.unary.op == TOK_BANG) {
+            if (!cv.ty || cv.ty->tag != TY_PRIM || !str_eq_c(cv.ty->name, "bool")) {
+                set_err(err, "const ! expects bool");
+                return false;
+            }
+            out->ty = ty_prim(env->arena, "bool");
+            out->b = !cv.b;
+            return true;
+        }
+        set_err(err, "unsupported const unary op");
+        return false;
+    }
+    if (e->kind == EXPR_BINARY && (e->as.binary.op == TOK_PLUS || e->as.binary.op == TOK_MINUS || e->as.binary.op == TOK_STAR || e->as.binary.op == TOK_SLASH || e->as.binary.op == TOK_PERCENT)) {
+        ConstVal a = {0};
+        ConstVal b = {0};
+        if (!eval_const_expr(env, e->as.binary.a, &a, err)) return false;
+        if (!eval_const_expr(env, e->as.binary.b, &b, err)) return false;
+        if (!a.ty || !b.ty || a.ty->tag != TY_PRIM || b.ty->tag != TY_PRIM || !str_eq_c(a.ty->name, "num") || !str_eq_c(b.ty->name, "num")) {
+            set_err(err, "const numeric op expects numeric literals");
+            return false;
+        }
+        bool a_float = a.is_float;
+        bool b_float = b.is_float;
+        if (e->as.binary.op == TOK_PERCENT && (a_float || b_float)) {
+            set_err(err, "const % not supported for float");
+            return false;
+        }
+        out->ty = ty_prim(env->arena, "num");
+        if (a_float || b_float) {
+            double av = a_float ? a.f : (double)a.i;
+            double bv = b_float ? b.f : (double)b.i;
+            out->is_float = true;
+            switch (e->as.binary.op) {
+                case TOK_PLUS: out->f = av + bv; break;
+                case TOK_MINUS: out->f = av - bv; break;
+                case TOK_STAR: out->f = av * bv; break;
+                case TOK_SLASH: out->f = av / bv; break;
+                default: break;
+            }
+        } else {
+            long long av = a.i;
+            long long bv = b.i;
+            out->is_float = false;
+            switch (e->as.binary.op) {
+                case TOK_PLUS: out->i = av + bv; break;
+                case TOK_MINUS: out->i = av - bv; break;
+                case TOK_STAR: out->i = av * bv; break;
+                case TOK_SLASH: out->i = av / bv; break;
+                case TOK_PERCENT: out->i = av % bv; break;
+                default: break;
+            }
+        }
+        return true;
+    }
+    set_err(err, "const expression must be a literal or simple numeric expression");
+    return false;
+}
+
+GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
+    if (!prog || !arena) return NULL;
+    GlobalEnv *env = (GlobalEnv *)arena_alloc(arena, sizeof(GlobalEnv));
+    if (!env) {
+        set_err(err, "out of memory");
+        return NULL;
+    }
+    memset(env, 0, sizeof(GlobalEnv));
+    env->arena = arena;
+
+    env->module_names_len = prog->mods_len;
+    env->module_names = (ModuleName *)arena_array(arena, prog->mods_len, sizeof(ModuleName));
+    env->module_imports_len = prog->mods_len;
+    env->module_imports = (ModuleImport *)arena_array(arena, prog->mods_len, sizeof(ModuleImport));
+    if (!env->module_names || !env->module_imports) {
+        set_err(err, "out of memory");
+        return NULL;
+    }
+
+    for (size_t i = 0; i < prog->mods_len; i++) {
+        Module *m = prog->mods[i];
+        Str mod_name = module_name_for_path(arena, m->path);
+        env->module_names[i].path = m->path;
+        env->module_names[i].name = mod_name;
+        env->module_imports[i].module = mod_name;
+        env->module_imports[i].imports_len = m->imports_len;
+        if (m->imports_len > 0) {
+            env->module_imports[i].imports = (Str *)arena_array(arena, m->imports_len, sizeof(Str));
+            if (!env->module_imports[i].imports) {
+                set_err(err, "out of memory");
+                return NULL;
+            }
+            for (size_t j = 0; j < m->imports_len; j++) {
+                env->module_imports[i].imports[j] = normalize_import_name(arena, m->imports[j]->name);
+            }
+        }
+    }
+
+    // count classes and funs
+    size_t class_count = 0;
+    size_t fun_count = 0;
+    for (size_t i = 0; i < prog->mods_len; i++) {
+        Module *m = prog->mods[i];
+        for (size_t j = 0; j < m->decls_len; j++) {
+            Decl *d = m->decls[j];
+            if (d->kind == DECL_CLASS) class_count++;
+            if (d->kind == DECL_FUN) fun_count++;
+        }
+    }
+    env->classes_len = class_count;
+    env->classes = class_count ? (ClassInfo *)arena_array(arena, class_count, sizeof(ClassInfo)) : NULL;
+    env->funs_len = fun_count;
+    env->funs = fun_count ? (FunSig *)arena_array(arena, fun_count, sizeof(FunSig)) : NULL;
+    if ((class_count && !env->classes) || (fun_count && !env->funs)) {
+        set_err(err, "out of memory");
+        return NULL;
+    }
+
+    // module consts (stdr/math)
+    env->module_consts_len = 0;
+    env->module_consts = (ModuleConsts *)arena_array(arena, 2, sizeof(ModuleConsts));
+    if (!env->module_consts) {
+        set_err(err, "out of memory");
+        return NULL;
+    }
+
+    for (size_t i = 0; i < prog->mods_len; i++) {
+        Module *m = prog->mods[i];
+        Str mod_name = env->module_names[i].name;
+        bool is_std = str_eq_c(mod_name, "stdr") || str_eq_c(mod_name, "math");
+        if (!is_std) {
+            for (size_t j = 0; j < m->decls_len; j++) {
+                if (m->decls[j]->kind == DECL_CONST) {
+                    set_errf(err, m->path, m->decls[j]->line, m->decls[j]->col,
+                             "%.*s: module-level consts are only supported in stdr/math",
+                             (int)m->path.len, m->path.data);
+                    return NULL;
+                }
+            }
+            continue;
+        }
+        size_t const_count = 0;
+        for (size_t j = 0; j < m->decls_len; j++) {
+            if (m->decls[j]->kind == DECL_CONST) const_count++;
+        }
+        ModuleConsts *mc = &env->module_consts[env->module_consts_len++];
+        mc->module = mod_name;
+        mc->len = const_count;
+        mc->entries = const_count ? (ConstEntry *)arena_array(arena, const_count, sizeof(ConstEntry)) : NULL;
+        size_t idx = 0;
+        for (size_t j = 0; j < m->decls_len; j++) {
+            Decl *d = m->decls[j];
+            if (d->kind != DECL_CONST) continue;
+            ConstDecl *cd = &d->as.const_decl;
+            if (find_const(mc, cd->name)) {
+                set_errf(err, m->path, d->line, d->col,
+                         "%.*s: duplicate const '%.*s'",
+                         (int)m->path.len, m->path.data, (int)cd->name.len, cd->name.data);
+                return NULL;
+            }
+            ConstVal cv = {0};
+            if (!eval_const_expr(env, cd->expr, &cv, err)) {
+                return NULL;
+            }
+            mc->entries[idx].name = cd->name;
+            mc->entries[idx].val = cv;
+            idx++;
+        }
+    }
+
+    // class shells
+    size_t cidx = 0;
+    for (size_t i = 0; i < prog->mods_len; i++) {
+        Module *m = prog->mods[i];
+        Str mod_name = env->module_names[i].name;
+        for (size_t j = 0; j < m->decls_len; j++) {
+            Decl *d = m->decls[j];
+            if (d->kind != DECL_CLASS) continue;
+            Str qname = qualify_class_name(arena, mod_name, d->as.class_decl.name);
+            if (find_class(env, qname)) {
+                set_errf(err, m->path, d->line, d->col,
+                         "%.*s: duplicate class '%.*s'",
+                         (int)m->path.len, m->path.data,
+                         (int)d->as.class_decl.name.len, d->as.class_decl.name.data);
+                return NULL;
+            }
+            ClassInfo *ci = &env->classes[cidx++];
+            memset(ci, 0, sizeof(ClassInfo));
+            ci->name = d->as.class_decl.name;
+            ci->module = mod_name;
+            ci->qname = qname;
+            ci->vis = d->as.class_decl.vis;
+            ci->is_seal = d->as.class_decl.is_seal;
+            ci->module_path = m->path;
+        }
+    }
+
+    // fill class fields + methods
+    for (size_t i = 0; i < prog->mods_len; i++) {
+        Module *m = prog->mods[i];
+        Str mod_name = env->module_names[i].name;
+        ModuleImport *imps = find_imports(env, mod_name);
+        for (size_t j = 0; j < m->decls_len; j++) {
+            Decl *d = m->decls[j];
+            if (d->kind != DECL_CLASS) continue;
+            Str qname = qualify_class_name(arena, mod_name, d->as.class_decl.name);
+            ClassInfo *ci = find_class(env, qname);
+            if (!ci) continue;
+
+            size_t fields_len = d->as.class_decl.fields_len;
+            size_t methods_len = d->as.class_decl.methods_len;
+            ci->fields_len = fields_len;
+            ci->methods_len = methods_len;
+            ci->fields = fields_len ? (FieldEntry *)arena_array(arena, fields_len, sizeof(FieldEntry)) : NULL;
+            ci->methods = methods_len ? (MethodEntry *)arena_array(arena, methods_len, sizeof(MethodEntry)) : NULL;
+            if ((fields_len && !ci->fields) || (methods_len && !ci->methods)) {
+                set_err(err, "out of memory");
+                return NULL;
+            }
+
+            for (size_t f = 0; f < fields_len; f++) {
+                FieldDecl *fd = d->as.class_decl.fields[f];
+                Ty *fty = ty_from_type_ref(env, fd->typ, mod_name, imps ? imps->imports : NULL, imps ? imps->imports_len : 0, err);
+                if (!fty) return NULL;
+                ci->fields[f].name = fd->name;
+                ci->fields[f].ty = fty;
+            }
+
+            for (size_t m_i = 0; m_i < methods_len; m_i++) {
+                FunDecl *md = d->as.class_decl.methods[m_i];
+                if (md->params_len == 0 || !md->params[0]->is_this) {
+                    set_errf(err, m->path, d->line, d->col,
+                             "%.*s: method '%.*s' in class '%.*s' must begin with this/?this",
+                             (int)m->path.len, m->path.data,
+                             (int)md->name.len, md->name.data,
+                             (int)d->as.class_decl.name.len, d->as.class_decl.name.data);
+                    return NULL;
+                }
+                bool recv_mut = md->params[0]->is_mut;
+                Ty *ret_ty = NULL;
+                if (md->ret.is_void) {
+                    ret_ty = ty_void(arena);
+                } else if (md->ret.types_len == 1) {
+                    ret_ty = ty_from_type_ref(env, md->ret.types[0], mod_name, imps ? imps->imports : NULL, imps ? imps->imports_len : 0, err);
+                } else {
+                    size_t rn = md->ret.types_len;
+                    Ty **items = (Ty **)arena_array(arena, rn, sizeof(Ty *));
+                    if (!items) {
+                        set_err(err, "out of memory");
+                        return NULL;
+                    }
+                    for (size_t r = 0; r < rn; r++) {
+                        items[r] = ty_from_type_ref(env, md->ret.types[r], mod_name, imps ? imps->imports : NULL, imps ? imps->imports_len : 0, err);
+                    }
+                    ret_ty = ty_tuple(arena, items, rn);
+                }
+                size_t param_count = md->params_len - 1;
+                Ty **param_types = param_count ? (Ty **)arena_array(arena, param_count, sizeof(Ty *)) : NULL;
+                Str *param_names = param_count ? (Str *)arena_array(arena, param_count, sizeof(Str)) : NULL;
+                for (size_t p = 0; p < param_count; p++) {
+                    Param *pp = md->params[p + 1];
+                    if (pp->is_this) {
+                        set_errf(err, m->path, d->line, d->col, "%.*s: only first param may be this", (int)m->path.len, m->path.data);
+                        return NULL;
+                    }
+                    Ty *pty = ty_from_type_ref(env, pp->typ, mod_name, imps ? imps->imports : NULL, imps ? imps->imports_len : 0, err);
+                    if (!pty) return NULL;
+                    param_types[p] = pty;
+                    param_names[p] = pp->name;
+                }
+                FunSig *sig = (FunSig *)arena_alloc(arena, sizeof(FunSig));
+                if (!sig) {
+                    set_err(err, "out of memory");
+                    return NULL;
+                }
+                sig->name = md->name;
+                sig->module = mod_name;
+                sig->params = param_types;
+                sig->params_len = param_count;
+                sig->param_names = param_names;
+                sig->param_names_len = param_count;
+                sig->ret = ret_ty;
+                sig->is_method = true;
+                sig->recv_mut = recv_mut;
+                sig->owner_class = ci->qname;
+                sig->module_path = m->path;
+
+                // check duplicate method name
+                for (size_t k = 0; k < m_i; k++) {
+                    if (str_eq(ci->methods[k].name, md->name)) {
+                        set_errf(err, m->path, d->line, d->col,
+                                 "%.*s: duplicate method '%.*s' in class '%.*s'",
+                                 (int)m->path.len, m->path.data,
+                                 (int)md->name.len, md->name.data,
+                                 (int)d->as.class_decl.name.len, d->as.class_decl.name.data);
+                        return NULL;
+                    }
+                }
+                ci->methods[m_i].name = md->name;
+                ci->methods[m_i].sig = sig;
+            }
+        }
+    }
+
+    // top-level funs + entry
+    size_t findex = 0;
+    env->entry = NULL;
+    for (size_t i = 0; i < prog->mods_len; i++) {
+        Module *m = prog->mods[i];
+        Str mod_name = env->module_names[i].name;
+        ModuleImport *imps = find_imports(env, mod_name);
+        (void)imps;
+        for (size_t j = 0; j < m->decls_len; j++) {
+            Decl *d = m->decls[j];
+            if (d->kind == DECL_FUN) {
+                FunDecl *fd = &d->as.fun;
+                if (fd->params_len > 0 && fd->params[0]->is_this) {
+                    set_errf(err, m->path, d->line, d->col,
+                             "%.*s: free function '%.*s' cannot take this/?this",
+                             (int)m->path.len, m->path.data,
+                             (int)fd->name.len, fd->name.data);
+                    return NULL;
+                }
+                // duplicate check
+                for (size_t k = 0; k < findex; k++) {
+                    if (str_eq(env->funs[k].module, mod_name) && str_eq(env->funs[k].name, fd->name)) {
+                        set_errf(err, m->path, d->line, d->col,
+                                 "%.*s: duplicate function '%.*s'",
+                                 (int)m->path.len, m->path.data,
+                                 (int)fd->name.len, fd->name.data);
+                        return NULL;
+                    }
+                }
+                Ty *ret_ty = NULL;
+                if (fd->ret.is_void) {
+                    ret_ty = ty_void(arena);
+                } else if (fd->ret.types_len == 1) {
+                    ret_ty = ty_from_type_ref(env, fd->ret.types[0], mod_name, imps ? imps->imports : NULL, imps ? imps->imports_len : 0, err);
+                } else {
+                    size_t rn = fd->ret.types_len;
+                    Ty **items = (Ty **)arena_array(arena, rn, sizeof(Ty *));
+                    if (!items) {
+                        set_err(err, "out of memory");
+                        return NULL;
+                    }
+                    for (size_t r = 0; r < rn; r++) {
+                        items[r] = ty_from_type_ref(env, fd->ret.types[r], mod_name, imps ? imps->imports : NULL, imps ? imps->imports_len : 0, err);
+                    }
+                    ret_ty = ty_tuple(arena, items, rn);
+                }
+                size_t pcount = fd->params_len;
+                Ty **params = pcount ? (Ty **)arena_array(arena, pcount, sizeof(Ty *)) : NULL;
+                Str *pnames = pcount ? (Str *)arena_array(arena, pcount, sizeof(Str)) : NULL;
+                for (size_t p = 0; p < pcount; p++) {
+                    Param *pp = fd->params[p];
+                    Ty *pty = ty_from_type_ref(env, pp->typ, mod_name, imps ? imps->imports : NULL, imps ? imps->imports_len : 0, err);
+                    if (!pty) return NULL;
+                    params[p] = pty;
+                    pnames[p] = pp->name;
+                }
+                env->funs[findex].name = fd->name;
+                env->funs[findex].module = mod_name;
+                env->funs[findex].params = params;
+                env->funs[findex].params_len = pcount;
+                env->funs[findex].param_names = pnames;
+                env->funs[findex].param_names_len = pcount;
+                env->funs[findex].ret = ret_ty;
+                env->funs[findex].is_method = false;
+                env->funs[findex].recv_mut = false;
+                env->funs[findex].owner_class.data = NULL;
+                env->funs[findex].owner_class.len = 0;
+                env->funs[findex].module_path = m->path;
+                findex++;
+            }
+            if (d->kind == DECL_ENTRY) {
+                env->entry = &d->as.entry;
+            }
+        }
+    }
+
+    if (!env->entry) {
+        set_err(err, "missing entry() in init.e");
+        return NULL;
+    }
+
+    return env;
+}
+
+static bool module_in_scope(Str name, Ctx *ctx, Locals *loc) {
+    if (locals_lookup(loc, name)) return false;
+    if (str_eq(name, ctx->module_name)) return true;
+    for (size_t i = 0; i < ctx->imports_len; i++) {
+        if (str_eq(ctx->imports[i], name)) return true;
+    }
+    return false;
+}
+
+static Str shadowed_module_name(Expr *base, Ctx *ctx, Locals *loc) {
+    Str empty = {"", 0};
+    if (!base || base->kind != EXPR_IDENT) return empty;
+    Str name = base->as.ident.name;
+    if (!locals_lookup(loc, name)) return empty;
+    if (str_eq(name, ctx->module_name)) return name;
+    for (size_t i = 0; i < ctx->imports_len; i++) {
+        if (str_eq(ctx->imports[i], name)) return name;
+    }
+    return empty;
+}
+
+static bool is_mut_lvalue(Expr *e, Locals *loc) {
+    if (!e) return false;
+    if (e->kind == EXPR_IDENT) {
+        Binding *b = locals_lookup(loc, e->as.ident.name);
+        return b && b->is_mut && !b->is_const;
+    }
+    if (e->kind == EXPR_MEMBER) {
+        return is_mut_lvalue(e->as.member.a, loc);
+    }
+    if (e->kind == EXPR_INDEX) {
+        return is_mut_lvalue(e->as.index.a, loc);
+    }
+    return false;
+}
+
+static bool is_stdr_prelude(Str name) {
+    return str_eq_c(name, "write") || str_eq_c(name, "writef") || str_eq_c(name, "readf") || str_eq_c(name, "len") || str_eq_c(name, "is_null") || str_eq_c(name, "str");
+}
+
+static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *err);
+static void tc_stmt_inner(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *ret_ty, Diag *err);
+static void tc_pat(Pat *pat, Ty *scrut_ty, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *err);
+static Ty *tc_call(Expr *call_expr, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *err);
+
+static Ty *numeric_result(Arena *arena, Ty *a, Ty *b, Str path, const char *op, Diag *err) {
+    if (!ty_is_numeric(a) || !ty_is_numeric(b)) {
+        set_errf(err, path, 0, 0, "%.*s: numeric op %s expects numeric types", (int)path.len, path.data, op);
+        return NULL;
+    }
+    return ty_prim(arena, "num");
+}
+
+static Ty *tc_call(Expr *call_expr, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *err) {
+    Expr *fn = call_expr->as.call.fn;
+    size_t argc = call_expr->as.call.args_len;
+    Expr **args = call_expr->as.call.args;
+
+    // module-qualified calls
+    if (fn && fn->kind == EXPR_MEMBER && fn->as.member.a && fn->as.member.a->kind == EXPR_IDENT) {
+        Str mod = fn->as.member.a->as.ident.name;
+        if (module_in_scope(mod, ctx, loc)) {
+            Str name = fn->as.member.name;
+            FunSig *sig = find_fun(env, mod, name);
+            if (!sig) {
+                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: unknown %.*s.%.*s",
+                         (int)ctx->module_path.len, ctx->module_path.data,
+                         (int)mod.len, mod.data,
+                         (int)name.len, name.data);
+                return NULL;
+            }
+            if (argc != sig->params_len) {
+                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: '%.*s.%.*s' expects %zu args",
+                         (int)ctx->module_path.len, ctx->module_path.data,
+                         (int)mod.len, mod.data,
+                         (int)name.len, name.data,
+                         sig->params_len);
+                return NULL;
+            }
+            Subst subst = subst_init();
+            for (size_t i = 0; i < argc; i++) {
+                Ty *at = tc_expr_inner(args[i], ctx, loc, env, err);
+                if (!ensure_assignable(env->arena, sig->params[i], at, ctx->module_path, "arg", err)) {
+                    subst_free(&subst);
+                    return NULL;
+                }
+                unify(env->arena, sig->params[i], at, ctx->module_path, "arg", &subst, err);
+                if (err && err->message) {
+                    subst_free(&subst);
+                    return NULL;
+                }
+            }
+            Ty *ret = ty_apply_subst(env->arena, sig->ret, &subst);
+            subst_free(&subst);
+            return ret;
+        }
+        if (!locals_lookup(loc, mod)) {
+            set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: unknown name '%.*s' (module not in scope)",
+                     (int)ctx->module_path.len, ctx->module_path.data,
+                     (int)mod.len, mod.data);
+            return NULL;
+        }
+    }
+
+    // method call
+    if (fn && fn->kind == EXPR_MEMBER) {
+        Expr *base = fn->as.member.a;
+        Ty *base_ty = tc_expr_inner(base, ctx, loc, env, err);
+        if (!base_ty) return NULL;
+        if (ty_is_nullable(base_ty)) {
+            set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: call on nullable value", (int)ctx->module_path.len, ctx->module_path.data);
+            return NULL;
+        }
+        base_ty = ty_strip_nullable(base_ty);
+        Str mname = fn->as.member.name;
+
+        if (base_ty->tag == TY_ARRAY && base_ty->elem) {
+            if (str_eq_c(mname, "add")) {
+                if (argc != 1) {
+                    set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: array.add expects 1 arg", (int)ctx->module_path.len, ctx->module_path.data);
+                    return NULL;
+                }
+                if (!is_mut_lvalue(base, loc)) {
+                    set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: array.add requires mutable binding", (int)ctx->module_path.len, ctx->module_path.data);
+                    return NULL;
+                }
+                Ty *ta = tc_expr_inner(args[0], ctx, loc, env, err);
+                ensure_assignable(env->arena, base_ty->elem, ta, ctx->module_path, "array.add", err);
+                unify(env->arena, base_ty->elem, ta, ctx->module_path, "array.add", NULL, err);
+                return ty_void(env->arena);
+            }
+            if (str_eq_c(mname, "remove")) {
+                if (argc != 1) {
+                    set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: array.remove expects 1 arg", (int)ctx->module_path.len, ctx->module_path.data);
+                    return NULL;
+                }
+                if (!is_mut_lvalue(base, loc)) {
+                    set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: array.remove requires mutable binding", (int)ctx->module_path.len, ctx->module_path.data);
+                    return NULL;
+                }
+                Ty *ti = tc_expr_inner(args[0], ctx, loc, env, err);
+                unify(env->arena, ti, ty_prim(env->arena, "num"), ctx->module_path, "array.remove index", NULL, err);
+                return base_ty->elem;
+            }
+            set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: unknown array method '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)mname.len, mname.data);
+            return NULL;
+        }
+
+        if (base_ty->tag == TY_PRIM && (str_eq_c(base_ty->name, "bool") || str_eq_c(base_ty->name, "num"))) {
+            if (str_eq_c(mname, "to_string")) {
+                if (argc != 0) {
+                    set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: to_string takes no args", (int)ctx->module_path.len, ctx->module_path.data);
+                    return NULL;
+                }
+                return ty_prim(env->arena, "string");
+            }
+        }
+
+        if (base_ty->tag == TY_CLASS) {
+            ClassInfo *ci = find_class(env, base_ty->name);
+            if (!ci) return NULL;
+            MethodEntry *method = NULL;
+            for (size_t i = 0; i < ci->methods_len; i++) {
+                if (str_eq(ci->methods[i].name, mname)) {
+                    method = &ci->methods[i];
+                    break;
+                }
+            }
+            if (!method) {
+                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: '%.*s' has no method '%.*s'",
+                         (int)ctx->module_path.len, ctx->module_path.data,
+                         (int)ci->name.len, ci->name.data,
+                         (int)mname.len, mname.data);
+                return NULL;
+            }
+            FunSig *sig = method->sig;
+            if (sig->recv_mut && !is_mut_lvalue(base, loc)) {
+                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: method '%.*s.%.*s' requires mutable receiver",
+                         (int)ctx->module_path.len, ctx->module_path.data,
+                         (int)ci->name.len, ci->name.data,
+                         (int)mname.len, mname.data);
+                return NULL;
+            }
+            if (argc != sig->params_len) {
+                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: '%.*s.%.*s' expects %zu args",
+                         (int)ctx->module_path.len, ctx->module_path.data,
+                         (int)ci->name.len, ci->name.data,
+                         (int)mname.len, mname.data,
+                         sig->params_len);
+                return NULL;
+            }
+            Subst subst = subst_init();
+            for (size_t i = 0; i < argc; i++) {
+                Ty *at = tc_expr_inner(args[i], ctx, loc, env, err);
+                if (!ensure_assignable(env->arena, sig->params[i], at, ctx->module_path, "arg", err)) {
+                    subst_free(&subst);
+                    return NULL;
+                }
+                unify(env->arena, sig->params[i], at, ctx->module_path, "arg", &subst, err);
+                if (err && err->message) {
+                    subst_free(&subst);
+                    return NULL;
+                }
+            }
+            Ty *ret = ty_apply_subst(env->arena, sig->ret, &subst);
+            subst_free(&subst);
+            return ret;
+        }
+
+        Str shadow = shadowed_module_name(base, ctx, loc);
+        if (shadow.len) {
+            set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: '%.*s' is a local binding that shadows module '%.*s'",
+                     (int)ctx->module_path.len, ctx->module_path.data,
+                     (int)shadow.len, shadow.data,
+                     (int)shadow.len, shadow.data);
+            return NULL;
+        }
+        set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: cannot call member on value", (int)ctx->module_path.len, ctx->module_path.data);
+        return NULL;
+    }
+
+    if (fn && fn->kind == EXPR_IDENT) {
+        Str fname = fn->as.ident.name;
+        Binding *b = locals_lookup(loc, fname);
+        if (b) {
+            Ty *fn_ty = tc_expr_inner(fn, ctx, loc, env, err);
+            if (!fn_ty || fn_ty->tag != TY_FN) {
+                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: unknown function '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)fname.len, fname.data);
+                return NULL;
+            }
+            if (argc != fn_ty->params_len) {
+                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: call expects %zu args", (int)ctx->module_path.len, ctx->module_path.data, fn_ty->params_len);
+                return NULL;
+            }
+            Subst subst = subst_init();
+            for (size_t i = 0; i < argc; i++) {
+                Ty *at = tc_expr_inner(args[i], ctx, loc, env, err);
+                unify(env->arena, fn_ty->params[i], at, ctx->module_path, "fn value call", &subst, err);
+            }
+            Ty *ret = ty_apply_subst(env->arena, fn_ty->ret, &subst);
+            subst_free(&subst);
+            return ret;
+        }
+
+        if (str_eq_c(fname, "str")) {
+            if (argc != 1) {
+                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: str expects 1 arg", (int)ctx->module_path.len, ctx->module_path.data);
+                return NULL;
+            }
+            tc_expr_inner(args[0], ctx, loc, env, err);
+            return ty_prim(env->arena, "string");
+        }
+
+        FunSig *sig = find_fun(env, ctx->module_name, fname);
+        if (!sig && is_stdr_prelude(fname)) {
+            bool allow = str_eq_c(ctx->module_name, "stdr");
+            for (size_t i = 0; i < ctx->imports_len && !allow; i++) {
+                if (str_eq_c(ctx->imports[i], "stdr")) allow = true;
+            }
+            if (allow) {
+                sig = find_fun(env, str_from_c("stdr"), fname);
+            }
+        }
+        if (!sig) {
+            Ty *fn_ty = tc_expr_inner(fn, ctx, loc, env, err);
+            if (!fn_ty || fn_ty->tag != TY_FN) {
+                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: unknown function '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)fname.len, fname.data);
+                return NULL;
+            }
+            if (argc != fn_ty->params_len) {
+                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: call expects %zu args", (int)ctx->module_path.len, ctx->module_path.data, fn_ty->params_len);
+                return NULL;
+            }
+            Subst subst = subst_init();
+            for (size_t i = 0; i < argc; i++) {
+                Ty *at = tc_expr_inner(args[i], ctx, loc, env, err);
+                unify(env->arena, fn_ty->params[i], at, ctx->module_path, "fn value call", &subst, err);
+            }
+            Ty *ret = ty_apply_subst(env->arena, fn_ty->ret, &subst);
+            subst_free(&subst);
+            return ret;
+        }
+
+        if (argc != sig->params_len) {
+            set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: '%.*s' expects %zu args",
+                     (int)ctx->module_path.len, ctx->module_path.data, (int)fname.len, fname.data, sig->params_len);
+            return NULL;
+        }
+        Subst subst = subst_init();
+        for (size_t i = 0; i < argc; i++) {
+            Ty *at = tc_expr_inner(args[i], ctx, loc, env, err);
+            if (!ensure_assignable(env->arena, sig->params[i], at, ctx->module_path, "arg", err)) {
+                subst_free(&subst);
+                return NULL;
+            }
+            unify(env->arena, sig->params[i], at, ctx->module_path, "arg", &subst, err);
+        }
+        Ty *ret = ty_apply_subst(env->arena, sig->ret, &subst);
+        subst_free(&subst);
+        return ret;
+    }
+
+    Ty *fn_ty = tc_expr_inner(fn, ctx, loc, env, err);
+    if (!fn_ty || fn_ty->tag != TY_FN) {
+        set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: unsupported call form", (int)ctx->module_path.len, ctx->module_path.data);
+        return NULL;
+    }
+    if (argc != fn_ty->params_len) {
+        set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: call expects %zu args", (int)ctx->module_path.len, ctx->module_path.data, fn_ty->params_len);
+        return NULL;
+    }
+    Subst subst = subst_init();
+    for (size_t i = 0; i < argc; i++) {
+        Ty *at = tc_expr_inner(args[i], ctx, loc, env, err);
+        unify(env->arena, fn_ty->params[i], at, ctx->module_path, "fn value call", &subst, err);
+    }
+    Ty *ret = ty_apply_subst(env->arena, fn_ty->ret, &subst);
+    subst_free(&subst);
+    return ret;
+}
+
+static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *err) {
+    if (!e) return NULL;
+    switch (e->kind) {
+        case EXPR_INT:
+        case EXPR_FLOAT:
+            return ty_prim(env->arena, "num");
+        case EXPR_BOOL:
+            return ty_prim(env->arena, "bool");
+        case EXPR_NULL:
+            return ty_null(env->arena);
+        case EXPR_STR:
+            return ty_prim(env->arena, "string");
+        case EXPR_TUPLE: {
+            size_t n = e->as.tuple_lit.items_len;
+            Ty **items = (Ty **)arena_array(env->arena, n, sizeof(Ty *));
+            if (!items) return NULL;
+            for (size_t i = 0; i < n; i++) {
+                items[i] = tc_expr_inner(e->as.tuple_lit.items[i], ctx, loc, env, err);
+            }
+            return ty_tuple(env->arena, items, n);
+        }
+        case EXPR_IDENT: {
+            Binding *b = locals_lookup(loc, e->as.ident.name);
+            if (b) return b->ty;
+            if (module_in_scope(e->as.ident.name, ctx, loc)) {
+                return ty_mod(env->arena, e->as.ident.name);
+            }
+            FunSig *sig = find_fun(env, ctx->module_name, e->as.ident.name);
+            if (!sig && is_stdr_prelude(e->as.ident.name)) {
+                bool allow = str_eq_c(ctx->module_name, "stdr");
+                for (size_t i = 0; i < ctx->imports_len && !allow; i++) {
+                    if (str_eq_c(ctx->imports[i], "stdr")) allow = true;
+                }
+                if (allow) sig = find_fun(env, str_from_c("stdr"), e->as.ident.name);
+            }
+            if (sig) {
+                return ty_fn(env->arena, sig->params, sig->params_len, sig->ret);
+            }
+            set_errf(err, ctx->module_path, e->line, e->col, "%.*s: unknown name '%.*s'",
+                     (int)ctx->module_path.len, ctx->module_path.data,
+                     (int)e->as.ident.name.len, e->as.ident.name.data);
+            return NULL;
+        }
+        case EXPR_ARRAY: {
+            if (e->as.array_lit.items_len == 0) {
+                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: cannot infer type of empty array []", (int)ctx->module_path.len, ctx->module_path.data);
+                return NULL;
+            }
+            Ty *t0 = tc_expr_inner(e->as.array_lit.items[0], ctx, loc, env, err);
+            for (size_t i = 1; i < e->as.array_lit.items_len; i++) {
+                Ty *ti = tc_expr_inner(e->as.array_lit.items[i], ctx, loc, env, err);
+                t0 = unify(env->arena, t0, ti, ctx->module_path, "array literal", NULL, err);
+            }
+            return ty_array(env->arena, t0);
+        }
+        case EXPR_UNARY: {
+            Ty *tx = tc_expr_inner(e->as.unary.x, ctx, loc, env, err);
+            if (e->as.unary.op == TOK_BANG) {
+                if (ty_is_nullable(tx)) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: ! on nullable value", (int)ctx->module_path.len, ctx->module_path.data);
+                    return NULL;
+                }
+                unify(env->arena, tx, ty_prim(env->arena, "bool"), ctx->module_path, "!", NULL, err);
+                return ty_prim(env->arena, "bool");
+            }
+            if (e->as.unary.op == TOK_MINUS) {
+                if (ty_is_nullable(tx)) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: unary - on nullable value", (int)ctx->module_path.len, ctx->module_path.data);
+                    return NULL;
+                }
+                if (!ty_is_numeric(ty_strip_nullable(tx))) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: unary - expects numeric", (int)ctx->module_path.len, ctx->module_path.data);
+                    return NULL;
+                }
+                return ty_prim(env->arena, "num");
+            }
+            if (e->as.unary.op == TOK_HASH) {
+                if (ty_is_nullable(tx)) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: # on nullable value", (int)ctx->module_path.len, ctx->module_path.data);
+                    return NULL;
+                }
+                if (tx->tag == TY_ARRAY || (tx->tag == TY_PRIM && str_eq_c(tx->name, "string"))) {
+                    return ty_prim(env->arena, "num");
+                }
+                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: # expects array or string", (int)ctx->module_path.len, ctx->module_path.data);
+                return NULL;
+            }
+            return tx;
+        }
+        case EXPR_BINARY: {
+            Ty *ta = tc_expr_inner(e->as.binary.a, ctx, loc, env, err);
+            Ty *tb = tc_expr_inner(e->as.binary.b, ctx, loc, env, err);
+            TokKind op = e->as.binary.op;
+            if (op == TOK_PLUS || op == TOK_MINUS || op == TOK_STAR || op == TOK_SLASH || op == TOK_PERCENT) {
+                if (ty_is_nullable(ta) || ty_is_nullable(tb)) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: numeric op on nullable value", (int)ctx->module_path.len, ctx->module_path.data);
+                    return NULL;
+                }
+                return numeric_result(env->arena, ty_strip_nullable(ta), ty_strip_nullable(tb), ctx->module_path, tok_kind_name(op), err);
+            }
+            if (op == TOK_LT || op == TOK_LTE || op == TOK_GT || op == TOK_GTE) {
+                if (ty_is_nullable(ta) || ty_is_nullable(tb)) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: comparison on nullable value", (int)ctx->module_path.len, ctx->module_path.data);
+                    return NULL;
+                }
+                if (!ty_is_numeric(ty_strip_nullable(ta)) || !ty_is_numeric(ty_strip_nullable(tb))) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: comparison expects numeric types", (int)ctx->module_path.len, ctx->module_path.data);
+                    return NULL;
+                }
+                return ty_prim(env->arena, "bool");
+            }
+            if (op == TOK_ANDAND || op == TOK_OROR) {
+                if (ty_is_nullable(ta) || ty_is_nullable(tb)) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: logical op on nullable value", (int)ctx->module_path.len, ctx->module_path.data);
+                    return NULL;
+                }
+                unify(env->arena, ta, ty_prim(env->arena, "bool"), ctx->module_path, tok_kind_name(op), NULL, err);
+                unify(env->arena, tb, ty_prim(env->arena, "bool"), ctx->module_path, tok_kind_name(op), NULL, err);
+                return ty_prim(env->arena, "bool");
+            }
+            if (op == TOK_EQEQ || op == TOK_NEQ) {
+                unify(env->arena, ta, tb, ctx->module_path, tok_kind_name(op), NULL, err);
+                return ty_prim(env->arena, "bool");
+            }
+            set_errf(err, ctx->module_path, e->line, e->col, "%.*s: unknown binary op", (int)ctx->module_path.len, ctx->module_path.data);
+            return NULL;
+        }
+        case EXPR_ASSIGN: {
+            if (e->as.assign.target->kind == EXPR_IDENT) {
+                Binding *b = locals_lookup(loc, e->as.assign.target->as.ident.name);
+                if (!b) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: assign to unknown '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
+                    return NULL;
+                }
+                if (b->is_const) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: cannot assign to const '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
+                    return NULL;
+                }
+                if (!b->is_mut) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: cannot assign to immutable '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
+                    return NULL;
+                }
+                Ty *tv = tc_expr_inner(e->as.assign.value, ctx, loc, env, err);
+                ensure_assignable(env->arena, b->ty, tv, ctx->module_path, "assignment", err);
+                Ty *new_ty = unify(env->arena, b->ty, tv, ctx->module_path, "assignment", NULL, err);
+                b->ty = new_ty;
+                return new_ty;
+            }
+            if (e->as.assign.target->kind == EXPR_MEMBER || e->as.assign.target->kind == EXPR_INDEX) {
+                Expr *base = (e->as.assign.target->kind == EXPR_MEMBER) ? e->as.assign.target->as.member.a : e->as.assign.target->as.index.a;
+                if (!is_mut_lvalue(base, loc)) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: cannot mutate through immutable binding", (int)ctx->module_path.len, ctx->module_path.data);
+                    return NULL;
+                }
+                Ty *tt = tc_expr_inner(e->as.assign.target, ctx, loc, env, err);
+                Ty *tv = tc_expr_inner(e->as.assign.value, ctx, loc, env, err);
+                ensure_assignable(env->arena, tt, tv, ctx->module_path, "assignment", err);
+                return unify(env->arena, tt, tv, ctx->module_path, "assignment", NULL, err);
+            }
+            set_errf(err, ctx->module_path, e->line, e->col, "%.*s: invalid assignment target", (int)ctx->module_path.len, ctx->module_path.data);
+            return NULL;
+        }
+        case EXPR_MEMBER: {
+            Ty *ta = tc_expr_inner(e->as.member.a, ctx, loc, env, err);
+            if (ty_is_nullable(ta)) {
+                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: member access on nullable value", (int)ctx->module_path.len, ctx->module_path.data);
+                return NULL;
+            }
+            ta = ty_strip_nullable(ta);
+            if (ta->tag == TY_MOD) {
+                ModuleConsts *mc = find_module_consts(env, ta->name);
+                if (mc) {
+                    ConstEntry *ce = find_const(mc, e->as.member.name);
+                    if (ce) return ce->val.ty;
+                }
+                if (find_fun(env, ta->name, e->as.member.name)) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: module function '%.*s.%.*s' must be called", (int)ctx->module_path.len, ctx->module_path.data, (int)ta->name.len, ta->name.data, (int)e->as.member.name.len, e->as.member.name.data);
+                    return NULL;
+                }
+                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: unknown module member '%.*s.%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)ta->name.len, ta->name.data, (int)e->as.member.name.len, e->as.member.name.data);
+                return NULL;
+            }
+            if (ta->tag == TY_CLASS) {
+                ClassInfo *ci = find_class(env, ta->name);
+                if (!ci) return NULL;
+                if (str_eq_c(ci->vis, "lock")) {
+                    bool in_same_file = str_eq(ctx->module_path, ci->module_path);
+                    bool in_own_method = ctx->has_current_class && str_eq(ctx->current_class, ci->qname);
+                    if (!(in_same_file || in_own_method)) {
+                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: cannot access field '%.*s' of lock class '%.*s'",
+                                 (int)ctx->module_path.len, ctx->module_path.data,
+                                 (int)e->as.member.name.len, e->as.member.name.data,
+                                 (int)ci->name.len, ci->name.data);
+                        return NULL;
+                    }
+                }
+                for (size_t i = 0; i < ci->fields_len; i++) {
+                    if (str_eq(ci->fields[i].name, e->as.member.name)) {
+                        return ci->fields[i].ty;
+                    }
+                }
+                for (size_t i = 0; i < ci->methods_len; i++) {
+                    if (str_eq(ci->methods[i].name, e->as.member.name)) {
+                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: method '%.*s' must be called", (int)ctx->module_path.len, ctx->module_path.data, (int)e->as.member.name.len, e->as.member.name.data);
+                        return NULL;
+                    }
+                }
+                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: unknown member '%.*s' on class", (int)ctx->module_path.len, ctx->module_path.data, (int)e->as.member.name.len, e->as.member.name.data);
+                return NULL;
+            }
+            Str shadow = shadowed_module_name(e->as.member.a, ctx, loc);
+            if (shadow.len) {
+                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: '%.*s' shadows module '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)shadow.len, shadow.data, (int)shadow.len, shadow.data);
+                return NULL;
+            }
+            set_errf(err, ctx->module_path, e->line, e->col, "%.*s: member access on non-object", (int)ctx->module_path.len, ctx->module_path.data);
+            return NULL;
+        }
+        case EXPR_INDEX: {
+            Ty *ta = tc_expr_inner(e->as.index.a, ctx, loc, env, err);
+            Ty *ti = tc_expr_inner(e->as.index.i, ctx, loc, env, err);
+            unify(env->arena, ti, ty_prim(env->arena, "num"), ctx->module_path, "index", NULL, err);
+            if (ty_is_nullable(ta)) {
+                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: indexing nullable value", (int)ctx->module_path.len, ctx->module_path.data);
+                return NULL;
+            }
+            ta = ty_strip_nullable(ta);
+            if (ta->tag == TY_ARRAY && ta->elem) return ta->elem;
+            if (ta->tag == TY_TUPLE && ta->items) {
+                if (e->as.index.i->kind == EXPR_INT) {
+                    long long idx = e->as.index.i->as.int_lit.v;
+                    if (idx < 0 || (size_t)idx >= ta->items_len) {
+                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: tuple index out of range", (int)ctx->module_path.len, ctx->module_path.data);
+                        return NULL;
+                    }
+                    return ta->items[idx];
+                }
+                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: tuple index must be integer literal", (int)ctx->module_path.len, ctx->module_path.data);
+                return NULL;
+            }
+            if (ta->tag == TY_PRIM && str_eq_c(ta->name, "string")) return ty_prim(env->arena, "string");
+            set_errf(err, ctx->module_path, e->line, e->col, "%.*s: indexing requires array or string", (int)ctx->module_path.len, ctx->module_path.data);
+            return NULL;
+        }
+        case EXPR_TERNARY: {
+            Ty *tc = tc_expr_inner(e->as.ternary.cond, ctx, loc, env, err);
+            if (ty_is_void(tc)) {
+                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: ternary condition cannot be void", (int)ctx->module_path.len, ctx->module_path.data);
+                return NULL;
+            }
+            Ty *ta = tc_expr_inner(e->as.ternary.then_expr, ctx, loc, env, err);
+            Ty *tb = tc_expr_inner(e->as.ternary.else_expr, ctx, loc, env, err);
+            return unify(env->arena, ta, tb, ctx->module_path, "ternary", NULL, err);
+        }
+        case EXPR_MATCH: {
+            Ty *scrut_ty = tc_expr_inner(e->as.match_expr.scrut, ctx, loc, env, err);
+            Ty *arm_ty = NULL;
+            for (size_t i = 0; i < e->as.match_expr.arms_len; i++) {
+                Locals arm_loc = locals_clone(loc);
+                tc_pat(e->as.match_expr.arms[i]->pat, scrut_ty, ctx, &arm_loc, env, err);
+                Ty *t = tc_expr_inner(e->as.match_expr.arms[i]->expr, ctx, &arm_loc, env, err);
+                locals_free(&arm_loc);
+                arm_ty = arm_ty ? unify(env->arena, arm_ty, t, ctx->module_path, "match", NULL, err) : t;
+            }
+            if (!arm_ty) {
+                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: match requires at least one arm", (int)ctx->module_path.len, ctx->module_path.data);
+                return NULL;
+            }
+            return arm_ty;
+        }
+        case EXPR_LAMBDA: {
+            Locals lambda_loc;
+            locals_init(&lambda_loc);
+            size_t n = e->as.lambda.params_len;
+            Ty **param_tys = (Ty **)arena_array(env->arena, n, sizeof(Ty *));
+            int gen_id = 0;
+            for (size_t i = 0; i < n; i++) {
+                Param *p = e->as.lambda.params[i];
+                if (p->is_this) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: lambda params cannot be this", (int)ctx->module_path.len, ctx->module_path.data);
+                    locals_free(&lambda_loc);
+                    return NULL;
+                }
+                Ty *ty = NULL;
+                if (!p->typ) {
+                    gen_id++;
+                    char buf[64];
+                    snprintf(buf, sizeof(buf), "_%.*s_%d", (int)p->name.len, p->name.data, gen_id);
+                    Str gen = arena_str_copy(env->arena, buf, strlen(buf));
+                    ty = ty_gen(env->arena, gen);
+                } else {
+                    ty = ty_from_type_ref(env, p->typ, ctx->module_name, ctx->imports, ctx->imports_len, err);
+                }
+                Binding b = { ty, p->is_mut, false };
+                locals_define(&lambda_loc, p->name, b);
+                param_tys[i] = ty;
+            }
+            Ty *body_ty = tc_expr_inner(e->as.lambda.body, ctx, &lambda_loc, env, err);
+            locals_free(&lambda_loc);
+            return ty_fn(env->arena, param_tys, n, body_ty);
+        }
+        case EXPR_NEW: {
+            Str name = e->as.new_expr.name;
+            Str qname = name;
+            if (!memchr(name.data, '.', name.len)) {
+                qname = qualify_class_name(env->arena, ctx->module_name, name);
+            } else {
+                size_t dot = 0;
+                for (; dot < name.len; dot++) if (name.data[dot] == '.') break;
+                Str mod = str_slice(name, 0, dot);
+                bool ok = str_eq(mod, ctx->module_name);
+                for (size_t i = 0; i < ctx->imports_len && !ok; i++) if (str_eq(ctx->imports[i], mod)) ok = true;
+                if (!ok) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: unknown class '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)name.len, name.data);
+                    return NULL;
+                }
+            }
+            ClassInfo *ci = find_class(env, qname);
+            if (!ci) {
+                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: unknown class '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)name.len, name.data);
+                return NULL;
+            }
+            MethodEntry *init = NULL;
+            for (size_t i = 0; i < ci->methods_len; i++) {
+                if (str_eq_c(ci->methods[i].name, "init")) {
+                    init = &ci->methods[i];
+                    break;
+                }
+            }
+            if (init) {
+                FunSig *sig = init->sig;
+                if (e->as.new_expr.args_len != sig->params_len) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: '%.*s.init' expects %zu args", (int)ctx->module_path.len, ctx->module_path.data, (int)ci->name.len, ci->name.data, sig->params_len);
+                    return NULL;
+                }
+                Subst subst = subst_init();
+                for (size_t i = 0; i < e->as.new_expr.args_len; i++) {
+                    Ty *at = tc_expr_inner(e->as.new_expr.args[i], ctx, loc, env, err);
+                    ensure_assignable(env->arena, sig->params[i], at, ctx->module_path, "arg", err);
+                    unify(env->arena, sig->params[i], at, ctx->module_path, "arg", &subst, err);
+                }
+                subst_free(&subst);
+                if (!ty_is_void(sig->ret)) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: '%.*s.init' must return void", (int)ctx->module_path.len, ctx->module_path.data, (int)ci->name.len, ci->name.data);
+                    return NULL;
+                }
+            } else if (e->as.new_expr.args_len > 0) {
+                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: class '%.*s' has no init method", (int)ctx->module_path.len, ctx->module_path.data, (int)ci->name.len, ci->name.data);
+                return NULL;
+            }
+            return ty_class(env->arena, qname);
+        }
+        case EXPR_MOVE:
+            return tc_expr_inner(e->as.move.x, ctx, loc, env, err);
+        case EXPR_CALL:
+            return tc_call(e, ctx, loc, env, err);
+        case EXPR_PAREN:
+            return tc_expr_inner(e->as.paren.x, ctx, loc, env, err);
+        default:
+            return NULL;
+    }
+}
+
+static void tc_pat(Pat *pat, Ty *scrut_ty, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *err) {
+    if (!pat) return;
+    if (pat->kind == PAT_WILD) return;
+    if (pat->kind == PAT_IDENT) {
+        Binding b = { scrut_ty, false, false };
+        locals_define(loc, pat->as.name, b);
+        return;
+    }
+    if (pat->kind == PAT_INT) {
+        unify(env->arena, scrut_ty, ty_prim(env->arena, "num"), ctx->module_path, "match pattern", NULL, err);
+        return;
+    }
+    if (pat->kind == PAT_STR) {
+        unify(env->arena, scrut_ty, ty_prim(env->arena, "string"), ctx->module_path, "match pattern", NULL, err);
+        return;
+    }
+    if (pat->kind == PAT_BOOL) {
+        unify(env->arena, scrut_ty, ty_prim(env->arena, "bool"), ctx->module_path, "match pattern", NULL, err);
+        return;
+    }
+    if (pat->kind == PAT_NULL) {
+        unify(env->arena, scrut_ty, ty_null(env->arena), ctx->module_path, "match pattern", NULL, err);
+        return;
+    }
+    set_errf(err, ctx->module_path, pat->line, pat->col, "%.*s: unsupported match pattern", (int)ctx->module_path.len, ctx->module_path.data);
+}
+
+static void tc_stmt_inner(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *ret_ty, Diag *err) {
+    if (!s) return;
+    switch (s->kind) {
+        case STMT_LET: {
+            Ty *t = tc_expr_inner(s->as.let_s.expr, ctx, loc, env, err);
+            Binding b = { t, s->as.let_s.is_mut, false };
+            locals_define(loc, s->as.let_s.name, b);
+            return;
+        }
+        case STMT_CONST: {
+            Ty *t = tc_expr_inner(s->as.const_s.expr, ctx, loc, env, err);
+            Binding b = { t, false, true };
+            locals_define(loc, s->as.const_s.name, b);
+            return;
+        }
+        case STMT_EXPR:
+            tc_expr_inner(s->as.expr_s.expr, ctx, loc, env, err);
+            return;
+        case STMT_RETURN: {
+            if (ty_is_void(ret_ty)) {
+                if (s->as.ret_s.expr) {
+                    set_errf(err, ctx->module_path, s->line, s->col, "%.*s: return value in void function", (int)ctx->module_path.len, ctx->module_path.data);
+                    return;
+                }
+                return;
+            }
+            if (!s->as.ret_s.expr) {
+                set_errf(err, ctx->module_path, s->line, s->col, "%.*s: missing return value", (int)ctx->module_path.len, ctx->module_path.data);
+                return;
+            }
+            Ty *t = tc_expr_inner(s->as.ret_s.expr, ctx, loc, env, err);
+            ensure_assignable(env->arena, ret_ty, t, ctx->module_path, "return", err);
+            unify(env->arena, ret_ty, t, ctx->module_path, "return", NULL, err);
+            return;
+        }
+        case STMT_IF: {
+            for (size_t i = 0; i < s->as.if_s.arms_len; i++) {
+                Locals arm_loc = locals_clone(loc);
+                IfArm *arm = s->as.if_s.arms[i];
+                if (arm->cond) {
+                    Ty *ct = tc_expr_inner(arm->cond, ctx, &arm_loc, env, err);
+                    if (ty_is_void(ct)) {
+                        set_errf(err, ctx->module_path, s->line, s->col, "%.*s: if condition cannot be void", (int)ctx->module_path.len, ctx->module_path.data);
+                    }
+                }
+                tc_stmt_inner(arm->body, ctx, &arm_loc, env, ret_ty, err);
+                locals_free(&arm_loc);
+            }
+            return;
+        }
+        case STMT_FOR: {
+            locals_push(loc);
+            if (s->as.for_s.init) {
+                tc_stmt_inner(s->as.for_s.init, ctx, loc, env, ret_ty, err);
+            }
+            if (s->as.for_s.cond) {
+                Ty *ct = tc_expr_inner(s->as.for_s.cond, ctx, loc, env, err);
+                if (ty_is_void(ct)) {
+                    set_errf(err, ctx->module_path, s->line, s->col, "%.*s: for condition cannot be void", (int)ctx->module_path.len, ctx->module_path.data);
+                }
+            }
+            if (s->as.for_s.step) {
+                tc_expr_inner(s->as.for_s.step, ctx, loc, env, err);
+            }
+            tc_stmt_inner(s->as.for_s.body, ctx, loc, env, ret_ty, err);
+            locals_pop(loc);
+            return;
+        }
+        case STMT_FOREACH: {
+            Ty *it = tc_expr_inner(s->as.foreach_s.expr, ctx, loc, env, err);
+            it = ty_strip_nullable(it);
+            Ty *elem = NULL;
+            if (it && it->tag == TY_ARRAY && it->elem) {
+                elem = it->elem;
+            } else if (it && it->tag == TY_PRIM && str_eq_c(it->name, "string")) {
+                elem = ty_prim(env->arena, "string");
+            } else {
+                set_errf(err, ctx->module_path, s->line, s->col, "%.*s: foreach expects array or string", (int)ctx->module_path.len, ctx->module_path.data);
+                return;
+            }
+            locals_push(loc);
+            Binding b = { elem, false, false };
+            locals_define(loc, s->as.foreach_s.name, b);
+            tc_stmt_inner(s->as.foreach_s.body, ctx, loc, env, ret_ty, err);
+            locals_pop(loc);
+            return;
+        }
+        case STMT_BLOCK: {
+            locals_push(loc);
+            for (size_t i = 0; i < s->as.block_s.stmts_len; i++) {
+                tc_stmt_inner(s->as.block_s.stmts[i], ctx, loc, env, ret_ty, err);
+            }
+            locals_pop(loc);
+            return;
+        }
+        default:
+            return;
+    }
+}
+
+Ty *tc_expr(Expr *e, GlobalEnv *env, Str module_path, Str module_name, Str *imports, size_t imports_len, Diag *err) {
+    Ctx ctx;
+    ctx.module_path = module_path;
+    ctx.module_name = module_name;
+    ctx.imports = imports;
+    ctx.imports_len = imports_len;
+    ctx.has_current_class = false;
+    Locals loc;
+    locals_init(&loc);
+    Ty *t = tc_expr_inner(e, &ctx, &loc, env, err);
+    locals_free(&loc);
+    return t;
+}
+
+Ty *tc_expr_ctx(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *err) {
+    if (!ctx || !loc) {
+        return NULL;
+    }
+    return tc_expr_inner(e, ctx, loc, env, err);
+}
+
+bool typecheck_program(Program *prog, Arena *arena, Diag *err) {
+    if (!arena) {
+        set_err(err, "internal error: missing arena");
+        return false;
+    }
+    GlobalEnv *env = build_global_env(prog, arena, err);
+    if (!env) {
+        return false;
+    }
+    (void)env;
+    // typecheck functions
+    for (size_t i = 0; i < prog->mods_len; i++) {
+        Module *m = prog->mods[i];
+        Str mod_name = env->module_names[i].name;
+        ModuleImport *imps = find_imports(env, mod_name);
+        Str *imports = imps ? imps->imports : NULL;
+        size_t imports_len = imps ? imps->imports_len : 0;
+
+        for (size_t j = 0; j < m->decls_len; j++) {
+            Decl *d = m->decls[j];
+            if (d->kind == DECL_FUN) {
+                Locals loc;
+                locals_init(&loc);
+                Ctx ctx;
+                ctx.module_path = m->path;
+                ctx.module_name = mod_name;
+                ctx.imports = imports;
+                ctx.imports_len = imports_len;
+                ctx.has_current_class = false;
+                for (size_t p = 0; p < d->as.fun.params_len; p++) {
+                    Param *pp = d->as.fun.params[p];
+                    Ty *pty = ty_from_type_ref(env, pp->typ, mod_name, imports, imports_len, err);
+                    Binding b = { pty, pp->is_mut, false };
+                    locals_define(&loc, pp->name, b);
+                }
+                Ty *ret_ty = d->as.fun.ret.is_void ? ty_void(env->arena) : NULL;
+                if (!d->as.fun.ret.is_void) {
+                    if (d->as.fun.ret.types_len == 1) {
+                        ret_ty = ty_from_type_ref(env, d->as.fun.ret.types[0], mod_name, imports, imports_len, err);
+                    } else {
+                        size_t rn = d->as.fun.ret.types_len;
+                        Ty **items = (Ty **)arena_array(env->arena, rn, sizeof(Ty *));
+                        for (size_t r = 0; r < rn; r++) {
+                            items[r] = ty_from_type_ref(env, d->as.fun.ret.types[r], mod_name, imports, imports_len, err);
+                        }
+                        ret_ty = ty_tuple(env->arena, items, rn);
+                    }
+                }
+                tc_stmt_inner(d->as.fun.body, &ctx, &loc, env, ret_ty, err);
+                locals_free(&loc);
+            } else if (d->kind == DECL_CLASS) {
+                ClassInfo *ci = find_class(env, qualify_class_name(env->arena, mod_name, d->as.class_decl.name));
+                if (!ci) continue;
+                for (size_t m_i = 0; m_i < d->as.class_decl.methods_len; m_i++) {
+                    FunDecl *md = d->as.class_decl.methods[m_i];
+                    Locals loc;
+                    locals_init(&loc);
+                    Ctx ctx;
+                    ctx.module_path = m->path;
+                    ctx.module_name = mod_name;
+                    ctx.imports = imports;
+                    ctx.imports_len = imports_len;
+                    ctx.has_current_class = true;
+                    ctx.current_class = ci->qname;
+                    // receiver
+                    Ty *self_ty = ty_class(env->arena, ci->qname);
+                    Binding self_b = { self_ty, md->params[0]->is_mut, false };
+                    locals_define(&loc, md->params[0]->name, self_b);
+                    for (size_t p = 1; p < md->params_len; p++) {
+                        Param *pp = md->params[p];
+                        Ty *pty = ty_from_type_ref(env, pp->typ, mod_name, imports, imports_len, err);
+                        Binding b = { pty, pp->is_mut, false };
+                        locals_define(&loc, pp->name, b);
+                    }
+                    Ty *ret_ty = md->ret.is_void ? ty_void(env->arena) : NULL;
+                    if (!md->ret.is_void) {
+                        if (md->ret.types_len == 1) {
+                            ret_ty = ty_from_type_ref(env, md->ret.types[0], mod_name, imports, imports_len, err);
+                        } else {
+                            size_t rn = md->ret.types_len;
+                            Ty **items = (Ty **)arena_array(env->arena, rn, sizeof(Ty *));
+                            for (size_t r = 0; r < rn; r++) {
+                                items[r] = ty_from_type_ref(env, md->ret.types[r], mod_name, imports, imports_len, err);
+                            }
+                            ret_ty = ty_tuple(env->arena, items, rn);
+                        }
+                    }
+                    tc_stmt_inner(md->body, &ctx, &loc, env, ret_ty, err);
+                    locals_free(&loc);
+                }
+            } else if (d->kind == DECL_ENTRY) {
+                Locals loc;
+                locals_init(&loc);
+                Ctx ctx;
+                ctx.module_path = m->path;
+                ctx.module_name = mod_name;
+                ctx.imports = imports;
+                ctx.imports_len = imports_len;
+                ctx.has_current_class = false;
+                Ty *ret_ty = d->as.entry.ret.is_void ? ty_void(env->arena) : NULL;
+                if (!d->as.entry.ret.is_void) {
+                    if (d->as.entry.ret.types_len == 1) {
+                        ret_ty = ty_from_type_ref(env, d->as.entry.ret.types[0], mod_name, imports, imports_len, err);
+                    } else {
+                        size_t rn = d->as.entry.ret.types_len;
+                        Ty **items = (Ty **)arena_array(env->arena, rn, sizeof(Ty *));
+                        for (size_t r = 0; r < rn; r++) {
+                            items[r] = ty_from_type_ref(env, d->as.entry.ret.types[r], mod_name, imports, imports_len, err);
+                        }
+                        ret_ty = ty_tuple(env->arena, items, rn);
+                    }
+                }
+                tc_stmt_inner(d->as.entry.body, &ctx, &loc, env, ret_ty, err);
+                locals_free(&loc);
+            }
+        }
+    }
+    return err == NULL || err->message == NULL;
+}
