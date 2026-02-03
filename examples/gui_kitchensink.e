@@ -37,9 +37,22 @@ fun on_grid_activate(idx = num) (( -- )) {
     writef(@"Grid activate: {idx}\n")
 }
 
+fun on_appbar_settings(btn = any) (( -- )) {
+    writef(@"appbar: settings\n")
+}
+
+fun on_appbar_help(btn = any) (( -- )) {
+    writef(@"appbar: help\n")
+}
+
 fun build_ui(win = cogito.Window) (( -- )) {
+    let bar = cogito.appbar(@"The Kitchensink", @"Cogito UI Gallery")
+    bar.add_button(@"⚙", on_appbar_settings)
+    bar.add_button(@"?", on_appbar_help)
+    win.add(bar)
+
     let root = cogito.vstack()
-    root.align_begin ()
+    root.align_begin()
     let row1 = cogito.hstack()
     let row2 = cogito.hstack()
     let row3 = cogito.hstack()
@@ -92,7 +105,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
 
 entry () (( -- )) {
     let app = cogito.app()
-    let win = cogito.window_title("The Kitchensink").build(build_ui)
+    let win = cogito.window_title(@"The Kitchensink").build(build_ui)
     win.set_autosize(true)
     app.run(win)
 }

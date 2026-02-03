@@ -1937,6 +1937,22 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_appbar")) {
+                        GenExpr title, subtitle;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &title, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &subtitle, err)) { gen_expr_free(&title); return false; }
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_appbar_new(%s, %s);", t, title.tmp, subtitle.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", title.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", subtitle.tmp);
+                        gen_expr_release_except(cg, &title, title.tmp);
+                        gen_expr_release_except(cg, &subtitle, subtitle.tmp);
+                        gen_expr_free(&title);
+                        gen_expr_free(&subtitle);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_vstack")) {
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w, "ErgoVal %s = cogito_vstack_new();", t);
@@ -2341,6 +2357,27 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         gen_expr_release_except(cg, &btn, btn.tmp);
                         gen_expr_release_except(cg, &handler, handler.tmp);
                         gen_expr_free(&btn);
+                        gen_expr_free(&handler);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_appbar_add_button")) {
+                        GenExpr app, text, handler;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &app, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &text, err)) { gen_expr_free(&app); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[2], &handler, err)) { gen_expr_free(&app); gen_expr_free(&text); return false; }
+                        w_line(&cg->w, "cogito_appbar_add_button(%s, %s, %s);", app.tmp, text.tmp, handler.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", app.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", text.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", handler.tmp);
+                        gen_expr_release_except(cg, &app, app.tmp);
+                        gen_expr_release_except(cg, &text, text.tmp);
+                        gen_expr_release_except(cg, &handler, handler.tmp);
+                        gen_expr_free(&app);
+                        gen_expr_free(&text);
                         gen_expr_free(&handler);
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
