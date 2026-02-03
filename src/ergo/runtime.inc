@@ -652,6 +652,7 @@ typedef struct CogitoNode {
   int padding_right;
   int padding_bottom;
   int align;
+  bool auto_size;
 #if defined(_WIN32)
   HWND hwnd;
   HWND native;
@@ -763,11 +764,13 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
     n->padding_top = 0;
     n->padding_right = 0;
     n->padding_bottom = 0;
+    n->auto_size = true;
   } else {
     n->padding_left = 6;
     n->padding_top = 6;
     n->padding_right = 6;
     n->padding_bottom = 6;
+    n->auto_size = false;
   }
   n->align = -1;
 #if defined(_WIN32)
@@ -786,6 +789,12 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->wm_delete = 0;
   n->native = NULL;
 #endif
+  if (kind == COGITO_VSTACK) {
+    n->margin_left = 18;
+    n->margin_top = 0;
+    n->margin_right = 18;
+    n->margin_bottom = 0;
+  }
   return n;
 }
 
@@ -885,6 +894,10 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
 
 static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h);
 static void cogito_attach_node(CogitoNode* win, CogitoNode* n, int content_h);
+#if defined(__APPLE__)
+static void cogito_update_selection_visuals(CogitoNode* node);
+#endif
+static void cogito_window_relayout(CogitoNode* win);
 #if defined(__APPLE__)
 static void cogito_update_selection_visuals(CogitoNode* node);
 #endif
@@ -1046,6 +1059,27 @@ static void cogito_layout_window(CogitoNode* win) {
       cy += ch_total + pad;
     }
   }
+}
+
+static void cogito_window_desired_size(CogitoNode* win, int* out_w, int* out_h) {
+  int pad = 12;
+  int max_w = pad + win->padding_left;
+  int cy = pad + win->padding_top;
+  for (size_t i = 0; i < win->len; i++) {
+    CogitoNode* c = win->children[i];
+    int cw = 0;
+    int ch = 0;
+    cogito_intrinsic_size(c, &cw, &ch);
+    int cw_total = cw + c->margin_left + c->margin_right;
+    int ch_total = ch + c->margin_top + c->margin_bottom;
+    int row_w = pad + win->padding_left + cw_total;
+    if (row_w > max_w) max_w = row_w;
+    cy += ch_total + pad;
+  }
+  int dw = max_w + win->padding_right + pad;
+  int dh = cy + win->padding_bottom + pad;
+  if (out_w) *out_w = dw;
+  if (out_h) *out_h = dh;
 }
 
 static void cogito_invoke(ErgoFn* fn, int argc, ErgoVal* argv) {
@@ -1293,10 +1327,26 @@ static void cogito_update_selection_visuals(CogitoNode* node) {
       if (child->kind == COGITO_LABEL && child->native) {
         NSTextField* tf = (NSTextField*)child->native;
         if ((int)i == node->selected) {
-          [tf setDrawsBackground:YES];
-          [tf setBackgroundColor:[NSColor selectedControlColor]];
+          if (!child->aux) {
+            NSView* bg = [[NSView alloc] initWithFrame:[tf frame]];
+            [bg setWantsLayer:YES];
+            bg.layer.cornerRadius = 4.0;
+            bg.layer.masksToBounds = YES;
+            bg.layer.backgroundColor = [[[NSColor selectedControlColor] colorWithAlphaComponent:0.35] CGColor];
+            [[tf superview] addSubview:bg positioned:NSWindowBelow relativeTo:tf];
+            child->aux = bg;
+          }
+          NSRect r = [tf frame];
+          r.origin.x -= 4;
+          r.origin.y -= 2;
+          r.size.width += 8;
+          r.size.height += 4;
+          [(NSView*)child->aux setFrame:r];
         } else {
-          [tf setDrawsBackground:NO];
+          if (child->aux) {
+            [(NSView*)child->aux removeFromSuperview];
+            child->aux = nil;
+          }
         }
       }
     }
@@ -1462,6 +1512,12 @@ static void cogito_container_set_padding(ErgoVal nodev, ErgoVal left, ErgoVal to
   node->padding_top = (int)ergo_as_int(top);
   node->padding_right = (int)ergo_as_int(right);
   node->padding_bottom = (int)ergo_as_int(bottom);
+}
+
+static void cogito_window_set_autosize(ErgoVal winv, ErgoVal onv) {
+  if (winv.tag != EVT_OBJ) ergo_trap("cogito.window_set_autosize expects window");
+  CogitoNode* win = (CogitoNode*)winv.as.p;
+  win->auto_size = ergo_as_bool(onv);
 }
 
 static void cogito_build(ErgoVal nodev, ErgoVal builder) {
@@ -1825,6 +1881,13 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (winv.tag != EVT_OBJ) ergo_trap("cogito.run expects window");
   CogitoNode* win = (CogitoNode*)winv.as.p;
   cogito_active_window = win;
+  if (win->auto_size) {
+    int dw = 0;
+    int dh = 0;
+    cogito_window_desired_size(win, &dw, &dh);
+    if (dw > win->w) win->w = dw;
+    if (dh > win->h) win->h = dh;
+  }
   cogito_layout_window(win);
 
 #if defined(_WIN32)
@@ -1862,7 +1925,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     [app setActivationPolicy:NSApplicationActivationPolicyRegular];
     [app finishLaunching];
     NSRect rect = NSMakeRect(0, 0, win->w, win->h);
-    NSUInteger style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable;
+    NSUInteger style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable;
     NSWindow* nsw = [[NSWindow alloc] initWithContentRect:rect styleMask:style backing:NSBackingStoreBuffered defer:NO];
     NSString* nsTitle = [NSString stringWithUTF8String:(win->text ? win->text->data : "Cogito")];
     [nsw setTitle:nsTitle];

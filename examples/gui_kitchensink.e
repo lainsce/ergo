@@ -93,5 +93,6 @@ fun build_ui(win = cogito.Window) (( -- )) {
 entry () (( -- )) {
     let app = cogito.app()
     let win = cogito.window_title("The Kitchensink").build(build_ui)
+    win.set_autosize(true)
     app.run(win)
 }

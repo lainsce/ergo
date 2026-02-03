@@ -20,6 +20,7 @@ fun __cogito_state_get(state = State) (( any )) { }
 fun __cogito_state_set(state = State, value = any) (( -- )) { }
 fun __cogito_container_set_align(node = any, align = num) (( -- )) { }
 fun __cogito_container_set_padding(node = any, left = num, top = num, right = num, bottom = num) (( -- )) { }
+fun __cogito_window_set_autosize(win = Window, on = bool) (( -- )) { }
 fun __cogito_button_set_text(btn = Button, text = string) (( -- )) { }
 fun __cogito_checkbox_set_checked(cb = Checkbox, checked = bool) (( -- )) { }
 fun __cogito_checkbox_get_checked(cb = Checkbox) (( bool )) { }
@@ -49,6 +50,9 @@ class Window {
     }
     fun set_padding(this, left = num, top = num, right = num, bottom = num) (( -- )) {
         __cogito_container_set_padding(this, left, top, right, bottom)
+    }
+    fun set_autosize(this, on = bool) (( -- )) {
+        __cogito_window_set_autosize(this, on)
     }
     fun build(this, builder = any) (( Window )) {
         __cogito_window_set_builder(this, builder)

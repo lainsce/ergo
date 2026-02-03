@@ -14,6 +14,7 @@ fun build_root(root = cogito.VStack) (( -- )) {
 entry () (( -- )) {
     let app = cogito.app()
     let win = cogito.window()
+    win.set_autosize(true)
     let root = cogito.build(cogito.vstack(), build_root)
     win.add(root)
     app.run(win)

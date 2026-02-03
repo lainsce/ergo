@@ -2062,6 +2062,23 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_window_set_autosize")) {
+                        GenExpr win, on;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &win, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &on, err)) { gen_expr_free(&win); return false; }
+                        w_line(&cg->w, "cogito_window_set_autosize(%s, %s);", win.tmp, on.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", win.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", on.tmp);
+                        gen_expr_release_except(cg, &win, win.tmp);
+                        gen_expr_release_except(cg, &on, on.tmp);
+                        gen_expr_free(&win);
+                        gen_expr_free(&on);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_build")) {
                         GenExpr node, builder;
                         if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
