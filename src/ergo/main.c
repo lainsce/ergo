@@ -21,6 +21,7 @@
 #include "file.h"
 #include "platform.h"
 #include "project.h"
+#include "str.h"
 #include "typecheck.h"
 
 #define ERGO_CACHE_VERSION __DATE__ " " __TIME__
@@ -80,6 +81,19 @@ static int run_binary(const char *path) {
         return 1;
     }
     return system(cmd);
+}
+
+static bool program_uses_cogito(Program *prog) {
+    if (!prog) return false;
+    for (size_t i = 0; i < prog->mods_len; i++) {
+        Module *m = prog->mods[i];
+        for (size_t j = 0; j < m->imports_len; j++) {
+            if (str_eq_c(m->imports[j]->name, "cogito")) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 static void print_usage(FILE *out) {
@@ -142,9 +156,22 @@ int main(int argc, char **argv) {
             return 1;
         }
 
+        bool uses_cogito = program_uses_cogito(prog);
+        const char *extra_flags = "";
+#if defined(__APPLE__)
+        if (uses_cogito) {
+            extra_flags = "-x objective-c -fobjc-arc -framework Cocoa";
+        }
+#elif defined(__linux__)
+        if (uses_cogito) {
+            extra_flags = "-lX11";
+        }
+#endif
+
         uint64_t build_hash = proj_hash;
         build_hash = hash_cstr(build_hash, cc_path());
         build_hash = hash_cstr(build_hash, cc_flags());
+        build_hash = hash_cstr(build_hash, extra_flags);
         build_hash = hash_cstr(build_hash, ERGO_CACHE_VERSION);
 
         const char *no_cache_env = getenv("ERGO_NO_CACHE");
@@ -168,6 +195,15 @@ int main(int argc, char **argv) {
                     cache_bin = path_join(cache_dir, "run");
 #endif
                 }
+            }
+        }
+
+        if (cache_enabled) {
+            if (cache_bin && path_is_file(cache_bin)) {
+                remove(cache_bin);
+            }
+            if (cache_c && path_is_file(cache_c)) {
+                remove(cache_c);
             }
         }
 
@@ -218,7 +254,7 @@ int main(int argc, char **argv) {
             return 1;
         }
         char cmd[4096];
-        int n = snprintf(cmd, sizeof(cmd), "%s %s %s -o %s", cc_path(), cc_flags(), c_path, bin_path);
+        int n = snprintf(cmd, sizeof(cmd), "%s %s %s %s -o %s", cc_path(), cc_flags(), extra_flags, c_path, bin_path);
         if (n < 0 || (size_t)n >= sizeof(cmd)) {
             fprintf(stderr, "error: compile command too long\n");
             free(cache_base);
@@ -238,7 +274,10 @@ int main(int argc, char **argv) {
             arena_free(&arena);
             return rc;
         }
-        (void)remove(c_path);
+        const char *keep_c = getenv("ERGO_KEEP_C");
+        if (!(keep_c && keep_c[0] && keep_c[0] != '0')) {
+            (void)remove(c_path);
+        }
         rc = run_binary(run_cmd);
         free(cache_base);
         free(cache_dir);

@@ -216,6 +216,20 @@ static Module *load_file(const char *path,
             free(p);
             continue;
         }
+        if (str_eq_c(imp->name, "cogito")) {
+            char *p = path_join(stdlib_dir, "cogito.e");
+            if (!p || !path_is_file(p)) {
+                set_err(err, abs_path, "cogito.e not found in stdlib");
+                free(p);
+                return NULL;
+            }
+            if (!load_file(p, root_dir, stdlib_dir, arena, visited, hash, err)) {
+                free(p);
+                return NULL;
+            }
+            free(p);
+            continue;
+        }
         char *name = str_to_c(imp->name);
         if (!name) {
             set_err(err, abs_path, "out of memory");
@@ -237,7 +251,7 @@ static Module *load_file(const char *path,
         char *child = path_join(root_dir, name);
         free(name);
         if (!child || !path_is_file(child)) {
-            set_err(err, abs_path, "bring expects stdr/math or a valid user module (file)");
+            set_err(err, abs_path, "bring expects stdr/math/cogito or a valid user module (file)");
             free(child);
             return NULL;
         }

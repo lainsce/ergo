@@ -10,6 +10,7 @@
 .vscode/
 build/
 _build/
+.ergo-cache/
 .DS_Store
 
 # Outputs of ergo compilation
