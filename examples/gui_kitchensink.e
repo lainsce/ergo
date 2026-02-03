@@ -47,8 +47,10 @@ fun on_appbar_help(btn = any) (( -- )) {
 
 fun build_ui(win = cogito.Window) (( -- )) {
     let bar = cogito.appbar(@"The Kitchensink", @"Cogito UI Gallery")
-    bar.add_button(@"⚙", on_appbar_settings)
-    bar.add_button(@"?", on_appbar_help)
+    let settings_btn = bar.add_button(@"⚙", on_appbar_settings)
+    settings_btn.add_menu(@"Preferences", on_appbar_settings)
+    settings_btn.add_menu(@"About", on_appbar_help)
+    let help_btn = bar.add_button(@"?", on_appbar_help)
     win.add(bar)
 
     let root = cogito.vstack()

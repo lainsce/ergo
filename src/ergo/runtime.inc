@@ -631,6 +631,10 @@ typedef struct CogitoNode {
   struct CogitoNode** children;
   size_t len;
   size_t cap;
+  ErgoStr** menu_labels;
+  ErgoFn** menu_handlers;
+  size_t menu_len;
+  size_t menu_cap;
   ErgoStr* text;
   ErgoStr* subtitle;
   ErgoFn* on_click;
@@ -755,6 +759,18 @@ static void cogito_node_drop(ErgoObj* o) {
     ergo_release_val(n->group);
     n->group = EV_NULLV;
   }
+  if (n->menu_labels) {
+    for (size_t i = 0; i < n->menu_len; i++) {
+      if (n->menu_labels[i]) ergo_release_val(EV_STR(n->menu_labels[i]));
+      if (n->menu_handlers[i]) ergo_release_val(EV_FN(n->menu_handlers[i]));
+    }
+    free(n->menu_labels);
+    free(n->menu_handlers);
+    n->menu_labels = NULL;
+    n->menu_handlers = NULL;
+    n->menu_len = 0;
+    n->menu_cap = 0;
+  }
   if (n->children) {
     for (size_t i = 0; i < n->len; i++) {
       ergo_release_val(EV_OBJ(n->children[i]));
@@ -789,6 +805,10 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->grid_cols = 1;
   n->selected = -1;
   n->should_close = false;
+  n->menu_labels = NULL;
+  n->menu_handlers = NULL;
+  n->menu_len = 0;
+  n->menu_cap = 0;
   n->appbar_btn_close_x = 0;
   n->appbar_btn_min_x = 0;
   n->appbar_btn_max_x = 0;
@@ -874,6 +894,21 @@ static void cogito_children_add(CogitoNode* parent, CogitoNode* child) {
   parent->children[parent->len++] = child;
   child->parent = parent;
   ergo_retain_val(EV_OBJ(child));
+}
+
+static void cogito_node_add_menu(CogitoNode* n, ErgoStr* label, ErgoFn* handler) {
+  if (!n) return;
+  if (n->menu_len == n->menu_cap) {
+    size_t ncap = n->menu_cap ? n->menu_cap * 2 : 4;
+    n->menu_labels = (ErgoStr**)realloc(n->menu_labels, ncap * sizeof(ErgoStr*));
+    n->menu_handlers = (ErgoFn**)realloc(n->menu_handlers, ncap * sizeof(ErgoFn*));
+    n->menu_cap = ncap;
+  }
+  n->menu_labels[n->menu_len] = label;
+  n->menu_handlers[n->menu_len] = handler;
+  if (label) ergo_retain_val(EV_STR(label));
+  if (handler) ergo_retain_val(EV_FN(handler));
+  n->menu_len += 1;
 }
 
 static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
@@ -1266,6 +1301,17 @@ static void cogito_invoke_click(CogitoNode* n) {
   ergo_release_val(arg);
 }
 
+static void cogito_invoke_menu(CogitoNode* n, size_t idx) {
+  if (!n) return;
+  if (idx >= n->menu_len) return;
+  ErgoFn* fn = n->menu_handlers[idx];
+  if (!fn) return;
+  ErgoVal arg = EV_OBJ(n);
+  ergo_retain_val(arg);
+  cogito_invoke(fn, 1, &arg);
+  ergo_release_val(arg);
+}
+
 static void cogito_invoke_change(CogitoNode* n) {
   if (!n || !n->on_change) return;
   ErgoVal arg = EV_OBJ(n);
@@ -1273,6 +1319,88 @@ static void cogito_invoke_change(CogitoNode* n) {
   cogito_invoke(n->on_change, 1, &arg);
   ergo_release_val(arg);
 }
+#if !defined(_WIN32) && !defined(__APPLE__)
+static void cogito_show_menu_x11(CogitoNode* n, CogitoNode* win) {
+  if (!n || !win || n->menu_len == 0) return;
+  Display* dpy = win->dpy;
+  Window root = DefaultRootWindow(dpy);
+  int screen = DefaultScreen(dpy);
+  int sx = n->x + n->w / 2;
+  int sy = n->y + n->h;
+  Window child;
+  int rx, ry;
+  XTranslateCoordinates(dpy, win->win, root, sx, sy, &rx, &ry, &child);
+  int pad = 6;
+  int item_h = 22;
+  int maxw = 80;
+  for (size_t i = 0; i < n->menu_len; i++) {
+    int w = (int)(n->menu_labels[i] ? n->menu_labels[i]->len * 8 + 12 : 40);
+    if (w > maxw) maxw = w;
+  }
+  int mw = maxw + pad * 2;
+  int mh = (int)n->menu_len * item_h + pad * 2;
+  XSetWindowAttributes attrs;
+  attrs.override_redirect = True;
+  attrs.background_pixel = WhitePixel(dpy, screen);
+  Window popup = XCreateWindow(dpy, root, rx - mw / 2, ry, (unsigned)mw, (unsigned)mh, 1,
+                               CopyFromParent, InputOutput, CopyFromParent,
+                               CWOverrideRedirect | CWBackPixel, &attrs);
+  XSelectInput(dpy, popup, ExposureMask | ButtonPressMask | ButtonReleaseMask);
+  XMapRaised(dpy, popup);
+  XEvent ev;
+  bool done = false;
+  while (!done) {
+    XNextEvent(dpy, &ev);
+    if (ev.type == Expose) {
+      GC gc = DefaultGC(dpy, screen);
+      XSetForeground(dpy, gc, 0xdddddd);
+      XFillRectangle(dpy, popup, gc, 0, 0, (unsigned)mw, (unsigned)mh);
+      XSetForeground(dpy, gc, BlackPixel(dpy, screen));
+      for (size_t i = 0; i < n->menu_len; i++) {
+        int iy = pad + (int)i * item_h;
+        XDrawString(dpy, popup, gc, pad, iy + 16, n->menu_labels[i] ? n->menu_labels[i]->data : "", n->menu_labels[i] ? (int)n->menu_labels[i]->len : 0);
+      }
+    } else if (ev.type == ButtonRelease) {
+      int mx = ev.xbutton.x;
+      int my = ev.xbutton.y;
+      if (mx >= 0 && mx <= mw && my >= 0 && my <= mh) {
+        int idx = (my - pad) / item_h;
+        if (idx >= 0 && (size_t)idx < n->menu_len) {
+          cogito_invoke_menu(n, (size_t)idx);
+        }
+      }
+      done = true;
+    }
+  }
+  XDestroyWindow(dpy, popup);
+}
+#endif
+
+#if defined(_WIN32)
+static void cogito_show_menu_win(CogitoNode* n) {
+  if (!n || n->menu_len == 0) return;
+  HWND hwnd = (HWND)n->native;
+  if (!hwnd) return;
+  HMENU menu = CreatePopupMenu();
+  const UINT base = 10000;
+  for (size_t i = 0; i < n->menu_len; i++) {
+    const char* title = n->menu_labels[i] ? n->menu_labels[i]->data : "";
+    AppendMenu(menu, MF_STRING, base + (UINT)i, title);
+  }
+  RECT r;
+  POINT pt = {0, 0};
+  if (GetWindowRect(hwnd, &r)) {
+    pt.x = (r.left + r.right) / 2;
+    pt.y = r.bottom;
+  }
+  UINT cmd = TrackPopupMenu(menu, TPM_CENTERALIGN | TPM_TOPALIGN | TPM_RETURNCMD, pt.x, pt.y, 0, GetParent(hwnd), NULL);
+  DestroyMenu(menu);
+  if (cmd >= base) {
+    size_t idx = cmd - base;
+    cogito_invoke_menu(n, idx);
+  }
+}
+#endif
 
 static void cogito_invoke_select(CogitoNode* n, int idx, bool activate) {
   ErgoVal arg = EV_INT(idx);
@@ -1552,9 +1680,43 @@ static void cogito_window_rebuild(CogitoNode* win) {
   CogitoNode* n = (CogitoNode*)self.node;
   if (!n) return;
   if (n->kind == COGITO_BUTTON) {
-    cogito_invoke_click(n);
+    if (n->menu_len > 0) {
+      NSButton* btn = (NSButton*)n->native;
+      if (!btn) return;
+      NSMenu* menu = [[NSMenu alloc] initWithTitle:@""];
+      for (size_t i = 0; i < n->menu_len; i++) {
+        NSString* title = [NSString stringWithUTF8String:(n->menu_labels[i] ? n->menu_labels[i]->data : "")];
+        NSMenuItem* item = [[NSMenuItem alloc] initWithTitle:title action:@selector(onMenuItem:) keyEquivalent:@""];
+        [item setTarget:self];
+        [item setTag:(NSInteger)i];
+        [menu addItem:item];
+      }
+      NSRect f = [btn frame];
+      NSSize ms = [menu size];
+      NSPoint p = NSMakePoint(NSMidX(f) - ms.width * 0.5, NSMinY(f) - 4.0);
+      [menu popUpMenuPositioningItem:nil atLocation:p inView:[btn superview]];
+    } else {
+      cogito_invoke_click(n);
+    }
   } else if (n->kind == COGITO_ICONBTN) {
-    cogito_invoke_click(n);
+    if (n->menu_len > 0) {
+      NSButton* btn = (NSButton*)n->native;
+      if (!btn) return;
+      NSMenu* menu = [[NSMenu alloc] initWithTitle:@""];
+      for (size_t i = 0; i < n->menu_len; i++) {
+        NSString* title = [NSString stringWithUTF8String:(n->menu_labels[i] ? n->menu_labels[i]->data : "")];
+        NSMenuItem* item = [[NSMenuItem alloc] initWithTitle:title action:@selector(onMenuItem:) keyEquivalent:@""];
+        [item setTarget:self];
+        [item setTag:(NSInteger)i];
+        [menu addItem:item];
+      }
+      NSRect f = [btn frame];
+      NSSize ms = [menu size];
+      NSPoint p = NSMakePoint(NSMidX(f) - ms.width * 0.5, NSMinY(f) - 4.0);
+      [menu popUpMenuPositioningItem:nil atLocation:p inView:[btn superview]];
+    } else {
+      cogito_invoke_click(n);
+    }
   } else if (n->kind == COGITO_CHECKBOX || n->kind == COGITO_SWITCH) {
     id ctrl = n->native;
     if (ctrl && [ctrl respondsToSelector:@selector(state)]) {
@@ -1566,6 +1728,14 @@ static void cogito_window_rebuild(CogitoNode* win) {
     }
     cogito_invoke_change(n);
   }
+}
+
+- (void)onMenuItem:(id)sender {
+  CogitoNode* n = (CogitoNode*)self.node;
+  if (!n) return;
+  NSInteger idx = [sender tag];
+  if (idx < 0 || (size_t)idx >= n->menu_len) return;
+  cogito_invoke_menu(n, (size_t)idx);
 }
 @end
 
@@ -2013,7 +2183,20 @@ static void cogito_iconbtn_on_click(ErgoVal btnv, ErgoVal handler) {
   ergo_retain_val(EV_FN(btn->on_click));
 }
 
-static void cogito_appbar_add_button(ErgoVal appv, ErgoVal text, ErgoVal handler) {
+static void cogito_button_add_menu(ErgoVal btnv, ErgoVal label, ErgoVal handler) {
+  if (btnv.tag != EVT_OBJ) ergo_trap("cogito.button_add_menu expects button");
+  CogitoNode* btn = (CogitoNode*)btnv.as.p;
+  ErgoStr* ts = stdr_to_string(label);
+  ErgoFn* fn = NULL;
+  if (handler.tag == EVT_FN) fn = (ErgoFn*)handler.as.p;
+  cogito_node_add_menu(btn, ts, fn);
+}
+
+static void cogito_iconbtn_add_menu(ErgoVal btnv, ErgoVal label, ErgoVal handler) {
+  cogito_button_add_menu(btnv, label, handler);
+}
+
+static ErgoVal cogito_appbar_add_button(ErgoVal appv, ErgoVal text, ErgoVal handler) {
   if (appv.tag != EVT_OBJ) ergo_trap("cogito.appbar_add_button expects appbar");
   CogitoNode* ab = (CogitoNode*)appv.as.p;
   ErgoStr* ts = stdr_to_string(text);
@@ -2023,6 +2206,7 @@ static void cogito_appbar_add_button(ErgoVal appv, ErgoVal text, ErgoVal handler
     ergo_retain_val(EV_FN(btn->on_click));
   }
   cogito_children_add(ab, btn);
+  return EV_OBJ(btn);
 }
 
 #if defined(_WIN32)
@@ -2033,7 +2217,11 @@ static LRESULT CALLBACK cogito_wndproc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
       CogitoNode* n = (CogitoNode*)GetWindowLongPtr(hctrl, GWLP_USERDATA);
       if (n) {
         if (n->kind == COGITO_BUTTON || n->kind == COGITO_ICONBTN) {
-          cogito_invoke_click(n);
+          if (n->menu_len > 0) {
+            cogito_show_menu_win(n);
+          } else {
+            cogito_invoke_click(n);
+          }
         } else if (n->kind == COGITO_CHECKBOX || n->kind == COGITO_SWITCH) {
           n->checked = SendMessage(hctrl, BM_GETCHECK, 0, 0) == BST_CHECKED;
           if (n->checked && n->group.tag != EVT_NULL) {
@@ -2124,10 +2312,19 @@ static void cogito_draw_node(Display* dpy, Window win, GC gc, CogitoNode* n) {
       break;
     case COGITO_CHECKBOX:
     case COGITO_SWITCH: {
-      XDrawRectangle(dpy, win, gc, n->x, n->y, 16, 16);
-      if (n->checked) {
-        XDrawLine(dpy, win, gc, n->x + 3, n->y + 8, n->x + 7, n->y + 12);
-        XDrawLine(dpy, win, gc, n->x + 7, n->y + 12, n->x + 13, n->y + 4);
+      if (n->kind == COGITO_CHECKBOX && n->group.tag != EVT_NULL) {
+        /* radio */
+        XDrawArc(dpy, win, gc, n->x, n->y, 16, 16, 0, 360 * 64);
+        if (n->checked) {
+          XFillArc(dpy, win, gc, n->x + 4, n->y + 4, 8, 8, 0, 360 * 64);
+        }
+      } else {
+        /* checkbox */
+        XDrawRectangle(dpy, win, gc, n->x, n->y, 16, 16);
+        if (n->checked) {
+          XDrawLine(dpy, win, gc, n->x + 3, n->y + 8, n->x + 7, n->y + 12);
+          XDrawLine(dpy, win, gc, n->x + 7, n->y + 12, n->x + 13, n->y + 4);
+        }
       }
       cogito_draw_text(dpy, win, gc, n->x + 22, n->y + 14, n->text ? n->text->data : "");
       break;
@@ -2185,7 +2382,11 @@ static void cogito_attach_node(CogitoNode* win, CogitoNode* n, int content_h) {
       style |= BS_FLAT;
     } else if (n->kind == COGITO_CHECKBOX || n->kind == COGITO_SWITCH) {
       cls = "BUTTON";
-      style |= BS_AUTOCHECKBOX;
+      if (n->kind == COGITO_CHECKBOX && n->group.tag != EVT_NULL) {
+        style |= BS_AUTORADIOBUTTON;
+      } else {
+        style |= BS_AUTOCHECKBOX;
+      }
     }
     const char* title = n->text ? n->text->data : "";
     HWND h = CreateWindow(cls, title, style, n->x, n->y, n->w, n->h, win->hwnd, NULL, GetModuleHandle(NULL), NULL);
@@ -2228,7 +2429,11 @@ static void cogito_attach_node(CogitoNode* win, CogitoNode* n, int content_h) {
     if (!ctrl) {
       NSButton* btn = [NSButton buttonWithTitle:nsTitle target:nil action:nil];
       if (n->kind == COGITO_CHECKBOX) {
-        [btn setButtonType:NSButtonTypeSwitch];
+        if (n->group.tag != EVT_NULL) {
+          [btn setButtonType:NSButtonTypeRadio];
+        } else {
+          [btn setButtonType:NSButtonTypeSwitch];
+        }
       } else if (n->kind == COGITO_SWITCH) {
         [btn setButtonType:NSButtonTypeSwitch];
       } else if (n->kind == COGITO_ICONBTN) {
@@ -2524,16 +2729,18 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       }
       CogitoNode* hit = cogito_find_clickable(win, mx, my);
       if (hit) {
-        if (hit->kind == COGITO_BUTTON) {
-          cogito_invoke_click(hit);
+        if (hit->kind == COGITO_BUTTON || hit->kind == COGITO_ICONBTN) {
+          if (hit->menu_len > 0) {
+            cogito_show_menu_x11(hit, win);
+          } else {
+            cogito_invoke_click(hit);
+          }
         } else if (hit->kind == COGITO_CHECKBOX || hit->kind == COGITO_SWITCH) {
           hit->checked = !hit->checked;
           if (hit->checked && hit->group.tag != EVT_NULL) {
             cogito_uncheck_group(win, hit, hit->group);
           }
           cogito_invoke_change(hit);
-        } else if (hit->kind == COGITO_ICONBTN) {
-          cogito_invoke_click(hit);
         }
       }
       cogito_handle_click(win, mx, my, true);

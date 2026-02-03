@@ -2364,12 +2364,34 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_button_add_menu")) {
+                        GenExpr btn, label, handler;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &label, err)) { gen_expr_free(&btn); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[2], &handler, err)) { gen_expr_free(&btn); gen_expr_free(&label); return false; }
+                        w_line(&cg->w, "cogito_button_add_menu(%s, %s, %s);", btn.tmp, label.tmp, handler.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", label.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", handler.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_release_except(cg, &label, label.tmp);
+                        gen_expr_release_except(cg, &handler, handler.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_free(&label);
+                        gen_expr_free(&handler);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_appbar_add_button")) {
                         GenExpr app, text, handler;
                         if (!gen_expr(cg, path, e->as.call.args[0], &app, err)) return false;
                         if (!gen_expr(cg, path, e->as.call.args[1], &text, err)) { gen_expr_free(&app); return false; }
                         if (!gen_expr(cg, path, e->as.call.args[2], &handler, err)) { gen_expr_free(&app); gen_expr_free(&text); return false; }
-                        w_line(&cg->w, "cogito_appbar_add_button(%s, %s, %s);", app.tmp, text.tmp, handler.tmp);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_appbar_add_button(%s, %s, %s);", t, app.tmp, text.tmp, handler.tmp);
                         w_line(&cg->w, "ergo_release_val(%s);", app.tmp);
                         w_line(&cg->w, "ergo_release_val(%s);", text.tmp);
                         w_line(&cg->w, "ergo_release_val(%s);", handler.tmp);
@@ -2378,6 +2400,25 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         gen_expr_release_except(cg, &handler, handler.tmp);
                         gen_expr_free(&app);
                         gen_expr_free(&text);
+                        gen_expr_free(&handler);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_iconbtn_add_menu")) {
+                        GenExpr btn, label, handler;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &label, err)) { gen_expr_free(&btn); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[2], &handler, err)) { gen_expr_free(&btn); gen_expr_free(&label); return false; }
+                        w_line(&cg->w, "cogito_iconbtn_add_menu(%s, %s, %s);", btn.tmp, label.tmp, handler.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", label.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", handler.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_release_except(cg, &label, label.tmp);
+                        gen_expr_release_except(cg, &handler, handler.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_free(&label);
                         gen_expr_free(&handler);
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);

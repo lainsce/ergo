@@ -22,8 +22,10 @@ fun __cogito_container_set_align(node = any, align = num) (( -- )) { }
 fun __cogito_container_set_padding(node = any, left = num, top = num, right = num, bottom = num) (( -- )) { }
 fun __cogito_window_set_autosize(win = Window, on = bool) (( -- )) { }
 fun __cogito_appbar(title = string, subtitle = string) (( AppBar )) { }
-fun __cogito_appbar_add_button(appbar = AppBar, icon = string, handler = any) (( -- )) { }
+fun __cogito_appbar_add_button(appbar = AppBar, icon = string, handler = any) (( Button )) { }
 fun __cogito_button_set_text(btn = Button, text = string) (( -- )) { }
+fun __cogito_button_add_menu(btn = Button, label = string, handler = any) (( -- )) { }
+fun __cogito_iconbtn_add_menu(btn = Button, label = string, handler = any) (( -- )) { }
 fun __cogito_checkbox_set_checked(cb = Checkbox, checked = bool) (( -- )) { }
 fun __cogito_checkbox_get_checked(cb = Checkbox) (( bool )) { }
 fun __cogito_switch_set_checked(sw = Switch, checked = bool) (( -- )) { }
@@ -64,8 +66,8 @@ class Window {
 }
 
 class AppBar {
-    fun add_button(this, icon = string, handler = any) (( -- )) {
-        __cogito_appbar_add_button(this, icon, handler)
+    fun add_button(this, icon = string, handler = any) (( Button )) {
+        return __cogito_appbar_add_button(this, icon, handler)
     }
 }
 
@@ -238,6 +240,9 @@ class Button {
     }
     fun on_click(this, handler = any) (( -- )) {
         __cogito_button_on_click(this, handler)
+    }
+    fun add_menu(this, label = string, handler = any) (( -- )) {
+        __cogito_button_add_menu(this, label, handler)
     }
 }
 
