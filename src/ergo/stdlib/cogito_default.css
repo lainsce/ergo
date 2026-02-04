@@ -13,6 +13,126 @@ button {
   min-height: 42;
 }
 
+textfield, .textfield {
+  background: #f6f6f6;
+  border-radius: 8;
+  min-height: 36;
+}
+
+searchfield, .searchfield {
+  background: #f6f6f6;
+  border-radius: 18;
+  min-height: 36;
+  min-width: 180;
+  padding: 6 12;
+}
+
+textview, .textview {
+  background: #f6f6f6;
+  border-radius: 8;
+  min-height: 96;
+}
+
+textfield:selection, .textfield:selection {
+  background: #72dec2;
+}
+
+textview:selection, .textview:selection {
+  background: #72dec2;
+}
+
+dropdown, .dropdown {
+  background: #f6f6f6;
+  border-radius: 8;
+  min-height: 36;
+}
+
+datepicker, .datepicker {
+  background: #f6f6f6;
+  border-radius: 10;
+  min-height: 220;
+  min-width: 260;
+  padding: 10;
+}
+
+slider, .slider {
+  background: #c8c8c8;
+  color: #444444;
+  min-height: 28;
+  min-width: 120;
+}
+
+stepper, .stepper {
+  background: #f6f6f6;
+  border-radius: 8;
+  min-height: 32;
+  min-width: 96;
+}
+
+tabs, .tabs {
+  background: #f2f2f2;
+  border-radius: 10;
+  min-height: 36;
+}
+
+tabs:selection {
+  background: #ffffff;
+}
+
+segmented, .segmented {
+  background: #f2f2f2;
+  border-radius: 10;
+  min-height: 36;
+}
+
+view-switcher, .view-switcher {
+  background: #ffffff;
+}
+
+progress, .progress {
+  background: #dddddd;
+  border-radius: 6;
+  min-height: 10;
+  min-width: 120;
+}
+
+progress:selection {
+  background: #72dec2;
+}
+
+toasts, .toasts {
+  padding: 12;
+}
+
+toast, .toast {
+  background: #222222;
+  color: #ffffff;
+  border-radius: 10;
+  min-height: 34;
+}
+
+treeview, .treeview {
+  background: #f6f6f6;
+  border-radius: 8;
+  min-height: 180;
+  min-width: 200;
+  padding: 8;
+}
+
+colorpicker, .colorpicker {
+  background: #f6f6f6;
+  border-radius: 10;
+  min-height: 220;
+  min-width: 260;
+  padding: 10;
+}
+
+toolbar, .toolbar, .bottom-toolbar {
+  background: #f6f6f6;
+  min-height: 44;
+  padding: 8 12;
+}
+
 iconbtn {
   background: #0000000d;
   border-radius: 99;
@@ -27,6 +147,14 @@ image {
 
 label {
   color: #222222;
+}
+
+.tooltip {
+  background: #1e1e1e;
+  color: #ffffff;
+  border-radius: 6;
+  font-size: 13;
+  padding: 6 8;
 }
 
 .checkbox, .radio, checkbox {
@@ -96,7 +224,7 @@ label {
 }
 
 .switch .track:hover {
-  background: #72dec2;
+  background: #c4c4c4;
 }
 
 .switch .track:active {
@@ -115,6 +243,16 @@ label {
 
 .switch .knob:active {
   background: #e8e8e8;
+}
+
+.monospace {
+  font-size: 16;
+  font-weight: normal;
+}
+
+.tabular {
+  font-size: 16;
+  font-weight: normal;
 }
 
 .title {
@@ -196,14 +334,18 @@ dialog {
 
 menu {
   background: #ffffff;
-  border-radius: 0;
+  border-radius: 4;
   color: #222222;
   box-shadow: 2;
   font-size: 16;
-  item-padding: 8 12;
-  item-height: 42;
 }
 
 menu:selection {
   background: #72dec2;
+}
+
+menu item {
+  border-radius: 0;
+  padding: 8 12;
+  min-height: 42;
 }
