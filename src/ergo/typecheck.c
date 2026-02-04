@@ -332,6 +332,13 @@ static Expr *lower_expr(Arena *arena, Expr *e, Diag *err) {
             lam->as.lambda.body = body;
             return lam;
         }
+        case EXPR_BLOCK: {
+            Stmt *block = lower_stmt(arena, e->as.block_expr.block, err);
+            Expr *b = new_expr_like(arena, e, EXPR_BLOCK, err);
+            if (!b) return NULL;
+            b->as.block_expr.block = block;
+            return b;
+        }
         case EXPR_NEW: {
             Expr **args = lower_expr_list(arena, e->as.new_expr.args, e->as.new_expr.args_len, err);
             Expr *n = new_expr_like(arena, e, EXPR_NEW, err);
@@ -522,6 +529,13 @@ static Decl *lower_decl(Arena *arena, Decl *d, Diag *err) {
             if (!out) return NULL;
             out->as.const_decl = d->as.const_decl;
             out->as.const_decl.expr = lower_expr(arena, d->as.const_decl.expr, err);
+            return out;
+        }
+        case DECL_DEF: {
+            Decl *out = new_decl_like(arena, d, DECL_DEF, err);
+            if (!out) return NULL;
+            out->as.def_decl = d->as.def_decl;
+            out->as.def_decl.expr = lower_expr(arena, d->as.def_decl.expr, err);
             return out;
         }
         case DECL_CLASS: {
@@ -1269,6 +1283,25 @@ static ModuleConsts *find_module_consts(GlobalEnv *env, Str module) {
     return NULL;
 }
 
+static ModuleGlobals *find_module_globals(GlobalEnv *env, Str module) {
+    for (size_t i = 0; i < env->module_globals_len; i++) {
+        if (str_eq(env->module_globals[i].module, module)) {
+            return &env->module_globals[i];
+        }
+    }
+    return NULL;
+}
+
+static GlobalVar *find_global(ModuleGlobals *mg, Str name) {
+    if (!mg) return NULL;
+    for (size_t i = 0; i < mg->len; i++) {
+        if (str_eq(mg->vars[i].name, name)) {
+            return &mg->vars[i];
+        }
+    }
+    return NULL;
+}
+
 static ConstEntry *find_const(ModuleConsts *mc, Str name) {
     if (!mc) return NULL;
     for (size_t i = 0; i < mc->len; i++) {
@@ -1483,7 +1516,9 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
     env->module_names = (ModuleName *)arena_array(arena, prog->mods_len, sizeof(ModuleName));
     env->module_imports_len = prog->mods_len;
     env->module_imports = (ModuleImport *)arena_array(arena, prog->mods_len, sizeof(ModuleImport));
-    if (!env->module_names || !env->module_imports) {
+    env->module_globals_len = prog->mods_len;
+    env->module_globals = (ModuleGlobals *)arena_array(arena, prog->mods_len, sizeof(ModuleGlobals));
+    if (!env->module_names || !env->module_imports || !env->module_globals) {
         set_err(err, "out of memory");
         return NULL;
     }
@@ -1505,6 +1540,42 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
                 env->module_imports[i].imports[j] = normalize_import_name(arena, m->imports[j]->name);
             }
         }
+        env->module_globals[i].module = mod_name;
+        env->module_globals[i].vars = NULL;
+        env->module_globals[i].len = 0;
+    }
+
+    // module globals (def)
+    for (size_t i = 0; i < prog->mods_len; i++) {
+        Module *m = prog->mods[i];
+        size_t def_count = 0;
+        for (size_t j = 0; j < m->decls_len; j++) {
+            if (m->decls[j]->kind == DECL_DEF) def_count++;
+        }
+        if (def_count == 0) continue;
+        ModuleGlobals *mg = &env->module_globals[i];
+        mg->vars = (GlobalVar *)arena_array(arena, def_count, sizeof(GlobalVar));
+        if (!mg->vars) {
+            set_err(err, "out of memory");
+            return NULL;
+        }
+        size_t idx = 0;
+        for (size_t j = 0; j < m->decls_len; j++) {
+            Decl *d = m->decls[j];
+            if (d->kind != DECL_DEF) continue;
+            if (find_global(mg, d->as.def_decl.name)) {
+                set_errf(err, m->path, d->line, d->col,
+                         "%.*s: duplicate global '%.*s'",
+                         (int)m->path.len, m->path.data,
+                         (int)d->as.def_decl.name.len, d->as.def_decl.name.data);
+                return NULL;
+            }
+            mg->vars[idx].name = d->as.def_decl.name;
+            mg->vars[idx].ty = NULL;
+            mg->vars[idx].is_mut = d->as.def_decl.is_mut;
+            idx++;
+        }
+        mg->len = idx;
     }
 
     // count classes and funs
@@ -1789,6 +1860,27 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
         }
     }
 
+    // typecheck module globals after functions/classes are registered
+    for (size_t i = 0; i < prog->mods_len; i++) {
+        Module *m = prog->mods[i];
+        ModuleGlobals *mg = &env->module_globals[i];
+        if (!mg->len) continue;
+        Str mod_name = env->module_names[i].name;
+        ModuleImport *imps = find_imports(env, mod_name);
+        Str *imports = imps ? imps->imports : NULL;
+        size_t imports_len = imps ? imps->imports_len : 0;
+        for (size_t j = 0; j < m->decls_len; j++) {
+            Decl *d = m->decls[j];
+            if (d->kind != DECL_DEF) continue;
+            GlobalVar *gv = find_global(mg, d->as.def_decl.name);
+            if (!gv) continue;
+            if (gv->ty) continue;
+            Ty *ty = tc_expr(d->as.def_decl.expr, env, m->path, mod_name, imports, imports_len, err);
+            if (!ty) return NULL;
+            gv->ty = ty;
+        }
+    }
+
     if (!env->entry) {
         set_err(err, "missing entry() in init.e");
         return NULL;
@@ -1818,17 +1910,20 @@ static Str shadowed_module_name(Expr *base, Ctx *ctx, Locals *loc) {
     return empty;
 }
 
-static bool is_mut_lvalue(Expr *e, Locals *loc) {
+static bool is_mut_lvalue(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env) {
     if (!e) return false;
     if (e->kind == EXPR_IDENT) {
         Binding *b = locals_lookup(loc, e->as.ident.name);
-        return b && b->is_mut && !b->is_const;
+        if (b) return b->is_mut && !b->is_const;
+        ModuleGlobals *mg = find_module_globals(env, ctx->module_name);
+        GlobalVar *gv = find_global(mg, e->as.ident.name);
+        return gv && gv->is_mut;
     }
     if (e->kind == EXPR_MEMBER) {
-        return is_mut_lvalue(e->as.member.a, loc);
+        return is_mut_lvalue(e->as.member.a, ctx, loc, env);
     }
     if (e->kind == EXPR_INDEX) {
-        return is_mut_lvalue(e->as.index.a, loc);
+        return is_mut_lvalue(e->as.index.a, ctx, loc, env);
     }
     return false;
 }
@@ -1894,6 +1989,12 @@ static Ty *tc_call(Expr *call_expr, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag 
             return ret;
         }
         if (!locals_lookup(loc, mod)) {
+            ModuleGlobals *mg = find_module_globals(env, ctx->module_name);
+            GlobalVar *gv = mg ? find_global(mg, mod) : NULL;
+            if (gv) {
+                // treat as method call on a global value
+                goto method_call;
+            }
             set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: unknown name '%.*s' (module not in scope)",
                      (int)ctx->module_path.len, ctx->module_path.data,
                      (int)mod.len, mod.data);
@@ -1902,6 +2003,7 @@ static Ty *tc_call(Expr *call_expr, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag 
     }
 
     // method call
+method_call:
     if (fn && fn->kind == EXPR_MEMBER) {
         Expr *base = fn->as.member.a;
         Ty *base_ty = tc_expr_inner(base, ctx, loc, env, err);
@@ -1919,7 +2021,7 @@ static Ty *tc_call(Expr *call_expr, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag 
                     set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: array.add expects 1 arg", (int)ctx->module_path.len, ctx->module_path.data);
                     return NULL;
                 }
-                if (!is_mut_lvalue(base, loc)) {
+                if (!is_mut_lvalue(base, ctx, loc, env)) {
                     set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: array.add requires mutable binding", (int)ctx->module_path.len, ctx->module_path.data);
                     return NULL;
                 }
@@ -1933,7 +2035,7 @@ static Ty *tc_call(Expr *call_expr, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag 
                     set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: array.remove expects 1 arg", (int)ctx->module_path.len, ctx->module_path.data);
                     return NULL;
                 }
-                if (!is_mut_lvalue(base, loc)) {
+                if (!is_mut_lvalue(base, ctx, loc, env)) {
                     set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: array.remove requires mutable binding", (int)ctx->module_path.len, ctx->module_path.data);
                     return NULL;
                 }
@@ -1973,7 +2075,7 @@ static Ty *tc_call(Expr *call_expr, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag 
                 return NULL;
             }
             FunSig *sig = method->sig;
-            if (sig->recv_mut && !is_mut_lvalue(base, loc)) {
+            if (sig->recv_mut && !is_mut_lvalue(base, ctx, loc, env)) {
                 set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: method '%.*s.%.*s' requires mutable receiver",
                          (int)ctx->module_path.len, ctx->module_path.data,
                          (int)ci->name.len, ci->name.data,
@@ -2037,6 +2139,32 @@ static Ty *tc_call(Expr *call_expr, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag 
                 unify(env->arena, fn_ty->params[i], at, ctx->module_path, "fn value call", &subst, err);
             }
             Ty *ret = ty_apply_subst(env->arena, fn_ty->ret, &subst);
+            subst_free(&subst);
+            return ret;
+        }
+
+        ModuleGlobals *mg = find_module_globals(env, ctx->module_name);
+        GlobalVar *gv = find_global(mg, fname);
+        if (gv) {
+            if (!gv->ty) {
+                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: global '%.*s' used before definition",
+                         (int)ctx->module_path.len, ctx->module_path.data, (int)fname.len, fname.data);
+                return NULL;
+            }
+            if (gv->ty->tag != TY_FN) {
+                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: unknown function '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)fname.len, fname.data);
+                return NULL;
+            }
+            if (argc != gv->ty->params_len) {
+                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: call expects %zu args", (int)ctx->module_path.len, ctx->module_path.data, gv->ty->params_len);
+                return NULL;
+            }
+            Subst subst = subst_init();
+            for (size_t i = 0; i < argc; i++) {
+                Ty *at = tc_expr_inner(args[i], ctx, loc, env, err);
+                unify(env->arena, gv->ty->params[i], at, ctx->module_path, "fn value call", &subst, err);
+            }
+            Ty *ret = ty_apply_subst(env->arena, gv->ty->ret, &subst);
             subst_free(&subst);
             return ret;
         }
@@ -2145,6 +2273,17 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
             if (module_in_scope(e->as.ident.name, ctx, loc)) {
                 return ty_mod(env->arena, e->as.ident.name);
             }
+            ModuleGlobals *mg = find_module_globals(env, ctx->module_name);
+            GlobalVar *gv = find_global(mg, e->as.ident.name);
+            if (gv) {
+                if (!gv->ty) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: global '%.*s' used before definition",
+                             (int)ctx->module_path.len, ctx->module_path.data,
+                             (int)e->as.ident.name.len, e->as.ident.name.data);
+                    return NULL;
+                }
+                return gv->ty;
+            }
             FunSig *sig = find_fun(env, ctx->module_name, e->as.ident.name);
             if (!sig && is_stdr_prelude(e->as.ident.name)) {
                 bool allow = str_eq_c(ctx->module_name, "stdr");
@@ -2248,27 +2387,42 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
         case EXPR_ASSIGN: {
             if (e->as.assign.target->kind == EXPR_IDENT) {
                 Binding *b = locals_lookup(loc, e->as.assign.target->as.ident.name);
-                if (!b) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: assign to unknown '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
-                    return NULL;
+                if (b) {
+                    if (b->is_const) {
+                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: cannot assign to const '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
+                        return NULL;
+                    }
+                    if (!b->is_mut) {
+                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: cannot assign to immutable '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
+                        return NULL;
+                    }
+                    Ty *tv = tc_expr_inner(e->as.assign.value, ctx, loc, env, err);
+                    ensure_assignable(env->arena, b->ty, tv, ctx->module_path, "assignment", err);
+                    Ty *new_ty = unify(env->arena, b->ty, tv, ctx->module_path, "assignment", NULL, err);
+                    b->ty = new_ty;
+                    return new_ty;
                 }
-                if (b->is_const) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: cannot assign to const '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
-                    return NULL;
+                ModuleGlobals *mg = find_module_globals(env, ctx->module_name);
+                GlobalVar *gv = find_global(mg, e->as.assign.target->as.ident.name);
+                if (gv) {
+                    if (!gv->is_mut) {
+                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: cannot assign to immutable '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
+                        return NULL;
+                    }
+                    if (!gv->ty) {
+                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: global '%.*s' used before definition", (int)ctx->module_path.len, ctx->module_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
+                        return NULL;
+                    }
+                    Ty *tv = tc_expr_inner(e->as.assign.value, ctx, loc, env, err);
+                    ensure_assignable(env->arena, gv->ty, tv, ctx->module_path, "assignment", err);
+                    return unify(env->arena, gv->ty, tv, ctx->module_path, "assignment", NULL, err);
                 }
-                if (!b->is_mut) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: cannot assign to immutable '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
-                    return NULL;
-                }
-                Ty *tv = tc_expr_inner(e->as.assign.value, ctx, loc, env, err);
-                ensure_assignable(env->arena, b->ty, tv, ctx->module_path, "assignment", err);
-                Ty *new_ty = unify(env->arena, b->ty, tv, ctx->module_path, "assignment", NULL, err);
-                b->ty = new_ty;
-                return new_ty;
+                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: assign to unknown '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
+                return NULL;
             }
             if (e->as.assign.target->kind == EXPR_MEMBER || e->as.assign.target->kind == EXPR_INDEX) {
                 Expr *base = (e->as.assign.target->kind == EXPR_MEMBER) ? e->as.assign.target->as.member.a : e->as.assign.target->as.index.a;
-                if (!is_mut_lvalue(base, loc)) {
+                if (!is_mut_lvalue(base, ctx, loc, env)) {
                     set_errf(err, ctx->module_path, e->line, e->col, "%.*s: cannot mutate through immutable binding", (int)ctx->module_path.len, ctx->module_path.data);
                     return NULL;
                 }
@@ -2292,6 +2446,17 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                 if (mc) {
                     ConstEntry *ce = find_const(mc, e->as.member.name);
                     if (ce) return ce->val.ty;
+                }
+                ModuleGlobals *mg = find_module_globals(env, ta->name);
+                GlobalVar *gv = find_global(mg, e->as.member.name);
+                if (gv) {
+                    if (!gv->ty) {
+                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: global '%.*s' used before definition",
+                                 (int)ctx->module_path.len, ctx->module_path.data,
+                                 (int)e->as.member.name.len, e->as.member.name.data);
+                        return NULL;
+                    }
+                    return gv->ty;
                 }
                 if (find_fun(env, ta->name, e->as.member.name)) {
                     set_errf(err, ctx->module_path, e->line, e->col, "%.*s: module function '%.*s.%.*s' must be called", (int)ctx->module_path.len, ctx->module_path.data, (int)ta->name.len, ta->name.data, (int)e->as.member.name.len, e->as.member.name.data);
@@ -2418,6 +2583,11 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
             Ty *body_ty = tc_expr_inner(e->as.lambda.body, ctx, &lambda_loc, env, err);
             locals_free(&lambda_loc);
             return ty_fn(env->arena, param_tys, n, body_ty);
+        }
+        case EXPR_BLOCK: {
+            Ty *ret_ty = ty_null(env->arena);
+            tc_stmt_inner(e->as.block_expr.block, ctx, loc, env, ret_ty, err);
+            return ret_ty;
         }
         case EXPR_NEW: {
             Str name = e->as.new_expr.name;

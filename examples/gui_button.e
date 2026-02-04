@@ -1,18 +1,19 @@
 bring stdr
 bring cogito
 
-fun on_click(btn = cogito.Button) (( -- )) {
-    btn.set_text(@"Clicked!")
-}
+def button_label = @"Click me"
+def ?clicks = 0
 
 fun build_root(root = cogito.VStack) (( -- )) {
-    let btn = cogito.button(@"Click me")
+    let btn = cogito.button(button_label)
     root.add(btn)
-    btn.on_click(on_click)
+    btn.on_click((b = cogito.Button) => {
+        clicks = clicks + 1
+        b.set_text(@"Clicked {clicks}")
+    })
 }
 
 entry () (( -- )) {
-    cogito.load_css(@"examples/cogito_default.css")
     let app = cogito.app()
     let win = cogito.window()
     win.set_autosize(true)

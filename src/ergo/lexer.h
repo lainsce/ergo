@@ -60,6 +60,7 @@ typedef enum {
     TOK_KW_pub,
     TOK_KW_lock,
     TOK_KW_seal,
+    TOK_KW_def,
     TOK_KW_let,
     TOK_KW_const,
     TOK_KW_if,

@@ -40,6 +40,8 @@ typedef struct {
     bool is_this;
 } Param;
 
+typedef struct Stmt Stmt;
+
 // --- Expressions ---
 
 typedef enum {
@@ -60,6 +62,7 @@ typedef enum {
     EXPR_PAREN,
     EXPR_MATCH,
     EXPR_LAMBDA,
+    EXPR_BLOCK,
     EXPR_NEW,
     EXPR_TERNARY,
     EXPR_MOVE
@@ -153,6 +156,10 @@ typedef struct {
 } ExprLambda;
 
 typedef struct {
+    Stmt *block;
+} ExprBlock;
+
+typedef struct {
     Str name;
     Expr **args;
     size_t args_len;
@@ -189,6 +196,7 @@ struct Expr {
         ExprParen paren;
         ExprMatch match_expr;
         ExprLambda lambda;
+        ExprBlock block_expr;
         ExprNew new_expr;
         ExprTernary ternary;
         ExprMove move;
@@ -230,8 +238,6 @@ typedef enum {
     STMT_EXPR,
     STMT_BLOCK
 } StmtKind;
-
-typedef struct Stmt Stmt;
 
 typedef struct {
     Str name;
@@ -302,7 +308,8 @@ typedef enum {
     DECL_FUN,
     DECL_ENTRY,
     DECL_CLASS,
-    DECL_CONST
+    DECL_CONST,
+    DECL_DEF
 } DeclKind;
 
 typedef struct Decl Decl;
@@ -324,6 +331,12 @@ typedef struct {
     Str name;
     Expr *expr;
 } ConstDecl;
+
+typedef struct {
+    Str name;
+    Expr *expr;
+    bool is_mut;
+} DefDecl;
 
 typedef struct {
     Str name;
@@ -349,6 +362,7 @@ struct Decl {
         EntryDecl entry;
         ClassDecl class_decl;
         ConstDecl const_decl;
+        DefDecl def_decl;
     } as;
 };
 

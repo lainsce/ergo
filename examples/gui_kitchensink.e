@@ -1,6 +1,8 @@
 bring stdr
 bring cogito
 
+def dialog_slot = cogito.dialog_slot()
+
 fun on_button(btn = cogito.Button) (( -- )) {
     btn.set_text(@"Clicked!")
 }
@@ -37,42 +39,62 @@ fun on_grid_activate(idx = num) (( -- )) {
     writef(@"Grid activate: {idx}\n")
 }
 
-fun on_appbar_settings(btn = any) (( -- )) {
-    writef(@"appbar: settings\n")
+fun on_close_dialog(btn = cogito.Button) (( -- )) {
+    dialog_slot.clear()
 }
 
-fun on_appbar_help(btn = any) (( -- )) {
-    writef(@"appbar: help\n")
+fun on_appbar_settings(btn = cogito.Button) (( -- )) {
+    let dlg = cogito.dialog(@"Preferences")
+    dlg.add(cogito.label(@"Preferences"))
+    let close_btn = cogito.button(@"Done")
+    close_btn.on_click(on_close_dialog)
+    dlg.add(close_btn)
+    dialog_slot.show(dlg)
+}
+
+fun on_appbar_help(btn = cogito.Button) (( -- )) {
+    let dlg = cogito.dialog(@"About")
+    dlg.add(cogito.label(@"Cogito UI Gallery"))
+    let close_btn = cogito.button(@"Close")
+    close_btn.on_click(on_close_dialog)
+    dlg.add(close_btn)
+    dialog_slot.show(dlg)
 }
 
 fun build_ui(win = cogito.Window) (( -- )) {
     let bar = cogito.appbar(@"The Kitchensink", @"Cogito UI Gallery")
-    let settings_btn = bar.add_button(@"M", on_appbar_settings)
+    let settings_btn = bar.add_button(@"sf:gearshape", on_appbar_settings)
     settings_btn.add_menu(@"Preferences", on_appbar_settings)
     settings_btn.add_menu(@"About", on_appbar_help)
-    let help_btn = bar.add_button(@"?", on_appbar_help)
+    let help_btn = bar.add_button(@"sf:questionmark.circle", on_appbar_help)
     win.add(bar)
 
-    let root = cogito.vstack()
-    root.align_begin()
+    let root = cogito.zstack()
+    let content = cogito.vstack()
+    root.add(content)
+    root.add(dialog_slot)
     let row1 = cogito.hstack()
     let row2 = cogito.hstack()
     let row3 = cogito.hstack()
     let row4 = cogito.hstack()
+    let row5 = cogito.hstack()
 
     let label = cogito.label(@"Label")
     let btn = cogito.button(@"Button")
-    btn.on_click(on_button)
+    btn.on_click((b = cogito.Button) => { b.set_text(@"Clicked!") })
     row1.add(label)
     row1.add(btn)
 
-    let group = cogito.checkbox(@"Group", null)
-    let cb1 = cogito.checkbox(@"Choice A", group)
-    let cb2 = cogito.checkbox(@"Choice B", group)
+    let cb1 = cogito.checkbox(@"Checking In", null)
     cb1.on_change(on_check)
-    cb2.on_change(on_check)
     row2.add(cb1)
-    row2.add(cb2)
+
+    let r1 = cogito.checkbox(@"Choice A", @"group1")
+    let r2 = cogito.checkbox(@"Choice B", @"group1")
+    r1.on_change(on_check)
+    r2.on_change(on_check)
+    row2.add(r1)
+    row2.add(r2)
 
     let sw = cogito.switch(@"Switch")
     sw.on_change(on_switch)
@@ -98,15 +120,25 @@ fun build_ui(win = cogito.Window) (( -- )) {
     grid.add(cogito.label(@"B2"))
     row4.add(grid)
 
-    root.add(row1)
-    root.add(row2)
-    root.add(row3)
-    root.add(row4)
+    let zs = cogito.zstack()
+    zs.halign(1)
+    zs.valign(1)
+    let zbase = cogito.button(@"ZStack Base")
+    let ztop = cogito.label(@"Overlay")
+    ztop.set_class(@"subtitle")
+    zs.add(zbase)
+    zs.add(ztop)
+    row5.add(zs)
+
+    content.add(row1)
+    content.add(row2)
+    content.add(row3)
+    content.add(row4)
+    content.add(row5)
     win.add(root)
 }
 
 entry () (( -- )) {
-    cogito.load_css(@"examples/cogito_default.css")
     let app = cogito.app()
     let win = cogito.window_title(@"The Kitchensink").build(build_ui)
     win.set_autosize(true)

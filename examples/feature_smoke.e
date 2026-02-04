@@ -20,7 +20,7 @@ fun feature_smoke() (( -- )) {
     let s = p.sum()
     writef(@"sum={}\n", s)
 
-    let f = |x = num| x + 1
+    let f = (x = num) => x + 1
     let v = f(10)
 
     let m = match v: 11 => 1, n => n + 1

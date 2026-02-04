@@ -190,6 +190,7 @@ static Expr **parse_call_args(Parser *p, size_t *out_len);
 static Expr *parse_match(Parser *p);
 static Expr *parse_new(Parser *p);
 static Expr *parse_lambda(Parser *p);
+static Expr *parse_lambda_arrow(Parser *p);
 static Expr *parse_array_lit(Parser *p);
 static Pat *parse_pattern(Parser *p);
 static MatchArm *parse_match_arm(Parser *p);
@@ -198,6 +199,7 @@ static FunDecl *parse_fun_decl(Parser *p);
 static Decl *parse_fun(Parser *p);
 static Decl *parse_entry(Parser *p);
 static Decl *parse_const_decl(Parser *p);
+static Decl *parse_def_decl(Parser *p);
 static Decl *parse_class(Parser *p);
 static Import *parse_import(Parser *p);
 
@@ -663,6 +665,21 @@ static Decl *parse_const_decl(Parser *p) {
     return decl;
 }
 
+static Decl *parse_def_decl(Parser *p) {
+    Tok *kw = eat(p, TOK_KW_def);
+    if (!p->ok) return NULL;
+    bool is_mut = maybe(p, TOK_QMARK) != NULL;
+    Tok *name_tok = eat(p, TOK_IDENT);
+    eat(p, TOK_EQ);
+    Expr *expr = parse_expr(p, 0);
+    Decl *decl = new_decl(p, DECL_DEF, kw);
+    if (!decl) return NULL;
+    decl->as.def_decl.name = name_tok->val.ident;
+    decl->as.def_decl.expr = expr;
+    decl->as.def_decl.is_mut = is_mut;
+    return decl;
+}
+
 static Decl *parse_class(Parser *p) {
     Tok *t = peek(p, 0);
     Str vis = str_from_c("priv");
@@ -890,6 +907,8 @@ static Expr *parse_primary(Parser *p) {
         return parse_array_lit(p);
     }
     if (t->kind == TOK_LPAR) {
+        Expr *lam = parse_lambda_arrow(p);
+        if (lam) return lam;
         eat(p, TOK_LPAR);
         Expr *x = parse_expr(p, 0);
         if (!p->ok) return NULL;
@@ -1057,6 +1076,66 @@ static Expr *parse_lambda(Parser *p) {
     return lam;
 }
 
+static Expr *parse_lambda_arrow(Parser *p) {
+    Parser probe = *p;
+    probe.err = NULL;
+
+    Tok *t = eat(&probe, TOK_LPAR);
+    if (!probe.ok) return NULL;
+
+    PtrVec params = {0};
+    if (!at(&probe, TOK_RPAR)) {
+        while (true) {
+            bool is_mut = maybe(&probe, TOK_QMARK) != NULL;
+            Tok *name_tok = eat(&probe, TOK_IDENT);
+            if (!probe.ok) return NULL;
+            Param *param = (Param *)ast_alloc(probe.arena, sizeof(Param));
+            if (!param) {
+                parser_set_oom(&probe);
+                return NULL;
+            }
+            param->name = name_tok->val.ident;
+            param->is_mut = is_mut;
+            param->is_this = false;
+            param->typ = NULL;
+            if (maybe(&probe, TOK_EQ)) {
+                param->typ = parse_type(&probe);
+            }
+            if (!probe.ok) return NULL;
+            ptrvec_push(&probe, &params, param);
+            if (!maybe(&probe, TOK_COMMA)) {
+                break;
+            }
+        }
+    }
+    eat(&probe, TOK_RPAR);
+    if (!probe.ok) return NULL;
+    if (!at(&probe, TOK_ARROW)) return NULL;
+    eat(&probe, TOK_ARROW);
+
+    Expr *body = NULL;
+    if (at(&probe, TOK_LBRACE)) {
+        Stmt *block = parse_block(&probe);
+        if (!probe.ok) return NULL;
+        Expr *be = new_expr(&probe, EXPR_BLOCK, t);
+        if (!be) return NULL;
+        be->as.block_expr.block = block;
+        body = be;
+    } else {
+        body = parse_expr(&probe, 0);
+        if (!probe.ok) return NULL;
+    }
+
+    Expr *lam = new_expr(&probe, EXPR_LAMBDA, t);
+    if (!lam) return NULL;
+    lam->as.lambda.params = (Param **)ptrvec_finalize(&probe, &params);
+    lam->as.lambda.params_len = params.len;
+    lam->as.lambda.body = body;
+
+    *p = probe;
+    return lam;
+}
+
 static Expr *parse_new(Parser *p) {
     Tok *t = eat(p, TOK_KW_new);
     Tok *name_tok = eat(p, TOK_IDENT);
@@ -1128,6 +1207,10 @@ Module *parse_module(Tok *toks, size_t len, const char *path, Arena *arena, Diag
             ptrvec_push(&p, &decls, decl);
         } else if (at(&p, TOK_KW_const)) {
             Decl *decl = parse_const_decl(&p);
+            if (!p.ok) return NULL;
+            ptrvec_push(&p, &decls, decl);
+        } else if (at(&p, TOK_KW_def)) {
+            Decl *decl = parse_def_decl(&p);
             if (!p.ok) return NULL;
             ptrvec_push(&p, &decls, decl);
         } else if (at(&p, TOK_KW_pub) || at(&p, TOK_KW_lock) || at(&p, TOK_KW_seal) || at(&p, TOK_KW_class)) {

@@ -1,1 +1,0 @@
-option('input', type: 'string', value: '', description: 'Input .e file for the run target')

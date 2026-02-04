@@ -5,10 +5,21 @@ fun __cogito_app() (( App )) { }
 fun __cogito_window(title = string, w = num, h = num) (( Window )) { }
 fun __cogito_button(text = string) (( Button )) { }
 fun __cogito_label(text = string) (( Label )) { }
+fun __cogito_label_set_class(label = Label, cls = string) (( -- )) { }
+fun __cogito_image(icon = string) (( Image )) { }
+fun __cogito_image_set_icon(img = Image, icon = string) (( -- )) { }
+fun __cogito_dialog(title = string) (( Dialog )) { }
+fun __cogito_dialog_slot() (( DialogSlot )) { }
+fun __cogito_dialog_slot_show(slot = DialogSlot, dialog = Dialog) (( -- )) { }
+fun __cogito_dialog_slot_clear(slot = DialogSlot) (( -- )) { }
+fun __cogito_window_set_dialog(win = Window, dialog = Dialog) (( -- )) { }
+fun __cogito_window_clear_dialog(win = Window) (( -- )) { }
+fun __cogito_node_window(node = any) (( Window )) { }
 fun __cogito_checkbox(text = string, group = any) (( Checkbox )) { }
 fun __cogito_switch(text = string) (( Switch )) { }
 fun __cogito_vstack() (( VStack )) { }
 fun __cogito_hstack() (( HStack )) { }
+fun __cogito_zstack() (( ZStack )) { }
 fun __cogito_list() (( List )) { }
 fun __cogito_grid(cols = num) (( Grid )) { }
 fun __cogito_container_add(parent = any, child = any) (( -- )) { }
@@ -19,10 +30,14 @@ fun __cogito_state_new(value = any) (( State )) { }
 fun __cogito_state_get(state = State) (( any )) { }
 fun __cogito_state_set(state = State, value = any) (( -- )) { }
 fun __cogito_container_set_align(node = any, align = num) (( -- )) { }
+fun __cogito_container_set_halign(node = any, align = num) (( -- )) { }
+fun __cogito_container_set_valign(node = any, align = num) (( -- )) { }
 fun __cogito_container_set_padding(node = any, left = num, top = num, right = num, bottom = num) (( -- )) { }
 fun __cogito_window_set_autosize(win = Window, on = bool) (( -- )) { }
+fun __cogito_window_set_resizable(win = Window, on = bool) (( -- )) { }
 fun __cogito_appbar(title = string, subtitle = string) (( AppBar )) { }
 fun __cogito_appbar_add_button(appbar = AppBar, icon = string, handler = any) (( Button )) { }
+fun __cogito_appbar_set_controls(appbar = AppBar, layout = string) (( -- )) { }
 fun __cogito_button_set_text(btn = Button, text = string) (( -- )) { }
 fun __cogito_button_add_menu(btn = Button, label = string, handler = any) (( -- )) { }
 fun __cogito_iconbtn_add_menu(btn = Button, label = string, handler = any) (( -- )) { }
@@ -59,6 +74,15 @@ class Window {
     fun set_autosize(this, on = bool) (( -- )) {
         __cogito_window_set_autosize(this, on)
     }
+    fun set_resizable(this, on = bool) (( -- )) {
+        __cogito_window_set_resizable(this, on)
+    }
+    fun set_dialog(this, dialog = Dialog) (( -- )) {
+        __cogito_window_set_dialog(this, dialog)
+    }
+    fun clear_dialog(this) (( -- )) {
+        __cogito_window_clear_dialog(this)
+    }
     fun build(this, builder = any) (( Window )) {
         __cogito_window_set_builder(this, builder)
         __cogito_build(this, builder)
@@ -69,6 +93,43 @@ class Window {
 class AppBar {
     fun add_button(this, icon = string, handler = any) (( Button )) {
         return __cogito_appbar_add_button(this, icon, handler)
+    }
+    fun set_window_controls(this, layout = string) (( -- )) {
+        __cogito_appbar_set_controls(this, layout)
+    }
+}
+
+class Image {
+    fun set_icon(this, icon = string) (( -- )) {
+        __cogito_image_set_icon(this, icon)
+    }
+}
+
+class Dialog {
+    fun add(this, child = any) (( -- )) {
+        __cogito_container_add(this, child)
+    }
+    fun set_padding(this, left = num, top = num, right = num, bottom = num) (( -- )) {
+        __cogito_container_set_padding(this, left, top, right, bottom)
+    }
+    fun set_margins(this, left = num, top = num, right = num, bottom = num) (( -- )) {
+        __cogito_container_set_margins(this, left, top, right, bottom)
+    }
+    fun build(this, builder = any) (( Dialog )) {
+        __cogito_build(this, builder)
+        return this
+    }
+    fun window(this) (( Window )) {
+        return __cogito_node_window(this)
+    }
+}
+
+class DialogSlot {
+    fun show(this, dialog = Dialog) (( -- )) {
+        __cogito_dialog_slot_show(this, dialog)
+    }
+    fun clear(this) (( -- )) {
+        __cogito_dialog_slot_clear(this)
     }
 }
 
@@ -84,6 +145,12 @@ class VStack {
     }
     fun set_align(this, align = num) (( -- )) {
         __cogito_container_set_align(this, align)
+    }
+    fun halign(this, align = num) (( -- )) {
+        __cogito_container_set_halign(this, align)
+    }
+    fun valign(this, align = num) (( -- )) {
+        __cogito_container_set_valign(this, align)
     }
     fun align_begin(this) (( -- )) {
         __cogito_container_set_align(this, 0)
@@ -113,6 +180,12 @@ class HStack {
     fun set_align(this, align = num) (( -- )) {
         __cogito_container_set_align(this, align)
     }
+    fun halign(this, align = num) (( -- )) {
+        __cogito_container_set_halign(this, align)
+    }
+    fun valign(this, align = num) (( -- )) {
+        __cogito_container_set_valign(this, align)
+    }
     fun align_begin(this) (( -- )) {
         __cogito_container_set_align(this, 0)
     }
@@ -123,6 +196,40 @@ class HStack {
         __cogito_container_set_align(this, 2)
     }
     fun build(this, builder = any) (( HStack )) {
+        __cogito_build(this, builder)
+        return this
+    }
+}
+
+class ZStack {
+    fun add(this, child = any) (( -- )) {
+        __cogito_container_add(this, child)
+    }
+    fun set_margins(this, left = num, top = num, right = num, bottom = num) (( -- )) {
+        __cogito_container_set_margins(this, left, top, right, bottom)
+    }
+    fun set_padding(this, left = num, top = num, right = num, bottom = num) (( -- )) {
+        __cogito_container_set_padding(this, left, top, right, bottom)
+    }
+    fun set_align(this, align = num) (( -- )) {
+        __cogito_container_set_align(this, align)
+    }
+    fun halign(this, align = num) (( -- )) {
+        __cogito_container_set_halign(this, align)
+    }
+    fun valign(this, align = num) (( -- )) {
+        __cogito_container_set_valign(this, align)
+    }
+    fun align_begin(this) (( -- )) {
+        __cogito_container_set_align(this, 0)
+    }
+    fun align_center(this) (( -- )) {
+        __cogito_container_set_align(this, 1)
+    }
+    fun align_end(this) (( -- )) {
+        __cogito_container_set_align(this, 2)
+    }
+    fun build(this, builder = any) (( ZStack )) {
         __cogito_build(this, builder)
         return this
     }
@@ -140,6 +247,12 @@ class List {
     }
     fun set_align(this, align = num) (( -- )) {
         __cogito_container_set_align(this, align)
+    }
+    fun halign(this, align = num) (( -- )) {
+        __cogito_container_set_halign(this, align)
+    }
+    fun valign(this, align = num) (( -- )) {
+        __cogito_container_set_valign(this, align)
     }
     fun align_begin(this) (( -- )) {
         __cogito_container_set_align(this, 0)
@@ -174,6 +287,12 @@ class Grid {
     }
     fun set_align(this, align = num) (( -- )) {
         __cogito_container_set_align(this, align)
+    }
+    fun halign(this, align = num) (( -- )) {
+        __cogito_container_set_halign(this, align)
+    }
+    fun valign(this, align = num) (( -- )) {
+        __cogito_container_set_valign(this, align)
     }
     fun align_begin(this) (( -- )) {
         __cogito_container_set_align(this, 0)
@@ -215,6 +334,9 @@ class Label {
     fun align_end(this) (( -- )) {
         __cogito_container_set_align(this, 2)
     }
+    fun set_class(this, cls = string) (( -- )) {
+        __cogito_label_set_class(this, cls)
+    }
 }
 
 class Button {
@@ -244,6 +366,9 @@ class Button {
     }
     fun add_menu(this, label = string, handler = any) (( -- )) {
         __cogito_button_add_menu(this, label, handler)
+    }
+    fun window(this) (( Window )) {
+        return __cogito_node_window(this)
     }
 }
 
@@ -275,6 +400,9 @@ class Checkbox {
     fun on_change(this, handler = any) (( -- )) {
         __cogito_checkbox_on_change(this, handler)
     }
+    fun window(this) (( Window )) {
+        return __cogito_node_window(this)
+    }
 }
 
 class Switch {
@@ -304,6 +432,9 @@ class Switch {
     }
     fun on_change(this, handler = any) (( -- )) {
         __cogito_switch_on_change(this, handler)
+    }
+    fun window(this) (( Window )) {
+        return __cogito_node_window(this)
     }
 }
 
@@ -353,6 +484,10 @@ fun hstack() (( HStack )) {
     return __cogito_hstack()
 }
 
+fun zstack() (( ZStack )) {
+    return __cogito_zstack()
+}
+
 fun list() (( List )) {
     return __cogito_list()
 }
@@ -363,6 +498,18 @@ fun grid(cols = num) (( Grid )) {
 
 fun label(text = string) (( Label )) {
     return __cogito_label(text)
+}
+
+fun image(icon = string) (( Image )) {
+    return __cogito_image(icon)
+}
+
+fun dialog(title = string) (( Dialog )) {
+    return __cogito_dialog(title)
+}
+
+fun dialog_slot() (( DialogSlot )) {
+    return __cogito_dialog_slot()
 }
 
 fun button(text = string) (( Button )) {

@@ -211,7 +211,10 @@ int main(int argc, char **argv) {
         build_hash = hash_cstr(build_hash, ERGO_CACHE_VERSION);
 
         const char *no_cache_env = getenv("ERGO_NO_CACHE");
-        bool cache_enabled = !(no_cache_env && no_cache_env[0] && no_cache_env[0] != '0');
+        bool cache_enabled = false;
+        if (no_cache_env && no_cache_env[0]) {
+            cache_enabled = (no_cache_env[0] == '0');
+        }
 
         char *cache_base = NULL;
         char *cache_dir = NULL;

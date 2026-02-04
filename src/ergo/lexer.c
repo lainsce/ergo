@@ -84,6 +84,7 @@ static const char *tok_name_default(TokKind kind) {
         case TOK_KW_pub: return "KW_pub";
         case TOK_KW_lock: return "KW_lock";
         case TOK_KW_seal: return "KW_seal";
+        case TOK_KW_def: return "KW_def";
         case TOK_KW_let: return "KW_let";
         case TOK_KW_const: return "KW_const";
         case TOK_KW_if: return "KW_if";
@@ -887,6 +888,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             else if (str_eq_c(word, "pub")) kw = TOK_KW_pub;
             else if (str_eq_c(word, "lock")) kw = TOK_KW_lock;
             else if (str_eq_c(word, "seal")) kw = TOK_KW_seal;
+            else if (str_eq_c(word, "def")) kw = TOK_KW_def;
             else if (str_eq_c(word, "let")) kw = TOK_KW_let;
             else if (str_eq_c(word, "const")) kw = TOK_KW_const;
             else if (str_eq_c(word, "if")) kw = TOK_KW_if;

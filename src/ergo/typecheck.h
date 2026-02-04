@@ -90,6 +90,18 @@ typedef struct {
 typedef struct {
     Str name;
     Ty *ty;
+    bool is_mut;
+} GlobalVar;
+
+typedef struct {
+    Str module;
+    GlobalVar *vars;
+    size_t len;
+} ModuleGlobals;
+
+typedef struct {
+    Str name;
+    Ty *ty;
 } FieldEntry;
 
 typedef struct FunSig FunSig;
@@ -149,6 +161,8 @@ typedef struct {
     size_t module_imports_len;
     ModuleConsts *module_consts;
     size_t module_consts_len;
+    ModuleGlobals *module_globals;
+    size_t module_globals_len;
     Arena *arena;
 } GlobalEnv;
 

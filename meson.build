@@ -3,8 +3,6 @@ project('ergo', 'c',
   default_options : ['warning_level=2', 'c_std=c11']
 )
 
-input_file = get_option('input')
-
 ergo_c_sources = files(
   'src/ergo/main.c',
   'src/ergo/lexer.c',
@@ -27,16 +25,9 @@ ergo_exe = executable(
   install : false
 )
 
-# Custom target to run the compiler on a .e file
-run_target('run',
-  command : [ergo_exe, input_file],
-  depends : ergo_exe
-)
-
 # Summary message
 message('''
 Ergo Compiler Project (Meson)
 ----------------------------
 - To build:            meson compile
-- To run a .e file:    meson configure build -Dinput=examples/yourfile.e && meson compile -C build run
 ''')

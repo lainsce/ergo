@@ -1,0 +1,209 @@
+* {
+  color: #222222;
+  font-size: 16;
+}
+
+window {
+  background: #ffffff;
+}
+
+button {
+  background: #0000000d;
+  border-radius: 8;
+  min-height: 42;
+}
+
+iconbtn {
+  background: #0000000d;
+  border-radius: 99;
+  min-width: 42;
+  min-height: 42;
+}
+
+image {
+  min-width: 20;
+  min-height: 20;
+}
+
+label {
+  color: #222222;
+}
+
+.checkbox, .radio, checkbox {
+  color: #222222;
+  min-height: 24;
+  min-width: 24;
+}
+
+.checkbox:checked,
+.radio:checked {
+  background: #72dec2;
+}
+
+.checkbox .check,
+.radio .check {
+  color: #222222;
+}
+
+.checkbox:checked .check,
+.radio:checked .check {
+  color: #222222;
+}
+
+.checkbox .box,
+.radio .box {
+  background: #0000000d;
+  border-radius: 4;
+}
+
+.checkbox:checked .box,
+.radio:checked .box {
+  background: #72dec2;
+}
+
+.checkbox .box:hover,
+.radio .box:hover {
+  background: #72dec2;
+}
+
+.checkbox .box:active,
+.radio .box:active {
+  background: #72dec2;
+}
+
+.checkbox .check:hover,
+.radio .check:hover {
+  color: #111111;
+}
+
+.checkbox .check:active,
+.radio .check:active {
+  color: #000000;
+}
+
+.switch, switch {
+  color: #222222;
+  min-height: 28;
+  min-width: 64;
+}
+
+.switch .track {
+  background: #b4b4b4;
+}
+
+.switch:checked .track {
+  background: #72dec2;
+}
+
+.switch .track:hover {
+  background: #72dec2;
+}
+
+.switch .track:active {
+  background: #72dec2;
+}
+
+.switch .knob {
+  background: #ffffff;
+  min-width: 32;
+  min-height: 24;
+}
+
+.switch .knob:hover {
+  background: #f4f4f4;
+}
+
+.switch .knob:active {
+  background: #e8e8e8;
+}
+
+.title {
+  font-size: 20;
+  font-weight: bold;
+}
+
+.subtitle {
+  font-size: 18;
+  font-weight: normal;
+}
+
+.body {
+  font-size: 16;
+  font-weight: normal;
+}
+
+list {
+  background: #ffffff;
+  border-radius: 8;
+}
+
+list:selection {
+  background: #72dec2;
+}
+
+grid {
+  background: #ffffff;
+  border-radius: 8;
+}
+
+grid:selection {
+  background: #72dec2;
+}
+
+appbar {
+  background: #f0f0f0;
+}
+
+dialog {
+  background: #ffffff;
+  border-radius: 26;
+  min-width: 240;
+  min-height: 240;
+  padding: 24;
+}
+
+.appbar .window-button {
+  min-width: 16;
+  border-color: #00000022;
+  border-width: 1;
+}
+
+.appbar .window-close { background: #ff5f57; }
+.appbar .window-min { background: #febc2e; }
+.appbar .window-max { background: #28c840; }
+.appbar .window-close:hover { background: #ff7b73; }
+.appbar .window-close:active { background: #e5534d; }
+.appbar .window-min:hover { background: #ffd066; }
+.appbar .window-min:active { background: #e0a52a; }
+.appbar .window-max:hover { background: #52d870; }
+.appbar .window-max:active { background: #1ea64a; }
+
+.appbar .button:hover {
+  background: #00000014;
+}
+
+.appbar .button:active {
+  background: #00000024;
+}
+
+.appbar .iconbtn:hover {
+  background: #00000014;
+}
+
+.appbar .iconbtn:active {
+  background: #00000024;
+}
+
+menu {
+  background: #ffffff;
+  border-radius: 0;
+  color: #222222;
+  box-shadow: 2;
+  font-size: 16;
+  item-padding: 8 12;
+  item-height: 42;
+}
+
+menu:selection {
+  background: #72dec2;
+}

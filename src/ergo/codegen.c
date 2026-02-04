@@ -277,6 +277,18 @@ static char *mangle_global(Arena *arena, Str mod, Str name) {
     return arena_printf(arena, "ergo_%s_%.*s", mm, (int)name.len, name.data);
 }
 
+static char *mangle_global_var(Arena *arena, Str mod, Str name) {
+    char *mm = mangle_mod(arena, mod);
+    if (!mm) return NULL;
+    return arena_printf(arena, "ergo_g_%s_%.*s", mm, (int)name.len, name.data);
+}
+
+static char *mangle_global_init(Arena *arena, Str mod) {
+    char *mm = mangle_mod(arena, mod);
+    if (!mm) return NULL;
+    return arena_printf(arena, "ergo_init_%s", mm);
+}
+
 static char *mangle_method(Arena *arena, Str mod, Str cls, Str name) {
     char *mm = mangle_mod(arena, mod);
     if (!mm) return NULL;
@@ -481,6 +493,10 @@ static bool codegen_add_local(Codegen *cg, char *cname) {
     return true;
 }
 
+static ModuleGlobals *codegen_module_globals(Codegen *cg, Str module);
+static GlobalVar *codegen_find_global(ModuleGlobals *mg, Str name);
+static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err);
+
 static char *codegen_cname_of(Codegen *cg, Str name) {
     for (size_t i = cg->scopes_len; i-- > 0;) {
         NameScope *ns = &cg->scopes[i];
@@ -488,6 +504,12 @@ static char *codegen_cname_of(Codegen *cg, Str name) {
             if (str_eq(ns->items[j].name, name)) {
                 return ns->items[j].cname;
             }
+        }
+    }
+    if (cg->current_module.len) {
+        ModuleGlobals *mg = codegen_module_globals(cg, cg->current_module);
+        if (codegen_find_global(mg, name)) {
+            return mangle_global_var(cg->arena, cg->current_module, name);
         }
     }
     return NULL;
@@ -617,6 +639,25 @@ static ModuleConsts *codegen_module_consts(Codegen *cg, Str module) {
     for (size_t i = 0; i < cg->env->module_consts_len; i++) {
         if (str_eq(cg->env->module_consts[i].module, module)) {
             return &cg->env->module_consts[i];
+        }
+    }
+    return NULL;
+}
+
+static ModuleGlobals *codegen_module_globals(Codegen *cg, Str module) {
+    for (size_t i = 0; i < cg->env->module_globals_len; i++) {
+        if (str_eq(cg->env->module_globals[i].module, module)) {
+            return &cg->env->module_globals[i];
+        }
+    }
+    return NULL;
+}
+
+static GlobalVar *codegen_find_global(ModuleGlobals *mg, Str name) {
+    if (!mg) return NULL;
+    for (size_t i = 0; i < mg->len; i++) {
+        if (str_eq(mg->vars[i].name, name)) {
+            return &mg->vars[i];
         }
     }
     return NULL;
@@ -894,6 +935,9 @@ static void collect_expr(Codegen *cg, Expr *e, Str path, bool allow_funval) {
                 collect_expr(cg, e->as.match_expr.arms[i]->expr, path, true);
             }
             break;
+        case EXPR_BLOCK:
+            collect_stmt(cg, e->as.block_expr.block, path);
+            break;
         case EXPR_NEW:
             for (size_t i = 0; i < e->as.new_expr.args_len; i++) {
                 collect_expr(cg, e->as.new_expr.args[i], path, true);
@@ -959,6 +1003,8 @@ static void codegen_collect_lambdas(Codegen *cg) {
                 }
             } else if (d->kind == DECL_ENTRY) {
                 collect_stmt(cg, d->as.entry.body, m->path);
+            } else if (d->kind == DECL_DEF) {
+                collect_expr(cg, d->as.def_decl.expr, m->path, true);
             }
         }
     }
@@ -1172,29 +1218,38 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             if (base_ty->tag == TY_MOD) {
                 ModuleConsts *mc = codegen_module_consts(cg, base_ty->name);
                 ConstEntry *ce = mc ? codegen_find_const(mc, e->as.member.name) : NULL;
-                if (!ce) {
-                    return cg_set_errf(err, path, e->line, e->col, "unknown module member '%.*s.%.*s'", (int)base_ty->name.len, base_ty->name.data, (int)e->as.member.name.len, e->as.member.name.data);
-                }
-                char *t = codegen_new_tmp(cg);
-                if (ce->val.ty && ce->val.ty->tag == TY_PRIM && str_eq_c(ce->val.ty->name, "num")) {
-                    if (ce->val.is_float) {
-                        w_line(&cg->w, "ErgoVal %s = EV_FLOAT(%.17g);", t, ce->val.f);
+                if (ce) {
+                    char *t = codegen_new_tmp(cg);
+                    if (ce->val.ty && ce->val.ty->tag == TY_PRIM && str_eq_c(ce->val.ty->name, "num")) {
+                        if (ce->val.is_float) {
+                            w_line(&cg->w, "ErgoVal %s = EV_FLOAT(%.17g);", t, ce->val.f);
+                        } else {
+                            w_line(&cg->w, "ErgoVal %s = EV_INT(%lld);", t, ce->val.i);
+                        }
+                    } else if (ce->val.ty && ce->val.ty->tag == TY_PRIM && str_eq_c(ce->val.ty->name, "bool")) {
+                        w_line(&cg->w, "ErgoVal %s = EV_BOOL(%s);", t, ce->val.b ? "true" : "false");
+                    } else if (ce->val.ty && ce->val.ty->tag == TY_PRIM && str_eq_c(ce->val.ty->name, "string")) {
+                        char *esc = c_escape(cg->arena, ce->val.s);
+                        w_line(&cg->w, "ErgoVal %s = EV_STR(stdr_str_lit(\"%s\"));", t, esc ? esc : "");
+                    } else if (ce->val.ty && ce->val.ty->tag == TY_NULL) {
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
                     } else {
-                        w_line(&cg->w, "ErgoVal %s = EV_INT(%lld);", t, ce->val.i);
+                        return cg_set_err(err, path, "unsupported const type");
                     }
-                } else if (ce->val.ty && ce->val.ty->tag == TY_PRIM && str_eq_c(ce->val.ty->name, "bool")) {
-                    w_line(&cg->w, "ErgoVal %s = EV_BOOL(%s);", t, ce->val.b ? "true" : "false");
-                } else if (ce->val.ty && ce->val.ty->tag == TY_PRIM && str_eq_c(ce->val.ty->name, "string")) {
-                    char *esc = c_escape(cg->arena, ce->val.s);
-                    w_line(&cg->w, "ErgoVal %s = EV_STR(stdr_str_lit(\"%s\"));", t, esc ? esc : "");
-                } else if (ce->val.ty && ce->val.ty->tag == TY_NULL) {
-                    w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
-                } else {
-                    return cg_set_err(err, path, "unsupported const type");
+                    gen_expr_add(out, t);
+                    out->tmp = t;
+                    return true;
                 }
-                gen_expr_add(out, t);
-                out->tmp = t;
-                return true;
+                ModuleGlobals *mg = codegen_module_globals(cg, base_ty->name);
+                if (codegen_find_global(mg, e->as.member.name)) {
+                    char *t = codegen_new_tmp(cg);
+                    char *gname = mangle_global_var(cg->arena, base_ty->name, e->as.member.name);
+                    w_line(&cg->w, "ErgoVal %s = %s; ergo_retain_val(%s);", t, gname, t);
+                    gen_expr_add(out, t);
+                    out->tmp = t;
+                    return true;
+                }
+                return cg_set_errf(err, path, e->line, e->col, "unknown module member '%.*s.%.*s'", (int)base_ty->name.len, base_ty->name.data, (int)e->as.member.name.len, e->as.member.name.data);
             }
             if (base_ty->tag == TY_CLASS) {
                 GenExpr ge;
@@ -1909,6 +1964,37 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_dialog")) {
+                        GenExpr title;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &title, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_dialog_new(%s);", t, title.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", title.tmp);
+                        gen_expr_release_except(cg, &title, title.tmp);
+                        gen_expr_free(&title);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_dialog_slot")) {
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_dialog_slot_new();", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_image")) {
+                        GenExpr icon;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &icon, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_image_new(%s);", t, icon.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", icon.tmp);
+                        gen_expr_release_except(cg, &icon, icon.tmp);
+                        gen_expr_free(&icon);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_checkbox")) {
                         GenExpr text, group;
                         if (!gen_expr(cg, path, e->as.call.args[0], &text, err)) return false;
@@ -1963,6 +2049,13 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     if (str_eq_c(fname, "__cogito_hstack")) {
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w, "ErgoVal %s = cogito_hstack_new();", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_zstack")) {
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_zstack_new();", t);
                         gen_expr_add(out, t);
                         out->tmp = t;
                         return true;
@@ -2049,6 +2142,70 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_container_set_halign")) {
+                        GenExpr node, align;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &align, err)) { gen_expr_free(&node); return false; }
+                        w_line(&cg->w, "cogito_container_set_halign(%s, %s);", node.tmp, align.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", align.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_release_except(cg, &align, align.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_free(&align);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_container_set_valign")) {
+                        GenExpr node, align;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &align, err)) { gen_expr_free(&node); return false; }
+                        w_line(&cg->w, "cogito_container_set_valign(%s, %s);", node.tmp, align.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", align.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_release_except(cg, &align, align.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_free(&align);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_dialog_slot_show")) {
+                        GenExpr slot, dialog;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &slot, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &dialog, err)) { gen_expr_free(&slot); return false; }
+                        w_line(&cg->w, "cogito_dialog_slot_show(%s, %s);", slot.tmp, dialog.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", slot.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", dialog.tmp);
+                        gen_expr_release_except(cg, &slot, slot.tmp);
+                        gen_expr_release_except(cg, &dialog, dialog.tmp);
+                        gen_expr_free(&slot);
+                        gen_expr_free(&dialog);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_dialog_slot_clear")) {
+                        GenExpr slot;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &slot, err)) return false;
+                        w_line(&cg->w, "cogito_dialog_slot_clear(%s);", slot.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", slot.tmp);
+                        gen_expr_release_except(cg, &slot, slot.tmp);
+                        gen_expr_free(&slot);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_container_set_padding")) {
                         GenExpr node, left, top, right, bottom;
                         if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
@@ -2078,6 +2235,23 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_label_set_class")) {
+                        GenExpr label, classv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &label, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &classv, err)) { gen_expr_free(&label); return false; }
+                        w_line(&cg->w, "cogito_label_set_class(%s, %s);", label.tmp, classv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", label.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", classv.tmp);
+                        gen_expr_release_except(cg, &label, label.tmp);
+                        gen_expr_release_except(cg, &classv, classv.tmp);
+                        gen_expr_free(&label);
+                        gen_expr_free(&classv);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_window_set_autosize")) {
                         GenExpr win, on;
                         if (!gen_expr(cg, path, e->as.call.args[0], &win, err)) return false;
@@ -2091,6 +2265,65 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         gen_expr_free(&on);
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_window_set_resizable")) {
+                        GenExpr win, on;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &win, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &on, err)) { gen_expr_free(&win); return false; }
+                        w_line(&cg->w, "cogito_window_set_resizable(%s, %s);", win.tmp, on.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", win.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", on.tmp);
+                        gen_expr_release_except(cg, &win, win.tmp);
+                        gen_expr_release_except(cg, &on, on.tmp);
+                        gen_expr_free(&win);
+                        gen_expr_free(&on);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_window_set_dialog")) {
+                        GenExpr win, dialog;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &win, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &dialog, err)) { gen_expr_free(&win); return false; }
+                        w_line(&cg->w, "cogito_window_set_dialog(%s, %s);", win.tmp, dialog.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", win.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", dialog.tmp);
+                        gen_expr_release_except(cg, &win, win.tmp);
+                        gen_expr_release_except(cg, &dialog, dialog.tmp);
+                        gen_expr_free(&win);
+                        gen_expr_free(&dialog);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_window_clear_dialog")) {
+                        GenExpr win;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &win, err)) return false;
+                        w_line(&cg->w, "cogito_window_clear_dialog(%s);", win.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", win.tmp);
+                        gen_expr_release_except(cg, &win, win.tmp);
+                        gen_expr_free(&win);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_node_window")) {
+                        GenExpr node;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_node_window_val(%s);", t, node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_free(&node);
                         gen_expr_add(out, t);
                         out->tmp = t;
                         return true;
@@ -2181,6 +2414,23 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         gen_expr_release_except(cg, &text, text.tmp);
                         gen_expr_free(&btn);
                         gen_expr_free(&text);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_image_set_icon")) {
+                        GenExpr img, icon;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &img, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &icon, err)) { gen_expr_free(&img); return false; }
+                        w_line(&cg->w, "cogito_image_set_icon(%s, %s);", img.tmp, icon.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", img.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", icon.tmp);
+                        gen_expr_release_except(cg, &img, img.tmp);
+                        gen_expr_release_except(cg, &icon, icon.tmp);
+                        gen_expr_free(&img);
+                        gen_expr_free(&icon);
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
                         gen_expr_add(out, t);
@@ -2405,6 +2655,23 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_appbar_set_controls")) {
+                        GenExpr app, layout;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &app, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &layout, err)) { gen_expr_free(&app); return false; }
+                        w_line(&cg->w, "cogito_appbar_set_controls(%s, %s);", app.tmp, layout.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", app.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", layout.tmp);
+                        gen_expr_release_except(cg, &app, app.tmp);
+                        gen_expr_release_except(cg, &layout, layout.tmp);
+                        gen_expr_free(&app);
+                        gen_expr_free(&layout);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_iconbtn_add_menu")) {
                         GenExpr btn, label, handler;
                         if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
@@ -2559,6 +2826,15 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             out->tmp = t;
             return true;
         }
+        case EXPR_BLOCK: {
+            char *t = codegen_new_tmp(cg);
+            if (!t) return cg_set_err(err, path, "out of memory");
+            w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+            if (!gen_stmt(cg, path, e->as.block_expr.block, false, err)) return false;
+            gen_expr_add(out, t);
+            out->tmp = t;
+            return true;
+        }
         case EXPR_PAREN:
             return gen_expr(cg, path, e->as.paren.x, out, err);
         default:
@@ -2614,8 +2890,6 @@ static bool gen_if_chain(Codegen *cg, Str path, IfArm **arms, size_t idx, size_t
     }
     return true;
 }
-
-static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err);
 
 static bool gen_block(Codegen *cg, Str path, Stmt *b, bool ret_void, Diag *err) {
     if (!b) return true;
@@ -3025,6 +3299,15 @@ static bool gen_entry(Codegen *cg, Diag *err) {
 
     w_line(&cg->w, "static void ergo_entry(void) {");
     cg->w.indent++;
+    for (size_t i = 0; i < cg->prog->mods_len; i++) {
+        Module *m = cg->prog->mods[i];
+        Str mod_name = codegen_module_name(cg, m->path);
+        ModuleGlobals *mg = codegen_module_globals(cg, mod_name);
+        if (mg && mg->len > 0) {
+            char *init_name = mangle_global_init(cg->arena, mod_name);
+            w_line(&cg->w, "%s();", init_name);
+        }
+    }
     if (!gen_block(cg, entry_path, entry_decl->body, true, err)) return false;
     {
         LocalList locals = codegen_pop_scope(cg);
@@ -3130,6 +3413,21 @@ static bool codegen_gen(Codegen *cg, Diag *err) {
     }
     arena_free(&tmp_arena);
 
+    w_line(&cg->w, "// ---- module globals ----");
+    for (size_t i = 0; i < cg->prog->mods_len; i++) {
+        Module *m = cg->prog->mods[i];
+        Str mod_name = codegen_module_name(cg, m->path);
+        ModuleGlobals *mg = codegen_module_globals(cg, mod_name);
+        if (!mg || mg->len == 0) continue;
+        for (size_t j = 0; j < m->decls_len; j++) {
+            Decl *d = m->decls[j];
+            if (d->kind != DECL_DEF) continue;
+            char *gname = mangle_global_var(cg->arena, mod_name, d->as.def_decl.name);
+            w_line(&cg->w, "static ErgoVal %s = EV_NULLV;", gname);
+        }
+    }
+    w_line(&cg->w, "");
+
     w_line(&cg->w, "// ---- class definitions ----");
     if (!gen_class_defs(cg, err)) return false;
     w_line(&cg->w, "");
@@ -3173,6 +3471,11 @@ static bool codegen_gen(Codegen *cg, Diag *err) {
                 w_line(&cg->w, "static %s %s(%s);", ret_ty, mangled, params ? params : "void");
                 if (params) free(params);
             }
+        }
+        ModuleGlobals *mg = codegen_module_globals(cg, mod_name);
+        if (mg && mg->len > 0) {
+            char *init_name = mangle_global_init(cg->arena, mod_name);
+            w_line(&cg->w, "static void %s(void);", init_name);
         }
     }
     w_line(&cg->w, "static void ergo_entry(void);");
@@ -3319,6 +3622,42 @@ static bool codegen_gen(Codegen *cg, Diag *err) {
             cg->w.indent--;
             w_line(&cg->w, "}");
         }
+        w_line(&cg->w, "");
+    }
+
+    w_line(&cg->w, "// ---- module global init ----");
+    for (size_t i = 0; i < cg->prog->mods_len; i++) {
+        Module *m = cg->prog->mods[i];
+        Str mod_name = codegen_module_name(cg, m->path);
+        ModuleGlobals *mg = codegen_module_globals(cg, mod_name);
+        if (!mg || mg->len == 0) continue;
+        char *init_name = mangle_global_init(cg->arena, mod_name);
+        w_line(&cg->w, "static void %s(void) {", init_name);
+        cg->w.indent++;
+        Str saved_mod = cg->current_module;
+        Str *saved_imports = cg->current_imports;
+        size_t saved_imports_len = cg->current_imports_len;
+        cg->current_module = mod_name;
+        ModuleImport *mi = codegen_module_imports(cg, mod_name);
+        cg->current_imports = mi ? mi->imports : NULL;
+        cg->current_imports_len = mi ? mi->imports_len : 0;
+
+        for (size_t j = 0; j < m->decls_len; j++) {
+            Decl *d = m->decls[j];
+            if (d->kind != DECL_DEF) continue;
+            GenExpr ge;
+            if (!gen_expr(cg, m->path, d->as.def_decl.expr, &ge, err)) return false;
+            char *gname = mangle_global_var(cg->arena, mod_name, d->as.def_decl.name);
+            w_line(&cg->w, "ergo_move_into(&%s, %s);", gname, ge.tmp);
+            gen_expr_release_except(cg, &ge, ge.tmp);
+            gen_expr_free(&ge);
+        }
+
+        cg->current_module = saved_mod;
+        cg->current_imports = saved_imports;
+        cg->current_imports_len = saved_imports_len;
+        cg->w.indent--;
+        w_line(&cg->w, "}");
         w_line(&cg->w, "");
     }
 
