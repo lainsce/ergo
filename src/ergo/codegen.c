@@ -2443,6 +2443,19 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_load_css")) {
+                        GenExpr pathv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &pathv, err)) return false;
+                        w_line(&cg->w, "cogito_load_css(%s);", pathv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", pathv.tmp);
+                        gen_expr_release_except(cg, &pathv, pathv.tmp);
+                        gen_expr_free(&pathv);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     FunSig *sig = codegen_fun_sig(cg, cg->current_module, fname);
                     if (!sig && is_stdr_prelude(fname)) {
                         bool allow = str_eq_c(cg->current_module, "stdr");

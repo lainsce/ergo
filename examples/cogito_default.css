@@ -1,0 +1,48 @@
+* {
+  color: #1e1e1e;
+  font-size: 16;
+}
+
+window {
+  background: #ffffff;
+}
+
+button {
+  background: #e6e6e6;
+  border-color: #b4b4b4;
+  border-width: 1;
+  border-radius: 6;
+}
+
+iconbtn {
+  background: #e6e6e6;
+  border-color: #b4b4b4;
+  border-width: 1;
+  border-radius: 16;
+}
+
+label {
+  color: #1e1e1e;
+}
+
+list {
+  background: #ffffff;
+  border-color: #c8c8c8;
+  border-width: 1;
+  border-radius: 4;
+  selection-color: #d0dcf5;
+}
+
+grid {
+  background: #ffffff;
+  border-color: #c8c8c8;
+  border-width: 1;
+  border-radius: 4;
+  selection-color: #d0dcf5;
+}
+
+appbar {
+  background: #eeeeee;
+  border-color: #dcdcdc;
+  border-width: 1;
+}

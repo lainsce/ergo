@@ -47,7 +47,7 @@ fun on_appbar_help(btn = any) (( -- )) {
 
 fun build_ui(win = cogito.Window) (( -- )) {
     let bar = cogito.appbar(@"The Kitchensink", @"Cogito UI Gallery")
-    let settings_btn = bar.add_button(@"⚙", on_appbar_settings)
+    let settings_btn = bar.add_button(@"M", on_appbar_settings)
     settings_btn.add_menu(@"Preferences", on_appbar_settings)
     settings_btn.add_menu(@"About", on_appbar_help)
     let help_btn = bar.add_button(@"?", on_appbar_help)
@@ -106,6 +106,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
 }
 
 entry () (( -- )) {
+    cogito.load_css(@"examples/cogito_default.css")
     let app = cogito.app()
     let win = cogito.window_title(@"The Kitchensink").build(build_ui)
     win.set_autosize(true)

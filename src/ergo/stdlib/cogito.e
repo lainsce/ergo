@@ -38,6 +38,7 @@ fun __cogito_grid_on_select(grid = Grid, handler = any) (( -- )) { }
 fun __cogito_grid_on_activate(grid = Grid, handler = any) (( -- )) { }
 fun __cogito_button_on_click(btn = Button, handler = any) (( -- )) { }
 fun __cogito_run(app = App, win = Window) (( -- )) { }
+fun __cogito_load_css(path = string) (( -- )) { }
 
 class App {
     fun run(this, win = Window) (( -- )) {
@@ -317,6 +318,10 @@ class State {
 
 fun app() (( App )) {
     return __cogito_app()
+}
+
+fun load_css(path = string) (( -- )) {
+    __cogito_load_css(path)
 }
 
 fun window() (( Window )) {

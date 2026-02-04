@@ -12,6 +12,7 @@ fun build_root(root = cogito.VStack) (( -- )) {
 }
 
 entry () (( -- )) {
+    cogito.load_css(@"examples/cogito_default.css")
     let app = cogito.app()
     let win = cogito.window()
     win.set_autosize(true)

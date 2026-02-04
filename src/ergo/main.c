@@ -115,6 +115,27 @@ static const char *cc_flags(void) {
     return flags && flags[0] ? flags : "-O3 -std=c11 -pipe";
 }
 
+#if defined(__APPLE__) || defined(__linux__)
+static const char *raylib_default_cflags(void) {
+#if defined(__APPLE__)
+    if (path_is_file("/opt/homebrew/include/raylib.h")) {
+        return "-I/opt/homebrew/include";
+    }
+    if (path_is_file("/usr/local/include/raylib.h")) {
+        return "-I/usr/local/include";
+    }
+#elif defined(__linux__)
+    if (path_is_file("/usr/include/raylib.h")) {
+        return "-I/usr/include";
+    }
+    if (path_is_file("/usr/local/include/raylib.h")) {
+        return "-I/usr/local/include";
+    }
+#endif
+    return "";
+}
+#endif
+
 int main(int argc, char **argv) {
     ergo_set_stdout_buffered();
 
@@ -157,21 +178,36 @@ int main(int argc, char **argv) {
         }
 
         bool uses_cogito = program_uses_cogito(prog);
-        const char *extra_flags = "";
-#if defined(__APPLE__)
+        const char *extra_cflags = "";
+        const char *extra_ldflags = "";
         if (uses_cogito) {
-            extra_flags = "-x objective-c -fobjc-arc -framework Cocoa";
-        }
-#elif defined(__linux__)
-        if (uses_cogito) {
-            extra_flags = "-lX11";
-        }
+            const char *ray_cflags = getenv("ERGO_RAYLIB_CFLAGS");
+            if (ray_cflags && ray_cflags[0]) {
+                extra_cflags = ray_cflags;
+#if defined(__APPLE__) || defined(__linux__)
+            } else {
+                extra_cflags = raylib_default_cflags();
 #endif
+            }
+            const char *ray_flags = getenv("ERGO_RAYLIB_FLAGS");
+            if (ray_flags && ray_flags[0]) {
+                extra_ldflags = ray_flags;
+            } else {
+#if defined(_WIN32)
+                extra_ldflags = "-lraylib -lopengl32 -lgdi32 -lwinmm";
+#elif defined(__APPLE__)
+                extra_ldflags = "-lraylib -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo";
+#else
+                extra_ldflags = "-lraylib -lm -lpthread -ldl -lrt -lX11";
+#endif
+            }
+        }
 
         uint64_t build_hash = proj_hash;
         build_hash = hash_cstr(build_hash, cc_path());
         build_hash = hash_cstr(build_hash, cc_flags());
-        build_hash = hash_cstr(build_hash, extra_flags);
+        build_hash = hash_cstr(build_hash, extra_cflags);
+        build_hash = hash_cstr(build_hash, extra_ldflags);
         build_hash = hash_cstr(build_hash, ERGO_CACHE_VERSION);
 
         const char *no_cache_env = getenv("ERGO_NO_CACHE");
@@ -254,7 +290,8 @@ int main(int argc, char **argv) {
             return 1;
         }
         char cmd[4096];
-        int n = snprintf(cmd, sizeof(cmd), "%s %s %s %s -o %s", cc_path(), cc_flags(), extra_flags, c_path, bin_path);
+        int n = snprintf(cmd, sizeof(cmd), "%s %s %s %s -o %s %s",
+                         cc_path(), cc_flags(), extra_cflags, c_path, bin_path, extra_ldflags);
         if (n < 0 || (size_t)n >= sizeof(cmd)) {
             fprintf(stderr, "error: compile command too long\n");
             free(cache_base);

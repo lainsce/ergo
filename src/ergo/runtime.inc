@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdarg.h>
+#include <ctype.h>
+#include <math.h>
 #if defined(_WIN32)
 #include <io.h>
 #else
@@ -588,26 +590,18 @@ static ErgoVal ergo_call(ErgoVal fval, int argc, ErgoVal* argv) {
   return f->fn(f->env, argc, argv);
 }
 
-// ---- Cogito GUI (minimal cross-platform) ----
+// ---- Cogito GUI (raylib) ----
 
-#if defined(_WIN32)
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#elif defined(__APPLE__)
-#import <Cocoa/Cocoa.h>
-@class CogitoTarget;
-#else
-#include <X11/Xlib.h>
-#include <X11/Xatom.h>
+#include <raylib.h>
+#if defined(__APPLE__)
+#include <objc/objc.h>
+#include <objc/message.h>
+#include <objc/runtime.h>
 #endif
 
 typedef struct CogitoApp {
   ErgoObj base;
-#if defined(__APPLE__)
-  __strong NSApplication* app;
-#else
   void* native;
-#endif
 } CogitoApp;
 
 typedef enum {
@@ -621,8 +615,49 @@ typedef enum {
   COGITO_SWITCH,
   COGITO_LIST,
   COGITO_GRID,
-  COGITO_APPBAR
+  COGITO_APPBAR,
+  COGITO_KIND_COUNT
 } CogitoKind;
+
+typedef struct CogitoStyle {
+  bool has_bg;
+  bool has_text;
+  bool has_border;
+  bool has_border_width;
+  bool has_radius;
+  bool has_font_size;
+  bool has_padding;
+  bool has_padding_left;
+  bool has_padding_top;
+  bool has_padding_right;
+  bool has_padding_bottom;
+  bool has_margin;
+  bool has_margin_left;
+  bool has_margin_top;
+  bool has_margin_right;
+  bool has_margin_bottom;
+  bool has_selection;
+  Color bg;
+  Color text;
+  Color border;
+  Color selection;
+  int border_width;
+  int radius;
+  int font_size;
+  int padding_left;
+  int padding_top;
+  int padding_right;
+  int padding_bottom;
+  int margin_left;
+  int margin_top;
+  int margin_right;
+  int margin_bottom;
+} CogitoStyle;
+
+typedef struct CogitoTheme {
+  CogitoStyle base;
+  CogitoStyle per_kind[COGITO_KIND_COUNT];
+} CogitoTheme;
 
 typedef struct CogitoNode {
   ErgoObj base;
@@ -666,43 +701,301 @@ typedef struct CogitoNode {
   int appbar_btn_max_x;
   int appbar_btn_y;
   int appbar_btn_size;
-#if !defined(__APPLE__)
-  int drag_active;
-  int drag_off_x;
-  int drag_off_y;
-#endif
-#if defined(__APPLE__)
-  __strong NSView* aux;
-  __strong NSView* aux2;
-  __strong NSView* aux3;
-  __strong NSView* aux4;
-#else
-  void* aux;
-  void* aux2;
-  void* aux3;
-  void* aux4;
-#endif
-#if defined(_WIN32)
-  HWND hwnd;
-  HWND native;
-#elif defined(__APPLE__)
-  __strong NSWindow* nswin;
-  __strong NSView* native;
-  __strong id target;
-  __strong id delegate;
-#else
-  Display* dpy;
-  Window win;
-  GC gc;
-  Atom wm_delete;
-  void* native;
-#endif
+  bool margin_set;
+  bool padding_set;
+  bool bg_set;
+  bool text_color_set;
+  bool border_color_set;
+  bool border_width_set;
+  bool radius_set;
+  bool selection_set;
+  Color bg;
+  Color text_color;
+  Color border_color;
+  Color selection_color;
+  int border_width;
+  int border_radius;
 } CogitoNode;
 
 typedef struct CogitoState {
   ErgoObj base;
   ErgoVal value;
 } CogitoState;
+
+typedef struct CogitoMenu {
+  bool open;
+  CogitoNode* owner;
+  int x;
+  int y;
+  int w;
+  int h;
+  int item_h;
+} CogitoMenu;
+
+static CogitoTheme cogito_theme;
+static bool cogito_theme_initialized = false;
+static bool cogito_raylib_ready = false;
+static CogitoMenu cogito_menu = {0};
+static Font cogito_font;
+static bool cogito_font_ready = false;
+static int cogito_font_size_value = 16;
+static int cogito_font_loaded_size = 0;
+static bool cogito_font_from_env = false;
+static bool cogito_drag_active = false;
+static Vector2 cogito_drag_start_mouse = {0};
+static Vector2 cogito_drag_start_win = {0};
+static bool cogito_drag_pending = false;
+static Vector2 cogito_drag_pending_mouse = {0};
+static double cogito_drag_last_move = 0.0;
+
+#if defined(__APPLE__)
+typedef unsigned long CogitoNSUInteger;
+
+static id cogito_nsstring(const char* s) {
+  id nsstring = (id)objc_getClass("NSString");
+  SEL sel = sel_registerName("stringWithUTF8String:");
+  return ((id (*)(id, SEL, const char*))objc_msgSend)(nsstring, sel, s ? s : "");
+}
+
+static void cogito_configure_macos_window(bool has_appbar) {
+  if (!has_appbar) return;
+  id nsw =
+#if defined(__OBJC__)
+      (__bridge id)GetWindowHandle();
+#else
+      (id)GetWindowHandle();
+#endif
+  if (!nsw) return;
+  SEL sel_set_title = sel_registerName("setTitle:");
+  ((void (*)(id, SEL, id))objc_msgSend)(nsw, sel_set_title, cogito_nsstring(""));
+  SEL sel_set_title_visibility = sel_registerName("setTitleVisibility:");
+  ((void (*)(id, SEL, CogitoNSUInteger))objc_msgSend)(nsw, sel_set_title_visibility, 1UL);
+  SEL sel_set_transparent = sel_registerName("setTitlebarAppearsTransparent:");
+  ((void (*)(id, SEL, BOOL))objc_msgSend)(nsw, sel_set_transparent, (BOOL)1);
+  SEL sel_set_movable = sel_registerName("setMovableByWindowBackground:");
+  ((void (*)(id, SEL, BOOL))objc_msgSend)(nsw, sel_set_movable, (BOOL)1);
+  SEL sel_style_mask = sel_registerName("styleMask");
+  CogitoNSUInteger mask = ((CogitoNSUInteger (*)(id, SEL))objc_msgSend)(nsw, sel_style_mask);
+  mask |= (1UL << 15);
+  SEL sel_set_style_mask = sel_registerName("setStyleMask:");
+  ((void (*)(id, SEL, CogitoNSUInteger))objc_msgSend)(nsw, sel_set_style_mask, mask);
+  SEL sel_standard_button = sel_registerName("standardWindowButton:");
+  id close = ((id (*)(id, SEL, CogitoNSUInteger))objc_msgSend)(nsw, sel_standard_button, 0UL);
+  id min = ((id (*)(id, SEL, CogitoNSUInteger))objc_msgSend)(nsw, sel_standard_button, 1UL);
+  id zoom = ((id (*)(id, SEL, CogitoNSUInteger))objc_msgSend)(nsw, sel_standard_button, 2UL);
+  SEL sel_set_hidden = sel_registerName("setHidden:");
+  if (close) ((void (*)(id, SEL, BOOL))objc_msgSend)(close, sel_set_hidden, (BOOL)1);
+  if (min) ((void (*)(id, SEL, BOOL))objc_msgSend)(min, sel_set_hidden, (BOOL)1);
+  if (zoom) ((void (*)(id, SEL, BOOL))objc_msgSend)(zoom, sel_set_hidden, (BOOL)1);
+}
+#endif
+
+static Color cogito_rgba(int r, int g, int b, int a) {
+  if (r < 0) r = 0; if (r > 255) r = 255;
+  if (g < 0) g = 0; if (g > 255) g = 255;
+  if (b < 0) b = 0; if (b > 255) b = 255;
+  if (a < 0) a = 0; if (a > 255) a = 255;
+  Color c;
+  c.r = (unsigned char)r;
+  c.g = (unsigned char)g;
+  c.b = (unsigned char)b;
+  c.a = (unsigned char)a;
+  return c;
+}
+
+static void cogito_style_clear(CogitoStyle* s) {
+  memset(s, 0, sizeof(*s));
+}
+
+static void cogito_theme_set_defaults(void) {
+  cogito_style_clear(&cogito_theme.base);
+  for (int i = 0; i < COGITO_KIND_COUNT; i++) {
+    cogito_style_clear(&cogito_theme.per_kind[i]);
+  }
+  cogito_theme.base.has_text = true;
+  cogito_theme.base.text = cogito_rgba(30, 30, 30, 255);
+
+  CogitoStyle* win = &cogito_theme.per_kind[COGITO_WINDOW];
+  win->has_bg = true;
+  win->bg = cogito_rgba(245, 245, 245, 255);
+
+  CogitoStyle* btn = &cogito_theme.per_kind[COGITO_BUTTON];
+  btn->has_bg = true;
+  btn->bg = cogito_rgba(230, 230, 230, 255);
+  btn->has_border = true;
+  btn->border = cogito_rgba(180, 180, 180, 255);
+  btn->has_border_width = true;
+  btn->border_width = 1;
+  btn->has_radius = true;
+  btn->radius = 6;
+
+  CogitoStyle* icon = &cogito_theme.per_kind[COGITO_ICONBTN];
+  icon->has_bg = true;
+  icon->bg = cogito_rgba(230, 230, 230, 255);
+  icon->has_border = true;
+  icon->border = cogito_rgba(180, 180, 180, 255);
+  icon->has_border_width = true;
+  icon->border_width = 1;
+  icon->has_radius = true;
+  icon->radius = 16;
+
+  CogitoStyle* list = &cogito_theme.per_kind[COGITO_LIST];
+  list->has_bg = true;
+  list->bg = cogito_rgba(255, 255, 255, 255);
+  list->has_border = true;
+  list->border = cogito_rgba(200, 200, 200, 255);
+  list->has_border_width = true;
+  list->border_width = 1;
+  list->has_radius = true;
+  list->radius = 4;
+  list->has_selection = true;
+  list->selection = cogito_rgba(208, 220, 245, 255);
+
+  CogitoStyle* grid = &cogito_theme.per_kind[COGITO_GRID];
+  *grid = *list;
+
+  CogitoStyle* appbar = &cogito_theme.per_kind[COGITO_APPBAR];
+  appbar->has_bg = true;
+  appbar->bg = cogito_rgba(238, 238, 238, 255);
+  appbar->has_border = true;
+  appbar->border = cogito_rgba(220, 220, 220, 255);
+  appbar->has_border_width = true;
+  appbar->border_width = 1;
+}
+
+static void cogito_theme_init(void) {
+  if (!cogito_theme_initialized) {
+    cogito_theme_initialized = true;
+    cogito_theme_set_defaults();
+  }
+}
+
+static CogitoStyle cogito_style_merge(const CogitoStyle* base, const CogitoStyle* over) {
+  CogitoStyle out = *base;
+  if (over->has_bg) { out.has_bg = true; out.bg = over->bg; }
+  if (over->has_text) { out.has_text = true; out.text = over->text; }
+  if (over->has_border) { out.has_border = true; out.border = over->border; }
+  if (over->has_border_width) { out.has_border_width = true; out.border_width = over->border_width; }
+  if (over->has_radius) { out.has_radius = true; out.radius = over->radius; }
+  if (over->has_selection) { out.has_selection = true; out.selection = over->selection; }
+  if (over->has_font_size) { out.has_font_size = true; out.font_size = over->font_size; }
+
+  if (over->has_padding) {
+    out.has_padding = true;
+    out.padding_left = over->padding_left;
+    out.padding_top = over->padding_top;
+    out.padding_right = over->padding_right;
+    out.padding_bottom = over->padding_bottom;
+  }
+  if (over->has_padding_left) { out.has_padding_left = true; out.padding_left = over->padding_left; }
+  if (over->has_padding_top) { out.has_padding_top = true; out.padding_top = over->padding_top; }
+  if (over->has_padding_right) { out.has_padding_right = true; out.padding_right = over->padding_right; }
+  if (over->has_padding_bottom) { out.has_padding_bottom = true; out.padding_bottom = over->padding_bottom; }
+
+  if (over->has_margin) {
+    out.has_margin = true;
+    out.margin_left = over->margin_left;
+    out.margin_top = over->margin_top;
+    out.margin_right = over->margin_right;
+    out.margin_bottom = over->margin_bottom;
+  }
+  if (over->has_margin_left) { out.has_margin_left = true; out.margin_left = over->margin_left; }
+  if (over->has_margin_top) { out.has_margin_top = true; out.margin_top = over->margin_top; }
+  if (over->has_margin_right) { out.has_margin_right = true; out.margin_right = over->margin_right; }
+  if (over->has_margin_bottom) { out.has_margin_bottom = true; out.margin_bottom = over->margin_bottom; }
+
+  return out;
+}
+
+static CogitoStyle cogito_theme_resolve(CogitoKind kind) {
+  return cogito_style_merge(&cogito_theme.base, &cogito_theme.per_kind[kind]);
+}
+
+static void cogito_apply_style_to_node(CogitoNode* n) {
+  if (!n) return;
+  cogito_theme_init();
+  CogitoStyle s = cogito_theme_resolve(n->kind);
+  if (s.has_bg) { n->bg = s.bg; n->bg_set = true; }
+  else { n->bg_set = false; }
+  if (s.has_text) { n->text_color = s.text; n->text_color_set = true; }
+  else { n->text_color_set = false; }
+  if (s.has_border) { n->border_color = s.border; n->border_color_set = true; }
+  else { n->border_color_set = false; n->border_color = cogito_rgba(0, 0, 0, 0); }
+  if (s.has_border_width) { n->border_width = s.border_width; n->border_width_set = true; }
+  else { n->border_width = 0; n->border_width_set = false; }
+  if (s.has_radius) { n->border_radius = s.radius; n->radius_set = true; }
+  else { n->border_radius = 0; n->radius_set = false; }
+  if (s.has_selection) { n->selection_color = s.selection; n->selection_set = true; }
+  else { n->selection_set = false; }
+  if (s.has_font_size && n->kind == COGITO_WINDOW) {
+    int sz = s.font_size;
+    if (sz > 0 && sz != cogito_font_size_value) {
+      cogito_font_size_value = sz;
+      if (cogito_raylib_ready && cogito_font_ready && cogito_font_from_env) {
+        const char* font_path = getenv("COGITO_FONT");
+        if (font_path && font_path[0] && cogito_font_loaded_size != sz) {
+          UnloadFont(cogito_font);
+          cogito_font = LoadFontEx(font_path, sz, NULL, 0);
+          if (cogito_font.texture.id != 0) {
+            cogito_font_ready = true;
+            SetTextureFilter(cogito_font.texture, TEXTURE_FILTER_BILINEAR);
+            cogito_font_loaded_size = sz;
+          }
+        }
+      }
+    }
+  }
+
+  if (!n->padding_set) {
+    if (s.has_padding) {
+      n->padding_left = s.padding_left;
+      n->padding_top = s.padding_top;
+      n->padding_right = s.padding_right;
+      n->padding_bottom = s.padding_bottom;
+    }
+    if (s.has_padding_left) n->padding_left = s.padding_left;
+    if (s.has_padding_top) n->padding_top = s.padding_top;
+    if (s.has_padding_right) n->padding_right = s.padding_right;
+    if (s.has_padding_bottom) n->padding_bottom = s.padding_bottom;
+  }
+
+  if (!n->margin_set) {
+    if (s.has_margin) {
+      n->margin_left = s.margin_left;
+      n->margin_top = s.margin_top;
+      n->margin_right = s.margin_right;
+      n->margin_bottom = s.margin_bottom;
+    }
+    if (s.has_margin_left) n->margin_left = s.margin_left;
+    if (s.has_margin_top) n->margin_top = s.margin_top;
+    if (s.has_margin_right) n->margin_right = s.margin_right;
+    if (s.has_margin_bottom) n->margin_bottom = s.margin_bottom;
+  }
+}
+
+static void cogito_apply_style_tree(CogitoNode* n) {
+  if (!n) return;
+  cogito_apply_style_to_node(n);
+  for (size_t i = 0; i < n->len; i++) {
+    cogito_apply_style_tree(n->children[i]);
+  }
+}
+
+static int cogito_font_size(void) {
+  return cogito_font_size_value > 0 ? cogito_font_size_value : 16;
+}
+
+static int cogito_text_width(const char* s) {
+  if (!s) return 0;
+  if (!cogito_raylib_ready || !cogito_font_ready) return (int)strlen(s) * 8;
+  Vector2 size = MeasureTextEx(cogito_font, s, (float)cogito_font_size(), 1.0f);
+  return (int)lround(size.x);
+}
+
+static int cogito_text_height(void) {
+  if (!cogito_raylib_ready || !cogito_font_ready) return 18;
+  return cogito_font.baseSize + 2;
+}
 
 static bool cogito_debug_enabled(void) {
   const char* v = getenv("COGITO_DEBUG");
@@ -814,71 +1107,50 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->appbar_btn_max_x = 0;
   n->appbar_btn_y = 0;
   n->appbar_btn_size = 0;
-#if !defined(__APPLE__)
-  n->drag_active = 0;
-  n->drag_off_x = 0;
-  n->drag_off_y = 0;
-#endif
-#if defined(__APPLE__)
-  n->aux = nil;
-  n->aux2 = nil;
-  n->aux3 = nil;
-  n->aux4 = nil;
-#else
-  n->aux = NULL;
-  n->aux2 = NULL;
-  n->aux3 = NULL;
-  n->aux4 = NULL;
-#endif
-  if (kind == COGITO_WINDOW) {
-    n->padding_left = 0;
-    n->padding_top = 0;
-    n->padding_right = 0;
-    n->padding_bottom = 0;
-    n->auto_size = true;
-  } else {
-    n->padding_left = 6;
-    n->padding_top = 6;
-    n->padding_right = 6;
-    n->padding_bottom = 6;
-    n->auto_size = false;
-  }
-  n->align = -1;
-#if defined(_WIN32)
-  n->hwnd = NULL;
-  n->native = NULL;
-#elif defined(__APPLE__)
-  n->nswin = nil;
-  n->native = nil;
-  n->target = nil;
-  n->delegate = nil;
-#else
-  n->dpy = NULL;
-  n->win = 0;
-  n->gc = 0;
-  n->wm_delete = 0;
-  n->native = NULL;
-#endif
-  if (kind == COGITO_VSTACK) {
-    n->margin_left = 18;
-    n->margin_top = 0;
-    n->margin_right = 18;
-    n->margin_bottom = 0;
-  }
+  n->margin_left = 0;
+  n->margin_top = 0;
+  n->margin_right = 0;
+  n->margin_bottom = 0;
+  n->padding_left = 0;
+  n->padding_top = 0;
+  n->padding_right = 0;
+  n->padding_bottom = 0;
+  n->align = 0;
+  n->auto_size = false;
+  n->margin_set = false;
+  n->padding_set = false;
+  n->bg_set = false;
+  n->text_color_set = false;
+  n->border_color_set = false;
+  n->border_width_set = false;
+  n->radius_set = false;
+  n->selection_set = false;
+  n->bg = cogito_rgba(0, 0, 0, 0);
+  n->text_color = cogito_rgba(30, 30, 30, 255);
+  n->border_color = cogito_rgba(0, 0, 0, 0);
+  n->selection_color = cogito_rgba(208, 220, 245, 255);
+  n->border_width = 0;
+  n->border_radius = 0;
+  cogito_apply_style_to_node(n);
   return n;
 }
 
 static void cogito_node_set_text(CogitoNode* n, ErgoStr* s) {
+  if (!n) return;
   if (n->text) ergo_release_val(EV_STR(n->text));
   n->text = s;
+  if (s) ergo_retain_val(EV_STR(s));
 }
 
 static void cogito_node_set_subtitle(CogitoNode* n, ErgoStr* s) {
+  if (!n) return;
   if (n->subtitle) ergo_release_val(EV_STR(n->subtitle));
   n->subtitle = s;
+  if (s) ergo_retain_val(EV_STR(s));
 }
 
 static void cogito_node_set_group(CogitoNode* n, ErgoVal group) {
+  if (!n) return;
   if (n->group.tag != EVT_NULL) ergo_release_val(n->group);
   n->group = group;
   if (group.tag != EVT_NULL) ergo_retain_val(group);
@@ -886,10 +1158,10 @@ static void cogito_node_set_group(CogitoNode* n, ErgoVal group) {
 
 static void cogito_children_add(CogitoNode* parent, CogitoNode* child) {
   if (!parent || !child) return;
-  if (parent->len == parent->cap) {
-    size_t ncap = parent->cap ? parent->cap * 2 : 4;
-    parent->children = (CogitoNode**)realloc(parent->children, ncap * sizeof(CogitoNode*));
-    parent->cap = ncap;
+  if (parent->len + 1 > parent->cap) {
+    size_t next = parent->cap == 0 ? 4 : parent->cap * 2;
+    parent->children = (CogitoNode**)realloc(parent->children, sizeof(CogitoNode*) * next);
+    parent->cap = next;
   }
   parent->children[parent->len++] = child;
   child->parent = parent;
@@ -898,33 +1170,30 @@ static void cogito_children_add(CogitoNode* parent, CogitoNode* child) {
 
 static void cogito_node_add_menu(CogitoNode* n, ErgoStr* label, ErgoFn* handler) {
   if (!n) return;
-  if (n->menu_len == n->menu_cap) {
-    size_t ncap = n->menu_cap ? n->menu_cap * 2 : 4;
-    n->menu_labels = (ErgoStr**)realloc(n->menu_labels, ncap * sizeof(ErgoStr*));
-    n->menu_handlers = (ErgoFn**)realloc(n->menu_handlers, ncap * sizeof(ErgoFn*));
-    n->menu_cap = ncap;
+  if (n->menu_len + 1 > n->menu_cap) {
+    size_t next = n->menu_cap == 0 ? 4 : n->menu_cap * 2;
+    n->menu_labels = (ErgoStr**)realloc(n->menu_labels, sizeof(ErgoStr*) * next);
+    n->menu_handlers = (ErgoFn**)realloc(n->menu_handlers, sizeof(ErgoFn*) * next);
+    n->menu_cap = next;
   }
   n->menu_labels[n->menu_len] = label;
   n->menu_handlers[n->menu_len] = handler;
   if (label) ergo_retain_val(EV_STR(label));
   if (handler) ergo_retain_val(EV_FN(handler));
-  n->menu_len += 1;
+  n->menu_len++;
 }
 
 static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
-  int char_w = 8;
-#if defined(__APPLE__)
-  char_w = 7;
-#endif
   int text_w = 0;
-  if (n->text) text_w = (int)n->text->len * char_w;
+  if (n->text) text_w = cogito_text_width(n->text->data);
+  int text_h = cogito_text_height();
   int w = 0;
   int h = 0;
   int pad = 6;
   switch (n->kind) {
     case COGITO_BUTTON:
       w = text_w + 24;
-      h = 21;
+      h = text_h + 6;
       break;
     case COGITO_ICONBTN:
       w = 32;
@@ -932,20 +1201,15 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
       break;
     case COGITO_LABEL:
       w = text_w + 4;
-      h = 21;
+      h = text_h;
       break;
     case COGITO_CHECKBOX:
       w = text_w + 32;
-      h = 24;
+      h = text_h + 4;
       break;
     case COGITO_SWITCH:
-#if defined(__APPLE__)
-      w = text_w + 52;
-      h = 24;
-#else
-      w = text_w + 32;
-      h = 24;
-#endif
+      w = text_w + 40;
+      h = text_h + 4;
       break;
     case COGITO_LIST:
     case COGITO_GRID:
@@ -956,7 +1220,7 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
       bool has_title = n->text && n->text->len;
       bool has_sub = n->subtitle && n->subtitle->len;
       bool has_buttons = n->len > 0;
-      h = (has_title && has_sub && has_buttons) ? 100 : 40;
+      h = (has_title && has_sub && has_buttons) ? 100 : 48;
       w = n->w;
       break;
     }
@@ -995,118 +1259,100 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
 }
 
 static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h);
-static void cogito_attach_node(CogitoNode* win, CogitoNode* n, int content_h);
-#if defined(__APPLE__)
-static void cogito_update_selection_visuals(CogitoNode* node);
-#endif
 static void cogito_window_relayout(CogitoNode* win);
-#if defined(__APPLE__)
-static void cogito_update_selection_visuals(CogitoNode* node);
-#endif
 
 static void cogito_layout_vstack(CogitoNode* n, int x, int y) {
   int pad = 6;
-  int cy = y + n->margin_top + n->padding_top;
-  int cx = x + n->margin_left + n->padding_left;
-  int avail_w = n->w - n->margin_left - n->margin_right - n->padding_left - n->padding_right;
+  int cy = y + n->padding_top;
   for (size_t i = 0; i < n->len; i++) {
     CogitoNode* c = n->children[i];
     int cw = 0;
     int ch = 0;
     cogito_intrinsic_size(c, &cw, &ch);
-    int cw_total = cw + c->margin_left + c->margin_right;
-    int ch_total = ch + c->margin_top + c->margin_bottom;
-    int align = (c->align >= 0) ? c->align : n->align;
-    bool stretch = (c->align < 0 && n->align == 0);
-    if (avail_w > 0) {
-      if (align == 1) {
-        int ox = (avail_w - cw_total) / 2;
-        if (ox < 0) ox = 0;
-        cogito_layout_node(c, cx + ox + c->margin_left, cy + c->margin_top, cw, ch);
-      } else if (align == 2) {
-        int ox = avail_w - cw_total;
-        if (ox < 0) ox = 0;
-        cogito_layout_node(c, cx + ox + c->margin_left, cy + c->margin_top, cw, ch);
-      } else if (stretch) {
-        cw = avail_w - c->margin_left - c->margin_right;
-        if (cw < 0) cw = 0;
-        cogito_layout_node(c, cx + c->margin_left, cy + c->margin_top, cw, ch);
-      } else {
-        cogito_layout_node(c, cx + c->margin_left, cy + c->margin_top, cw, ch);
-      }
+    int cx = x + n->padding_left;
+    int ox = 0;
+    if (n->align == 1) {
+      ox = (n->w - cw) / 2;
+    } else if (n->align == 2) {
+      ox = n->w - cw - n->padding_right;
+    }
+    if (ox < 0) ox = 0;
+    if (n->align == 1) {
+      cogito_layout_node(c, cx + ox + c->margin_left, cy + c->margin_top, cw, ch);
+    } else if (n->align == 2) {
+      cogito_layout_node(c, cx + ox + c->margin_left, cy + c->margin_top, cw, ch);
     } else {
       cogito_layout_node(c, cx + c->margin_left, cy + c->margin_top, cw, ch);
     }
-    cy += ch_total + pad;
+    cy += ch + c->margin_top + c->margin_bottom + pad;
   }
 }
 
 static void cogito_layout_hstack(CogitoNode* n, int x, int y) {
   int pad = 6;
-  int cx = x + n->margin_left + n->padding_left;
-  int cy = y + n->margin_top + n->padding_top;
-  int avail_h = n->h - n->margin_top - n->margin_bottom - n->padding_top - n->padding_bottom;
+  int cx = x + n->padding_left;
   for (size_t i = 0; i < n->len; i++) {
     CogitoNode* c = n->children[i];
     int cw = 0;
     int ch = 0;
     cogito_intrinsic_size(c, &cw, &ch);
-    int cw_total = cw + c->margin_left + c->margin_right;
-    int ch_total = ch + c->margin_top + c->margin_bottom;
-    int align = (c->align >= 0) ? c->align : n->align;
-    bool stretch = (c->align < 0 && n->align == 0);
-    if (avail_h > 0) {
-      if (align == 1) {
-        int oy = (avail_h - ch_total) / 2;
-        if (oy < 0) oy = 0;
-        cogito_layout_node(c, cx + c->margin_left, cy + oy + c->margin_top, cw, ch);
-      } else if (align == 2) {
-        int oy = avail_h - ch_total;
-        if (oy < 0) oy = 0;
-        cogito_layout_node(c, cx + c->margin_left, cy + oy + c->margin_top, cw, ch);
-      } else if (stretch) {
-        ch = avail_h - c->margin_top - c->margin_bottom;
-        if (ch < 0) ch = 0;
-        cogito_layout_node(c, cx + c->margin_left, cy + c->margin_top, cw, ch);
-      } else {
-        cogito_layout_node(c, cx + c->margin_left, cy + c->margin_top, cw, ch);
-      }
+    int cy = y + n->padding_top;
+    int oy = 0;
+    if (n->align == 1) {
+      oy = (n->h - ch) / 2;
+    } else if (n->align == 2) {
+      oy = n->h - ch - n->padding_bottom;
+    }
+    if (oy < 0) oy = 0;
+    if (n->align == 1) {
+      cogito_layout_node(c, cx + c->margin_left, cy + oy + c->margin_top, cw, ch);
+    } else if (n->align == 2) {
+      cogito_layout_node(c, cx + c->margin_left, cy + oy + c->margin_top, cw, ch);
     } else {
       cogito_layout_node(c, cx + c->margin_left, cy + c->margin_top, cw, ch);
     }
-    cx += cw_total + pad;
+    cx += cw + c->margin_left + c->margin_right + pad;
   }
 }
 
 static void cogito_layout_list(CogitoNode* n, int x, int y) {
-  int pad = 4;
-  int cy = y + pad;
-  int maxw = n->w - pad * 2;
+  int pad = 6;
+  int cy = y + n->padding_top;
   for (size_t i = 0; i < n->len; i++) {
     CogitoNode* c = n->children[i];
-    int cw = maxw;
-    int ch = 22;
-    cogito_layout_node(c, x + pad, cy, cw, ch);
+    int cw = n->w - n->padding_left - n->padding_right;
+    int ch = 0;
+    cogito_intrinsic_size(c, &cw, &ch);
+    cogito_layout_node(c, x + n->padding_left + pad, cy, cw, ch);
     cy += ch + pad;
   }
 }
 
 static void cogito_layout_grid(CogitoNode* n, int x, int y) {
-  int pad = 4;
   int cols = n->grid_cols > 0 ? n->grid_cols : 1;
-  int rows = (int)((n->len + (size_t)cols - 1) / (size_t)cols);
-  int cell_w = (n->w - pad * (cols + 1)) / cols;
-  int cell_h = 24;
-  int idx = 0;
-  for (int r = 0; r < rows; r++) {
-    for (int c = 0; c < cols; c++) {
-      if ((size_t)idx >= n->len) return;
-      CogitoNode* child = n->children[idx++];
-      int cx = x + pad + c * (cell_w + pad);
-      int cy = y + pad + r * (cell_h + pad);
-      cogito_layout_node(child, cx, cy, cell_w, cell_h);
+  int pad = 6;
+  int cell_w = (n->w - n->padding_left - n->padding_right - (cols - 1) * pad) / cols;
+  if (cell_w < 0) cell_w = 0;
+  int row = 0;
+  int col = 0;
+  int cx = x + n->padding_left;
+  int cy = y + n->padding_top;
+  for (size_t i = 0; i < n->len; i++) {
+    CogitoNode* child = n->children[i];
+    int cell_h = 0;
+    cogito_intrinsic_size(child, NULL, &cell_h);
+    cogito_layout_node(child, cx, cy, cell_w, cell_h);
+    col++;
+    if (col >= cols) {
+      col = 0;
+      row++;
+      cx = x + n->padding_left;
+      cy += cell_h + pad;
+    } else {
+      cx += cell_w + pad;
     }
   }
+  (void)row;
 }
 
 static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h) {
@@ -1116,25 +1362,15 @@ static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h) {
   n->h = h;
   switch (n->kind) {
     case COGITO_APPBAR: {
-      int pad_x = 18;
-      int pad_y = 6;
-      int btn_size = 24;
-      int btn_gap = 12;
-      int title_h = 24;
-      int subtitle_h = 18;
-      int close_x = x + w - 9 - btn_size;
-      int close_y = y + 9;
-      bool has_title = n->text && n->text->len;
-      bool has_sub = n->subtitle && n->subtitle->len;
-      int title_block_h = 0;
-      if (has_title) title_block_h += title_h;
-      if (has_sub) title_block_h += subtitle_h + (has_title ? 4 : 0);
-      int buttons_y = y + pad_y + title_block_h + 6;
+      int pad_x = 16;
+      int btn_size = 18;
+      int btn_gap = 6;
+      int buttons_y = y + 10;
       n->appbar_btn_size = btn_size;
-      n->appbar_btn_y = close_y;
-      n->appbar_btn_close_x = close_x;
-      n->appbar_btn_min_x = -1;
-      n->appbar_btn_max_x = -1;
+      n->appbar_btn_y = buttons_y;
+      n->appbar_btn_close_x = x + w - pad_x - btn_size;
+      n->appbar_btn_min_x = n->appbar_btn_close_x - btn_size - btn_gap;
+      n->appbar_btn_max_x = n->appbar_btn_min_x - btn_size - btn_gap;
       int icon_row_h = 0;
       for (size_t i = 0; i < n->len; i++) {
         int cw = 0;
@@ -1143,7 +1379,11 @@ static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h) {
         if (ch > icon_row_h) icon_row_h = ch;
       }
       if (icon_row_h == 0) icon_row_h = btn_size;
-      int cx = x + w - pad_x;
+      int cx = n->appbar_btn_max_x - btn_gap;
+      int title_h = 0;
+      int subtitle_h = 0;
+      if (n->text && n->text->len) title_h = 24;
+      if (n->subtitle && n->subtitle->len) subtitle_h = 18;
       for (size_t i = 0; i < n->len; i++) {
         CogitoNode* c = n->children[i];
         int cw = 0;
@@ -1258,149 +1498,32 @@ static void cogito_window_desired_size(CogitoNode* win, int* out_w, int* out_h) 
 static void cogito_window_relayout(CogitoNode* win) {
   if (!win) return;
   cogito_layout_window(win);
-#if defined(_WIN32)
-  for (size_t i = 0; i < win->len; i++) {
-    cogito_destroy_native(win->children[i]);
-  }
-  for (size_t i = 0; i < win->len; i++) {
-    cogito_attach_node(win, win->children[i], win->h);
-  }
-  if (win->hwnd) InvalidateRect(win->hwnd, NULL, TRUE);
-#elif defined(__APPLE__)
-  if (win->nswin) {
-    NSView* content = [win->nswin contentView];
-    NSArray* subs = [content subviews];
-    for (NSView* v in subs) {
-      [v removeFromSuperview];
-    }
-    for (size_t i = 0; i < win->len; i++) {
-      cogito_attach_node(win, win->children[i], win->h);
-    }
-    cogito_update_selection_visuals(win);
-    [win->nswin display];
-  }
-#else
-  if (win->dpy && win->win) {
-    XClearWindow(win->dpy, win->win);
-    cogito_draw_node(win->dpy, win->win, win->gc, win);
-  }
-#endif
 }
 
 static void cogito_invoke(ErgoFn* fn, int argc, ErgoVal* argv) {
   if (!fn) return;
-  ErgoVal ret = fn->fn(fn->env, argc, argv);
-  ergo_release_val(ret);
+  fn->fn(fn->env, argc, argv);
 }
 
 static void cogito_invoke_click(CogitoNode* n) {
   if (!n || !n->on_click) return;
   ErgoVal arg = EV_OBJ(n);
-  ergo_retain_val(arg);
   cogito_invoke(n->on_click, 1, &arg);
-  ergo_release_val(arg);
 }
 
 static void cogito_invoke_menu(CogitoNode* n, size_t idx) {
-  if (!n) return;
-  if (idx >= n->menu_len) return;
+  if (!n || idx >= n->menu_len) return;
   ErgoFn* fn = n->menu_handlers[idx];
   if (!fn) return;
   ErgoVal arg = EV_OBJ(n);
-  ergo_retain_val(arg);
   cogito_invoke(fn, 1, &arg);
-  ergo_release_val(arg);
 }
 
 static void cogito_invoke_change(CogitoNode* n) {
   if (!n || !n->on_change) return;
   ErgoVal arg = EV_OBJ(n);
-  ergo_retain_val(arg);
   cogito_invoke(n->on_change, 1, &arg);
-  ergo_release_val(arg);
 }
-#if !defined(_WIN32) && !defined(__APPLE__)
-static void cogito_show_menu_x11(CogitoNode* n, CogitoNode* win) {
-  if (!n || !win || n->menu_len == 0) return;
-  Display* dpy = win->dpy;
-  Window root = DefaultRootWindow(dpy);
-  int screen = DefaultScreen(dpy);
-  int sx = n->x + n->w / 2;
-  int sy = n->y + n->h;
-  Window child;
-  int rx, ry;
-  XTranslateCoordinates(dpy, win->win, root, sx, sy, &rx, &ry, &child);
-  int pad = 6;
-  int item_h = 22;
-  int maxw = 80;
-  for (size_t i = 0; i < n->menu_len; i++) {
-    int w = (int)(n->menu_labels[i] ? n->menu_labels[i]->len * 8 + 12 : 40);
-    if (w > maxw) maxw = w;
-  }
-  int mw = maxw + pad * 2;
-  int mh = (int)n->menu_len * item_h + pad * 2;
-  XSetWindowAttributes attrs;
-  attrs.override_redirect = True;
-  attrs.background_pixel = WhitePixel(dpy, screen);
-  Window popup = XCreateWindow(dpy, root, rx - mw / 2, ry, (unsigned)mw, (unsigned)mh, 1,
-                               CopyFromParent, InputOutput, CopyFromParent,
-                               CWOverrideRedirect | CWBackPixel, &attrs);
-  XSelectInput(dpy, popup, ExposureMask | ButtonPressMask | ButtonReleaseMask);
-  XMapRaised(dpy, popup);
-  XEvent ev;
-  bool done = false;
-  while (!done) {
-    XNextEvent(dpy, &ev);
-    if (ev.type == Expose) {
-      GC gc = DefaultGC(dpy, screen);
-      XSetForeground(dpy, gc, 0xdddddd);
-      XFillRectangle(dpy, popup, gc, 0, 0, (unsigned)mw, (unsigned)mh);
-      XSetForeground(dpy, gc, BlackPixel(dpy, screen));
-      for (size_t i = 0; i < n->menu_len; i++) {
-        int iy = pad + (int)i * item_h;
-        XDrawString(dpy, popup, gc, pad, iy + 16, n->menu_labels[i] ? n->menu_labels[i]->data : "", n->menu_labels[i] ? (int)n->menu_labels[i]->len : 0);
-      }
-    } else if (ev.type == ButtonRelease) {
-      int mx = ev.xbutton.x;
-      int my = ev.xbutton.y;
-      if (mx >= 0 && mx <= mw && my >= 0 && my <= mh) {
-        int idx = (my - pad) / item_h;
-        if (idx >= 0 && (size_t)idx < n->menu_len) {
-          cogito_invoke_menu(n, (size_t)idx);
-        }
-      }
-      done = true;
-    }
-  }
-  XDestroyWindow(dpy, popup);
-}
-#endif
-
-#if defined(_WIN32)
-static void cogito_show_menu_win(CogitoNode* n) {
-  if (!n || n->menu_len == 0) return;
-  HWND hwnd = (HWND)n->native;
-  if (!hwnd) return;
-  HMENU menu = CreatePopupMenu();
-  const UINT base = 10000;
-  for (size_t i = 0; i < n->menu_len; i++) {
-    const char* title = n->menu_labels[i] ? n->menu_labels[i]->data : "";
-    AppendMenu(menu, MF_STRING, base + (UINT)i, title);
-  }
-  RECT r;
-  POINT pt = {0, 0};
-  if (GetWindowRect(hwnd, &r)) {
-    pt.x = (r.left + r.right) / 2;
-    pt.y = r.bottom;
-  }
-  UINT cmd = TrackPopupMenu(menu, TPM_CENTERALIGN | TPM_TOPALIGN | TPM_RETURNCMD, pt.x, pt.y, 0, GetParent(hwnd), NULL);
-  DestroyMenu(menu);
-  if (cmd >= base) {
-    size_t idx = cmd - base;
-    cogito_invoke_menu(n, idx);
-  }
-}
-#endif
 
 static void cogito_invoke_select(CogitoNode* n, int idx, bool activate) {
   ErgoVal arg = EV_INT(idx);
@@ -1409,39 +1532,19 @@ static void cogito_invoke_select(CogitoNode* n, int idx, bool activate) {
 }
 
 static void cogito_appbar_window_action(CogitoNode* win, int action) {
-#if defined(_WIN32)
-  if (!win || !win->hwnd) return;
+  (void)win;
   if (action == 0) {
-    PostMessage(win->hwnd, WM_CLOSE, 0, 0);
+    if (win) win->should_close = true;
   } else if (action == 1) {
-    ShowWindow(win->hwnd, SW_MINIMIZE);
+    MinimizeWindow();
   } else if (action == 2) {
-    ShowWindow(win->hwnd, SW_MAXIMIZE);
+    if (IsWindowMaximized()) {
+      RestoreWindow();
+    } else {
+      MaximizeWindow();
+    }
   }
-#elif defined(__APPLE__)
-  if (!win || !win->nswin) return;
-  if (action == 0) {
-    [win->nswin performClose:nil];
-  } else if (action == 1) {
-    [win->nswin miniaturize:nil];
-  } else if (action == 2) {
-    [win->nswin zoom:nil];
-  }
-#else
-  if (!win || !win->dpy) return;
-  if (action == 0) win->should_close = true;
-#endif
 }
-
-#if defined(_WIN32)
-static void cogito_window_apply_rounding(CogitoNode* win) {
-  if (!win || !win->hwnd) return;
-  CogitoNode* app = cogito_find_appbar(win);
-  if (!app) return;
-  HRGN rgn = CreateRoundRectRgn(0, 0, win->w + 1, win->h + 1, 32, 32);
-  SetWindowRgn(win->hwnd, rgn, TRUE);
-}
-#endif
 
 static void cogito_state_drop(ErgoObj* o) {
   CogitoState* s = (CogitoState*)o;
@@ -1463,13 +1566,6 @@ static void cogito_uncheck_group(CogitoNode* root, CogitoNode* except, ErgoVal g
   if ((root->kind == COGITO_CHECKBOX || root->kind == COGITO_SWITCH) && root != except) {
     if (group.tag != EVT_NULL && cogito_val_equal(root->group, group)) {
       root->checked = false;
-#if defined(_WIN32)
-      if (root->native) SendMessage(root->native, BM_SETCHECK, BST_UNCHECKED, 0);
-#elif defined(__APPLE__)
-      if (root->native && [root->native respondsToSelector:@selector(setState:)]) {
-        [(id)root->native setState:NSControlStateValueOff];
-      }
-#endif
     }
   }
   for (size_t i = 0; i < root->len; i++) {
@@ -1483,12 +1579,12 @@ static CogitoNode* cogito_root(CogitoNode* n) {
   return cur;
 }
 
-static bool cogito_hit_node(CogitoNode* n, int x, int y) {
-  return x >= n->x && y >= n->y && x <= n->x + n->w && y <= n->y + n->h;
-}
-
 static bool cogito_hit_rect(int x, int y, int rx, int ry, int rw, int rh) {
   return x >= rx && y >= ry && x <= rx + rw && y <= ry + rh;
+}
+
+static bool cogito_hit_node(CogitoNode* n, int x, int y) {
+  return cogito_hit_rect(x, y, n->x, n->y, n->w, n->h);
 }
 
 static CogitoNode* cogito_find_appbar(CogitoNode* win) {
@@ -1502,6 +1598,8 @@ static CogitoNode* cogito_find_appbar(CogitoNode* win) {
 static bool cogito_point_over_appbar_buttons(CogitoNode* app, int x, int y) {
   if (!app) return false;
   if (cogito_hit_rect(x, y, app->appbar_btn_close_x, app->appbar_btn_y, app->appbar_btn_size, app->appbar_btn_size)) return true;
+  if (cogito_hit_rect(x, y, app->appbar_btn_min_x, app->appbar_btn_y, app->appbar_btn_size, app->appbar_btn_size)) return true;
+  if (cogito_hit_rect(x, y, app->appbar_btn_max_x, app->appbar_btn_y, app->appbar_btn_size, app->appbar_btn_size)) return true;
   for (size_t i = 0; i < app->len; i++) {
     CogitoNode* c = app->children[i];
     if (cogito_hit_rect(x, y, c->x, c->y, c->w, c->h)) return true;
@@ -1540,7 +1638,8 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
     CogitoNode* child = cogito_find_clickable(n->children[i], x, y);
     if (child) return child;
   }
-  if (n->kind == COGITO_BUTTON || n->kind == COGITO_ICONBTN || n->kind == COGITO_CHECKBOX || n->kind == COGITO_SWITCH || n->kind == COGITO_LIST || n->kind == COGITO_GRID) {
+  if (n->kind == COGITO_BUTTON || n->kind == COGITO_ICONBTN || n->kind == COGITO_CHECKBOX ||
+      n->kind == COGITO_SWITCH || n->kind == COGITO_LIST || n->kind == COGITO_GRID) {
     if (cogito_hit_node(n, x, y)) return n;
   }
   return NULL;
@@ -1570,255 +1669,31 @@ static void cogito_clear_children(CogitoNode* node) {
   node->cap = 0;
 }
 
-static void cogito_destroy_native(CogitoNode* node) {
-  if (!node) return;
-#if defined(_WIN32)
-  if (node->native) {
-    DestroyWindow((HWND)node->native);
-    node->native = NULL;
-  }
-  if (node->aux) {
-    DestroyWindow((HWND)node->aux);
-    node->aux = NULL;
-  }
-  if (node->aux2) {
-    DestroyWindow((HWND)node->aux2);
-    node->aux2 = NULL;
-  }
-  if (node->aux3) {
-    DestroyWindow((HWND)node->aux3);
-    node->aux3 = NULL;
-  }
-  if (node->aux4) {
-    DestroyWindow((HWND)node->aux4);
-    node->aux4 = NULL;
-  }
-#elif defined(__APPLE__)
-  if (node->native) {
-    NSView* view = (NSView*)node->native;
-    [view removeFromSuperview];
-    node->native = nil;
-  }
-  if (node->aux) {
-    NSView* view = node->aux;
-    [view removeFromSuperview];
-    node->aux = nil;
-  }
-  if (node->aux2) {
-    NSView* view = node->aux2;
-    [view removeFromSuperview];
-    node->aux2 = nil;
-  }
-  if (node->aux3) {
-    NSView* view = node->aux3;
-    [view removeFromSuperview];
-    node->aux3 = nil;
-  }
-  if (node->aux4) {
-    NSView* view = node->aux4;
-    [view removeFromSuperview];
-    node->aux4 = nil;
-  }
-#else
-  (void)node;
-#endif
-  for (size_t i = 0; i < node->len; i++) {
-    cogito_destroy_native(node->children[i]);
-  }
-}
-
 static void cogito_window_rebuild(CogitoNode* win) {
   if (!win || !win->builder) return;
-#if defined(_WIN32)
-  for (size_t i = 0; i < win->len; i++) {
-    cogito_destroy_native(win->children[i]);
-  }
-#elif defined(__APPLE__)
-  if (win->nswin) {
-    NSView* content = [win->nswin contentView];
-    NSArray* subs = [content subviews];
-    for (NSView* v in subs) {
-      [v removeFromSuperview];
-    }
-  }
-#endif
   cogito_clear_children(win);
   ErgoVal wv = EV_OBJ(win);
   ergo_retain_val(wv);
   ErgoVal ret = win->builder->fn(win->builder->env, 1, &wv);
   ergo_release_val(wv);
   ergo_release_val(ret);
+  cogito_apply_style_tree(win);
+  if (win->auto_size) {
+    int dw = 0;
+    int dh = 0;
+    cogito_window_desired_size(win, &dw, &dh);
+    if (dw > 0 && dh > 0) {
+      win->w = dw;
+      win->h = dh;
+      if (cogito_raylib_ready) SetWindowSize(dw, dh);
+    }
+  }
   cogito_layout_window(win);
-#if defined(_WIN32)
-  for (size_t i = 0; i < win->len; i++) {
-    cogito_attach_node(win, win->children[i], win->h);
-  }
-  if (win->hwnd) InvalidateRect(win->hwnd, NULL, TRUE);
-#elif defined(__APPLE__)
-  if (win->nswin) {
-    for (size_t i = 0; i < win->len; i++) {
-      cogito_attach_node(win, win->children[i], win->h);
-    }
-    cogito_update_selection_visuals(win);
-    [win->nswin display];
-  }
-#else
-  if (win->dpy && win->win) {
-    XClearWindow(win->dpy, win->win);
-    cogito_draw_node(win->dpy, win->win, win->gc, win);
-  }
-#endif
 }
-
-#if defined(__APPLE__)
-@interface CogitoTarget : NSObject
-@property (assign) void* node;
-@end
-@implementation CogitoTarget
-- (void)onAction:(id)sender {
-  (void)sender;
-  CogitoNode* n = (CogitoNode*)self.node;
-  if (!n) return;
-  if (n->kind == COGITO_BUTTON) {
-    if (n->menu_len > 0) {
-      NSButton* btn = (NSButton*)n->native;
-      if (!btn) return;
-      NSMenu* menu = [[NSMenu alloc] initWithTitle:@""];
-      for (size_t i = 0; i < n->menu_len; i++) {
-        NSString* title = [NSString stringWithUTF8String:(n->menu_labels[i] ? n->menu_labels[i]->data : "")];
-        NSMenuItem* item = [[NSMenuItem alloc] initWithTitle:title action:@selector(onMenuItem:) keyEquivalent:@""];
-        [item setTarget:self];
-        [item setTag:(NSInteger)i];
-        [menu addItem:item];
-      }
-      NSRect f = [btn frame];
-      NSSize ms = [menu size];
-      NSPoint p = NSMakePoint(NSMidX(f) - ms.width * 0.5, NSMinY(f) - 4.0);
-      [menu popUpMenuPositioningItem:nil atLocation:p inView:[btn superview]];
-    } else {
-      cogito_invoke_click(n);
-    }
-  } else if (n->kind == COGITO_ICONBTN) {
-    if (n->menu_len > 0) {
-      NSButton* btn = (NSButton*)n->native;
-      if (!btn) return;
-      NSMenu* menu = [[NSMenu alloc] initWithTitle:@""];
-      for (size_t i = 0; i < n->menu_len; i++) {
-        NSString* title = [NSString stringWithUTF8String:(n->menu_labels[i] ? n->menu_labels[i]->data : "")];
-        NSMenuItem* item = [[NSMenuItem alloc] initWithTitle:title action:@selector(onMenuItem:) keyEquivalent:@""];
-        [item setTarget:self];
-        [item setTag:(NSInteger)i];
-        [menu addItem:item];
-      }
-      NSRect f = [btn frame];
-      NSSize ms = [menu size];
-      NSPoint p = NSMakePoint(NSMidX(f) - ms.width * 0.5, NSMinY(f) - 4.0);
-      [menu popUpMenuPositioningItem:nil atLocation:p inView:[btn superview]];
-    } else {
-      cogito_invoke_click(n);
-    }
-  } else if (n->kind == COGITO_CHECKBOX || n->kind == COGITO_SWITCH) {
-    id ctrl = n->native;
-    if (ctrl && [ctrl respondsToSelector:@selector(state)]) {
-      n->checked = ([(id)ctrl state] == NSControlStateValueOn);
-    }
-    if (n->checked && n->group.tag != EVT_NULL) {
-      CogitoNode* root = cogito_root(n);
-      cogito_uncheck_group(root, n, n->group);
-    }
-    cogito_invoke_change(n);
-  }
-}
-
-- (void)onMenuItem:(id)sender {
-  CogitoNode* n = (CogitoNode*)self.node;
-  if (!n) return;
-  NSInteger idx = [sender tag];
-  if (idx < 0 || (size_t)idx >= n->menu_len) return;
-  cogito_invoke_menu(n, (size_t)idx);
-}
-@end
-
-@interface CogitoWindowDelegate : NSObject<NSWindowDelegate>
-@property (assign) void* win;
-@end
-@implementation CogitoWindowDelegate
-- (void)windowWillClose:(NSNotification *)notification {
-  (void)notification;
-  [NSApp stop:nil];
-  [NSApp terminate:nil];
-}
-- (void)windowDidResize:(NSNotification *)notification {
-  (void)notification;
-  CogitoNode* win = (CogitoNode*)self.win;
-  if (!win || !win->nswin) return;
-  NSRect r = [[win->nswin contentView] frame];
-  win->w = (int)r.size.width;
-  win->h = (int)r.size.height;
-  cogito_window_relayout(win);
-}
-@end
-
-@interface CogitoAppBarView : NSView
-@property (assign) NSWindow* targetWindow;
-@end
-@implementation CogitoAppBarView
-- (void)mouseDown:(NSEvent *)event {
-  if (self.targetWindow) {
-    [self.targetWindow performWindowDragWithEvent:event];
-  }
-}
-@end
-
-static void cogito_update_selection_visuals(CogitoNode* node) {
-  if (!node) return;
-  if ((node->kind == COGITO_LIST || node->kind == COGITO_GRID) && node->selected >= 0) {
-    for (size_t i = 0; i < node->len; i++) {
-      CogitoNode* child = node->children[i];
-      if (child->kind == COGITO_LABEL && child->native) {
-        NSTextField* tf = (NSTextField*)child->native;
-        if ((int)i == node->selected) {
-          if (!child->aux) {
-            NSView* bg = [[NSView alloc] initWithFrame:[tf frame]];
-            [bg setWantsLayer:YES];
-            bg.layer.cornerRadius = 4.0;
-            bg.layer.masksToBounds = YES;
-            bg.layer.backgroundColor = [[[NSColor selectedControlColor] colorWithAlphaComponent:0.35] CGColor];
-            [[tf superview] addSubview:bg positioned:NSWindowBelow relativeTo:tf];
-            child->aux = bg;
-          }
-          NSRect r = [tf frame];
-          r.origin.x -= 4;
-          r.origin.y -= 2;
-          r.size.width += 8;
-          r.size.height += 4;
-          [child->aux setFrame:r];
-        } else {
-          if (child->aux) {
-            [child->aux removeFromSuperview];
-            child->aux = nil;
-          }
-        }
-      }
-    }
-  }
-  for (size_t i = 0; i < node->len; i++) {
-    cogito_update_selection_visuals(node->children[i]);
-  }
-}
-
-static void cogito_update_appbar_hitrects(CogitoNode* win) {
-  (void)win;
-}
-#endif
 
 static CogitoApp* cogito_app_new_obj(void) {
   CogitoApp* app = (CogitoApp*)ergo_obj_new(sizeof(CogitoApp), NULL);
-#if defined(__APPLE__)
-  app->app = [NSApplication sharedApplication];
-#else
   app->native = NULL;
-#endif
   return app;
 }
 
@@ -1978,6 +1853,7 @@ static void cogito_container_set_margins(ErgoVal nodev, ErgoVal left, ErgoVal to
   node->margin_top = (int)ergo_as_int(top);
   node->margin_right = (int)ergo_as_int(right);
   node->margin_bottom = (int)ergo_as_int(bottom);
+  node->margin_set = true;
 }
 
 static void cogito_container_set_align(ErgoVal nodev, ErgoVal alignv) {
@@ -1993,6 +1869,7 @@ static void cogito_container_set_padding(ErgoVal nodev, ErgoVal left, ErgoVal to
   node->padding_top = (int)ergo_as_int(top);
   node->padding_right = (int)ergo_as_int(right);
   node->padding_bottom = (int)ergo_as_int(bottom);
+  node->padding_set = true;
 }
 
 static void cogito_window_set_autosize(ErgoVal winv, ErgoVal onv) {
@@ -2039,12 +1916,7 @@ static void cogito_state_set(ErgoVal sv, ErgoVal nv) {
   if (s->value.tag != EVT_NULL) ergo_release_val(s->value);
   s->value = nv;
   if (nv.tag != EVT_NULL) ergo_retain_val(nv);
-  CogitoNode* win = NULL;
-  if (sv.tag == EVT_OBJ) {
-    (void)sv;
-  }
-  (void)win;
-  // For now, rebuild the most recent running window if it has a builder.
+  (void)sv;
   extern CogitoNode* cogito_active_window;
   if (cogito_active_window) {
     cogito_window_rebuild(cogito_active_window);
@@ -2056,14 +1928,6 @@ static void cogito_button_set_text(ErgoVal btnv, ErgoVal text) {
   CogitoNode* btn = (CogitoNode*)btnv.as.p;
   ErgoStr* ts = stdr_to_string(text);
   cogito_node_set_text(btn, ts);
-#if defined(_WIN32)
-  if (btn->native) SetWindowText(btn->native, ts->data);
-#elif defined(__APPLE__)
-  if (btn->native) {
-    NSString* ns = [NSString stringWithUTF8String:ts->data];
-    [(NSButton*)btn->native setTitle:ns];
-  }
-#endif
 }
 
 static void cogito_iconbtn_set_text(ErgoVal btnv, ErgoVal text) {
@@ -2071,27 +1935,12 @@ static void cogito_iconbtn_set_text(ErgoVal btnv, ErgoVal text) {
   CogitoNode* btn = (CogitoNode*)btnv.as.p;
   ErgoStr* ts = stdr_to_string(text);
   cogito_node_set_text(btn, ts);
-#if defined(_WIN32)
-  if (btn->native) SetWindowText(btn->native, ts->data);
-#elif defined(__APPLE__)
-  if (btn->native) {
-    NSString* ns = [NSString stringWithUTF8String:ts->data];
-    [(NSButton*)btn->native setTitle:ns];
-  }
-#endif
 }
 
 static void cogito_checkbox_set_checked(ErgoVal cbv, ErgoVal checked) {
   if (cbv.tag != EVT_OBJ) ergo_trap("cogito.checkbox_set_checked expects checkbox");
   CogitoNode* cb = (CogitoNode*)cbv.as.p;
   cb->checked = ergo_as_bool(checked);
-#if defined(_WIN32)
-  if (cb->native) SendMessage(cb->native, BM_SETCHECK, cb->checked ? BST_CHECKED : BST_UNCHECKED, 0);
-#elif defined(__APPLE__)
-  if (cb->native && [cb->native respondsToSelector:@selector(setState:)]) {
-    [(id)cb->native setState:(cb->checked ? NSControlStateValueOn : NSControlStateValueOff)];
-  }
-#endif
 }
 
 static ErgoVal cogito_checkbox_get_checked(ErgoVal cbv) {
@@ -2104,13 +1953,6 @@ static void cogito_switch_set_checked(ErgoVal swv, ErgoVal checked) {
   if (swv.tag != EVT_OBJ) ergo_trap("cogito.switch_set_checked expects switch");
   CogitoNode* sw = (CogitoNode*)swv.as.p;
   sw->checked = ergo_as_bool(checked);
-#if defined(_WIN32)
-  if (sw->native) SendMessage(sw->native, BM_SETCHECK, sw->checked ? BST_CHECKED : BST_UNCHECKED, 0);
-#elif defined(__APPLE__)
-  if (sw->native && [sw->native respondsToSelector:@selector(setState:)]) {
-    [(id)sw->native setState:(sw->checked ? NSControlStateValueOn : NSControlStateValueOff)];
-  }
-#endif
 }
 
 static ErgoVal cogito_switch_get_checked(ErgoVal swv) {
@@ -2187,8 +2029,7 @@ static void cogito_button_add_menu(ErgoVal btnv, ErgoVal label, ErgoVal handler)
   if (btnv.tag != EVT_OBJ) ergo_trap("cogito.button_add_menu expects button");
   CogitoNode* btn = (CogitoNode*)btnv.as.p;
   ErgoStr* ts = stdr_to_string(label);
-  ErgoFn* fn = NULL;
-  if (handler.tag == EVT_FN) fn = (ErgoFn*)handler.as.p;
+  ErgoFn* fn = handler.tag == EVT_FN ? (ErgoFn*)handler.as.p : NULL;
   cogito_node_add_menu(btn, ts, fn);
 }
 
@@ -2209,361 +2050,640 @@ static ErgoVal cogito_appbar_add_button(ErgoVal appv, ErgoVal text, ErgoVal hand
   return EV_OBJ(btn);
 }
 
-#if defined(_WIN32)
-static LRESULT CALLBACK cogito_wndproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-  if (msg == WM_COMMAND) {
-    if (HIWORD(wParam) == BN_CLICKED) {
-      HWND hctrl = (HWND)lParam;
-      CogitoNode* n = (CogitoNode*)GetWindowLongPtr(hctrl, GWLP_USERDATA);
-      if (n) {
-        if (n->kind == COGITO_BUTTON || n->kind == COGITO_ICONBTN) {
-          if (n->menu_len > 0) {
-            cogito_show_menu_win(n);
-          } else {
-            cogito_invoke_click(n);
-          }
-        } else if (n->kind == COGITO_CHECKBOX || n->kind == COGITO_SWITCH) {
-          n->checked = SendMessage(hctrl, BM_GETCHECK, 0, 0) == BST_CHECKED;
-          if (n->checked && n->group.tag != EVT_NULL) {
-            CogitoNode* root = cogito_root(n);
-            cogito_uncheck_group(root, n, n->group);
-          }
-          cogito_invoke_change(n);
-        }
+static int cogito_css_hex_value(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
+  if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
+  return -1;
+}
+
+static void cogito_css_skip_ws(const char** p) {
+  while (**p) {
+    if (isspace((unsigned char)**p)) { (*p)++; continue; }
+    if ((*p)[0] == '/' && (*p)[1] == '/') {
+      (*p) += 2;
+      while (**p && **p != '\n') (*p)++;
+      continue;
+    }
+    if ((*p)[0] == '/' && (*p)[1] == '*') {
+      (*p) += 2;
+      while (**p && !((*p)[0] == '*' && (*p)[1] == '/')) (*p)++;
+      if (**p) (*p) += 2;
+      continue;
+    }
+    break;
+  }
+}
+
+static bool cogito_css_read_ident(const char** p, char* out, size_t cap) {
+  size_t len = 0;
+  if (!isalpha((unsigned char)**p) && **p != '_' && **p != '-' && **p != '.' && **p != '#') return false;
+  while (**p && (isalnum((unsigned char)**p) || **p == '_' || **p == '-' || **p == '.' || **p == '#')) {
+    if (len + 1 < cap) out[len++] = **p;
+    (*p)++;
+  }
+  out[len] = 0;
+  return len > 0;
+}
+
+static bool cogito_css_read_number(const char** p, double* out) {
+  char* end = NULL;
+  double v = strtod(*p, &end);
+  if (end == *p) return false;
+  *p = end;
+  if ((*p)[0] == 'p' && (*p)[1] == 'x') (*p) += 2;
+  *out = v;
+  return true;
+}
+
+static bool cogito_css_parse_hex_color(const char** p, Color* out) {
+  if (**p != '#') return false;
+  const char* s = *p + 1;
+  int len = 0;
+  while (cogito_css_hex_value(s[len]) >= 0) len++;
+  if (len != 3 && len != 4 && len != 6 && len != 8) return false;
+  int r = 0, g = 0, b = 0, a = 255;
+  if (len == 3 || len == 4) {
+    r = cogito_css_hex_value(s[0]) * 17;
+    g = cogito_css_hex_value(s[1]) * 17;
+    b = cogito_css_hex_value(s[2]) * 17;
+    if (len == 4) a = cogito_css_hex_value(s[3]) * 17;
+  } else if (len == 6 || len == 8) {
+    r = cogito_css_hex_value(s[0]) * 16 + cogito_css_hex_value(s[1]);
+    g = cogito_css_hex_value(s[2]) * 16 + cogito_css_hex_value(s[3]);
+    b = cogito_css_hex_value(s[4]) * 16 + cogito_css_hex_value(s[5]);
+    if (len == 8) a = cogito_css_hex_value(s[6]) * 16 + cogito_css_hex_value(s[7]);
+  }
+  *out = cogito_rgba(r, g, b, a);
+  *p += 1 + len;
+  return true;
+}
+
+static bool cogito_css_parse_named_color(const char* name, Color* out) {
+  if (!name) return false;
+  if (strcmp(name, "white") == 0) { *out = cogito_rgba(255, 255, 255, 255); return true; }
+  if (strcmp(name, "black") == 0) { *out = cogito_rgba(0, 0, 0, 255); return true; }
+  if (strcmp(name, "gray") == 0 || strcmp(name, "grey") == 0) { *out = cogito_rgba(128, 128, 128, 255); return true; }
+  if (strcmp(name, "red") == 0) { *out = cogito_rgba(220, 60, 60, 255); return true; }
+  if (strcmp(name, "green") == 0) { *out = cogito_rgba(60, 170, 90, 255); return true; }
+  if (strcmp(name, "blue") == 0) { *out = cogito_rgba(70, 110, 200, 255); return true; }
+  if (strcmp(name, "yellow") == 0) { *out = cogito_rgba(230, 210, 90, 255); return true; }
+  if (strcmp(name, "orange") == 0) { *out = cogito_rgba(230, 150, 60, 255); return true; }
+  if (strcmp(name, "purple") == 0) { *out = cogito_rgba(160, 100, 210, 255); return true; }
+  return false;
+}
+
+static bool cogito_css_parse_rgb_color(const char** p, Color* out) {
+  const char* s = *p;
+  bool has_alpha = false;
+  if (strncmp(s, "rgba", 4) == 0) {
+    has_alpha = true;
+    s += 4;
+  } else if (strncmp(s, "rgb", 3) == 0) {
+    s += 3;
+  } else {
+    return false;
+  }
+  cogito_css_skip_ws(&s);
+  if (*s != '(') return false;
+  s++;
+  double vals[4] = {0, 0, 0, 1};
+  int count = 0;
+  while (*s && count < (has_alpha ? 4 : 3)) {
+    cogito_css_skip_ws(&s);
+    double v = 0;
+    if (!cogito_css_read_number(&s, &v)) break;
+    vals[count++] = v;
+    cogito_css_skip_ws(&s);
+    if (*s == ',') s++;
+  }
+  cogito_css_skip_ws(&s);
+  if (*s != ')') return false;
+  s++;
+  if (count < (has_alpha ? 4 : 3)) return false;
+  int r = (int)lround(vals[0]);
+  int g = (int)lround(vals[1]);
+  int b = (int)lround(vals[2]);
+  int a = 255;
+  if (has_alpha) {
+    if (vals[3] <= 1.0) a = (int)lround(vals[3] * 255.0);
+    else a = (int)lround(vals[3]);
+  }
+  *out = cogito_rgba(r, g, b, a);
+  *p = s;
+  return true;
+}
+
+static bool cogito_css_parse_color(const char** p, Color* out) {
+  cogito_css_skip_ws(p);
+  if (**p == '#') return cogito_css_parse_hex_color(p, out);
+  if (strncmp(*p, "rgb", 3) == 0) return cogito_css_parse_rgb_color(p, out);
+  char name[32];
+  const char* s = *p;
+  if (!cogito_css_read_ident(&s, name, sizeof(name))) return false;
+  if (cogito_css_parse_named_color(name, out)) { *p = s; return true; }
+  return false;
+}
+
+static int cogito_css_parse_ints(const char** p, int* out, int max) {
+  int count = 0;
+  while (count < max) {
+    cogito_css_skip_ws(p);
+    double v = 0;
+    if (!cogito_css_read_number(p, &v)) break;
+    out[count++] = (int)lround(v);
+    cogito_css_skip_ws(p);
+    if (**p == ',') (*p)++;
+  }
+  return count;
+}
+
+static void cogito_style_set_padding(CogitoStyle* s, int top, int right, int bottom, int left) {
+  s->has_padding = true;
+  s->padding_top = top;
+  s->padding_right = right;
+  s->padding_bottom = bottom;
+  s->padding_left = left;
+}
+
+static void cogito_style_set_margin(CogitoStyle* s, int top, int right, int bottom, int left) {
+  s->has_margin = true;
+  s->margin_top = top;
+  s->margin_right = right;
+  s->margin_bottom = bottom;
+  s->margin_left = left;
+}
+
+static void cogito_css_apply_property(CogitoStyle* style, const char* prop, const char** p) {
+  if (strcmp(prop, "background") == 0 || strcmp(prop, "background-color") == 0) {
+    Color c;
+    if (cogito_css_parse_color(p, &c)) { style->has_bg = true; style->bg = c; }
+    return;
+  }
+  if (strcmp(prop, "color") == 0 || strcmp(prop, "text-color") == 0) {
+    Color c;
+    if (cogito_css_parse_color(p, &c)) { style->has_text = true; style->text = c; }
+    return;
+  }
+  if (strcmp(prop, "border-color") == 0) {
+    Color c;
+    if (cogito_css_parse_color(p, &c)) { style->has_border = true; style->border = c; }
+    return;
+  }
+  if (strcmp(prop, "border-width") == 0) {
+    double v;
+    if (cogito_css_read_number(p, &v)) { style->has_border_width = true; style->border_width = (int)lround(v); }
+    return;
+  }
+  if (strcmp(prop, "border-radius") == 0 || strcmp(prop, "radius") == 0) {
+    double v;
+    if (cogito_css_read_number(p, &v)) { style->has_radius = true; style->radius = (int)lround(v); }
+    return;
+  }
+  if (strcmp(prop, "font-size") == 0) {
+    double v;
+    if (cogito_css_read_number(p, &v)) { style->has_font_size = true; style->font_size = (int)lround(v); }
+    return;
+  }
+  if (strcmp(prop, "padding") == 0) {
+    int vals[4] = {0, 0, 0, 0};
+    int count = cogito_css_parse_ints(p, vals, 4);
+    if (count == 1) {
+      cogito_style_set_padding(style, vals[0], vals[0], vals[0], vals[0]);
+    } else if (count == 2) {
+      cogito_style_set_padding(style, vals[0], vals[1], vals[0], vals[1]);
+    } else if (count == 3) {
+      cogito_style_set_padding(style, vals[0], vals[1], vals[2], vals[1]);
+    } else if (count >= 4) {
+      cogito_style_set_padding(style, vals[0], vals[1], vals[2], vals[3]);
+    }
+    return;
+  }
+  if (strcmp(prop, "padding-left") == 0) {
+    double v;
+    if (cogito_css_read_number(p, &v)) { style->has_padding_left = true; style->padding_left = (int)lround(v); }
+    return;
+  }
+  if (strcmp(prop, "padding-top") == 0) {
+    double v;
+    if (cogito_css_read_number(p, &v)) { style->has_padding_top = true; style->padding_top = (int)lround(v); }
+    return;
+  }
+  if (strcmp(prop, "padding-right") == 0) {
+    double v;
+    if (cogito_css_read_number(p, &v)) { style->has_padding_right = true; style->padding_right = (int)lround(v); }
+    return;
+  }
+  if (strcmp(prop, "padding-bottom") == 0) {
+    double v;
+    if (cogito_css_read_number(p, &v)) { style->has_padding_bottom = true; style->padding_bottom = (int)lround(v); }
+    return;
+  }
+  if (strcmp(prop, "margin") == 0) {
+    int vals[4] = {0, 0, 0, 0};
+    int count = cogito_css_parse_ints(p, vals, 4);
+    if (count == 1) {
+      cogito_style_set_margin(style, vals[0], vals[0], vals[0], vals[0]);
+    } else if (count == 2) {
+      cogito_style_set_margin(style, vals[0], vals[1], vals[0], vals[1]);
+    } else if (count == 3) {
+      cogito_style_set_margin(style, vals[0], vals[1], vals[2], vals[1]);
+    } else if (count >= 4) {
+      cogito_style_set_margin(style, vals[0], vals[1], vals[2], vals[3]);
+    }
+    return;
+  }
+  if (strcmp(prop, "margin-left") == 0) {
+    double v;
+    if (cogito_css_read_number(p, &v)) { style->has_margin_left = true; style->margin_left = (int)lround(v); }
+    return;
+  }
+  if (strcmp(prop, "margin-top") == 0) {
+    double v;
+    if (cogito_css_read_number(p, &v)) { style->has_margin_top = true; style->margin_top = (int)lround(v); }
+    return;
+  }
+  if (strcmp(prop, "margin-right") == 0) {
+    double v;
+    if (cogito_css_read_number(p, &v)) { style->has_margin_right = true; style->margin_right = (int)lround(v); }
+    return;
+  }
+  if (strcmp(prop, "margin-bottom") == 0) {
+    double v;
+    if (cogito_css_read_number(p, &v)) { style->has_margin_bottom = true; style->margin_bottom = (int)lround(v); }
+    return;
+  }
+  if (strcmp(prop, "selection-color") == 0 || strcmp(prop, "selection-background") == 0) {
+    Color c;
+    if (cogito_css_parse_color(p, &c)) { style->has_selection = true; style->selection = c; }
+    return;
+  }
+}
+
+static bool cogito_css_selector_kind(const char* sel, CogitoKind* out_kind, bool* out_base) {
+  if (!sel || !sel[0]) return false;
+  const char* s = sel;
+  if (*s == '.') s++;
+  if (*s == '#') s++;
+  if (strcmp(s, "*") == 0 || strcmp(s, "all") == 0 || strcmp(s, "base") == 0 || strcmp(s, "root") == 0) {
+    if (out_base) *out_base = true;
+    return true;
+  }
+  if (strcmp(s, "window") == 0) { if (out_kind) *out_kind = COGITO_WINDOW; return true; }
+  if (strcmp(s, "vstack") == 0) { if (out_kind) *out_kind = COGITO_VSTACK; return true; }
+  if (strcmp(s, "hstack") == 0) { if (out_kind) *out_kind = COGITO_HSTACK; return true; }
+  if (strcmp(s, "button") == 0) { if (out_kind) *out_kind = COGITO_BUTTON; return true; }
+  if (strcmp(s, "iconbtn") == 0 || strcmp(s, "icon-button") == 0) { if (out_kind) *out_kind = COGITO_ICONBTN; return true; }
+  if (strcmp(s, "label") == 0) { if (out_kind) *out_kind = COGITO_LABEL; return true; }
+  if (strcmp(s, "checkbox") == 0) { if (out_kind) *out_kind = COGITO_CHECKBOX; return true; }
+  if (strcmp(s, "switch") == 0) { if (out_kind) *out_kind = COGITO_SWITCH; return true; }
+  if (strcmp(s, "list") == 0) { if (out_kind) *out_kind = COGITO_LIST; return true; }
+  if (strcmp(s, "grid") == 0) { if (out_kind) *out_kind = COGITO_GRID; return true; }
+  if (strcmp(s, "appbar") == 0 || strcmp(s, "app-bar") == 0) { if (out_kind) *out_kind = COGITO_APPBAR; return true; }
+  return false;
+}
+
+static void cogito_parse_css(const char* src) {
+  const char* p = src;
+  while (*p) {
+    cogito_css_skip_ws(&p);
+    if (!*p) break;
+    char sel[64];
+    if (*p == '*') {
+      sel[0] = '*';
+      sel[1] = 0;
+      p++;
+    } else if (!cogito_css_read_ident(&p, sel, sizeof(sel))) {
+      p++;
+      continue;
+    }
+    cogito_css_skip_ws(&p);
+    if (*p != '{') {
+      while (*p && *p != '{') p++;
+      if (*p == '{') p++;
+    } else {
+      p++;
+    }
+    bool is_base = false;
+    CogitoKind kind = COGITO_WINDOW;
+    if (!cogito_css_selector_kind(sel, &kind, &is_base)) {
+      int depth = 1;
+      while (*p && depth > 0) {
+        if (*p == '{') depth++;
+        else if (*p == '}') depth--;
+        p++;
+      }
+      continue;
+    }
+    CogitoStyle* style = is_base ? &cogito_theme.base : &cogito_theme.per_kind[kind];
+    while (*p) {
+      cogito_css_skip_ws(&p);
+      if (*p == '}') { p++; break; }
+      char prop[64];
+      if (!cogito_css_read_ident(&p, prop, sizeof(prop))) { p++; continue; }
+      cogito_css_skip_ws(&p);
+      if (*p == ':') {
+        p++;
       } else {
-        CogitoNode* win = (CogitoNode*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
-        int id = LOWORD(wParam);
-        if (win && id == 9001) cogito_appbar_window_action(win, 0);
-        if (win && id == 9002) cogito_appbar_window_action(win, 1);
-        if (win && id == 9003) cogito_appbar_window_action(win, 2);
+        while (*p && *p != ';' && *p != '}') p++;
+        if (*p == ';') p++;
+        continue;
       }
-    }
-  } else if (msg == WM_SIZE) {
-    CogitoNode* win = (CogitoNode*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
-    if (win) {
-      win->w = (int)LOWORD(lParam);
-      win->h = (int)HIWORD(lParam);
-      cogito_window_relayout(win);
-      cogito_window_apply_rounding(win);
-    }
-  } else if (msg == WM_DESTROY) {
-    PostQuitMessage(0);
-    return 0;
-  } else if (msg == WM_NCHITTEST) {
-    LRESULT hit = DefWindowProc(hwnd, msg, wParam, lParam);
-    CogitoNode* win = (CogitoNode*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
-    if (!win) return hit;
-    CogitoNode* app = cogito_find_appbar(win);
-    if (!app) return hit;
-    POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
-    ScreenToClient(hwnd, &pt);
-    int x = pt.x;
-    int y = pt.y;
-    if (cogito_hit_rect(x, y, app->x, app->y, app->w, app->h) &&
-        !cogito_point_over_appbar_buttons(app, x, y)) {
-      return HTCAPTION;
-    }
-    return hit;
-  } else if (msg == WM_PAINT) {
-    CogitoNode* win = (CogitoNode*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
-    if (win) {
-      CogitoNode* app = cogito_find_appbar(win);
-      if (app) {
-        PAINTSTRUCT ps;
-        HDC hdc = BeginPaint(hwnd, &ps);
-        RECT r;
-        r.left = app->x;
-        r.top = app->y;
-        r.right = app->x + app->w;
-        r.bottom = app->y + app->h;
-        HBRUSH brush = CreateSolidBrush(RGB(242, 242, 242));
-        FillRect(hdc, &r, brush);
-        DeleteObject(brush);
-        EndPaint(hwnd, &ps);
-        return 0;
-      }
+      const char* vp = p;
+      cogito_css_apply_property(style, prop, &vp);
+      while (*p && *p != ';' && *p != '}') p++;
+      if (*p == ';') p++;
     }
   }
-  return DefWindowProc(hwnd, msg, wParam, lParam);
 }
-#endif
 
-#if !defined(_WIN32) && !defined(__APPLE__)
-static void cogito_draw_text(Display* dpy, Window win, GC gc, int x, int y, const char* text) {
+static char* cogito_read_file(const char* path, size_t* out_len) {
+  if (!path || !path[0]) return NULL;
+  FILE* f = fopen(path, "rb");
+  if (!f) return NULL;
+  fseek(f, 0, SEEK_END);
+  long len = ftell(f);
+  if (len < 0) { fclose(f); return NULL; }
+  fseek(f, 0, SEEK_SET);
+  char* buf = (char*)malloc((size_t)len + 1);
+  if (!buf) { fclose(f); return NULL; }
+  size_t got = fread(buf, 1, (size_t)len, f);
+  fclose(f);
+  buf[got] = 0;
+  if (out_len) *out_len = got;
+  return buf;
+}
+
+static void cogito_load_css_file(const char* path) {
+  size_t len = 0;
+  char* src = cogito_read_file(path, &len);
+  if (!src) {
+    if (cogito_debug_enabled()) {
+      fprintf(stderr, "cogito: css not found: %s\n", path ? path : "");
+      fflush(stderr);
+    }
+    return;
+  }
+  cogito_theme_initialized = true;
+  cogito_theme_set_defaults();
+  cogito_parse_css(src);
+  free(src);
+  extern CogitoNode* cogito_active_window;
+  if (cogito_active_window) {
+    cogito_apply_style_tree(cogito_active_window);
+    if (cogito_active_window->auto_size) {
+      int dw = 0;
+      int dh = 0;
+      cogito_window_desired_size(cogito_active_window, &dw, &dh);
+      if (dw > 0 && dh > 0) {
+        cogito_active_window->w = dw;
+        cogito_active_window->h = dh;
+        if (cogito_raylib_ready) SetWindowSize(dw, dh);
+      }
+    }
+    cogito_window_relayout(cogito_active_window);
+  }
+}
+
+static void cogito_load_css(ErgoVal pathv) {
+  ErgoStr* ps = stdr_to_string(pathv);
+  if (ps && ps->data) {
+    cogito_load_css_file(ps->data);
+  }
+  if (ps) ergo_release_val(EV_STR(ps));
+}
+
+static void cogito_menu_close(void) {
+  cogito_menu.open = false;
+  cogito_menu.owner = NULL;
+}
+
+static void cogito_menu_open_for(CogitoNode* n) {
+  if (!n || n->menu_len == 0) return;
+  int font_size = cogito_font_size();
+  int max_w = 0;
+  for (size_t i = 0; i < n->menu_len; i++) {
+    const char* text = n->menu_labels[i] ? n->menu_labels[i]->data : "";
+    int w = cogito_text_width(text);
+    if (w > max_w) max_w = w;
+  }
+  int pad = 10;
+  int item_h = font_size + 10;
+  int w = max_w + pad * 2;
+  int h = (int)n->menu_len * item_h;
+  cogito_menu.open = true;
+  cogito_menu.owner = n;
+  cogito_menu.item_h = item_h;
+  cogito_menu.w = w;
+  cogito_menu.h = h;
+  cogito_menu.x = n->x;
+  cogito_menu.y = n->y + n->h + 4;
+}
+
+static int cogito_menu_hit(const CogitoMenu* menu, int x, int y) {
+  if (!menu || !menu->open) return -1;
+  if (x < menu->x || y < menu->y || x > menu->x + menu->w || y > menu->y + menu->h) return -1;
+  int idx = (y - menu->y) / menu->item_h;
+  if (idx < 0) return -1;
+  if (!menu->owner) return -1;
+  if ((size_t)idx >= menu->owner->menu_len) return -1;
+  return idx;
+}
+
+static float cogito_roundness_for(int w, int h, int radius) {
+  if (radius <= 0) return 0.0f;
+  float min = (float)(w < h ? w : h);
+  if (min <= 0.0f) return 0.0f;
+  float roundness = (float)radius / (min * 0.5f);
+  if (roundness > 1.0f) roundness = 1.0f;
+  if (roundness < 0.0f) roundness = 0.0f;
+  return roundness;
+}
+
+static void cogito_draw_rect(int x, int y, int w, int h, Color bg, int radius) {
+  if (w <= 0 || h <= 0) return;
+  Rectangle r = { (float)x, (float)y, (float)w, (float)h };
+  float roundness = cogito_roundness_for(w, h, radius);
+  if (roundness > 0.0f) DrawRectangleRounded(r, roundness, 8, bg);
+  else DrawRectangleRec(r, bg);
+}
+
+static void cogito_draw_rect_lines(int x, int y, int w, int h, Color border, int radius, int thickness) {
+  if (w <= 0 || h <= 0 || thickness <= 0) return;
+  Rectangle r = { (float)x, (float)y, (float)w, (float)h };
+  float roundness = cogito_roundness_for(w, h, radius);
+  if (roundness > 0.0f) {
+    DrawRectangleRoundedLines(r, roundness, 8, border);
+  } else {
+    DrawRectangleLinesEx(r, (float)thickness, border);
+  }
+}
+
+static void cogito_draw_text(int x, int y, const char* text, Color color) {
   if (!text) return;
-  XDrawString(dpy, win, gc, x, y, text, (int)strlen(text));
+  if (cogito_font_ready) {
+    DrawTextEx(cogito_font, text, (Vector2){(float)x, (float)y}, (float)cogito_font_size(), 1.0f, color);
+  } else {
+    DrawText(text, x, y, cogito_font_size(), color);
+  }
 }
 
-static void cogito_draw_node(Display* dpy, Window win, GC gc, CogitoNode* n) {
+static void cogito_draw_node(CogitoNode* n) {
   if (!n) return;
-  int tx = n->x + 6;
-  int ty = n->y + 16;
   switch (n->kind) {
-    case COGITO_BUTTON:
-      XDrawRectangle(dpy, win, gc, n->x, n->y, (unsigned)n->w, (unsigned)n->h);
-      cogito_draw_text(dpy, win, gc, tx, ty, n->text ? n->text->data : "");
-      break;
-    case COGITO_ICONBTN:
-      XDrawRectangle(dpy, win, gc, n->x, n->y, (unsigned)n->w, (unsigned)n->h);
-      cogito_draw_text(dpy, win, gc, n->x + 8, n->y + 16, n->text ? n->text->data : "");
-      break;
-    case COGITO_LABEL:
-      cogito_draw_text(dpy, win, gc, n->x, n->y + 14, n->text ? n->text->data : "");
-      break;
-    case COGITO_CHECKBOX:
-    case COGITO_SWITCH: {
-      if (n->kind == COGITO_CHECKBOX && n->group.tag != EVT_NULL) {
-        /* radio */
-        XDrawArc(dpy, win, gc, n->x, n->y, 16, 16, 0, 360 * 64);
-        if (n->checked) {
-          XFillArc(dpy, win, gc, n->x + 4, n->y + 4, 8, 8, 0, 360 * 64);
-        }
-      } else {
-        /* checkbox */
-        XDrawRectangle(dpy, win, gc, n->x, n->y, 16, 16);
-        if (n->checked) {
-          XDrawLine(dpy, win, gc, n->x + 3, n->y + 8, n->x + 7, n->y + 12);
-          XDrawLine(dpy, win, gc, n->x + 7, n->y + 12, n->x + 13, n->y + 4);
+    case COGITO_BUTTON: {
+      if (n->bg_set || n->border_width > 0) {
+        cogito_draw_rect(n->x, n->y, n->w, n->h, n->bg, n->border_radius);
+        if (n->border_width > 0) {
+          cogito_draw_rect_lines(n->x, n->y, n->w, n->h, n->border_color, n->border_radius, n->border_width);
         }
       }
-      cogito_draw_text(dpy, win, gc, n->x + 22, n->y + 14, n->text ? n->text->data : "");
+      if (n->text) {
+        int tw = cogito_text_width(n->text->data);
+        int th = cogito_text_height();
+        int tx = n->x + (n->w - tw) / 2;
+        int ty = n->y + (n->h - th) / 2;
+        cogito_draw_text(tx, ty, n->text->data, n->text_color);
+      }
+      break;
+    }
+    case COGITO_ICONBTN: {
+      if (n->bg_set || n->border_width > 0) {
+        cogito_draw_rect(n->x, n->y, n->w, n->h, n->bg, n->border_radius);
+        if (n->border_width > 0) {
+          cogito_draw_rect_lines(n->x, n->y, n->w, n->h, n->border_color, n->border_radius, n->border_width);
+        }
+      }
+      if (n->text) {
+        int tw = cogito_text_width(n->text->data);
+        int th = cogito_text_height();
+        int tx = n->x + (n->w - tw) / 2;
+        int ty = n->y + (n->h - th) / 2;
+        cogito_draw_text(tx, ty, n->text->data, n->text_color);
+      }
+      break;
+    }
+    case COGITO_LABEL: {
+      if (n->text) {
+        int th = cogito_text_height();
+        int ty = n->y + (n->h - th) / 2;
+        cogito_draw_text(n->x, ty, n->text->data, n->text_color);
+      }
+      break;
+    }
+    case COGITO_CHECKBOX: {
+      int box = 16;
+      int cy = n->y + (n->h - box) / 2;
+      if (n->group.tag != EVT_NULL) {
+        DrawCircleLines(n->x + box / 2, cy + box / 2, box / 2, n->border_color.a ? n->border_color : n->text_color);
+        if (n->checked) {
+          DrawCircle(n->x + box / 2, cy + box / 2, box / 2 - 4, n->text_color);
+        }
+      } else {
+        DrawRectangleLines(n->x, cy, box, box, n->border_color.a ? n->border_color : n->text_color);
+        if (n->checked) {
+          DrawLine(n->x + 3, cy + 8, n->x + 7, cy + 12, n->text_color);
+          DrawLine(n->x + 7, cy + 12, n->x + 13, cy + 4, n->text_color);
+        }
+      }
+      if (n->text) {
+        int th = cogito_text_height();
+        int ty = n->y + (n->h - th) / 2;
+        cogito_draw_text(n->x + box + 6, ty, n->text->data, n->text_color);
+      }
+      break;
+    }
+    case COGITO_SWITCH: {
+      int h = 18;
+      int w = 32;
+      int cy = n->y + (n->h - h) / 2;
+      int cx = n->x;
+      Color track = n->checked ? cogito_rgba(90, 160, 110, 255) : cogito_rgba(170, 170, 170, 255);
+      cogito_draw_rect(cx, cy, w, h, track, h / 2);
+      int knob = h - 4;
+      int kx = n->checked ? (cx + w - knob - 2) : (cx + 2);
+      cogito_draw_rect(kx, cy + 2, knob, knob, cogito_rgba(250, 250, 250, 255), knob / 2);
+      if (n->text) {
+        int th = cogito_text_height();
+        int ty = n->y + (n->h - th) / 2;
+        cogito_draw_text(n->x + w + 8, ty, n->text->data, n->text_color);
+      }
       break;
     }
     case COGITO_LIST:
-    case COGITO_GRID:
-      XDrawRectangle(dpy, win, gc, n->x, n->y, (unsigned)n->w, (unsigned)n->h);
+    case COGITO_GRID: {
+      if (n->bg_set || n->border_width > 0) {
+        cogito_draw_rect(n->x, n->y, n->w, n->h, n->bg, n->border_radius);
+        if (n->border_width > 0) {
+          cogito_draw_rect_lines(n->x, n->y, n->w, n->h, n->border_color, n->border_radius, n->border_width);
+        }
+      }
       if (n->selected >= 0 && (size_t)n->selected < n->len) {
         CogitoNode* sel = n->children[n->selected];
-        unsigned long old = BlackPixel(dpy, DefaultScreen(dpy));
-        XSetForeground(dpy, gc, 0xdddddd);
-        XFillRectangle(dpy, win, gc, sel->x, sel->y, (unsigned)sel->w, (unsigned)sel->h);
-        XSetForeground(dpy, gc, old);
+        cogito_draw_rect(sel->x - 2, sel->y - 2, sel->w + 4, sel->h + 4, n->selection_color, 4);
       }
       for (size_t i = 0; i < n->len; i++) {
-        cogito_draw_node(dpy, win, gc, n->children[i]);
+        cogito_draw_node(n->children[i]);
       }
       break;
+    }
     case COGITO_APPBAR: {
-      unsigned long old = BlackPixel(dpy, DefaultScreen(dpy));
-      XFillRectangle(dpy, win, gc, n->x, n->y, (unsigned)n->w, (unsigned)n->h);
-      XSetForeground(dpy, gc, 0xffffff);
-      XDrawString(dpy, win, gc, n->appbar_btn_close_x + 4, n->appbar_btn_y + 12, "x", 1);
-      XSetForeground(dpy, gc, old);
-      if (n->text) XDrawString(dpy, win, gc, n->x + 16, n->y + 22, n->text->data, (int)n->text->len);
-      if (n->subtitle) XDrawString(dpy, win, gc, n->x + 16, n->y + 40, n->subtitle->data, (int)n->subtitle->len);
+      if (n->bg_set || n->border_width > 0) {
+        cogito_draw_rect(n->x, n->y, n->w, n->h, n->bg, n->border_radius);
+        if (n->border_width > 0) {
+          cogito_draw_rect_lines(n->x, n->y, n->w, n->h, n->border_color, n->border_radius, n->border_width);
+        }
+      }
+      int btn = n->appbar_btn_size;
+      int by = n->appbar_btn_y;
+      int cx = n->appbar_btn_close_x;
+      DrawRectangleLines(cx, by, btn, btn, n->text_color);
+      cogito_draw_text(cx + 5, by + 1, "x", n->text_color);
+      DrawRectangleLines(n->appbar_btn_min_x, by, btn, btn, n->text_color);
+      DrawRectangle(n->appbar_btn_min_x + 4, by + btn / 2, btn - 8, 2, n->text_color);
+      DrawRectangleLines(n->appbar_btn_max_x, by, btn, btn, n->text_color);
+      DrawRectangleLines(n->appbar_btn_max_x + 4, by + 4, btn - 8, btn - 8, n->text_color);
+      if (n->text) {
+        cogito_draw_text(n->x + 16, n->y + 12, n->text->data, n->text_color);
+      }
+      if (n->subtitle) {
+        cogito_draw_text(n->x + 16, n->y + 32, n->subtitle->data, n->text_color);
+      }
       for (size_t i = 0; i < n->len; i++) {
-        cogito_draw_node(dpy, win, gc, n->children[i]);
+        cogito_draw_node(n->children[i]);
       }
       break;
     }
     case COGITO_VSTACK:
     case COGITO_HSTACK:
     case COGITO_WINDOW:
-    case COGITO_APPBAR:
       for (size_t i = 0; i < n->len; i++) {
-        cogito_draw_node(dpy, win, gc, n->children[i]);
+        cogito_draw_node(n->children[i]);
       }
       break;
   }
 }
-#endif
 
-static void cogito_attach_node(CogitoNode* win, CogitoNode* n, int content_h) {
-#if defined(_WIN32)
-  (void)content_h;
-  if (n->kind == COGITO_BUTTON || n->kind == COGITO_ICONBTN || n->kind == COGITO_CHECKBOX || n->kind == COGITO_SWITCH || n->kind == COGITO_LABEL) {
-    DWORD style = WS_CHILD | WS_VISIBLE;
-    const char* cls = "STATIC";
-    if (n->kind == COGITO_BUTTON) {
-      cls = "BUTTON";
-      style |= BS_PUSHBUTTON;
-    } else if (n->kind == COGITO_ICONBTN) {
-      cls = "BUTTON";
-      style |= BS_FLAT;
-    } else if (n->kind == COGITO_CHECKBOX || n->kind == COGITO_SWITCH) {
-      cls = "BUTTON";
-      if (n->kind == COGITO_CHECKBOX && n->group.tag != EVT_NULL) {
-        style |= BS_AUTORADIOBUTTON;
-      } else {
-        style |= BS_AUTOCHECKBOX;
-      }
+static void cogito_draw_menu(void) {
+  if (!cogito_menu.open || !cogito_menu.owner) return;
+  Color bg = cogito_rgba(250, 250, 250, 255);
+  Color border = cogito_rgba(180, 180, 180, 255);
+  int x = cogito_menu.x;
+  int y = cogito_menu.y;
+  int w = cogito_menu.w;
+  int h = cogito_menu.h;
+  cogito_draw_rect(x, y, w, h, bg, 4);
+  cogito_draw_rect_lines(x, y, w, h, border, 4, 1);
+  int mx = (int)GetMousePosition().x;
+  int my = (int)GetMousePosition().y;
+  int hover = cogito_menu_hit(&cogito_menu, mx, my);
+  for (size_t i = 0; i < cogito_menu.owner->menu_len; i++) {
+    int iy = y + (int)i * cogito_menu.item_h;
+    if ((int)i == hover) {
+      cogito_draw_rect(x + 2, iy + 2, w - 4, cogito_menu.item_h - 4, cogito_rgba(220, 230, 250, 255), 3);
     }
-    const char* title = n->text ? n->text->data : "";
-    HWND h = CreateWindow(cls, title, style, n->x, n->y, n->w, n->h, win->hwnd, NULL, GetModuleHandle(NULL), NULL);
-    SetWindowLongPtr(h, GWLP_USERDATA, (LONG_PTR)n);
-    n->native = h;
-    if (n->kind == COGITO_CHECKBOX || n->kind == COGITO_SWITCH) {
-      SendMessage(h, BM_SETCHECK, n->checked ? BST_CHECKED : BST_UNCHECKED, 0);
-    }
-  } else if (n->kind == COGITO_APPBAR) {
-    int by = n->y;
-    int bs = n->appbar_btn_size;
-    int byc = n->appbar_btn_y;
-    HWND hclose = CreateWindow("BUTTON", "X", WS_CHILD | WS_VISIBLE | BS_FLAT, n->appbar_btn_close_x, byc, bs, bs, win->hwnd, (HMENU)(INT_PTR)9001, GetModuleHandle(NULL), NULL);
-    n->native = hclose;
-    int text_w = n->appbar_btn_close_x - (n->x + 16) - 12;
-    if (text_w < 0) text_w = 0;
-    if (n->text && n->text->len) {
-      CreateWindow("STATIC", n->text->data, WS_CHILD | WS_VISIBLE, n->x + 16, by + 12, text_w, 20, win->hwnd, NULL, GetModuleHandle(NULL), NULL);
-    }
-    if (n->subtitle && n->subtitle->len) {
-      CreateWindow("STATIC", n->subtitle->data, WS_CHILD | WS_VISIBLE, n->x + 16, by + 32, text_w, 20, win->hwnd, NULL, GetModuleHandle(NULL), NULL);
-    }
-  }
-#elif defined(__APPLE__)
-  if (!win->nswin) return;
-  NSView* content = [win->nswin contentView];
-  CGFloat by = (CGFloat)(content_h - n->y - n->h);
-  if (n->kind == COGITO_BUTTON || n->kind == COGITO_ICONBTN || n->kind == COGITO_CHECKBOX || n->kind == COGITO_SWITCH) {
-    NSString* nsTitle = [NSString stringWithUTF8String:(n->text ? n->text->data : "")];
-    id ctrl = nil;
-    bool is_native_switch = false;
-    if (n->kind == COGITO_SWITCH) {
-      Class swClass = NSClassFromString(@"NSSwitch");
-      if (swClass) {
-        id sw = [swClass new];
-        ctrl = sw;
-        is_native_switch = true;
-      }
-    }
-    if (!ctrl) {
-      NSButton* btn = [NSButton buttonWithTitle:nsTitle target:nil action:nil];
-      if (n->kind == COGITO_CHECKBOX) {
-        if (n->group.tag != EVT_NULL) {
-          [btn setButtonType:NSButtonTypeRadio];
-        } else {
-          [btn setButtonType:NSButtonTypeSwitch];
-        }
-      } else if (n->kind == COGITO_SWITCH) {
-        [btn setButtonType:NSButtonTypeSwitch];
-      } else if (n->kind == COGITO_ICONBTN) {
-        [btn setBordered:NO];
-        [btn setWantsLayer:YES];
-        btn.layer.cornerRadius = 21.0;
-        btn.layer.backgroundColor = [[NSColor colorWithWhite:0.9 alpha:1.0] CGColor];
-        [btn setFont:[NSFont systemFontOfSize:24.0]];
-      }
-      ctrl = btn;
-    }
-    CogitoTarget* target = [CogitoTarget new];
-    target.node = n;
-    if ([ctrl respondsToSelector:@selector(setTarget:)]) {
-      [ctrl setTarget:target];
-    }
-    if ([ctrl respondsToSelector:@selector(setAction:)]) {
-      [ctrl setAction:@selector(onAction:)];
-    }
-    if ((n->kind == COGITO_CHECKBOX || n->kind == COGITO_SWITCH) && [ctrl respondsToSelector:@selector(setState:)]) {
-      [ctrl setState:(n->checked ? NSControlStateValueOn : NSControlStateValueOff)];
-    }
-    if (is_native_switch && [ctrl respondsToSelector:@selector(sizeToFit)]) {
-      [ctrl sizeToFit];
-      NSRect r = [ctrl frame];
-      r.origin.x = n->x;
-      r.origin.y = by + (n->h - r.size.height) * 0.5;
-      [ctrl setFrame:r];
-    } else {
-      [ctrl setFrame:NSMakeRect(n->x, by, n->w, n->h)];
-    }
-    [content addSubview:ctrl];
-    n->native = ctrl;
-    n->target = target;
-    if (is_native_switch && n->text && n->text->len) {
-      CGFloat switch_w = [ctrl frame].size.width;
-      int label_x = n->x + (int)switch_w + 6;
-      NSDictionary* attrs = @{NSFontAttributeName:[NSFont systemFontOfSize:[NSFont systemFontSize]]};
-      CGFloat label_w = [nsTitle sizeWithAttributes:attrs].width + 4.0;
-      CGFloat label_h = [nsTitle sizeWithAttributes:attrs].height;
-      if (label_h < 14.0) label_h = 14.0;
-      CGFloat label_y = by + (n->h - label_h) * 0.5;
-      NSTextField* tf = [[NSTextField alloc] initWithFrame:NSMakeRect(label_x, label_y, label_w, label_h)];
-      [tf setStringValue:nsTitle];
-      [tf setFont:[NSFont systemFontOfSize:[NSFont systemFontSize]]];
-      [tf setBezeled:NO];
-      [tf setDrawsBackground:NO];
-      [tf setEditable:NO];
-      [tf setSelectable:NO];
-      [content addSubview:tf];
-      n->aux = tf;
-    }
-  } else if (n->kind == COGITO_APPBAR) {
-    NSWindow* nsw = win->nswin;
-    NSButton* close = [nsw standardWindowButton:NSWindowCloseButton];
-    NSButton* min = [nsw standardWindowButton:NSWindowMiniaturizeButton];
-    NSButton* zoom = [nsw standardWindowButton:NSWindowZoomButton];
-    [close setHidden:YES];
-    [min setHidden:YES];
-    [zoom setHidden:YES];
-
-    CogitoAppBarView* bg = [[CogitoAppBarView alloc] initWithFrame:NSMakeRect(n->x, by, n->w, n->h)];
-    [bg setWantsLayer:YES];
-    bg.layer.backgroundColor = [[NSColor colorWithWhite:0.95 alpha:1.0] CGColor];
-    bg.targetWindow = nsw;
-    [content addSubview:bg];
-    content.layer.backgroundColor = [[NSColor whiteColor] CGColor];
-    [content setWantsLayer:YES];
-    content.layer.cornerRadius = 16.0;
-    content.layer.masksToBounds = YES;
-    n->aux2 = bg;
-
-    NSButton* cb = [NSButton buttonWithTitle:@"×" target:nsw action:@selector(performClose:)];
-    [cb setBezelStyle:NSBezelStyleCircular];
-    [cb setFrame:NSMakeRect(n->appbar_btn_close_x, by + n->h - n->appbar_btn_size - 9, n->appbar_btn_size, n->appbar_btn_size)];
-    [cb setFont:[NSFont systemFontOfSize:14.0]];
-    [content addSubview:cb];
-    n->native = cb;
-
-    CGFloat title_w = (CGFloat)(n->appbar_btn_close_x - (n->x + 16) - 12);
-    if (title_w < 0.0) title_w = 0.0;
-    if (n->text && n->text->len) {
-      NSTextField* tf = [[NSTextField alloc] initWithFrame:NSMakeRect(n->x + 16, by + n->h - 55, title_w, 20)];
-      [tf setStringValue:[NSString stringWithUTF8String:n->text->data]];
-      [tf setFont:[NSFont boldSystemFontOfSize:18.0]];
-      [tf setTextColor:[NSColor colorWithWhite:0.2 alpha:1.0]];
-      [tf setBezeled:NO];
-      [tf setDrawsBackground:NO];
-      [tf setEditable:NO];
-      [tf setSelectable:NO];
-      [content addSubview:tf];
-      n->aux3 = tf;
-    }
-    if (n->subtitle && n->subtitle->len) {
-      NSTextField* tf2 = [[NSTextField alloc] initWithFrame:NSMakeRect(n->x + 16, by + n->h - 75, title_w, 18)];
-      [tf2 setStringValue:[NSString stringWithUTF8String:n->subtitle->data]];
-      [tf2 setFont:[NSFont systemFontOfSize:15.0]];
-      [tf2 setTextColor:[NSColor colorWithWhite:0.35 alpha:1.0]];
-      [tf2 setBezeled:NO];
-      [tf2 setDrawsBackground:NO];
-      [tf2 setEditable:NO];
-      [tf2 setSelectable:NO];
-      [content addSubview:tf2];
-      n->aux4 = tf2;
-    }
-  } else if (n->kind == COGITO_LABEL) {
-    NSString* nsTitle = [NSString stringWithUTF8String:(n->text ? n->text->data : "")];
-    NSTextField* tf = [[NSTextField alloc] initWithFrame:NSMakeRect(n->x, by, n->w, n->h)];
-    [tf setStringValue:nsTitle];
-    [tf setFont:[NSFont systemFontOfSize:[NSFont systemFontSize]]];
-    [tf setBezeled:NO];
-    [tf setDrawsBackground:NO];
-    [tf setEditable:NO];
-    [tf setSelectable:NO];
-    [tf sizeToFit];
-    NSRect r = [tf frame];
-    r.origin.x = n->x;
-    r.origin.y = by + (n->h - r.size.height) * 0.5;
-    r.size.width = n->w;
-    [tf setFrame:r];
-    [content addSubview:tf];
-    n->native = tf;
-  }
-#else
-  (void)win;
-  (void)n;
-  (void)content_h;
-#endif
-  for (size_t i = 0; i < n->len; i++) {
-    cogito_attach_node(win, n->children[i], content_h);
+    const char* text = cogito_menu.owner->menu_labels[i] ? cogito_menu.owner->menu_labels[i]->data : "";
+    cogito_draw_text(x + 10, iy + 6, text, cogito_rgba(30, 30, 30, 255));
   }
 }
 
@@ -2574,194 +2694,171 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (winv.tag != EVT_OBJ) ergo_trap("cogito.run expects window");
   CogitoNode* win = (CogitoNode*)winv.as.p;
   cogito_active_window = win;
+  cogito_apply_style_tree(win);
   if (win->auto_size) {
     int dw = 0;
     int dh = 0;
     cogito_window_desired_size(win, &dw, &dh);
-    if (dw > win->w) win->w = dw;
-    if (dh > win->h) win->h = dh;
+    if (dw > 0 && dh > 0) {
+      win->w = dw;
+      win->h = dh;
+    }
+  }
+  const char* title = win->text ? win->text->data : "Cogito";
+  CogitoNode* appbar = cogito_find_appbar(win);
+#if defined(__APPLE__)
+  SetConfigFlags(FLAG_MSAA_4X_HINT);
+#else
+  if (appbar) {
+    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_UNDECORATED);
+  } else {
+    SetConfigFlags(FLAG_MSAA_4X_HINT);
+  }
+#endif
+  InitWindow(win->w, win->h, title);
+  cogito_raylib_ready = true;
+#if defined(__APPLE__)
+  cogito_configure_macos_window(appbar != NULL);
+#endif
+  const char* font_path = getenv("COGITO_FONT");
+  const char* font_size_env = getenv("COGITO_FONT_SIZE");
+  if (font_size_env && font_size_env[0]) {
+    int sz = atoi(font_size_env);
+    if (sz > 6) cogito_font_size_value = sz;
+  }
+  if (font_path && font_path[0]) {
+    cogito_font = LoadFontEx(font_path, cogito_font_size(), NULL, 0);
+    if (cogito_font.texture.id != 0) {
+      cogito_font_ready = true;
+      SetTextureFilter(cogito_font.texture, TEXTURE_FILTER_BILINEAR);
+      cogito_font_loaded_size = cogito_font_size();
+      cogito_font_from_env = true;
+    }
+  }
+  if (!cogito_font_ready) {
+    cogito_font = GetFontDefault();
+    cogito_font_ready = true;
+    SetTextureFilter(cogito_font.texture, TEXTURE_FILTER_BILINEAR);
+    cogito_font_loaded_size = cogito_font_size();
+    cogito_font_from_env = false;
+  }
+  SetTargetFPS(60);
+  if (win->auto_size) {
+    int dw = 0;
+    int dh = 0;
+    cogito_window_desired_size(win, &dw, &dh);
+    if (dw > 0 && dh > 0) {
+      win->w = dw;
+      win->h = dh;
+      SetWindowSize(dw, dh);
+    }
   }
   cogito_layout_window(win);
 
-#if defined(_WIN32)
-  static bool registered = false;
-  if (!registered) {
-    WNDCLASS wc;
-    memset(&wc, 0, sizeof(wc));
-    wc.lpfnWndProc = cogito_wndproc;
-    wc.hInstance = GetModuleHandle(NULL);
-    wc.lpszClassName = "CogitoWindow";
-    RegisterClass(&wc);
-    registered = true;
-  }
-  const char* title = win->text ? win->text->data : "Cogito";
-  bool has_appbar = false;
-  for (size_t i = 0; i < win->len; i++) {
-    if (win->children[i]->kind == COGITO_APPBAR) { has_appbar = true; break; }
-  }
-  DWORD style = has_appbar ? (WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX) : WS_OVERLAPPEDWINDOW;
-  win->hwnd = CreateWindowEx(0, "CogitoWindow", title, style,
-                             CW_USEDEFAULT, CW_USEDEFAULT, win->w, win->h,
-                             NULL, NULL, GetModuleHandle(NULL), NULL);
-  SetWindowLongPtr(win->hwnd, GWLP_USERDATA, (LONG_PTR)win);
-  ShowWindow(win->hwnd, SW_SHOW);
-  UpdateWindow(win->hwnd);
-  cogito_window_apply_rounding(win);
-  for (size_t i = 0; i < win->len; i++) {
-    cogito_attach_node(win, win->children[i], win->h);
-  }
-  MSG msg;
-  while (GetMessage(&msg, NULL, 0, 0)) {
-    TranslateMessage(&msg);
-    DispatchMessage(&msg);
-  }
-#elif defined(__APPLE__)
-  @autoreleasepool {
-    NSApplication* app = [NSApplication sharedApplication];
-    if (cogito_debug_enabled()) {
-      fprintf(stderr, "cogito: run mac start\n");
-      fflush(stderr);
-    }
-    [app setActivationPolicy:NSApplicationActivationPolicyRegular];
-    [app finishLaunching];
-    NSRect rect = NSMakeRect(0, 0, win->w, win->h);
-    bool has_appbar = false;
-    for (size_t i = 0; i < win->len; i++) {
-      if (win->children[i]->kind == COGITO_APPBAR) { has_appbar = true; break; }
-    }
-    NSUInteger style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable;
-    if (has_appbar) {
-      style |= NSWindowStyleMaskFullSizeContentView;
-    }
-    NSWindow* nsw = [[NSWindow alloc] initWithContentRect:rect styleMask:style backing:NSBackingStoreBuffered defer:NO];
-    if (has_appbar) {
-      [nsw setTitleVisibility:NSWindowTitleHidden];
-      [nsw setTitlebarAppearsTransparent:YES];
-      [nsw setMovableByWindowBackground:NO];
-    }
-    NSString* nsTitle = [NSString stringWithUTF8String:(win->text ? win->text->data : "Cogito")];
-    [nsw setTitle:nsTitle];
-    CogitoWindowDelegate* del = [CogitoWindowDelegate new];
-    del.win = win;
-    [nsw setDelegate:del];
-    win->nswin = nsw;
-    win->delegate = del;
-    for (size_t i = 0; i < win->len; i++) {
-      cogito_attach_node(win, win->children[i], win->h);
-    }
-    [nsw makeKeyAndOrderFront:nil];
-    [nsw orderFrontRegardless];
-    [nsw display];
-    [app activateIgnoringOtherApps:YES];
-    __block CogitoNode* win_ptr = win;
-    [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskLeftMouseDown handler:^NSEvent* _Nullable(NSEvent* event) {
-      if (!win_ptr || !win_ptr->nswin) return event;
-      NSView* content = [win_ptr->nswin contentView];
-      NSPoint p = [event locationInWindow];
-      p = [content convertPoint:p fromView:nil];
-      int mx = (int)p.x;
-      int my = win_ptr->h - (int)p.y;
-      for (size_t i = 0; i < win_ptr->len; i++) {
-        CogitoNode* c = win_ptr->children[i];
-        if (c->kind == COGITO_APPBAR) {
-          int bx = mx;
-          int by = my;
-          if (bx >= c->appbar_btn_close_x && bx <= c->appbar_btn_close_x + c->appbar_btn_size &&
-              by >= c->appbar_btn_y && by <= c->appbar_btn_y + c->appbar_btn_size) {
-            cogito_appbar_window_action(win_ptr, 0);
-          }
-        }
-      }
-      int idx = -1;
-      CogitoNode* list = cogito_find_list_grid_hit(win_ptr, mx, my, &idx);
-      if (list && idx >= 0) {
-        cogito_handle_list_select(list, idx, true);
-        cogito_update_selection_visuals(win_ptr);
-      }
-      return event;
-    }];
-    if (cogito_debug_enabled()) {
-      fprintf(stderr, "cogito: run mac loop\n");
-      fflush(stderr);
-    }
-    [app run];
-  }
-#else
-  win->dpy = XOpenDisplay(NULL);
-  if (!win->dpy) ergo_trap("cogito: X11 display not available");
-  int screen = DefaultScreen(win->dpy);
-  win->win = XCreateSimpleWindow(win->dpy, RootWindow(win->dpy, screen), 100, 100, win->w, win->h, 1,
-                                 BlackPixel(win->dpy, screen), WhitePixel(win->dpy, screen));
-  win->gc = DefaultGC(win->dpy, screen);
-  win->wm_delete = XInternAtom(win->dpy, "WM_DELETE_WINDOW", False);
-  XSetWMProtocols(win->dpy, win->win, &win->wm_delete, 1);
-  XSelectInput(win->dpy, win->win, ExposureMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | StructureNotifyMask);
-  if (win->text) XStoreName(win->dpy, win->win, win->text->data);
-  XMapWindow(win->dpy, win->win);
-  XEvent e;
-  while (1) {
-    XNextEvent(win->dpy, &e);
-    if (e.type == Expose) {
-      XClearWindow(win->dpy, win->win);
-      cogito_draw_node(win->dpy, win->win, win->gc, win);
-    } else if (e.type == ButtonPress) {
-      int mx = e.xbutton.x;
-      int my = e.xbutton.y;
-      if (win->len > 0) {
-        for (size_t i = 0; i < win->len; i++) {
-          CogitoNode* c = win->children[i];
-          if (c->kind == COGITO_APPBAR) {
-            int bx = mx;
-            int by = my;
-            if (bx >= c->appbar_btn_close_x && bx <= c->appbar_btn_close_x + c->appbar_btn_size &&
-                by >= c->appbar_btn_y && by <= c->appbar_btn_y + c->appbar_btn_size) {
-              cogito_appbar_window_action(win, 0);
-            }
-          }
-        }
-      }
-      CogitoNode* app = cogito_find_appbar(win);
-      if (app && cogito_hit_rect(mx, my, app->x, app->y, app->w, app->h) &&
-          !cogito_point_over_appbar_buttons(app, mx, my)) {
-        win->drag_active = 1;
-        win->drag_off_x = mx;
-        win->drag_off_y = my;
-      }
-      CogitoNode* hit = cogito_find_clickable(win, mx, my);
-      if (hit) {
-        if (hit->kind == COGITO_BUTTON || hit->kind == COGITO_ICONBTN) {
-          if (hit->menu_len > 0) {
-            cogito_show_menu_x11(hit, win);
-          } else {
-            cogito_invoke_click(hit);
-          }
-        } else if (hit->kind == COGITO_CHECKBOX || hit->kind == COGITO_SWITCH) {
-          hit->checked = !hit->checked;
-          if (hit->checked && hit->group.tag != EVT_NULL) {
-            cogito_uncheck_group(win, hit, hit->group);
-          }
-          cogito_invoke_change(hit);
-        }
-      }
-      cogito_handle_click(win, mx, my, true);
-      XClearWindow(win->dpy, win->win);
-      cogito_draw_node(win->dpy, win->win, win->gc, win);
-      if (win->should_close) break;
-    } else if (e.type == MotionNotify) {
-      if (win->drag_active) {
-        int nx = e.xmotion.x_root - win->drag_off_x;
-        int ny = e.xmotion.y_root - win->drag_off_y;
-        XMoveWindow(win->dpy, win->win, nx, ny);
-      }
-    } else if (e.type == ButtonRelease) {
-      win->drag_active = 0;
-    } else if (e.type == ConfigureNotify) {
-      win->w = e.xconfigure.width;
-      win->h = e.xconfigure.height;
+  while (!WindowShouldClose() && !win->should_close) {
+    int sw = GetScreenWidth();
+    int sh = GetScreenHeight();
+    if (sw != win->w || sh != win->h) {
+      win->w = sw;
+      win->h = sh;
       cogito_window_relayout(win);
-    } else if (e.type == ClientMessage) {
-      if ((Atom)e.xclient.data.l[0] == win->wm_delete) break;
     }
-  }
+    Vector2 mp = GetMousePosition();
+    int mx = (int)mp.x;
+    int my = (int)mp.y;
+    bool click = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    if (IsKeyPressed(KEY_ESCAPE) && cogito_menu.open) {
+      cogito_menu_close();
+    }
+#if !defined(__APPLE__)
+    if (cogito_drag_pending) {
+      if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+        Vector2 dp = { mp.x - cogito_drag_pending_mouse.x, mp.y - cogito_drag_pending_mouse.y };
+        if (fabsf(dp.x) > 2.0f || fabsf(dp.y) > 2.0f) {
+          cogito_drag_active = true;
+          cogito_drag_pending = false;
+          cogito_drag_start_mouse = cogito_drag_pending_mouse;
+          cogito_drag_start_win = GetWindowPosition();
+        }
+      } else {
+        cogito_drag_pending = false;
+      }
+    }
+    if (cogito_drag_active) {
+      if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+        Vector2 delta = { mp.x - cogito_drag_start_mouse.x, mp.y - cogito_drag_start_mouse.y };
+        double now = GetTime();
+        if (now - cogito_drag_last_move > 0.016) {
+          SetWindowPosition((int)(cogito_drag_start_win.x + delta.x), (int)(cogito_drag_start_win.y + delta.y));
+          cogito_drag_last_move = now;
+        }
+      } else {
+        cogito_drag_active = false;
+      }
+    }
 #endif
+    if (click) {
+      if (cogito_menu.open) {
+        int idx = cogito_menu_hit(&cogito_menu, mx, my);
+        if (idx >= 0 && cogito_menu.owner) {
+          cogito_invoke_menu(cogito_menu.owner, (size_t)idx);
+        }
+        cogito_menu_close();
+      } else {
+        if (appbar) {
+          if (cogito_hit_rect(mx, my, appbar->appbar_btn_close_x, appbar->appbar_btn_y, appbar->appbar_btn_size, appbar->appbar_btn_size)) {
+            cogito_appbar_window_action(win, 0);
+          } else if (cogito_hit_rect(mx, my, appbar->appbar_btn_min_x, appbar->appbar_btn_y, appbar->appbar_btn_size, appbar->appbar_btn_size)) {
+            cogito_appbar_window_action(win, 1);
+          } else if (cogito_hit_rect(mx, my, appbar->appbar_btn_max_x, appbar->appbar_btn_y, appbar->appbar_btn_size, appbar->appbar_btn_size)) {
+            cogito_appbar_window_action(win, 2);
+          }
+#if !defined(__APPLE__)
+          else if (cogito_hit_rect(mx, my, appbar->x, appbar->y, appbar->w, appbar->h) &&
+                   !cogito_point_over_appbar_buttons(appbar, mx, my)) {
+            cogito_drag_pending = true;
+            cogito_drag_pending_mouse = mp;
+            cogito_drag_last_move = 0.0;
+          }
+#endif
+        }
+        CogitoNode* hit = cogito_find_clickable(win, mx, my);
+        if (hit) {
+          if (hit->kind == COGITO_BUTTON || hit->kind == COGITO_ICONBTN) {
+            if (hit->menu_len > 0) {
+              cogito_menu_open_for(hit);
+            } else {
+              cogito_invoke_click(hit);
+            }
+          } else if (hit->kind == COGITO_CHECKBOX || hit->kind == COGITO_SWITCH) {
+            hit->checked = !hit->checked;
+            if (hit->checked && hit->group.tag != EVT_NULL) {
+              cogito_uncheck_group(win, hit, hit->group);
+            }
+            cogito_invoke_change(hit);
+          }
+        }
+        cogito_handle_click(win, mx, my, true);
+      }
+    }
+
+    if (cogito_drag_active) {
+      BeginDrawing();
+      EndDrawing();
+      continue;
+    }
+
+    BeginDrawing();
+    Color win_bg = win->bg_set ? win->bg : cogito_rgba(245, 245, 245, 255);
+    ClearBackground(win_bg);
+    cogito_draw_node(win);
+    if (cogito_menu.open) cogito_draw_menu();
+    EndDrawing();
+  }
+  CloseWindow();
+  if (cogito_font_ready && cogito_font_from_env && cogito_font.texture.id != 0 && cogito_font.glyphCount > 0) {
+    UnloadFont(cogito_font);
+  }
+  cogito_raylib_ready = false;
+  cogito_menu_close();
 }
