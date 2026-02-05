@@ -622,7 +622,7 @@ static Color cogito_anim_color(CogitoNode* n, Color target, Color* cur, Color* f
   return *cur;
 }
 
-static COGITO_UNUSED void cogito_anim_apply(CogitoNode* n, const CogitoStyle* s, Color* bg, Color* text, Color* border, Color* selection) {
+static void cogito_anim_apply(CogitoNode* n, const CogitoStyle* s, Color* bg, Color* text, Color* border, Color* selection) {
   if (!n || !s) return;
   if (s->has_transition_ms) n->anim_ms = s->transition_ms;
   if (s->has_transition_ease) n->anim_ease = s->transition_ease;

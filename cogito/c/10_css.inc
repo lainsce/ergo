@@ -938,7 +938,7 @@ static void cogito_load_css_file(const char* path) {
   }
 }
 
-static COGITO_UNUSED void cogito_load_css(ErgoVal pathv) {
+static void cogito_load_css(ErgoVal pathv) {
   ErgoStr* ps = stdr_to_string(pathv);
   if (ps && ps->data) {
     size_t len = 0;
@@ -952,7 +952,7 @@ static COGITO_UNUSED void cogito_load_css(ErgoVal pathv) {
   if (ps) ergo_release_val(EV_STR(ps));
 }
 
-static COGITO_UNUSED bool cogito_strcasestr(const char* hay, const char* needle) {
+static bool cogito_strcasestr(const char* hay, const char* needle) {
   if (!hay || !needle || !*needle) return false;
   size_t nlen = strlen(needle);
   for (const char* p = hay; *p; p++) {
@@ -1189,8 +1189,8 @@ static void cogito_build_dynamic_css(bool dark, Color accent, char* out, size_t 
   cogito_css_append(out, cap, &off, ".appbar .window-max:active { background: #1ea64a; }\n");
   cogito_css_append(out, cap, &off, ".appbar .button:hover { background: %s; }\n", surf);
   cogito_css_append(out, cap, &off, ".appbar .button:active { background: %s; }\n", outl);
-  cogito_css_append(out, cap, &off, ".appbar .iconbtn:hover { background: %s; }\n", surf);
-  cogito_css_append(out, cap, &off, ".appbar .iconbtn:active { background: %s; }\n", outl);
+  cogito_css_append(out, cap, &off, ".appbar .iconbtn:hover { background: %s; }\n", outl);
+  cogito_css_append(out, cap, &off, ".appbar .iconbtn:active { background: %s; }\n", bg);
   cogito_css_append(out, cap, &off, "menu { background: %s; color: %s; }\n", surf, ons);
   cogito_css_append(out, cap, &off, "menu:selection { background: %s; }\n", p);
   cogito_css_append(out, cap, &off, ".menu:selection { background: %s; }\n", p);

@@ -9,4 +9,3 @@ class DialogSlot {
         __cogito_node_set_disabled(this, on)
     }
 }
-

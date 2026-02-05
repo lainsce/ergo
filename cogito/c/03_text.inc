@@ -347,7 +347,7 @@ static int cogito_text_height_size(int size) {
 
 static void cogito_node_set_text(CogitoNode* n, ErgoStr* s);
 
-static COGITO_UNUSED int cogito_text_width_size_n(const char* s, int len, int size);
+static int cogito_text_width_size_n(const char* s, int len, int size);
 
 static int cogito_text_width_size_font_spaced(Font* f, const char* s, int size, float spacing) {
   if (!s) return 0;

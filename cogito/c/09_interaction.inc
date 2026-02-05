@@ -743,7 +743,7 @@ static void cogito_node_set_a11y_role(ErgoVal nodev, ErgoVal rolev) {
   }
 }
 
-static COGITO_UNUSED void cogito_node_set_tooltip_val(ErgoVal nodev, ErgoVal textv) {
+static void cogito_node_set_tooltip_val(ErgoVal nodev, ErgoVal textv) {
   if (nodev.tag != EVT_OBJ) ergo_trap("cogito.node_set_tooltip expects node");
   CogitoNode* n = (CogitoNode*)nodev.as.p;
   if (n->tooltip) {
@@ -779,12 +779,12 @@ static void cogito_build(ErgoVal nodev, ErgoVal builder) {
 
 
 
-static COGITO_UNUSED ErgoVal cogito_state_new(ErgoVal initial) {
+static ErgoVal cogito_state_new(ErgoVal initial) {
   CogitoState* s = cogito_state_new_obj(initial);
   return EV_OBJ(s);
 }
 
-static COGITO_UNUSED ErgoVal cogito_state_get(ErgoVal sv) {
+static ErgoVal cogito_state_get(ErgoVal sv) {
   if (sv.tag != EVT_OBJ) ergo_trap("cogito.state_get expects state");
   CogitoState* s = (CogitoState*)sv.as.p;
   ErgoVal v = s->value;
@@ -792,7 +792,7 @@ static COGITO_UNUSED ErgoVal cogito_state_get(ErgoVal sv) {
   return v;
 }
 
-static COGITO_UNUSED void cogito_state_set(ErgoVal sv, ErgoVal nv) {
+static void cogito_state_set(ErgoVal sv, ErgoVal nv) {
   if (sv.tag != EVT_OBJ) ergo_trap("cogito.state_set expects state");
   CogitoState* s = (CogitoState*)sv.as.p;
   if (s->value.tag != EVT_NULL) ergo_release_val(s->value);

@@ -1,7 +1,7 @@
 static CogitoNode* cogito_scroller_new_obj(void) {
   return cogito_node_new(COGITO_SCROLLER);
 }
-static COGITO_UNUSED ErgoVal cogito_scroller_new(void) {
+static ErgoVal cogito_scroller_new(void) {
   return EV_OBJ(cogito_scroller_new_obj());
 }
 static void cogito_scroller_set_axes(ErgoVal scv, ErgoVal horzv, ErgoVal vertv) {

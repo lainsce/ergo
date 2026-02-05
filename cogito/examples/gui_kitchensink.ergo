@@ -69,12 +69,12 @@ fun on_colorpicker(cp = cogito.ColorPicker) (( -- )) {
 
 fun on_close_dialog(btn = cogito.Button) (( -- )) {
     let win = btn.window()
-    if win != null {
+    if main_win != null {
         writef(@"Closing dialog\n")
-        win.clear_dialog()
+        main_win.clear_dialog()
     } else {
         writef(@"Closing dialog (fallback)\n")
-        main_win.clear_dialog()
+        win.clear_dialog()
     }
 }
 
@@ -102,8 +102,6 @@ fun build_ui(win = cogito.Window) (( -- )) {
     settings_btn.add_menu(@"Preferences", on_appbar_settings)
     settings_btn.add_menu(@"About", on_appbar_help)
     cogito.set_tooltip(settings_btn, @"Preferences and About")
-    let help_btn = bar.add_button(@"sf:questionmark.circle", on_appbar_help)
-    cogito.set_tooltip(help_btn, @"Help and About")
     win.add(bar)
 
     let root = cogito.zstack()
@@ -315,8 +313,8 @@ entry () (( -- )) {
     let app = cogito.app()
     cogito.load_css(@"cogito/examples/cogito_examples.css")
     main_win.build(build_ui)
-    app.set_appid(@"com.example.CogitoKitchensink")
-    app.set_accent_color(@"#007AFF", false)
+    app.set_appid(@"ergo.cogito.Kitchensink")
+    app.set_accent_color(@"#3399cc", false)
     main_win.set_a11y_label(@"Cogito Kitchensink")
     main_win.set_resizable (true)
     app.run(main_win)

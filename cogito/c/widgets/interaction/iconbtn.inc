@@ -8,13 +8,13 @@ static ErgoVal cogito_iconbtn_new(ErgoVal text) {
   CogitoNode* btn = cogito_iconbtn_new_obj(ts);
   return EV_OBJ(btn);
 }
-static COGITO_UNUSED void cogito_iconbtn_set_text(ErgoVal btnv, ErgoVal text) {
+static void cogito_iconbtn_set_text(ErgoVal btnv, ErgoVal text) {
   if (btnv.tag != EVT_OBJ) ergo_trap("cogito.iconbtn_set_text expects button");
   CogitoNode* btn = (CogitoNode*)btnv.as.p;
   ErgoStr* ts = stdr_to_string(text);
   cogito_node_set_text(btn, ts);
 }
-static COGITO_UNUSED void cogito_iconbtn_on_click(ErgoVal btnv, ErgoVal handler) {
+static void cogito_iconbtn_on_click(ErgoVal btnv, ErgoVal handler) {
   if (btnv.tag != EVT_OBJ) ergo_trap("cogito.iconbtn_on_click expects button");
   CogitoNode* btn = (CogitoNode*)btnv.as.p;
   if (btn->on_click) ergo_release_val(EV_FN(btn->on_click));

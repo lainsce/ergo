@@ -31,12 +31,6 @@ static const char* cogito_font_bold_path_active = NULL;
 #include <stdlib.h>
 #include <string.h>
 
-#if defined(__GNUC__)
-#define COGITO_UNUSED __attribute__((unused))
-#else
-#define COGITO_UNUSED
-#endif
-
 // Rename internal Ergo-facing symbols to avoid conflicts with public C API.
 #define cogito_app_new cogito_app_new_ergo
 #define cogito_app_set_appid cogito_app_set_appid_ergo
