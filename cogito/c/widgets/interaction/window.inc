@@ -73,7 +73,15 @@ static void cogito_window_set_dialog(ErgoVal winv, ErgoVal dialogv) {
     win->dialog = dlg;
     win->dialog->parent = win;
     ergo_retain_val(EV_OBJ(win->dialog));
-    win->dialog_open = true;
+    // Only mark as open if the slot actually has a dialog
+    if (dlg->dialog && dlg->dialog_open) {
+      win->dialog_open = true;
+      dlg->dialog->parent = dlg;
+    } else {
+      win->dialog_open = false;
+    }
+    cogito_apply_style_tree(dlg);
+    cogito_window_relayout(win);
     return;
   }
   if (!win->dialog || win->dialog->kind != COGITO_DIALOG_SLOT) {

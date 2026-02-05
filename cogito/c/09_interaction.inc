@@ -154,8 +154,11 @@ static bool cogito_hit_node(CogitoNode* n, int x, int y) {
 
 static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
   if (!n) return NULL;
-  if (n->kind == COGITO_DIALOG_SLOT && n->dialog && n->dialog_open) {
-    return cogito_find_clickable(n->dialog, x, y);
+  if (n->kind == COGITO_DIALOG_SLOT) {
+    if (n->dialog && n->dialog_open) {
+      return cogito_find_clickable(n->dialog, x, y);
+    }
+    return NULL;
   }
   if (n->kind == COGITO_DIALOG && !cogito_hit_node(n, x, y)) return NULL;
   if (n->kind == COGITO_SCROLLER && !cogito_hit_rect(x, y, n->x, n->y, n->w, n->h)) return NULL;
