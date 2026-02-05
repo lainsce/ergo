@@ -12,7 +12,7 @@ case COGITO_TABS: {
       }
       for (size_t i = 0; i < n->tab_len; i++) {
         const char* t = n->tab_labels[i] ? n->tab_labels[i]->data : "";
-        int lw = cogito_text_width_size(t, size);
+        int lw = cogito_text_width_size_node(n, t, size);
         tw += lw + pad_x * 2;
         if (i + 1 < n->tab_len) tw += gap;
       }

@@ -80,7 +80,7 @@ case COGITO_TEXTVIEW: {
           cy += line_h;
         }
       }
-      cogito_draw_text_wrapped(n->x + pad, n->y + pad, n->w - pad * 2, t, text, size, cogito_node_bold(n), 0, true);
+      cogito_draw_text_wrapped(n, n->x + pad, n->y + pad, n->w - pad * 2, t, text, size, cogito_node_bold(n), 0, true);
       if (cogito_focused == n && !n->disabled) {
         int max_w = n->w - pad * 2;
         if (max_w < 1) max_w = 1;

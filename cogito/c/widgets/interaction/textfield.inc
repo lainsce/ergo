@@ -32,6 +32,10 @@ static void cogito_textfield_on_change(ErgoVal nodev, ErgoVal handler) {
 }
 static CogitoNode* cogito_find_text_input(CogitoNode* n, int x, int y) {
   if (!n) return NULL;
+  if (n->kind == COGITO_DIALOG_SLOT && n->dialog && n->dialog_open) {
+    return cogito_find_text_input(n->dialog, x, y);
+  }
+  if (n->kind == COGITO_DIALOG && !cogito_hit_node(n, x, y)) return NULL;
   if (n->kind == COGITO_VIEWSWITCHER) {
     CogitoNode* active = cogito_view_switcher_active_child(n);
     if (active) {
@@ -39,8 +43,8 @@ static CogitoNode* cogito_find_text_input(CogitoNode* n, int x, int y) {
       if (hit) return hit;
     }
   } else {
-    for (size_t i = 0; i < n->len; i++) {
-      CogitoNode* hit = cogito_find_text_input(n->children[i], x, y);
+    for (size_t i = n->len; i > 0; i--) {
+      CogitoNode* hit = cogito_find_text_input(n->children[i - 1], x, y);
       if (hit) return hit;
     }
   }

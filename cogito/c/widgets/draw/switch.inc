@@ -49,7 +49,7 @@ case COGITO_SWITCH: {
       if (n->text) {
         int th = cogito_text_height();
         int ty = n->y + (n->h - th) / 2;
-        cogito_draw_text(n->x + w + 8, ty, n->text->data, n->text_color);
+        cogito_draw_text_node(n, n->x + w + 8, ty, n->text->data, n->text_color);
       }
       break;
     }

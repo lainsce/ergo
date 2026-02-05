@@ -91,6 +91,18 @@ static void cogito_window_set_dialog(ErgoVal winv, ErgoVal dialogv) {
 static void cogito_window_clear_dialog(ErgoVal winv) {
   if (winv.tag != EVT_OBJ) ergo_trap("cogito.window_clear_dialog expects window");
   CogitoNode* win = (CogitoNode*)winv.as.p;
+  static int cogito_debug_hit = -1;
+  if (cogito_debug_hit < 0) {
+    const char* env = getenv("COGITO_DEBUG_HIT");
+    cogito_debug_hit = (env && env[0] && env[0] != '0') ? 1 : 0;
+  }
+  if (cogito_debug_hit) {
+    fprintf(stderr, "cogito: window_clear_dialog win=%p dialog=%p kind=%d open=%d\n",
+            (void*)win, win ? (void*)win->dialog : NULL,
+            win && win->dialog ? (int)win->dialog->kind : -1,
+            win ? (int)win->dialog_open : 0);
+    fflush(stderr);
+  }
   if (win->dialog && win->dialog->kind == COGITO_DIALOG_SLOT) {
     cogito_dialog_slot_clear(EV_OBJ(win->dialog));
   }

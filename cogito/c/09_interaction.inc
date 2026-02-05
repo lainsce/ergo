@@ -6,11 +6,51 @@ static void cogito_node_set_class(ErgoVal nodev, ErgoVal classv);
 
 static void cogito_invoke(ErgoFn* fn, int argc, ErgoVal* argv) {
   if (!fn) return;
-  fn->fn(fn->env, argc, argv);
+  static int cogito_debug_invoke = -1;
+  if (cogito_debug_invoke < 0) {
+    const char* env = getenv("COGITO_DEBUG_HIT");
+    cogito_debug_invoke = (env && env[0] && env[0] != '0') ? 1 : 0;
+  }
+  if (cogito_debug_invoke) {
+    fprintf(stderr, "cogito: invoke fn=%p impl=%p env=%p argc=%d\n",
+            (void*)fn, (void*)fn->fn, fn->env, argc);
+    fflush(stderr);
+  }
+  ErgoVal ret = fn->fn(fn->env, argc, argv);
+  if (cogito_debug_invoke) {
+    fprintf(stderr, "cogito: invoke ret tag=%d\n", (int)ret.tag);
+    fflush(stderr);
+  }
+  if (ret.tag != EVT_NULL) {
+    ergo_release_val(ret);
+  }
+  if (cogito_debug_invoke) {
+    fprintf(stderr, "cogito: invoke done fn=%p\n", (void*)fn);
+    fflush(stderr);
+  }
 }
 
 static void cogito_invoke_click(CogitoNode* n) {
   if (!n || !n->on_click) return;
+  static int cogito_debug_click = -1;
+  if (cogito_debug_click < 0) {
+    const char* env = getenv("COGITO_DEBUG_HIT");
+    cogito_debug_click = (env && env[0] && env[0] != '0') ? 1 : 0;
+  }
+  if (cogito_debug_click) {
+    const char* t = (n->text && n->text->data) ? n->text->data : "";
+    CogitoNode* win = cogito_node_window(n);
+    fprintf(stderr, "cogito: invoke_click kind=%d text=\"%s\" handler=%p\n",
+            (int)n->kind, t, (void*)n->on_click);
+    if (win) {
+      fprintf(stderr, "cogito: invoke_click window=%p dialog_open=%d dialog=%p dialog_kind=%d\n",
+              (void*)win, (int)win->dialog_open, (void*)win->dialog,
+              win->dialog ? (int)win->dialog->kind : -1);
+    } else {
+      fprintf(stderr, "cogito: invoke_click window=NULL\n");
+    }
+    fflush(stderr);
+  }
   ErgoVal arg = EV_OBJ(n);
   cogito_invoke(n->on_click, 1, &arg);
 }
@@ -114,6 +154,10 @@ static bool cogito_hit_node(CogitoNode* n, int x, int y) {
 
 static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
   if (!n) return NULL;
+  if (n->kind == COGITO_DIALOG_SLOT && n->dialog && n->dialog_open) {
+    return cogito_find_clickable(n->dialog, x, y);
+  }
+  if (n->kind == COGITO_DIALOG && !cogito_hit_node(n, x, y)) return NULL;
   if (n->kind == COGITO_SCROLLER && !cogito_hit_rect(x, y, n->x, n->y, n->w, n->h)) return NULL;
   if (n->kind == COGITO_VIEWSWITCHER) {
     CogitoNode* active = cogito_view_switcher_active_child(n);
@@ -122,8 +166,8 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
       if (child) return child;
     }
   } else {
-    for (size_t i = 0; i < n->len; i++) {
-      CogitoNode* child = cogito_find_clickable(n->children[i], x, y);
+    for (size_t i = n->len; i > 0; i--) {
+      CogitoNode* child = cogito_find_clickable(n->children[i - 1], x, y);
       if (child) return child;
     }
   }
@@ -644,7 +688,6 @@ static void cogito_node_set_class(ErgoVal nodev, ErgoVal classv) {
       n->font_mono = true;
     } else if (strcmp(s, "tabular") == 0 || strcmp(s, "tnum") == 0) {
       n->font_tabular = true;
-      n->font_mono = true;
     }
   }
   if (temp && cs) ergo_release_val(EV_STR(cs));

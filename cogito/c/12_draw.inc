@@ -123,7 +123,7 @@ static void cogito_draw_menu(void) {
     const char* text = cogito_menu.owner->menu_labels[i] ? cogito_menu.owner->menu_labels[i]->data : "";
     int th = cogito_text_height_size(font_size);
     int ty = iy + (cogito_menu.item_h - th) / 2;
-    cogito_draw_text_size(x + cogito_menu.pad_x, ty, text, text_color, font_size, false);
+    cogito_draw_text_size_node(cogito_menu.owner, x + cogito_menu.pad_x, ty, text, text_color, font_size, false);
   }
 }
 
@@ -140,7 +140,7 @@ static void cogito_draw_tooltip(CogitoNode* win, CogitoNode* target) {
   int pad_y = s.has_padding_top ? s.padding_top : 6;
 
   const char* t = target->tooltip->data;
-  int tw = cogito_text_width_size(t, font_size);
+  int tw = cogito_text_width_size_node(target, t, font_size);
   int th = cogito_text_height_size(font_size);
   int w = tw + pad_x * 2;
   int h = th + pad_y * 2;
@@ -157,6 +157,5 @@ static void cogito_draw_tooltip(CogitoNode* win, CogitoNode* target) {
   if (border_w > 0) {
     cogito_draw_rect_lines(x, y, w, h, border, radius, border_w);
   }
-  cogito_draw_text_size(x + pad_x, y + pad_y, t, text, font_size, false);
+  cogito_draw_text_size_node(target, x + pad_x, y + pad_y, t, text, font_size, false);
 }
-

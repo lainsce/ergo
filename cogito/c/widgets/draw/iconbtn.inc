@@ -73,7 +73,7 @@ case COGITO_ICONBTN: {
           int ty = n->y + (n->h - text_h) / 2;
           Color text = n->text_color;
           if (s.has_text) text = s.text;
-          cogito_draw_text(tx, ty, n->text->data, text);
+          cogito_draw_text_node(n, tx, ty, n->text->data, text);
         }
       }
       break;

@@ -124,6 +124,9 @@ static CogitoStyle cogito_style_merge(const CogitoStyle* base, const CogitoStyle
   if (over->has_knob) { out.has_knob = true; out.knob = over->knob; }
   if (over->has_check) { out.has_check = true; out.check = over->check; }
   if (over->has_font_weight) { out.has_font_weight = true; out.font_weight = over->font_weight; }
+  if (over->has_letter_spacing) { out.has_letter_spacing = true; out.letter_spacing = over->letter_spacing; }
+  if (over->has_font_tabular) { out.has_font_tabular = true; out.font_tabular = over->font_tabular; }
+  if (over->has_font_mono) { out.has_font_mono = true; out.font_mono = over->font_mono; }
   if (over->has_min_w) { out.has_min_w = true; out.min_w = over->min_w; }
   if (over->has_min_h) { out.has_min_h = true; out.min_h = over->min_h; }
   if (over->has_max_w) { out.has_max_w = true; out.max_w = over->max_w; }
@@ -353,6 +356,19 @@ static void cogito_apply_style_to_node(CogitoNode* n) {
     n->font_weight_set = false;
     n->font_weight = 400;
   }
+  if (s.has_letter_spacing) {
+    n->letter_spacing = s.letter_spacing;
+    n->letter_spacing_set = true;
+  } else {
+    n->letter_spacing_set = false;
+    n->letter_spacing = 0.0f;
+  }
+  if (s.has_font_tabular) {
+    n->font_tabular = s.font_tabular;
+  }
+  if (s.has_font_mono) {
+    n->font_mono = s.font_mono;
+  }
   if (s.has_min_w) { n->min_w = s.min_w; n->min_w_set = true; }
   else { n->min_w_set = false; }
   if (s.has_min_h) { n->min_h = s.min_h; n->min_h_set = true; }
@@ -372,11 +388,46 @@ static void cogito_apply_style_to_node(CogitoNode* n) {
           const char* font_path = cogito_font_path_active;
           if (font_path && font_path[0] && cogito_font_loaded_size != sz) {
             UnloadFont(cogito_font);
-            cogito_font = LoadFontEx(font_path, sz, NULL, 0);
-            if (cogito_font.texture.id != 0) {
+            if (cogito_load_font_file(&cogito_font, font_path, sz, cogito_font_weight_normal())) {
               cogito_font_ready = true;
               SetTextureFilter(cogito_font.texture, TEXTURE_FILTER_BILINEAR);
               cogito_font_loaded_size = sz;
+            } else {
+              cogito_font_ready = false;
+            }
+          }
+        }
+        if (cogito_raylib_ready && cogito_font_mono_ready && cogito_font_mono_from_env) {
+          const char* mono_path = cogito_font_mono_path_active;
+          if (mono_path && mono_path[0] && cogito_font_mono_loaded_size != sz) {
+            UnloadFont(cogito_font_mono);
+            if (cogito_load_font_file(&cogito_font_mono, mono_path, sz, cogito_font_weight_normal())) {
+              cogito_font_mono_ready = true;
+              SetTextureFilter(cogito_font_mono.texture, TEXTURE_FILTER_BILINEAR);
+              cogito_font_mono_loaded_size = sz;
+            } else {
+              cogito_font_mono_ready = false;
+            }
+          }
+        }
+        if (cogito_raylib_ready && cogito_font_bold_ready && cogito_font_bold_from_env) {
+          const char* bold_path = cogito_font_bold_path_active;
+          if (bold_path && bold_path[0] && cogito_font_bold_loaded_size != sz) {
+            UnloadFont(cogito_font_bold);
+            bool weight_applied = false;
+            if (cogito_load_font_file_ex(&cogito_font_bold, bold_path, sz, cogito_font_weight_bold(), &weight_applied)) {
+              if (cogito_font_bold_variable && !weight_applied) {
+                UnloadFont(cogito_font_bold);
+                cogito_font_bold_ready = false;
+                cogito_font_bold_variable = false;
+              } else {
+                cogito_font_bold_ready = true;
+                SetTextureFilter(cogito_font_bold.texture, TEXTURE_FILTER_BILINEAR);
+                cogito_font_bold_loaded_size = sz;
+              }
+            } else {
+              cogito_font_bold_ready = false;
+              cogito_font_bold_variable = false;
             }
           }
         }

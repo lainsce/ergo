@@ -68,7 +68,14 @@ fun on_colorpicker(cp = cogito.ColorPicker) (( -- )) {
 }
 
 fun on_close_dialog(btn = cogito.Button) (( -- )) {
-    main_win.clear_dialog()
+    let win = btn.window()
+    if win != null {
+        writef(@"Closing dialog\n")
+        win.clear_dialog()
+    } else {
+        writef(@"Closing dialog (fallback)\n")
+        main_win.clear_dialog()
+    }
 }
 
 fun on_appbar_settings(btn = cogito.Button) (( -- )) {

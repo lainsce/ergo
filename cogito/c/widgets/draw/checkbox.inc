@@ -69,7 +69,7 @@ case COGITO_CHECKBOX: {
       if (n->text) {
         int th = cogito_text_height();
         int ty = n->y + (n->h - th) / 2;
-        cogito_draw_text(n->x + box + 6, ty, n->text->data, n->text_color);
+        cogito_draw_text_node(n, n->x + box + 6, ty, n->text->data, n->text_color);
       }
       break;
     }

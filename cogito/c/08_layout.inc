@@ -16,7 +16,7 @@ static void cogito_layout_vstack(CogitoNode* n, int x, int y) {
       int target_w = avail_w - c->margin_left - c->margin_right;
       if (target_w < 0) target_w = 0;
       cw = target_w;
-      ch = cogito_text_wrap_height(c->text ? c->text->data : "", cogito_node_font_size(c), target_w);
+      ch = cogito_text_wrap_height(c, c->text ? c->text->data : "", cogito_node_font_size(c), target_w);
       if (ch <= 0) ch = cogito_text_height_size(cogito_node_font_size(c));
     }
     int cx = x + n->padding_left;
@@ -244,7 +244,7 @@ static void cogito_layout_list(CogitoNode* n, int x, int y) {
       int target_w = cw - c->margin_left - c->margin_right;
       if (target_w < 0) target_w = 0;
       cw = target_w;
-      ch = cogito_text_wrap_height(c->text ? c->text->data : "", cogito_node_font_size(c), target_w);
+      ch = cogito_text_wrap_height(c, c->text ? c->text->data : "", cogito_node_font_size(c), target_w);
       if (ch <= 0) ch = cogito_text_height_size(cogito_node_font_size(c));
     }
     cogito_layout_node(c, x + n->padding_left + pad, cy, cw, ch);

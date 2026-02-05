@@ -265,10 +265,16 @@ static const char* cogito_optional_cstr(ErgoVal v, ErgoStr** tmp) {
   return s ? s->data : NULL;
 }
 
-static void cogito_set_handler(ErgoVal* slot, ErgoVal handler) {
-  if (slot->tag != EVT_NULL) ergo_release_val(*slot);
+static void cogito_set_handler(CogitoHandle* h, ErgoVal* slot, ErgoVal handler) {
+  bool had = slot->tag != EVT_NULL;
+  if (had) ergo_release_val(*slot);
   *slot = handler;
-  if (handler.tag != EVT_NULL) ergo_retain_val(handler);
+  bool has = handler.tag != EVT_NULL;
+  if (has) ergo_retain_val(handler);
+  if (h) {
+    if (!had && has) ergo_retain_val(EV_OBJ(h));
+    if (had && !has) ergo_release_val(EV_OBJ(h));
+  }
 }
 
 static void cogito_invoke_node_handler(ErgoVal handler, cogito_node* node) {
@@ -419,11 +425,11 @@ static void __cogito_window_set_builder(ErgoVal winv, ErgoVal builder) {
   cogito_window* win = cogito_window_from_val(winv);
   CogitoHandle* h = (CogitoHandle*)winv.as.p;
   if (builder.tag != EVT_FN) {
-    cogito_set_handler(&h->builder, EV_NULLV);
+    cogito_set_handler(h, &builder, builder);
     cogito_window_set_builder(win, NULL, NULL);
     return;
   }
-  cogito_set_handler(&h->builder, builder);
+  cogito_set_handler(h, &builder, builder);
   cogito_window_set_builder(win, cogito_cb_builder, h);
 }
 
@@ -659,11 +665,11 @@ static void __cogito_searchfield_on_change(ErgoVal sfv, ErgoVal handler) {
   cogito_node* sf = cogito_node_from_val(sfv);
   CogitoHandle* h = (CogitoHandle*)sfv.as.p;
   if (handler.tag != EVT_FN) {
-    cogito_set_handler(&h->on_change, EV_NULLV);
+    cogito_set_handler(h, &handler, handler);
     cogito_searchfield_on_change(sf, NULL, NULL);
     return;
   }
-  cogito_set_handler(&h->on_change, handler);
+  cogito_set_handler(h, &handler, handler);
   cogito_searchfield_on_change(sf, cogito_cb_change, h);
 }
 
@@ -681,11 +687,11 @@ static void __cogito_datepicker_on_change(ErgoVal dpv, ErgoVal handler) {
   cogito_node* dp = cogito_node_from_val(dpv);
   CogitoHandle* h = (CogitoHandle*)dpv.as.p;
   if (handler.tag != EVT_FN) {
-    cogito_set_handler(&h->on_change, EV_NULLV);
+    cogito_set_handler(h, &handler, handler);
     cogito_datepicker_on_change(dp, NULL, NULL);
     return;
   }
-  cogito_set_handler(&h->on_change, handler);
+  cogito_set_handler(h, &handler, handler);
   cogito_datepicker_on_change(dp, cogito_cb_change, h);
 }
 
@@ -733,11 +739,11 @@ static void __cogito_colorpicker_on_change(ErgoVal cpv, ErgoVal handler) {
   cogito_node* cp = cogito_node_from_val(cpv);
   CogitoHandle* h = (CogitoHandle*)cpv.as.p;
   if (handler.tag != EVT_FN) {
-    cogito_set_handler(&h->on_change, EV_NULLV);
+    cogito_set_handler(h, &handler, handler);
     cogito_colorpicker_on_change(cp, NULL, NULL);
     return;
   }
-  cogito_set_handler(&h->on_change, handler);
+  cogito_set_handler(h, &handler, handler);
   cogito_colorpicker_on_change(cp, cogito_cb_change, h);
 }
 
@@ -871,11 +877,11 @@ static void __cogito_button_on_click(ErgoVal btnv, ErgoVal handler) {
   cogito_node* btn = cogito_node_from_val(btnv);
   CogitoHandle* h = (CogitoHandle*)btnv.as.p;
   if (handler.tag != EVT_FN) {
-    cogito_set_handler(&h->on_click, EV_NULLV);
+    cogito_set_handler(h, &handler, handler);
     cogito_node_on_click(btn, NULL, NULL);
     return;
   }
-  cogito_set_handler(&h->on_click, handler);
+  cogito_set_handler(h, &handler, handler);
   cogito_node_on_click(btn, cogito_cb_click, h);
 }
 
@@ -921,11 +927,11 @@ static void __cogito_checkbox_on_change(ErgoVal cbv, ErgoVal handler) {
   cogito_node* cb = cogito_node_from_val(cbv);
   CogitoHandle* h = (CogitoHandle*)cbv.as.p;
   if (handler.tag != EVT_FN) {
-    cogito_set_handler(&h->on_change, EV_NULLV);
+    cogito_set_handler(h, &handler, handler);
     cogito_checkbox_on_change(cb, NULL, NULL);
     return;
   }
-  cogito_set_handler(&h->on_change, handler);
+  cogito_set_handler(h, &handler, handler);
   cogito_checkbox_on_change(cb, cogito_cb_change, h);
 }
 
@@ -933,11 +939,11 @@ static void __cogito_switch_on_change(ErgoVal swv, ErgoVal handler) {
   cogito_node* sw = cogito_node_from_val(swv);
   CogitoHandle* h = (CogitoHandle*)swv.as.p;
   if (handler.tag != EVT_FN) {
-    cogito_set_handler(&h->on_change, EV_NULLV);
+    cogito_set_handler(h, &handler, handler);
     cogito_switch_on_change(sw, NULL, NULL);
     return;
   }
-  cogito_set_handler(&h->on_change, handler);
+  cogito_set_handler(h, &handler, handler);
   cogito_switch_on_change(sw, cogito_cb_change, h);
 }
 
@@ -959,11 +965,11 @@ static void __cogito_textfield_on_change(ErgoVal tfv, ErgoVal handler) {
   cogito_node* tf = cogito_node_from_val(tfv);
   CogitoHandle* h = (CogitoHandle*)tfv.as.p;
   if (handler.tag != EVT_FN) {
-    cogito_set_handler(&h->on_change, EV_NULLV);
+    cogito_set_handler(h, &handler, handler);
     cogito_textfield_on_change(tf, NULL, NULL);
     return;
   }
-  cogito_set_handler(&h->on_change, handler);
+  cogito_set_handler(h, &handler, handler);
   cogito_textfield_on_change(tf, cogito_cb_change, h);
 }
 
@@ -985,11 +991,11 @@ static void __cogito_textview_on_change(ErgoVal tvv, ErgoVal handler) {
   cogito_node* tv = cogito_node_from_val(tvv);
   CogitoHandle* h = (CogitoHandle*)tvv.as.p;
   if (handler.tag != EVT_FN) {
-    cogito_set_handler(&h->on_change, EV_NULLV);
+    cogito_set_handler(h, &handler, handler);
     cogito_textview_on_change(tv, NULL, NULL);
     return;
   }
-  cogito_set_handler(&h->on_change, handler);
+  cogito_set_handler(h, &handler, handler);
   cogito_textview_on_change(tv, cogito_cb_change, h);
 }
 
@@ -1025,11 +1031,11 @@ static void __cogito_dropdown_on_change(ErgoVal ddv, ErgoVal handler) {
   cogito_node* dd = cogito_node_from_val(ddv);
   CogitoHandle* h = (CogitoHandle*)ddv.as.p;
   if (handler.tag != EVT_FN) {
-    cogito_set_handler(&h->on_change, EV_NULLV);
+    cogito_set_handler(h, &handler, handler);
     cogito_dropdown_on_change(dd, NULL, NULL);
     return;
   }
-  cogito_set_handler(&h->on_change, handler);
+  cogito_set_handler(h, &handler, handler);
   cogito_dropdown_on_change(dd, cogito_cb_change, h);
 }
 
@@ -1047,11 +1053,11 @@ static void __cogito_slider_on_change(ErgoVal slv, ErgoVal handler) {
   cogito_node* sl = cogito_node_from_val(slv);
   CogitoHandle* h = (CogitoHandle*)slv.as.p;
   if (handler.tag != EVT_FN) {
-    cogito_set_handler(&h->on_change, EV_NULLV);
+    cogito_set_handler(h, &handler, handler);
     cogito_slider_on_change(sl, NULL, NULL);
     return;
   }
-  cogito_set_handler(&h->on_change, handler);
+  cogito_set_handler(h, &handler, handler);
   cogito_slider_on_change(sl, cogito_cb_change, h);
 }
 
@@ -1105,11 +1111,11 @@ static void __cogito_tabs_on_change(ErgoVal tabsv, ErgoVal handler) {
   cogito_node* tabs = cogito_node_from_val(tabsv);
   CogitoHandle* h = (CogitoHandle*)tabsv.as.p;
   if (handler.tag != EVT_FN) {
-    cogito_set_handler(&h->on_change, EV_NULLV);
+    cogito_set_handler(h, &handler, handler);
     cogito_tabs_on_change(tabs, NULL, NULL);
     return;
   }
-  cogito_set_handler(&h->on_change, handler);
+  cogito_set_handler(h, &handler, handler);
   cogito_tabs_on_change(tabs, cogito_cb_change, h);
 }
 
@@ -1149,11 +1155,11 @@ static void __cogito_toast_on_click(ErgoVal tv, ErgoVal handler) {
   cogito_node* t = cogito_node_from_val(tv);
   CogitoHandle* h = (CogitoHandle*)tv.as.p;
   if (handler.tag != EVT_FN) {
-    cogito_set_handler(&h->on_click, EV_NULLV);
+    cogito_set_handler(h, &handler, handler);
     cogito_toast_on_click(t, NULL, NULL);
     return;
   }
-  cogito_set_handler(&h->on_click, handler);
+  cogito_set_handler(h, &handler, handler);
   cogito_toast_on_click(t, cogito_cb_click, h);
 }
 
@@ -1161,11 +1167,11 @@ static void __cogito_list_on_select(ErgoVal listv, ErgoVal handler) {
   cogito_node* list = cogito_node_from_val(listv);
   CogitoHandle* h = (CogitoHandle*)listv.as.p;
   if (handler.tag != EVT_FN) {
-    cogito_set_handler(&h->on_select, EV_NULLV);
+    cogito_set_handler(h, &handler, handler);
     cogito_list_on_select(list, NULL, NULL);
     return;
   }
-  cogito_set_handler(&h->on_select, handler);
+  cogito_set_handler(h, &handler, handler);
   cogito_list_on_select(list, cogito_cb_select, h);
 }
 
@@ -1173,11 +1179,11 @@ static void __cogito_list_on_activate(ErgoVal listv, ErgoVal handler) {
   cogito_node* list = cogito_node_from_val(listv);
   CogitoHandle* h = (CogitoHandle*)listv.as.p;
   if (handler.tag != EVT_FN) {
-    cogito_set_handler(&h->on_activate, EV_NULLV);
+    cogito_set_handler(h, &handler, handler);
     cogito_list_on_activate(list, NULL, NULL);
     return;
   }
-  cogito_set_handler(&h->on_activate, handler);
+  cogito_set_handler(h, &handler, handler);
   cogito_list_on_activate(list, cogito_cb_activate, h);
 }
 
@@ -1185,11 +1191,11 @@ static void __cogito_grid_on_select(ErgoVal gridv, ErgoVal handler) {
   cogito_node* grid = cogito_node_from_val(gridv);
   CogitoHandle* h = (CogitoHandle*)gridv.as.p;
   if (handler.tag != EVT_FN) {
-    cogito_set_handler(&h->on_select, EV_NULLV);
+    cogito_set_handler(h, &handler, handler);
     cogito_grid_on_select(grid, NULL, NULL);
     return;
   }
-  cogito_set_handler(&h->on_select, handler);
+  cogito_set_handler(h, &handler, handler);
   cogito_grid_on_select(grid, cogito_cb_select, h);
 }
 
@@ -1197,11 +1203,11 @@ static void __cogito_grid_on_activate(ErgoVal gridv, ErgoVal handler) {
   cogito_node* grid = cogito_node_from_val(gridv);
   CogitoHandle* h = (CogitoHandle*)gridv.as.p;
   if (handler.tag != EVT_FN) {
-    cogito_set_handler(&h->on_activate, EV_NULLV);
+    cogito_set_handler(h, &handler, handler);
     cogito_grid_on_activate(grid, NULL, NULL);
     return;
   }
-  cogito_set_handler(&h->on_activate, handler);
+  cogito_set_handler(h, &handler, handler);
   cogito_grid_on_activate(grid, cogito_cb_activate, h);
 }
 

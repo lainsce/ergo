@@ -58,8 +58,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     if (sz > 6) cogito_font_size_value = sz;
   }
   if (font_path && font_path[0]) {
-    cogito_font = LoadFontEx(font_path, cogito_font_size(), NULL, 0);
-    if (cogito_font.texture.id != 0) {
+    if (cogito_load_font_file(&cogito_font, font_path, cogito_font_size(), cogito_font_weight_normal())) {
       cogito_font_ready = true;
       SetTextureFilter(cogito_font.texture, TEXTURE_FILTER_BILINEAR);
       cogito_font_loaded_size = cogito_font_size();
@@ -75,7 +74,97 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     cogito_font_from_env = false;
     cogito_font_path_active = NULL;
   }
-  SetTargetFPS(60);
+  const char* mono_font_path = getenv("COGITO_FONT_MONO");
+  if (!mono_font_path || !mono_font_path[0]) {
+    mono_font_path = cogito_guess_mono_font_path(font_path);
+  }
+  if (mono_font_path && mono_font_path[0]) {
+    if (cogito_load_font_file(&cogito_font_mono, mono_font_path, cogito_font_size(), cogito_font_weight_normal())) {
+      cogito_font_mono_ready = true;
+      SetTextureFilter(cogito_font_mono.texture, TEXTURE_FILTER_BILINEAR);
+      cogito_font_mono_loaded_size = cogito_font_size();
+      cogito_font_mono_from_env = true;
+      cogito_font_mono_path_active = mono_font_path;
+    } else {
+      cogito_font_mono_ready = false;
+      cogito_font_mono_from_env = false;
+      cogito_font_mono_path_active = NULL;
+    }
+  } else {
+    cogito_font_mono_ready = false;
+    cogito_font_mono_from_env = false;
+    cogito_font_mono_path_active = NULL;
+  }
+  const char* bold_font_path = getenv("COGITO_FONT_BOLD");
+  bool bold_from_regular = false;
+  if (!bold_font_path || !bold_font_path[0]) {
+    bold_font_path = cogito_guess_bold_font_path(font_path);
+    if (!bold_font_path && font_path && font_path[0]) {
+      bold_font_path = font_path;
+      bold_from_regular = true;
+    }
+  }
+  if (bold_font_path && bold_font_path[0]) {
+    int bold_weight = cogito_font_weight_bold();
+    if (bold_from_regular && bold_weight <= 0) bold_weight = 700;
+    bool weight_applied = false;
+    if (cogito_load_font_file_ex(&cogito_font_bold, bold_font_path, cogito_font_size(), bold_weight, &weight_applied)) {
+      if (bold_from_regular && !weight_applied) {
+        UnloadFont(cogito_font_bold);
+        cogito_font_bold_ready = false;
+        cogito_font_bold_from_env = false;
+        cogito_font_bold_path_active = NULL;
+        cogito_font_bold_variable = false;
+      } else {
+        cogito_font_bold_ready = true;
+        SetTextureFilter(cogito_font_bold.texture, TEXTURE_FILTER_BILINEAR);
+        cogito_font_bold_loaded_size = cogito_font_size();
+        cogito_font_bold_from_env = true;
+        cogito_font_bold_path_active = bold_font_path;
+        cogito_font_bold_variable = bold_from_regular;
+      }
+    } else {
+      cogito_font_bold_ready = false;
+      cogito_font_bold_from_env = false;
+      cogito_font_bold_path_active = NULL;
+      cogito_font_bold_variable = false;
+    }
+  } else {
+    cogito_font_bold_ready = false;
+    cogito_font_bold_from_env = false;
+    cogito_font_bold_path_active = NULL;
+    cogito_font_bold_variable = false;
+  }
+  // Use monitor refresh by default; allow override via COGITO_TARGET_FPS.
+  int target_fps = 0;
+  bool fps_env_set = false;
+  bool fps_env_auto = false;
+  bool fps_env_parsed = false;
+  long fps_env_value = 0;
+  const char* fps_env = getenv("COGITO_TARGET_FPS");
+  if (fps_env && fps_env[0]) {
+    fps_env_set = true;
+    if (strcmp(fps_env, "auto") == 0 || strcmp(fps_env, "monitor") == 0) {
+      fps_env_auto = true;
+    } else {
+      char* end = NULL;
+      fps_env_value = strtol(fps_env, &end, 10);
+      if (end != fps_env && *end == '\0') {
+        fps_env_parsed = true;
+      }
+    }
+  }
+  if (!fps_env_set || fps_env_auto || !fps_env_parsed) {
+    target_fps = GetMonitorRefreshRate(GetCurrentMonitor());
+  } else {
+    target_fps = (int)fps_env_value;
+  }
+  if (target_fps <= 0) {
+    if (!(fps_env_parsed && fps_env_value == 0)) {
+      target_fps = 60;
+    }
+  }
+  SetTargetFPS(target_fps);
   if (win->auto_size) {
     int dw = 0;
     int dh = 0;
@@ -290,6 +379,11 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       }
     }
     if (click) {
+      static int cogito_debug_hit = -1;
+      if (cogito_debug_hit < 0) {
+        const char* env = getenv("COGITO_DEBUG_HIT");
+        cogito_debug_hit = (env && env[0] && env[0] != '0') ? 1 : 0;
+      }
       if (cogito_menu.open) {
         int idx = cogito_menu_hit(&cogito_menu, mx, my);
         if (idx >= 0 && cogito_menu.owner) {
@@ -325,6 +419,26 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         CogitoNode* hit = (slot && slot->dialog) ? cogito_find_clickable(slot->dialog, mx, my)
                                                  : (win->dialog_open && win->dialog ? cogito_find_clickable(win->dialog, mx, my)
                                                                                    : cogito_find_clickable(win, mx, my));
+        if (cogito_debug_hit) {
+          if (slot && slot->dialog) {
+            fprintf(stderr, "cogito: click (%d,%d) dialog rect (%d,%d %dx%d) hit=%p kind=%d\n",
+                    mx, my, slot->dialog->x, slot->dialog->y, slot->dialog->w, slot->dialog->h,
+                    (void*)hit, hit ? (int)hit->kind : -1);
+          } else if (win->dialog_open && win->dialog) {
+            fprintf(stderr, "cogito: click (%d,%d) legacy dialog rect (%d,%d %dx%d) hit=%p kind=%d\n",
+                    mx, my, win->dialog->x, win->dialog->y, win->dialog->w, win->dialog->h,
+                    (void*)hit, hit ? (int)hit->kind : -1);
+          } else {
+            fprintf(stderr, "cogito: click (%d,%d) no dialog hit=%p kind=%d\n",
+                    mx, my, (void*)hit, hit ? (int)hit->kind : -1);
+          }
+          if (hit) {
+            const char* t = (hit->text && hit->text->data) ? hit->text->data : "";
+            fprintf(stderr, "cogito:   hit rect (%d,%d %dx%d) text=\"%s\"\n",
+                    hit->x, hit->y, hit->w, hit->h, t);
+          }
+          fflush(stderr);
+        }
         if (hit && hit->disabled) hit = NULL;
         CogitoNode* root = (slot && slot->dialog) ? slot->dialog : (win->dialog_open && win->dialog ? win->dialog : win);
         CogitoNode* focus_hit = cogito_find_text_input(root, mx, my);
@@ -480,13 +594,17 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     cogito_draw_node(win);
     if (cogito_menu.open) cogito_draw_menu();
     if (!cogito_menu.open) {
+      CogitoNode* slot = (win->dialog && win->dialog->kind == COGITO_DIALOG_SLOT && win->dialog->dialog_open && win->dialog->dialog)
+        ? win->dialog
+        : cogito_find_dialog_slot(win);
+      CogitoNode* root = (slot && slot->dialog) ? slot->dialog : win;
+      if (root != win) {
+        // Modal dialog open: don't show tooltips from background layers.
+        cogito_tooltip_hovered = NULL;
+      }
       if (cogito_tooltip_hovered) {
         cogito_draw_tooltip(win, cogito_tooltip_hovered);
       } else {
-        CogitoNode* slot = (win->dialog && win->dialog->kind == COGITO_DIALOG_SLOT && win->dialog->dialog_open && win->dialog->dialog)
-          ? win->dialog
-          : cogito_find_dialog_slot(win);
-        CogitoNode* root = (slot && slot->dialog) ? slot->dialog : win;
         CogitoNode* tip = cogito_find_tooltip_node(root, mx, my);
         if (tip) {
           cogito_draw_tooltip(win, tip);
@@ -496,8 +614,15 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     EndDrawing();
   }
   CloseWindow();
+  cogito_font_cache_clear();
   if (cogito_font_ready && cogito_font_from_env && cogito_font.texture.id != 0 && cogito_font.glyphCount > 0) {
     UnloadFont(cogito_font);
+  }
+  if (cogito_font_mono_ready && cogito_font_mono_from_env && cogito_font_mono.texture.id != 0 && cogito_font_mono.glyphCount > 0) {
+    UnloadFont(cogito_font_mono);
+  }
+  if (cogito_font_bold_ready && cogito_font_bold_from_env && cogito_font_bold.texture.id != 0 && cogito_font_bold.glyphCount > 0) {
+    UnloadFont(cogito_font_bold);
   }
   cogito_raylib_ready = false;
   cogito_menu_close();

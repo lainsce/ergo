@@ -106,6 +106,9 @@ typedef struct CogitoStyle {
   bool has_knob;
   bool has_check;
   bool has_font_weight;
+  bool has_letter_spacing;
+  bool has_font_tabular;
+  bool has_font_mono;
   bool has_min_w;
   bool has_min_h;
   bool has_max_w;
@@ -140,6 +143,9 @@ typedef struct CogitoStyle {
   int radius;
   int font_size;
   int font_weight;
+  float letter_spacing;
+  bool font_tabular;
+  bool font_mono;
   int min_w;
   int min_h;
   int max_w;
@@ -225,6 +231,12 @@ typedef struct CogitoTheme {
   CogitoStyle switch_knob_active;
   CogitoStyle switch_knob_checked;
 } CogitoTheme;
+
+typedef struct CogitoFontCacheEntry {
+  int size;
+  Font font;
+  bool ready;
+} CogitoFontCacheEntry;
 
 typedef struct CogitoNode {
   ErgoObj base;
@@ -355,6 +367,7 @@ typedef struct CogitoNode {
   bool knob_set;
   bool check_set;
   bool font_weight_set;
+  bool letter_spacing_set;
   bool min_w_set;
   bool min_h_set;
   bool max_w_set;
@@ -374,6 +387,7 @@ typedef struct CogitoNode {
   int font_size;
   bool font_size_set;
   int font_weight;
+  float letter_spacing;
   int min_w;
   int min_h;
   int max_w;
@@ -408,9 +422,20 @@ static Font cogito_font;
 static bool cogito_font_ready = false;
 static Font cogito_font_mono;
 static bool cogito_font_mono_ready = false;
+static bool cogito_font_mono_from_env = false;
+static const char* cogito_font_mono_path_active = NULL;
+static int cogito_font_mono_loaded_size = 0;
+static Font cogito_font_bold;
+static bool cogito_font_bold_ready = false;
+static bool cogito_font_bold_variable = false;
+static CogitoFontCacheEntry cogito_font_cache[8];
+static CogitoFontCacheEntry cogito_font_bold_cache[8];
+static CogitoFontCacheEntry cogito_font_tabular_cache[8];
 static int cogito_font_size_value = 16;
 static int cogito_font_loaded_size = 0;
+static int cogito_font_bold_loaded_size = 0;
 static bool cogito_font_from_env = false;
+static bool cogito_font_bold_from_env = false;
 static bool cogito_css_default_loaded = false;
 static char* cogito_user_css = NULL;
 static int cogito_style_version = 0;
@@ -530,7 +555,10 @@ static Color cogito_rgba(int r, int g, int b, int a) {
 }
 
 static Font* cogito_font_for_node(const CogitoNode* n) {
-  if (n && (n->font_mono || n->font_tabular) && cogito_font_mono_ready) return &cogito_font_mono;
+  if (n && n->font_tabular) {
+    return &cogito_font;
+  }
+  if (n && n->font_mono && cogito_font_mono_ready) return &cogito_font_mono;
   return &cogito_font;
 }
 
@@ -613,6 +641,14 @@ static void cogito_draw_rect(int x, int y, int w, int h, Color bg, int radius);
 static bool cogito_hit_rect(int x, int y, int rx, int ry, int rw, int rh);
 static CogitoNode* cogito_node_window(CogitoNode* n);
 static bool cogito_file_exists(const char* path);
+static int cogito_font_weight_normal(void);
+static int cogito_font_weight_bold(void);
+static bool cogito_load_font_file_ex(Font* out, const char* path, int size, int weight, bool* out_weight_applied);
+static bool cogito_load_font_file(Font* out, const char* path, int size, int weight);
+static bool cogito_load_font_file_tabular(Font* out, const char* path, int size, int weight);
+static Font* cogito_font_for_size(Font* f, int size);
+static Font* cogito_font_tabular_for(Font* f, int size);
+static void cogito_font_cache_clear(void);
 
 static void cogito_draw_shadow(int x, int y, int w, int h, int radius, int level) {
   if (level <= 0 || w <= 0 || h <= 0) return;

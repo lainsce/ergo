@@ -33,13 +33,13 @@ case COGITO_BUTTON: {
       }
       if (n->text) {
         int size = cogito_node_font_size(n);
-        int tw = cogito_text_width_size(n->text->data, size);
+        int tw = cogito_text_width_size_node(n, n->text->data, size);
         int th = cogito_text_height_size(size);
         int tx = n->x + (n->w - tw) / 2;
         int ty = n->y + (n->h - th) / 2;
         Color text = n->text_color;
         if (s.has_text) text = s.text;
-        cogito_draw_text_size(tx, ty, n->text->data, text, size, cogito_node_bold(n));
+        cogito_draw_text_size_node(n, tx, ty, n->text->data, text, size, cogito_node_bold(n));
       }
       break;
     }

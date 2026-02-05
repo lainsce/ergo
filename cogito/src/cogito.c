@@ -11,6 +11,7 @@
 #endif
 
 static const char* cogito_font_path_active = NULL;
+static const char* cogito_font_bold_path_active = NULL;
 
 #define ergo_obj_new cogito_compat_obj_new
 #define ergo_retain_val cogito_compat_retain_val
@@ -949,6 +950,11 @@ void cogito_window_set_dialog(cogito_window* window, cogito_node* dialog) {
 
 void cogito_window_clear_dialog(cogito_window* window) {
   if (!window) return;
+  const char* env = getenv("COGITO_DEBUG_HIT");
+  if (env && env[0] && env[0] != '0') {
+    fprintf(stderr, "cogito: C API window_clear_dialog window=%p\n", (void*)window);
+    fflush(stderr);
+  }
   cogito_window_clear_dialog_ergo(EV_OBJ(window));
 }
 

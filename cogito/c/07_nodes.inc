@@ -182,6 +182,8 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->selecting = false;
   n->font_mono = false;
   n->font_tabular = false;
+  n->letter_spacing_set = false;
+  n->letter_spacing = 0.0f;
   n->a11y_label = NULL;
   n->a11y_role = NULL;
   n->anim_inited = false;
@@ -224,6 +226,7 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->knob_set = false;
   n->check_set = false;
   n->font_weight_set = false;
+  n->letter_spacing_set = false;
   n->min_w_set = false;
   n->min_h_set = false;
   n->max_w_set = false;
@@ -243,6 +246,7 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->font_size = 0;
   n->font_size_set = false;
   n->font_weight = 400;
+  n->letter_spacing = 0.0f;
   n->min_w = 0;
   n->min_h = 0;
   n->max_w = 0;
@@ -323,7 +327,7 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
   int text_h = cogito_text_height();
   if (n->text) {
     int size = cogito_node_font_size(n);
-    text_w = cogito_text_width_size(n->text->data, size);
+    text_w = cogito_text_width_size_node(n, n->text->data, size);
     text_h = cogito_text_height_size(size);
   }
   int w = 0;

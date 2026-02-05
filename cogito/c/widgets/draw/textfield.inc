@@ -44,7 +44,7 @@ case COGITO_TEXTFIELD: {
           cogito_draw_rect(x0, ty, x1 - x0, th, sel, 2);
         }
       }
-      cogito_draw_text_ellipsis(n->x + pad, ty, n->w - pad * 2, t, text, size, cogito_node_bold(n), 0);
+      cogito_draw_text_ellipsis(n, n->x + pad, ty, n->w - pad * 2, t, text, size, cogito_node_bold(n), 0);
       if (cogito_focused == n && !n->disabled) {
         int caret = n->caret;
         if (caret < 0) caret = 0;

@@ -112,6 +112,11 @@ static void cogito_css_apply_property(CogitoStyle* style, const char* prop, cons
     if (cogito_css_read_number(p, &v)) { style->has_font_size = true; style->font_size = (int)lround(v); }
     return;
   }
+  if (strcmp(prop, "letter-spacing") == 0) {
+    double v;
+    if (cogito_css_read_number(p, &v)) { style->has_letter_spacing = true; style->letter_spacing = (float)v; }
+    return;
+  }
   if (strcmp(prop, "min-width") == 0) {
     double v;
     if (cogito_css_read_number(p, &v)) { style->has_min_w = true; style->min_w = (int)lround(v); }
@@ -186,6 +191,36 @@ static void cogito_css_apply_property(CogitoStyle* style, const char* prop, cons
       if (strcmp(ident, "normal") == 0) { style->has_font_weight = true; style->font_weight = 400; *p = s; return; }
     }
     if (cogito_css_read_number(p, &v)) { style->has_font_weight = true; style->font_weight = (int)lround(v); }
+    return;
+  }
+  if (strcmp(prop, "font-variant-numeric") == 0) {
+    const char* s = *p;
+    char ident[64];
+    bool tabular = false;
+    while (cogito_css_read_ident(&s, ident, sizeof(ident))) {
+      if (strcmp(ident, "tabular-nums") == 0 || strcmp(ident, "tnum") == 0) {
+        tabular = true;
+      }
+      while (*s && (isspace((unsigned char)*s) || *s == ',')) s++;
+    }
+    style->has_font_tabular = true;
+    style->font_tabular = tabular;
+    *p = s;
+    return;
+  }
+  if (strcmp(prop, "font-family") == 0) {
+    const char* s = *p;
+    char ident[64];
+    bool mono = false;
+    while (cogito_css_read_ident(&s, ident, sizeof(ident))) {
+      if (strcmp(ident, "monospace") == 0 || strcmp(ident, "mono") == 0) {
+        mono = true;
+      }
+      while (*s && (isspace((unsigned char)*s) || *s == ',')) s++;
+    }
+    style->has_font_mono = true;
+    style->font_mono = mono;
+    *p = s;
     return;
   }
   if (strcmp(prop, "padding") == 0) {

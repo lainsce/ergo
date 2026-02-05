@@ -33,7 +33,7 @@ case COGITO_COLORPICKER: {
         int row_y = n->y + (s.has_padding_top ? s.padding_top : 10) + i * (row_h + gap);
         int lx = n->x + (s.has_padding_left ? s.padding_left : 10);
         int ly = row_y + (row_h - cogito_text_height_size(size)) / 2;
-        cogito_draw_text_size(lx, ly, labels[i], text, size, false);
+        cogito_draw_text_size_node(n, lx, ly, labels[i], text, size, false);
         int sx = 0, sy = 0, sw = 0, sh = 0;
         cogito_colorpicker_slider_rect(n, i, &sx, &sy, &sw, &sh);
         DrawLine(sx, sy + sh / 2, sx + sw, sy + sh / 2, cogito_rgba(190, 190, 190, 255));
@@ -68,7 +68,7 @@ case COGITO_COLORPICKER: {
           cogito_draw_rect(x0, ty, x1 - x0, th, accent, 2);
         }
       }
-      cogito_draw_text_ellipsis(hex_x + pad, ty, hex_w - pad * 2, hex, text, size, false, 0);
+      cogito_draw_text_ellipsis(n, hex_x + pad, ty, hex_w - pad * 2, hex, text, size, false, 0);
       if (cogito_focused == n && n->color_hex_editing) {
         int caret = n->caret;
         if (caret < 0) caret = 0;

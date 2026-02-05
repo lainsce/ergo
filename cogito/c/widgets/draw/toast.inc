@@ -26,7 +26,7 @@ case COGITO_TOAST: {
       cogito_toast_close_rect(n, &cx, &cy, &cw, &ch);
       int text_w = (cw > 0) ? (cx - (n->x + pad_x) - 6) : (n->w - pad_x * 2);
       if (text_w < 0) text_w = 0;
-      cogito_draw_text_ellipsis(n->x + pad_x, ty, text_w, t, text, size, cogito_node_bold(n), 0);
+      cogito_draw_text_ellipsis(n, n->x + pad_x, ty, text_w, t, text, size, cogito_node_bold(n), 0);
       if (cw > 0 && ch > 0) {
         int icon_size = s.has_icon_size ? s.icon_size : 12;
         if (icon_size < 8) icon_size = 8;

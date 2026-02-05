@@ -4,6 +4,7 @@ cogito_inc = include_directories('include', 'src')
 
 cogito_deps = [
   dependency('raylib', required : true),
+  dependency('freetype2', required : true),
 ]
 
 cogito_src = files(

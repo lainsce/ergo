@@ -12,7 +12,7 @@ static int cogito_tabs_hit_index(CogitoNode* n, int x, int y) {
   int cx = n->x + n->padding_left;
   for (size_t i = 0; i < n->tab_len; i++) {
     const char* t = n->tab_labels[i] ? n->tab_labels[i]->data : "";
-    int tw = cogito_text_width_size(t, size);
+    int tw = cogito_text_width_size_node(n, t, size);
     int tab_w = tw + pad_x * 2;
     if (x >= cx && x <= cx + tab_w) return (int)i;
     cx += tab_w + gap;
