@@ -35,6 +35,15 @@ let y = @"Ergo";
 let z = true;
 ```
 
+Globals use `def`:
+
+```ergo
+def version = @"1.0.0";
+def ?counter = 0;
+```
+
+`let ?name = ...` (and `def ?name = ...`) makes a binding mutable.
+
 ---
 
 ## Functions
@@ -44,6 +53,14 @@ fun add(a = num, b = num) (( num )) {
     a + b
 }
 let result = add(2, 3);
+```
+
+## Lambdas
+
+```ergo
+let inc = |x = num| x + 1;
+let add = (x = num, y = num) => x + y;
+let log = () => { writef(@"clicked\n"); };
 ```
 
 ---
@@ -96,7 +113,7 @@ let pi = math.PI;
 ```
 
 Imports are **namespaced only**: you must use `module.member` to access them.
-`bring utils.e;` is allowed, but module names come from the file name (no aliasing in v1).
+`bring utils.ergo;` is allowed, but module names come from the file name (no aliasing in v1).
 `stdr` is a special case — its core functions are available unqualified when brought.
 Local bindings can shadow module names, so avoid `let math = ...` if you need `math.*`.
 

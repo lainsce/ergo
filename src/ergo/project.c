@@ -104,10 +104,10 @@ static const char *stdlib_dir_default(void) {
     if (env && env[0]) {
         return env;
     }
-    if (path_is_file("src/ergo/stdlib/stdr.e")) {
+    if (path_is_file("src/ergo/stdlib/stdr.ergo")) {
         return "src/ergo/stdlib";
     }
-    if (path_is_file("../src/ergo/stdlib/stdr.e")) {
+    if (path_is_file("../src/ergo/stdlib/stdr.ergo")) {
         return "../src/ergo/stdlib";
     }
     return "src/ergo/stdlib";
@@ -189,9 +189,9 @@ static Module *load_file(const char *path,
     for (size_t i = 0; i < mod->imports_len; i++) {
         Import *imp = mod->imports[i];
         if (str_eq_c(imp->name, "stdr")) {
-            char *p = path_join(stdlib_dir, "stdr.e");
+            char *p = path_join(stdlib_dir, "stdr.ergo");
             if (!p || !path_is_file(p)) {
-                set_err(err, abs_path, "stdr.e not found in stdlib");
+                set_err(err, abs_path, "stdr.ergo not found in stdlib");
                 free(p);
                 return NULL;
             }
@@ -203,9 +203,9 @@ static Module *load_file(const char *path,
             continue;
         }
         if (str_eq_c(imp->name, "math")) {
-            char *p = path_join(stdlib_dir, "math.e");
+            char *p = path_join(stdlib_dir, "math.ergo");
             if (!p || !path_is_file(p)) {
-                set_err(err, abs_path, "math.e not found in stdlib");
+                set_err(err, abs_path, "math.ergo not found in stdlib");
                 free(p);
                 return NULL;
             }
@@ -217,9 +217,9 @@ static Module *load_file(const char *path,
             continue;
         }
         if (str_eq_c(imp->name, "cogito")) {
-            char *p = path_join(stdlib_dir, "cogito.e");
+            char *p = path_join(stdlib_dir, "cogito.ergo");
             if (!p || !path_is_file(p)) {
-                set_err(err, abs_path, "cogito.e not found in stdlib");
+                set_err(err, abs_path, "cogito.ergo not found in stdlib");
                 free(p);
                 return NULL;
             }
@@ -235,16 +235,21 @@ static Module *load_file(const char *path,
             set_err(err, abs_path, "out of memory");
             return NULL;
         }
-        if (!str_ends_with(imp->name, ".e")) {
+        if (str_ends_with(imp->name, ".e")) {
+            free(name);
+            set_err(err, abs_path, "'.e' files are no longer supported; use .ergo");
+            return NULL;
+        }
+        if (!str_ends_with(imp->name, ".ergo")) {
             size_t nlen = strlen(name);
-            char *with_ext = (char *)malloc(nlen + 3);
+            char *with_ext = (char *)malloc(nlen + 6);
             if (!with_ext) {
                 free(name);
                 set_err(err, abs_path, "out of memory");
                 return NULL;
             }
             memcpy(with_ext, name, nlen);
-            memcpy(with_ext + nlen, ".e", 3);
+            memcpy(with_ext + nlen, ".ergo", 6);
             free(name);
             name = with_ext;
         }
@@ -303,7 +308,7 @@ bool load_project(const char *entry_path, Arena *arena, Program **out_prog, uint
         }
     }
     if (entry_count != 1) {
-        set_err(err, entry_abs, "init.e must contain exactly one entry() decl");
+        set_err(err, entry_abs, "init.ergo must contain exactly one entry() decl");
         free(entry_abs);
         free(root_dir);
         free(stdlib_abs);
@@ -321,7 +326,7 @@ bool load_project(const char *entry_path, Arena *arena, Program **out_prog, uint
         }
         for (size_t j = 0; j < mod->decls_len; j++) {
             if (mod->decls[j]->kind == DECL_ENTRY) {
-                set_err(err, visited.data[i].path, "entry() is only allowed in init.e");
+                set_err(err, visited.data[i].path, "entry() is only allowed in init.ergo");
                 free(entry_abs);
                 free(root_dir);
                 free(stdlib_abs);

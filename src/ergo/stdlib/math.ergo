@@ -1,4 +1,4 @@
--- Ergo Standard Library: math.e
+-- Ergo Standard Library: math.ergo
 
 -- Math constants
 const PI = 3.141592653589793

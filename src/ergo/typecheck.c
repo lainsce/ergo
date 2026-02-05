@@ -1234,15 +1234,20 @@ static Str module_name_for_path(Arena *arena, Str path) {
         }
     }
     size_t name_len = len - start;
-    if (name_len >= 2 && p[start + name_len - 2] == '.' && p[start + name_len - 1] == 'e') {
-        name_len -= 2;
+    if (name_len >= 5 &&
+        p[start + name_len - 5] == '.' &&
+        p[start + name_len - 4] == 'e' &&
+        p[start + name_len - 3] == 'r' &&
+        p[start + name_len - 2] == 'g' &&
+        p[start + name_len - 1] == 'o') {
+        name_len -= 5;
     }
     return arena_str_copy(arena, p + start, name_len);
 }
 
 static Str normalize_import_name(Arena *arena, Str name) {
-    if (str_ends_with(name, ".e")) {
-        return arena_str_copy(arena, name.data, name.len - 2);
+    if (str_ends_with(name, ".ergo")) {
+        return arena_str_copy(arena, name.data, name.len - 5);
     }
     return name;
 }
@@ -1882,7 +1887,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
     }
 
     if (!env->entry) {
-        set_err(err, "missing entry() in init.e");
+        set_err(err, "missing entry() in init.ergo");
         return NULL;
     }
 

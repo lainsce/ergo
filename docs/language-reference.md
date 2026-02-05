@@ -39,7 +39,7 @@ x1
 
 Reserved words include:
 ```
-let, const, fun, entry, bring, if, elif, else, for, match, return, true, false, null, class, pub, lock, seal, new, in, bool, num, string
+module, bring, fun, entry, class, pub, lock, seal, def, let, const, if, elif, else, for, match, return, true, false, null, new, in
 ```
 
 ### Literals
@@ -97,16 +97,31 @@ let, const, fun, entry, bring, if, elif, else, for, match, return, true, false, 
 
 ## Variables and Constants
 
-### Declaration
+### Local bindings
 
 ```
 let x = 5;
-let name = @"Ergo";
-let arr = [1, 2, 3];
+let ?count = 0;
+const greeting = @"Ergo";
 ```
 
-- Type is inferred from the initializer.
-- Variables are immutable by default; use `let ?name = ...` for mutability.
+- Types are inferred from the initializer.
+- `let` is immutable by default; use `let ?name = ...` for mutability.
+- `const` declares an immutable local binding.
+
+### Module globals
+
+Use `def` for module-level (global) bindings:
+
+```
+def version = @"1.0.0";
+def ?counter = 0;
+const BUILD = @"dev";
+```
+
+- `def` is only allowed at module scope.
+- `def ?name = ...` declares a mutable global.
+- Globals must be defined before they are used.
 
 ---
 
@@ -185,8 +200,11 @@ for (item in collection) {
 ```
 match x: 0 => @"zero", _ => @"other"
 ```
-- Lambda expression: `|x = num| x + 1`
-- Lambdas are non-capturing in v0 (they can only use parameters and globals).
+- Lambda expressions:
+  - Bar form: `|x = num| x + 1`
+  - Arrow form: `(x = num, y = num) => x + y`
+  - Block form: `(x) => { x + 1 }`
+- Lambdas are non-capturing (they can only use parameters and globals).
 - Class construction: `new Foo()`
 
 ---
@@ -234,7 +252,7 @@ Values used in conditionals (`if`, `for`, `&&`, `||`, `!`) are coerced to boolea
 
 ## Statements
 
-- Variable declaration: `let x = 1;`
+- Variable declaration: `let x = 1;`, `const x = 1;`
 - Assignment: `x = x + 1;`
 - Function call: `writef("hi");`
 - Control flow: `if`, `for`, `match`
@@ -254,8 +272,8 @@ bring math;
 ```
 
 - Standard library modules: `stdr`, `math`, etc.
-- User modules: You can bring another Ergo source file (e.g., `utils.e`) with `bring utils;` (omit the `.e` extension).
-- `bring utils.e;` is also allowed; module names are derived from the file name (no aliasing in v1).
+- User modules: You can bring another Ergo source file (e.g., `utils.ergo`) with `bring utils;` (omit the `.ergo` extension).
+- `bring utils.ergo;` is also allowed; module names are derived from the file name (no aliasing in v1).
 - Imported modules are **namespaced only**. Use `module.member` to access their members.
 - Access module constants: `math.PI`, `utils.MY_CONST`
 - Access module functions: `math.funcname(args)`, `utils.helper(x)`

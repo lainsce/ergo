@@ -97,8 +97,8 @@ static bool program_uses_cogito(Program *prog) {
 }
 
 static void print_usage(FILE *out) {
-    fprintf(out, "usage: ergo <source.e>\n");
-    fprintf(out, "       ergo run <source.e>\n");
+    fprintf(out, "usage: ergo <source.ergo>\n");
+    fprintf(out, "       ergo run <source.ergo>\n");
 }
 
 static int is_flag(const char *arg, const char *flag) {

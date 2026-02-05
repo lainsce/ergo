@@ -1,4 +1,4 @@
--- Ergo Standard Library: stdr.e
+-- Ergo Standard Library: stdr.ergo
 
 -- Internal formatted output primitive (compiler intrinsic)
 fun __writef(fmt = string, args = any) (( -- )) { }
