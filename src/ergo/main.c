@@ -115,6 +115,19 @@ static const char *cc_flags(void) {
     return flags && flags[0] ? flags : "-O3 -std=c11 -pipe";
 }
 
+static const char *join_flags(char *buf, size_t cap, const char *a, const char *b) {
+    if (!(a && a[0])) {
+        snprintf(buf, cap, "%s", b && b[0] ? b : "");
+        return buf;
+    }
+    if (!(b && b[0])) {
+        snprintf(buf, cap, "%s", a);
+        return buf;
+    }
+    snprintf(buf, cap, "%s %s", a, b);
+    return buf;
+}
+
 #if defined(__APPLE__) || defined(__linux__)
 static const char *raylib_default_cflags(void) {
 #if defined(__APPLE__)
@@ -134,7 +147,63 @@ static const char *raylib_default_cflags(void) {
 #endif
     return "";
 }
+
+static const char *raylib_default_ldflags(void) {
+#if defined(_WIN32)
+    return "-lraylib -lopengl32 -lgdi32 -lwinmm";
+#elif defined(__APPLE__)
+    static char buf[512];
+    if (path_is_file("/opt/homebrew/lib/libraylib.dylib")) {
+        snprintf(buf, sizeof(buf),
+                 "-L/opt/homebrew/lib -lraylib -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo");
+        return buf;
+    }
+    if (path_is_file("/usr/local/lib/libraylib.dylib")) {
+        snprintf(buf, sizeof(buf),
+                 "-L/usr/local/lib -lraylib -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo");
+        return buf;
+    }
+    return "-lraylib -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo";
+#else
+    if (path_is_file("/usr/local/lib/libraylib.so")) {
+        return "-L/usr/local/lib -lraylib -lm -lpthread -ldl -lrt -lX11";
+    }
+    return "-lraylib -lm -lpthread -ldl -lrt -lX11";
 #endif
+}
+#endif
+
+static const char *cogito_default_cflags(void) {
+    if (path_is_file("cogito/include/cogito.h")) {
+        return "-Icogito/include";
+    }
+    return "";
+}
+
+static const char *cogito_default_ldflags(void) {
+#if defined(__APPLE__)
+    const char *libname = "libcogito.dylib";
+#elif defined(_WIN32)
+    const char *libname = "cogito.dll";
+#else
+    const char *libname = "libcogito.so";
+#endif
+    static char buf[512];
+    const char *dirs[] = {"cogito/_build", "cogito/build"};
+    for (size_t i = 0; i < sizeof(dirs) / sizeof(dirs[0]); i++) {
+        char path[512];
+        snprintf(path, sizeof(path), "%s/%s", dirs[i], libname);
+        if (path_is_file(path)) {
+#if defined(__APPLE__) || defined(__linux__)
+            snprintf(buf, sizeof(buf), "-L%s -lcogito -Wl,-rpath,%s", dirs[i], dirs[i]);
+#else
+            snprintf(buf, sizeof(buf), "-L%s -lcogito", dirs[i]);
+#endif
+            return buf;
+        }
+    }
+    return "-lcogito";
+}
 
 int main(int argc, char **argv) {
     ergo_set_stdout_buffered();
@@ -180,27 +249,31 @@ int main(int argc, char **argv) {
         bool uses_cogito = program_uses_cogito(prog);
         const char *extra_cflags = "";
         const char *extra_ldflags = "";
+        char extra_cflags_buf[2048] = {0};
+        char extra_ldflags_buf[2048] = {0};
+        const char *cogito_cflags_env = getenv("ERGO_COGITO_CFLAGS");
+        const char *cogito_cflags = (cogito_cflags_env && cogito_cflags_env[0]) ? cogito_cflags_env : cogito_default_cflags();
+        if (cogito_cflags && cogito_cflags[0]) {
+            extra_cflags = cogito_cflags;
+        }
         if (uses_cogito) {
             const char *ray_cflags = getenv("ERGO_RAYLIB_CFLAGS");
-            if (ray_cflags && ray_cflags[0]) {
-                extra_cflags = ray_cflags;
+            if (!(ray_cflags && ray_cflags[0])) {
 #if defined(__APPLE__) || defined(__linux__)
-            } else {
-                extra_cflags = raylib_default_cflags();
+                ray_cflags = raylib_default_cflags();
 #endif
             }
+            extra_cflags = join_flags(extra_cflags_buf, sizeof(extra_cflags_buf), ray_cflags, cogito_cflags);
+
             const char *ray_flags = getenv("ERGO_RAYLIB_FLAGS");
-            if (ray_flags && ray_flags[0]) {
-                extra_ldflags = ray_flags;
-            } else {
-#if defined(_WIN32)
-                extra_ldflags = "-lraylib -lopengl32 -lgdi32 -lwinmm";
-#elif defined(__APPLE__)
-                extra_ldflags = "-lraylib -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo";
-#else
-                extra_ldflags = "-lraylib -lm -lpthread -ldl -lrt -lX11";
-#endif
+            const char *cogito_flags = getenv("ERGO_COGITO_FLAGS");
+            if (!(ray_flags && ray_flags[0])) {
+                ray_flags = raylib_default_ldflags();
             }
+            if (!(cogito_flags && cogito_flags[0])) {
+                cogito_flags = cogito_default_ldflags();
+            }
+            extra_ldflags = join_flags(extra_ldflags_buf, sizeof(extra_ldflags_buf), ray_flags, cogito_flags);
         }
 
         uint64_t build_hash = proj_hash;

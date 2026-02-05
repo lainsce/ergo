@@ -401,73 +401,73 @@ static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h) {
   cogito_apply_size_constraints(n, &n->w, &n->h);
   switch (n->kind) {
 
-    // @include "widgets/layout/appbar.inc"
+    #include "widgets/layout/appbar.inc"
 
-    // @include "widgets/layout/dialog.inc"
+    #include "widgets/layout/dialog.inc"
 
-    // @include "widgets/layout/searchfield.inc"
+    #include "widgets/layout/searchfield.inc"
 
-    // @include "widgets/layout/datepicker.inc"
+    #include "widgets/layout/datepicker.inc"
 
-    // @include "widgets/layout/stepper.inc"
+    #include "widgets/layout/stepper.inc"
 
-    // @include "widgets/layout/segmented.inc"
+    #include "widgets/layout/segmented.inc"
 
-    // @include "widgets/layout/treeview.inc"
+    #include "widgets/layout/treeview.inc"
 
-    // @include "widgets/layout/colorpicker.inc"
+    #include "widgets/layout/colorpicker.inc"
 
-    // @include "widgets/layout/tooltip.inc"
+    #include "widgets/layout/tooltip.inc"
 
-    // @include "widgets/layout/bottom_toolbar.inc"
+    #include "widgets/layout/bottom_toolbar.inc"
 
-    // @include "widgets/layout/dialog_slot.inc"
+    #include "widgets/layout/dialog_slot.inc"
 
-    // @include "widgets/layout/vstack.inc"
+    #include "widgets/layout/vstack.inc"
 
-    // @include "widgets/layout/hstack.inc"
+    #include "widgets/layout/hstack.inc"
 
-    // @include "widgets/layout/zstack.inc"
+    #include "widgets/layout/zstack.inc"
 
-    // @include "widgets/layout/view_switcher.inc"
+    #include "widgets/layout/view_switcher.inc"
 
-    // @include "widgets/layout/fixed.inc"
+    #include "widgets/layout/fixed.inc"
 
-    // @include "widgets/layout/scroller.inc"
+    #include "widgets/layout/scroller.inc"
 
-    // @include "widgets/layout/list.inc"
+    #include "widgets/layout/list.inc"
 
-    // @include "widgets/layout/grid.inc"
+    #include "widgets/layout/grid.inc"
 
-    // @include "widgets/layout/toasts.inc"
+    #include "widgets/layout/toasts.inc"
 
-    // @include "widgets/layout/window.inc"
+    #include "widgets/layout/window.inc"
 
-    // @include "widgets/layout/button.inc"
+    #include "widgets/layout/button.inc"
 
-    // @include "widgets/layout/iconbtn.inc"
+    #include "widgets/layout/iconbtn.inc"
 
-    // @include "widgets/layout/image.inc"
+    #include "widgets/layout/image.inc"
 
-    // @include "widgets/layout/label.inc"
+    #include "widgets/layout/label.inc"
 
-    // @include "widgets/layout/checkbox.inc"
+    #include "widgets/layout/checkbox.inc"
 
-    // @include "widgets/layout/switch.inc"
+    #include "widgets/layout/switch.inc"
 
-    // @include "widgets/layout/textfield.inc"
+    #include "widgets/layout/textfield.inc"
 
-    // @include "widgets/layout/textview.inc"
+    #include "widgets/layout/textview.inc"
 
-    // @include "widgets/layout/dropdown.inc"
+    #include "widgets/layout/dropdown.inc"
 
-    // @include "widgets/layout/slider.inc"
+    #include "widgets/layout/slider.inc"
 
-    // @include "widgets/layout/tabs.inc"
+    #include "widgets/layout/tabs.inc"
 
-    // @include "widgets/layout/progress.inc"
+    #include "widgets/layout/progress.inc"
 
-    // @include "widgets/layout/toast.inc"
+    #include "widgets/layout/toast.inc"
 
     case COGITO_KIND_COUNT:
       break;
@@ -517,7 +517,6 @@ static void cogito_layout_window(CogitoNode* win) {
     int cw = 0;
     int ch = 0;
     cogito_intrinsic_size(c, &cw, &ch);
-    int cw_total = cw + c->margin_left + c->margin_right;
     int ch_total = ch + c->margin_top + c->margin_bottom;
     if (c->kind == COGITO_VSTACK || c->kind == COGITO_HSTACK) {
       int avail_w = win->w - win->padding_left - win->padding_right;

@@ -331,73 +331,73 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
   int pad = 6;
   switch (n->kind) {
 
-    // @include "widgets/intrinsic/button.inc"
+    #include "widgets/intrinsic/button.inc"
 
-    // @include "widgets/intrinsic/iconbtn.inc"
+    #include "widgets/intrinsic/iconbtn.inc"
 
-    // @include "widgets/intrinsic/image.inc"
+    #include "widgets/intrinsic/image.inc"
 
-    // @include "widgets/intrinsic/label.inc"
+    #include "widgets/intrinsic/label.inc"
 
-    // @include "widgets/intrinsic/checkbox.inc"
+    #include "widgets/intrinsic/checkbox.inc"
 
-    // @include "widgets/intrinsic/switch.inc"
+    #include "widgets/intrinsic/switch.inc"
 
-    // @include "widgets/intrinsic/textfield.inc"
+    #include "widgets/intrinsic/textfield.inc"
 
-    // @include "widgets/intrinsic/textview.inc"
+    #include "widgets/intrinsic/textview.inc"
 
-    // @include "widgets/intrinsic/searchfield.inc"
+    #include "widgets/intrinsic/searchfield.inc"
 
-    // @include "widgets/intrinsic/dropdown.inc"
+    #include "widgets/intrinsic/dropdown.inc"
 
-    // @include "widgets/intrinsic/datepicker.inc"
+    #include "widgets/intrinsic/datepicker.inc"
 
-    // @include "widgets/intrinsic/stepper.inc"
+    #include "widgets/intrinsic/stepper.inc"
 
-    // @include "widgets/intrinsic/slider.inc"
+    #include "widgets/intrinsic/slider.inc"
 
-    // @include "widgets/intrinsic/tabs.inc"
+    #include "widgets/intrinsic/tabs.inc"
 
-    // @include "widgets/intrinsic/segmented.inc"
+    #include "widgets/intrinsic/segmented.inc"
 
-    // @include "widgets/intrinsic/view_switcher.inc"
+    #include "widgets/intrinsic/view_switcher.inc"
 
-    // @include "widgets/intrinsic/progress.inc"
+    #include "widgets/intrinsic/progress.inc"
 
-    // @include "widgets/intrinsic/treeview.inc"
+    #include "widgets/intrinsic/treeview.inc"
 
-    // @include "widgets/intrinsic/colorpicker.inc"
+    #include "widgets/intrinsic/colorpicker.inc"
 
-    // @include "widgets/intrinsic/toasts.inc"
+    #include "widgets/intrinsic/toasts.inc"
 
-    // @include "widgets/intrinsic/bottom_toolbar.inc"
+    #include "widgets/intrinsic/bottom_toolbar.inc"
 
-    // @include "widgets/intrinsic/toast.inc"
+    #include "widgets/intrinsic/toast.inc"
 
-    // @include "widgets/intrinsic/tooltip.inc"
+    #include "widgets/intrinsic/tooltip.inc"
 
-    // @include "widgets/intrinsic/fixed.inc"
+    #include "widgets/intrinsic/fixed.inc"
 
-    // @include "widgets/intrinsic/scroller.inc"
+    #include "widgets/intrinsic/scroller.inc"
 
-    // @include "widgets/intrinsic/zstack.inc"
+    #include "widgets/intrinsic/zstack.inc"
 
-    // @include "widgets/intrinsic/list.inc"
+    #include "widgets/intrinsic/list.inc"
 
-    // @include "widgets/intrinsic/grid.inc"
+    #include "widgets/intrinsic/grid.inc"
 
-    // @include "widgets/intrinsic/dialog.inc"
+    #include "widgets/intrinsic/dialog.inc"
 
-    // @include "widgets/intrinsic/dialog_slot.inc"
+    #include "widgets/intrinsic/dialog_slot.inc"
 
-    // @include "widgets/intrinsic/appbar.inc"
+    #include "widgets/intrinsic/appbar.inc"
 
-    // @include "widgets/intrinsic/vstack.inc"
+    #include "widgets/intrinsic/vstack.inc"
 
-    // @include "widgets/intrinsic/hstack.inc"
+    #include "widgets/intrinsic/hstack.inc"
 
-    // @include "widgets/intrinsic/window.inc"
+    #include "widgets/intrinsic/window.inc"
 
     case COGITO_KIND_COUNT:
       break;

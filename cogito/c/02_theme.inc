@@ -105,7 +105,7 @@ static void cogito_theme_init(void) {
     cogito_theme_set_defaults();
     if (!cogito_css_default_loaded) {
       cogito_css_default_loaded = true;
-      cogito_load_css_file("src/ergo/cogito/cogito_default.css");
+      cogito_load_css_file("cogito/cogito_default.css");
     }
   }
 }
@@ -614,4 +614,3 @@ static Color cogito_label_class_color(int cls, Color fallback) {
   }
   return fallback;
 }
-

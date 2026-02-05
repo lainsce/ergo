@@ -598,5 +598,5 @@ static ErgoVal ergo_call(ErgoVal fval, int argc, ErgoVal* argv) {
   return f->fn(f->env, argc, argv);
 }
 
-// ---- Cogito GUI (raylib) ----
-// @include "cogito/cogito.inc"
+// ---- Cogito GUI (shared library bindings) ----
+// @include "cogito_bindings.inc"

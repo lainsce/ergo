@@ -1,7 +1,7 @@
 static CogitoNode* cogito_fixed_new_obj(void) {
   return cogito_node_new(COGITO_FIXED);
 }
-static ErgoVal cogito_fixed_new(void) {
+static COGITO_UNUSED ErgoVal cogito_fixed_new(void) {
   return EV_OBJ(cogito_fixed_new_obj());
 }
 static void cogito_fixed_set_pos(ErgoVal fixedv, ErgoVal childv, ErgoVal xv, ErgoVal yv) {

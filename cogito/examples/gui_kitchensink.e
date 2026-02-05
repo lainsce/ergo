@@ -306,7 +306,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
 
 entry () (( -- )) {
     let app = cogito.app()
-    cogito.load_css(@"src/ergo/cogito/examples/cogito_examples.css")
+    cogito.load_css(@"cogito/examples/cogito_examples.css")
     main_win.build(build_ui)
     app.set_appid(@"com.example.CogitoKitchensink")
     app.set_accent_color(@"#007AFF", false)

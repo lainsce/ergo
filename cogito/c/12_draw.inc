@@ -9,73 +9,73 @@ static void cogito_draw_node(CogitoNode* n) {
   }
   switch (n->kind) {
 
-    // @include "widgets/draw/button.inc"
+    #include "widgets/draw/button.inc"
 
-    // @include "widgets/draw/iconbtn.inc"
+    #include "widgets/draw/iconbtn.inc"
 
-    // @include "widgets/draw/image.inc"
+    #include "widgets/draw/image.inc"
 
-    // @include "widgets/draw/label.inc"
+    #include "widgets/draw/label.inc"
 
-    // @include "widgets/draw/textfield.inc"
+    #include "widgets/draw/textfield.inc"
 
-    // @include "widgets/draw/textview.inc"
+    #include "widgets/draw/textview.inc"
 
-    // @include "widgets/draw/dropdown.inc"
+    #include "widgets/draw/dropdown.inc"
 
-    // @include "widgets/draw/datepicker.inc"
+    #include "widgets/draw/datepicker.inc"
 
-    // @include "widgets/draw/slider.inc"
+    #include "widgets/draw/slider.inc"
 
-    // @include "widgets/draw/colorpicker.inc"
+    #include "widgets/draw/colorpicker.inc"
 
-    // @include "widgets/draw/tabs.inc"
+    #include "widgets/draw/tabs.inc"
 
-    // @include "widgets/draw/progress.inc"
+    #include "widgets/draw/progress.inc"
 
-    // @include "widgets/draw/toast.inc"
+    #include "widgets/draw/toast.inc"
 
-    // @include "widgets/draw/checkbox.inc"
+    #include "widgets/draw/checkbox.inc"
 
-    // @include "widgets/draw/switch.inc"
+    #include "widgets/draw/switch.inc"
 
-    // @include "widgets/draw/list.inc"
+    #include "widgets/draw/list.inc"
 
-    // @include "widgets/draw/grid.inc"
+    #include "widgets/draw/grid.inc"
 
-    // @include "widgets/draw/appbar.inc"
+    #include "widgets/draw/appbar.inc"
 
-    // @include "widgets/draw/dialog.inc"
+    #include "widgets/draw/dialog.inc"
 
-    // @include "widgets/draw/bottom_toolbar.inc"
+    #include "widgets/draw/bottom_toolbar.inc"
 
-    // @include "widgets/draw/dialog_slot.inc"
+    #include "widgets/draw/dialog_slot.inc"
 
-    // @include "widgets/draw/view_switcher.inc"
+    #include "widgets/draw/view_switcher.inc"
 
-    // @include "widgets/draw/toasts.inc"
+    #include "widgets/draw/toasts.inc"
 
-    // @include "widgets/draw/vstack.inc"
+    #include "widgets/draw/vstack.inc"
 
-    // @include "widgets/draw/hstack.inc"
+    #include "widgets/draw/hstack.inc"
 
-    // @include "widgets/draw/zstack.inc"
+    #include "widgets/draw/zstack.inc"
 
-    // @include "widgets/draw/fixed.inc"
+    #include "widgets/draw/fixed.inc"
 
-    // @include "widgets/draw/window.inc"
+    #include "widgets/draw/window.inc"
 
-    // @include "widgets/draw/scroller.inc"
+    #include "widgets/draw/scroller.inc"
 
-    // @include "widgets/draw/searchfield.inc"
+    #include "widgets/draw/searchfield.inc"
 
-    // @include "widgets/draw/stepper.inc"
+    #include "widgets/draw/stepper.inc"
 
-    // @include "widgets/draw/segmented.inc"
+    #include "widgets/draw/segmented.inc"
 
-    // @include "widgets/draw/treeview.inc"
+    #include "widgets/draw/treeview.inc"
 
-    // @include "widgets/draw/tooltip.inc"
+    #include "widgets/draw/tooltip.inc"
 
     case COGITO_KIND_COUNT:
       break;

@@ -24,10 +24,3 @@ ergo_exe = executable(
   include_directories : ergo_c_includes,
   install : false
 )
-
-# Summary message
-message('''
-Ergo Compiler Project (Meson)
-----------------------------
-- To build:            meson compile
-''')

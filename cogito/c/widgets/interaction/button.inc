@@ -18,7 +18,7 @@ static void cogito_button_set_text(ErgoVal btnv, ErgoVal text) {
   ErgoStr* ts = stdr_to_string(text);
   cogito_node_set_text(btn, ts);
 }
-static void cogito_button_on_click(ErgoVal btnv, ErgoVal handler) {
+static COGITO_UNUSED void cogito_button_on_click(ErgoVal btnv, ErgoVal handler) {
   if (btnv.tag != EVT_OBJ) ergo_trap("cogito.button_on_click expects button");
   CogitoNode* btn = (CogitoNode*)btnv.as.p;
   if (btn->on_click) ergo_release_val(EV_FN(btn->on_click));

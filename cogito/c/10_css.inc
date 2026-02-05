@@ -833,9 +833,9 @@ static const char* cogito_default_css_path(void) {
     snprintf(buf, sizeof(buf), "%s/cogito_default.css", stdlib);
     if (cogito_file_exists(buf)) return buf;
   }
-  if (cogito_file_exists("src/ergo/cogito/cogito_default.css")) return "src/ergo/cogito/cogito_default.css";
-  if (cogito_file_exists("../src/ergo/cogito/cogito_default.css")) return "../src/ergo/cogito/cogito_default.css";
-  return "src/ergo/cogito/cogito_default.css";
+  if (cogito_file_exists("cogito/cogito_default.css")) return "cogito/cogito_default.css";
+  if (cogito_file_exists("../cogito/cogito_default.css")) return "../cogito/cogito_default.css";
+  return "cogito/cogito_default.css";
 }
 
 static const char* cogito_dark_css_path(void) {
@@ -845,9 +845,9 @@ static const char* cogito_dark_css_path(void) {
     snprintf(buf, sizeof(buf), "%s/cogito_dark.css", stdlib);
     if (cogito_file_exists(buf)) return buf;
   }
-  if (cogito_file_exists("src/ergo/cogito/cogito_dark.css")) return "src/ergo/cogito/cogito_dark.css";
-  if (cogito_file_exists("../src/ergo/cogito/cogito_dark.css")) return "../src/ergo/cogito/cogito_dark.css";
-  return "src/ergo/cogito/cogito_dark.css";
+  if (cogito_file_exists("cogito/cogito_dark.css")) return "cogito/cogito_dark.css";
+  if (cogito_file_exists("../cogito/cogito_dark.css")) return "../cogito/cogito_dark.css";
+  return "cogito/cogito_dark.css";
 }
 
 static void cogito_apply_css_inline(const char* src) {
@@ -903,7 +903,7 @@ static void cogito_load_css_file(const char* path) {
   }
 }
 
-static void cogito_load_css(ErgoVal pathv) {
+static COGITO_UNUSED void cogito_load_css(ErgoVal pathv) {
   ErgoStr* ps = stdr_to_string(pathv);
   if (ps && ps->data) {
     size_t len = 0;
@@ -917,7 +917,7 @@ static void cogito_load_css(ErgoVal pathv) {
   if (ps) ergo_release_val(EV_STR(ps));
 }
 
-static bool cogito_strcasestr(const char* hay, const char* needle) {
+static COGITO_UNUSED bool cogito_strcasestr(const char* hay, const char* needle) {
   if (!hay || !needle || !*needle) return false;
   size_t nlen = strlen(needle);
   for (const char* p = hay; *p; p++) {

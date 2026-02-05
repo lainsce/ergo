@@ -41,39 +41,39 @@ static void cogito_invoke_select(CogitoNode* n, int idx, bool activate) {
 }
 
 
-// @include "widgets/interaction/button.inc"
-// @include "widgets/interaction/checkbox.inc"
-// @include "widgets/interaction/colorpicker.inc"
-// @include "widgets/interaction/datepicker.inc"
-// @include "widgets/interaction/dialog.inc"
-// @include "widgets/interaction/dropdown.inc"
-// @include "widgets/interaction/fixed.inc"
-// @include "widgets/interaction/grid.inc"
-// @include "widgets/interaction/hstack.inc"
-// @include "widgets/interaction/iconbtn.inc"
-// @include "widgets/interaction/image.inc"
-// @include "widgets/interaction/label.inc"
-// @include "widgets/interaction/list.inc"
-// @include "widgets/interaction/progress.inc"
-// @include "widgets/interaction/scroller.inc"
-// @include "widgets/interaction/searchfield.inc"
-// @include "widgets/interaction/segmented.inc"
-// @include "widgets/interaction/slider.inc"
-// @include "widgets/interaction/stepper.inc"
-// @include "widgets/interaction/switch.inc"
-// @include "widgets/interaction/tabs.inc"
-// @include "widgets/interaction/textfield.inc"
-// @include "widgets/interaction/textview.inc"
-// @include "widgets/interaction/toast.inc"
-// @include "widgets/interaction/toasts.inc"
-// @include "widgets/interaction/bottom_toolbar.inc"
-// @include "widgets/interaction/treeview.inc"
-// @include "widgets/interaction/tooltip.inc"
-// @include "widgets/interaction/view_switcher.inc"
-// @include "widgets/interaction/vstack.inc"
-// @include "widgets/interaction/window.inc"
-// @include "widgets/interaction/zstack.inc"
-// @include "widgets/interaction/appbar.inc"
+#include "widgets/interaction/button.inc"
+#include "widgets/interaction/checkbox.inc"
+#include "widgets/interaction/colorpicker.inc"
+#include "widgets/interaction/datepicker.inc"
+#include "widgets/interaction/dialog.inc"
+#include "widgets/interaction/dropdown.inc"
+#include "widgets/interaction/fixed.inc"
+#include "widgets/interaction/grid.inc"
+#include "widgets/interaction/hstack.inc"
+#include "widgets/interaction/iconbtn.inc"
+#include "widgets/interaction/image.inc"
+#include "widgets/interaction/label.inc"
+#include "widgets/interaction/list.inc"
+#include "widgets/interaction/progress.inc"
+#include "widgets/interaction/scroller.inc"
+#include "widgets/interaction/searchfield.inc"
+#include "widgets/interaction/segmented.inc"
+#include "widgets/interaction/slider.inc"
+#include "widgets/interaction/stepper.inc"
+#include "widgets/interaction/switch.inc"
+#include "widgets/interaction/tabs.inc"
+#include "widgets/interaction/textfield.inc"
+#include "widgets/interaction/textview.inc"
+#include "widgets/interaction/toast.inc"
+#include "widgets/interaction/toasts.inc"
+#include "widgets/interaction/bottom_toolbar.inc"
+#include "widgets/interaction/treeview.inc"
+#include "widgets/interaction/tooltip.inc"
+#include "widgets/interaction/view_switcher.inc"
+#include "widgets/interaction/vstack.inc"
+#include "widgets/interaction/window.inc"
+#include "widgets/interaction/zstack.inc"
+#include "widgets/interaction/appbar.inc"
 
 
 
@@ -142,16 +142,16 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
 static bool cogito_node_focusable(const CogitoNode* n) {
   if (!n || n->disabled) return false;
   switch (n->kind) {
-    // @include "widgets/interaction/focusable/textfield.inc"
-    // @include "widgets/interaction/focusable/textview.inc"
-    // @include "widgets/interaction/focusable/dropdown.inc"
-    // @include "widgets/interaction/focusable/slider.inc"
-    // @include "widgets/interaction/focusable/button.inc"
-    // @include "widgets/interaction/focusable/iconbtn.inc"
-    // @include "widgets/interaction/focusable/checkbox.inc"
-    // @include "widgets/interaction/focusable/switch.inc"
-    // @include "widgets/interaction/focusable/colorpicker.inc"
-    // @include "widgets/interaction/focusable/datepicker.inc"
+    #include "widgets/interaction/focusable/textfield.inc"
+    #include "widgets/interaction/focusable/textview.inc"
+    #include "widgets/interaction/focusable/dropdown.inc"
+    #include "widgets/interaction/focusable/slider.inc"
+    #include "widgets/interaction/focusable/button.inc"
+    #include "widgets/interaction/focusable/iconbtn.inc"
+    #include "widgets/interaction/focusable/checkbox.inc"
+    #include "widgets/interaction/focusable/switch.inc"
+    #include "widgets/interaction/focusable/colorpicker.inc"
+    #include "widgets/interaction/focusable/datepicker.inc"
 
     default:
       return false;
@@ -280,10 +280,20 @@ static void cogito_update_system_theme(CogitoApp* app) {
 static void cogito_app_set_appid(ErgoVal appv, ErgoVal idv) {
   if (appv.tag != EVT_OBJ) ergo_trap("cogito.app_set_appid expects app");
   CogitoApp* app = (CogitoApp*)appv.as.p;
-  ErgoStr* s = stdr_to_string(idv);
+  ErgoStr* s = NULL;
+  bool temp = false;
+  if (idv.tag == EVT_STR) {
+    s = (ErgoStr*)idv.as.p;
+    if (s) ergo_retain_val(EV_STR(s));
+  } else if (idv.tag != EVT_NULL) {
+    s = stdr_to_string(idv);
+    temp = true;
+  }
   if (app->app_id) ergo_release_val(EV_STR(app->app_id));
   app->app_id = s;
-  if (app->app_id) ergo_retain_val(EV_STR(app->app_id));
+  if (temp && s) {
+    // app now owns temp string (ref=1)
+  }
 }
 
 static void cogito_app_set_accent_color(ErgoVal appv, ErgoVal colorv, ErgoVal overridev) {
@@ -292,13 +302,20 @@ static void cogito_app_set_accent_color(ErgoVal appv, ErgoVal colorv, ErgoVal ov
   bool override = ergo_as_bool(overridev);
   app->accent_override = override;
   if (colorv.tag != EVT_NULL) {
-    ErgoStr* s = stdr_to_string(colorv);
+    ErgoStr* s = NULL;
+    bool temp = false;
+    if (colorv.tag == EVT_STR) {
+      s = (ErgoStr*)colorv.as.p;
+    } else {
+      s = stdr_to_string(colorv);
+      temp = true;
+    }
     Color c = {0};
     if (s && s->data && cogito_hex_to_color(s->data, &c)) {
       app->accent_color = c;
       app->accent_set = true;
     }
-    if (s) ergo_release_val(EV_STR(s));
+    if (temp && s) ergo_release_val(EV_STR(s));
   }
   cogito_app_update_theme(app);
 }
@@ -556,10 +573,15 @@ static void cogito_node_set_disabled(ErgoVal nodev, ErgoVal onv) {
 static void cogito_node_set_id(ErgoVal nodev, ErgoVal idv) {
   if (nodev.tag != EVT_OBJ) ergo_trap("cogito.node_set_id expects object");
   CogitoNode* n = (CogitoNode*)nodev.as.p;
-  ErgoStr* s = stdr_to_string(idv);
+  ErgoStr* s = NULL;
+  if (idv.tag == EVT_STR) {
+    s = (ErgoStr*)idv.as.p;
+    if (s) ergo_retain_val(EV_STR(s));
+  } else if (idv.tag != EVT_NULL) {
+    s = stdr_to_string(idv);
+  }
   if (n->view_id) ergo_release_val(EV_STR(n->view_id));
   n->view_id = s;
-  if (n->view_id) ergo_retain_val(EV_STR(n->view_id));
   cogito_window_relayout(cogito_node_window(n));
 }
 
@@ -599,7 +621,14 @@ static void cogito_pointer_capture_clear(void) {
 static void cogito_node_set_class(ErgoVal nodev, ErgoVal classv) {
   if (nodev.tag != EVT_OBJ) ergo_trap("cogito.node_set_class expects node");
   CogitoNode* n = (CogitoNode*)nodev.as.p;
-  ErgoStr* cs = stdr_to_string(classv);
+  ErgoStr* cs = NULL;
+  bool temp = false;
+  if (classv.tag == EVT_STR) {
+    cs = (ErgoStr*)classv.as.p;
+  } else if (classv.tag != EVT_NULL) {
+    cs = stdr_to_string(classv);
+    temp = true;
+  }
   const char* s = cs ? cs->data : "";
   n->font_mono = false;
   n->font_tabular = false;
@@ -618,7 +647,7 @@ static void cogito_node_set_class(ErgoVal nodev, ErgoVal classv) {
       n->font_mono = true;
     }
   }
-  if (cs) ergo_release_val(EV_STR(cs));
+  if (temp && cs) ergo_release_val(EV_STR(cs));
   cogito_apply_style_to_node(n);
   extern CogitoNode* cogito_active_window;
   if (cogito_active_window) {
@@ -633,9 +662,14 @@ static void cogito_node_set_a11y_label(ErgoVal nodev, ErgoVal labelv) {
     ergo_release_val(EV_STR(n->a11y_label));
     n->a11y_label = NULL;
   }
-  if (labelv.tag != EVT_NULL) {
-    ErgoStr* ls = stdr_to_string(labelv);
-    n->a11y_label = ls;
+  if (labelv.tag == EVT_STR) {
+    ErgoStr* ls = (ErgoStr*)labelv.as.p;
+    if (ls) {
+      n->a11y_label = ls;
+      ergo_retain_val(EV_STR(ls));
+    }
+  } else if (labelv.tag != EVT_NULL) {
+    n->a11y_label = stdr_to_string(labelv);
   }
 #if defined(__APPLE__)
   if (n->kind == COGITO_WINDOW && cogito_raylib_ready) {
@@ -652,22 +686,32 @@ static void cogito_node_set_a11y_role(ErgoVal nodev, ErgoVal rolev) {
     ergo_release_val(EV_STR(n->a11y_role));
     n->a11y_role = NULL;
   }
-  if (rolev.tag != EVT_NULL) {
-    ErgoStr* rs = stdr_to_string(rolev);
-    n->a11y_role = rs;
+  if (rolev.tag == EVT_STR) {
+    ErgoStr* rs = (ErgoStr*)rolev.as.p;
+    if (rs) {
+      n->a11y_role = rs;
+      ergo_retain_val(EV_STR(rs));
+    }
+  } else if (rolev.tag != EVT_NULL) {
+    n->a11y_role = stdr_to_string(rolev);
   }
 }
 
-static void cogito_node_set_tooltip_val(ErgoVal nodev, ErgoVal textv) {
+static COGITO_UNUSED void cogito_node_set_tooltip_val(ErgoVal nodev, ErgoVal textv) {
   if (nodev.tag != EVT_OBJ) ergo_trap("cogito.node_set_tooltip expects node");
   CogitoNode* n = (CogitoNode*)nodev.as.p;
   if (n->tooltip) {
     ergo_release_val(EV_STR(n->tooltip));
     n->tooltip = NULL;
   }
-  if (textv.tag != EVT_NULL) {
-    ErgoStr* ts = stdr_to_string(textv);
-    n->tooltip = ts;
+  if (textv.tag == EVT_STR) {
+    ErgoStr* ts = (ErgoStr*)textv.as.p;
+    if (ts) {
+      n->tooltip = ts;
+      ergo_retain_val(EV_STR(ts));
+    }
+  } else if (textv.tag != EVT_NULL) {
+    n->tooltip = stdr_to_string(textv);
   }
 }
 
@@ -689,12 +733,12 @@ static void cogito_build(ErgoVal nodev, ErgoVal builder) {
 
 
 
-static ErgoVal cogito_state_new(ErgoVal initial) {
+static COGITO_UNUSED ErgoVal cogito_state_new(ErgoVal initial) {
   CogitoState* s = cogito_state_new_obj(initial);
   return EV_OBJ(s);
 }
 
-static ErgoVal cogito_state_get(ErgoVal sv) {
+static COGITO_UNUSED ErgoVal cogito_state_get(ErgoVal sv) {
   if (sv.tag != EVT_OBJ) ergo_trap("cogito.state_get expects state");
   CogitoState* s = (CogitoState*)sv.as.p;
   ErgoVal v = s->value;
@@ -702,7 +746,7 @@ static ErgoVal cogito_state_get(ErgoVal sv) {
   return v;
 }
 
-static void cogito_state_set(ErgoVal sv, ErgoVal nv) {
+static COGITO_UNUSED void cogito_state_set(ErgoVal sv, ErgoVal nv) {
   if (sv.tag != EVT_OBJ) ergo_trap("cogito.state_set expects state");
   CogitoState* s = (CogitoState*)sv.as.p;
   if (s->value.tag != EVT_NULL) ergo_release_val(s->value);

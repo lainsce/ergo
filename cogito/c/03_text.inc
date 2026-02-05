@@ -140,7 +140,6 @@ static void cogito_text_backspace(CogitoNode* n) {
     n->sel_end = n->caret;
     return;
   }
-  size_t len = n->text->len;
   size_t i = (size_t)n->caret;
   if (i == 0) return;
   i--;
@@ -177,7 +176,6 @@ static int cogito_text_line_index_from_pos(const CogitoNode* n, const char* text
     int line_start = idx;
     int line_len = 0;
     int last_space = -1;
-    int last_fit = 0;
     for (int i = idx; i < len; i++) {
       char c = text[i];
       if (c == '\n') {
@@ -197,7 +195,6 @@ static int cogito_text_line_index_from_pos(const CogitoNode* n, const char* text
         }
         break;
       }
-      last_fit = i;
       if (i == len - 1) {
         line_len = i - idx + 1;
         idx = len;
@@ -242,4 +239,3 @@ static int cogito_weekday(int y, int m, int d) {
   mktime(&t);
   return t.tm_wday;
 }
-

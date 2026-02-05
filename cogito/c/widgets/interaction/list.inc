@@ -9,7 +9,7 @@ static int cogito_list_hit_index(CogitoNode* list, int x, int y) {
 static CogitoNode* cogito_list_new_obj(void) {
   return cogito_node_new(COGITO_LIST);
 }
-static ErgoVal cogito_list_new(void) {
+static COGITO_UNUSED ErgoVal cogito_list_new(void) {
   return EV_OBJ(cogito_list_new_obj());
 }
 static void cogito_list_on_select(ErgoVal listv, ErgoVal handler) {
