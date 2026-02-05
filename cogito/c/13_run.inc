@@ -21,6 +21,13 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   }
   const char* title = win->text ? win->text->data : "Cogito";
   CogitoNode* appbar = cogito_find_appbar(win);
+  // Mute raylib info spam by default; allow override via COGITO_RAYLIB_LOG_LEVEL.
+  const char* log_env = getenv("COGITO_RAYLIB_LOG_LEVEL");
+  if (log_env && log_env[0]) {
+    SetTraceLogLevel(atoi(log_env));
+  } else {
+    SetTraceLogLevel(LOG_WARNING);
+  }
 #if defined(__APPLE__)
   if (win->resizable) SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
   else SetConfigFlags(FLAG_MSAA_4X_HINT);
