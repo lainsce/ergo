@@ -1,0 +1,122 @@
+-- Cogito GUI module (minimal, container-based)
+
+-- Internal intrinsics
+fun __cogito_app() (( App )) { }
+fun __cogito_app_set_appid(app = App, id = string) (( -- )) { }
+fun __cogito_app_set_accent_color(app = App, color = string, override = bool) (( -- )) { }
+fun __cogito_window(title = string, w = num, h = num) (( Window )) { }
+fun __cogito_button(text = string) (( Button )) { }
+fun __cogito_label(text = string) (( Label )) { }
+fun __cogito_label_set_class(label = Label, cls = string) (( -- )) { }
+fun __cogito_node_set_class(node = any, cls = string) (( -- )) { }
+fun __cogito_node_set_a11y_label(node = any, label = string) (( -- )) { }
+fun __cogito_node_set_a11y_role(node = any, role = string) (( -- )) { }
+fun __cogito_node_set_tooltip(node = any, text = string) (( -- )) { }
+fun __cogito_pointer_capture(node = any) (( -- )) { }
+fun __cogito_pointer_release() (( -- )) { }
+fun __cogito_label_set_wrap(label = Label, on = bool) (( -- )) { }
+fun __cogito_label_set_ellipsis(label = Label, on = bool) (( -- )) { }
+fun __cogito_label_set_align(label = Label, align = num) (( -- )) { }
+fun __cogito_image(icon = string) (( Image )) { }
+fun __cogito_image_set_icon(img = Image, icon = string) (( -- )) { }
+fun __cogito_dialog(title = string) (( Dialog )) { }
+fun __cogito_dialog_slot() (( DialogSlot )) { }
+fun __cogito_dialog_slot_show(slot = DialogSlot, dialog = Dialog) (( -- )) { }
+fun __cogito_dialog_slot_clear(slot = DialogSlot) (( -- )) { }
+fun __cogito_window_set_dialog(win = Window, dialog = Dialog) (( -- )) { }
+fun __cogito_window_clear_dialog(win = Window) (( -- )) { }
+fun __cogito_node_window(node = any) (( Window )) { }
+fun __cogito_checkbox(text = string, group = any) (( Checkbox )) { }
+fun __cogito_switch(text = string) (( Switch )) { }
+fun __cogito_textfield(text = string) (( TextField )) { }
+fun __cogito_searchfield_set_text(sf = SearchField, text = string) (( -- )) { }
+fun __cogito_searchfield_get_text(sf = SearchField) (( string )) { }
+fun __cogito_searchfield_on_change(sf = SearchField, handler = any) (( -- )) { }
+fun __cogito_textview(text = string) (( TextView )) { }
+fun __cogito_searchfield(text = string) (( SearchField )) { }
+fun __cogito_dropdown() (( Dropdown )) { }
+fun __cogito_datepicker() (( DatePicker )) { }
+fun __cogito_datepicker_on_change(dp = DatePicker, handler = any) (( -- )) { }
+fun __cogito_stepper(min = num, max = num, value = num, step = num) (( Stepper )) { }
+fun __cogito_slider(min = num, max = num, value = num) (( Slider )) { }
+fun __cogito_tabs() (( Tabs )) { }
+fun __cogito_segmented() (( SegmentedControl )) { }
+fun __cogito_view_switcher() (( ViewSwitcher )) { }
+fun __cogito_progress(value = num) (( Progress )) { }
+fun __cogito_treeview() (( TreeView )) { }
+fun __cogito_colorpicker() (( ColorPicker )) { }
+fun __cogito_colorpicker_on_change(cp = ColorPicker, handler = any) (( -- )) { }
+fun __cogito_toasts() (( Toasts )) { }
+fun __cogito_toast(text = string) (( Toast )) { }
+fun __cogito_toolbar() (( BottomToolbar )) { }
+fun __cogito_vstack() (( VStack )) { }
+fun __cogito_hstack() (( HStack )) { }
+fun __cogito_zstack() (( ZStack )) { }
+fun __cogito_fixed() (( Fixed )) { }
+fun __cogito_scroller() (( Scroller )) { }
+fun __cogito_list() (( List )) { }
+fun __cogito_grid(cols = num) (( Grid )) { }
+fun __cogito_container_add(parent = any, child = any) (( -- )) { }
+fun __cogito_container_set_margins(node = any, left = num, top = num, right = num, bottom = num) (( -- )) { }
+fun __cogito_build(node = any, builder = any) (( -- )) { }
+fun __cogito_window_set_builder(win = Window, builder = any) (( -- )) { }
+fun __cogito_state_new(value = any) (( State )) { }
+fun __cogito_state_get(state = State) (( any )) { }
+fun __cogito_state_set(state = State, value = any) (( -- )) { }
+fun __cogito_container_set_align(node = any, align = num) (( -- )) { }
+fun __cogito_container_set_halign(node = any, align = num) (( -- )) { }
+fun __cogito_container_set_valign(node = any, align = num) (( -- )) { }
+fun __cogito_container_set_padding(node = any, left = num, top = num, right = num, bottom = num) (( -- )) { }
+fun __cogito_fixed_set_pos(fixed = Fixed, child = any, x = num, y = num) (( -- )) { }
+fun __cogito_scroller_set_axes(scroller = Scroller, h = bool, v = bool) (( -- )) { }
+fun __cogito_grid_set_gap(grid = Grid, x = num, y = num) (( -- )) { }
+fun __cogito_grid_set_span(child = any, col_span = num, row_span = num) (( -- )) { }
+fun __cogito_grid_set_align(child = any, halign = num, valign = num) (( -- )) { }
+fun __cogito_node_set_disabled(node = any, on = bool) (( -- )) { }
+fun __cogito_node_set_id(node = any, id = string) (( -- )) { }
+fun __cogito_window_set_autosize(win = Window, on = bool) (( -- )) { }
+fun __cogito_window_set_resizable(win = Window, on = bool) (( -- )) { }
+fun __cogito_appbar(title = string, subtitle = string) (( AppBar )) { }
+fun __cogito_appbar_add_button(appbar = AppBar, icon = string, handler = any) (( Button )) { }
+fun __cogito_appbar_set_controls(appbar = AppBar, layout = string) (( -- )) { }
+fun __cogito_button_set_text(btn = Button, text = string) (( -- )) { }
+fun __cogito_button_add_menu(btn = Button, label = string, handler = any) (( -- )) { }
+fun __cogito_iconbtn_add_menu(btn = Button, label = string, handler = any) (( -- )) { }
+fun __cogito_checkbox_set_checked(cb = Checkbox, checked = bool) (( -- )) { }
+fun __cogito_checkbox_get_checked(cb = Checkbox) (( bool )) { }
+fun __cogito_switch_set_checked(sw = Switch, checked = bool) (( -- )) { }
+fun __cogito_switch_get_checked(sw = Switch) (( bool )) { }
+fun __cogito_checkbox_on_change(cb = Checkbox, handler = any) (( -- )) { }
+fun __cogito_switch_on_change(sw = Switch, handler = any) (( -- )) { }
+fun __cogito_textfield_set_text(tf = TextField, text = string) (( -- )) { }
+fun __cogito_textfield_get_text(tf = TextField) (( string )) { }
+fun __cogito_textfield_on_change(tf = TextField, handler = any) (( -- )) { }
+fun __cogito_textview_set_text(tv = TextView, text = string) (( -- )) { }
+fun __cogito_textview_get_text(tv = TextView) (( string )) { }
+fun __cogito_textview_on_change(tv = TextView, handler = any) (( -- )) { }
+fun __cogito_dropdown_set_items(dd = Dropdown, items = [any]) (( -- )) { }
+fun __cogito_dropdown_set_selected(dd = Dropdown, idx = num) (( -- )) { }
+fun __cogito_dropdown_get_selected(dd = Dropdown) (( num )) { }
+fun __cogito_dropdown_on_change(dd = Dropdown, handler = any) (( -- )) { }
+fun __cogito_slider_set_value(sl = Slider, value = num) (( -- )) { }
+fun __cogito_slider_get_value(sl = Slider) (( num )) { }
+fun __cogito_slider_on_change(sl = Slider, handler = any) (( -- )) { }
+fun __cogito_tabs_set_items(tabs = Tabs, items = [any]) (( -- )) { }
+fun __cogito_tabs_set_ids(tabs = Tabs, ids = [any]) (( -- )) { }
+fun __cogito_tabs_set_selected(tabs = Tabs, idx = num) (( -- )) { }
+fun __cogito_tabs_get_selected(tabs = Tabs) (( num )) { }
+fun __cogito_tabs_on_change(tabs = Tabs, handler = any) (( -- )) { }
+fun __cogito_tabs_bind(tabs = Tabs, view = ViewSwitcher) (( -- )) { }
+fun __cogito_view_switcher_set_active(view = ViewSwitcher, id = string) (( -- )) { }
+fun __cogito_progress_set_value(p = Progress, value = num) (( -- )) { }
+fun __cogito_progress_get_value(p = Progress) (( num )) { }
+fun __cogito_toast_set_text(t = Toast, text = string) (( -- )) { }
+fun __cogito_toast_on_click(t = Toast, handler = any) (( -- )) { }
+fun __cogito_list_on_select(list = List, handler = any) (( -- )) { }
+fun __cogito_list_on_activate(list = List, handler = any) (( -- )) { }
+fun __cogito_grid_on_select(grid = Grid, handler = any) (( -- )) { }
+fun __cogito_grid_on_activate(grid = Grid, handler = any) (( -- )) { }
+fun __cogito_button_on_click(btn = Button, handler = any) (( -- )) { }
+fun __cogito_run(app = App, win = Window) (( -- )) { }
+fun __cogito_load_css(path = string) (( -- )) { }
+

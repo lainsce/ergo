@@ -1,0 +1,307 @@
+* {
+  color: #f2f2f7;
+  font-size: 16;
+}
+
+window {
+  background: #1c1c1e;
+}
+
+button {
+  background: #2c2c2e;
+}
+
+textfield, .textfield {
+  background: #2c2c2e;
+}
+
+searchfield, .searchfield {
+  background: #2c2c2e;
+}
+
+textview, .textview {
+  background: #2c2c2e;
+}
+
+textfield:selection, .textfield:selection {
+  background: #3a3a3c;
+}
+
+textview:selection, .textview:selection {
+  background: #3a3a3c;
+}
+
+dropdown, .dropdown {
+  background: #2c2c2e;
+}
+
+datepicker, .datepicker {
+  background: #2c2c2e;
+  color: #f2f2f7;
+  border-color: #3a3a3c;
+}
+
+datepicker:selection, .datepicker:selection {
+  background: #3a3a3c;
+}
+
+slider, .slider {
+  background: #3a3a3c;
+  color: #f2f2f7;
+}
+
+stepper, .stepper {
+  background: #2c2c2e;
+}
+
+tabs, .tabs {
+  background: #2c2c2e;
+}
+
+tabs:selection {
+  background: #3a3a3c;
+}
+
+segmented, .segmented {
+  background: #2c2c2e;
+}
+
+view-switcher, .view-switcher {
+  background: #1c1c1e;
+}
+
+progress, .progress {
+  background: #3a3a3c;
+}
+
+progress:selection {
+  background: #6b6b6f;
+}
+
+toasts, .toasts {
+  color: #f2f2f7;
+}
+
+toast, .toast {
+  background: #2c2c2e;
+  color: #f2f2f7;
+}
+
+treeview, .treeview {
+  background: #2c2c2e;
+}
+
+colorpicker, .colorpicker {
+  background: #2c2c2e;
+  color: #f2f2f7;
+  border-color: #3a3a3c;
+}
+
+colorpicker:selection, .colorpicker:selection {
+  background: #3a3a3c;
+}
+
+toolbar, .toolbar, .bottom-toolbar {
+  background: #2c2c2e;
+}
+
+iconbtn {
+  background: #2c2c2e;
+}
+
+image {
+  min-width: 20;
+  min-height: 20;
+}
+
+label {
+  color: #f2f2f7;
+}
+
+.tooltip {
+  background: #3a3a3c;
+  color: #f2f2f7;
+}
+
+.checkbox, .radio, checkbox {
+  color: #f2f2f7;
+}
+
+.checkbox:checked,
+.radio:checked {
+  background: #3a3a3c;
+}
+
+.checkbox .check,
+.radio .check {
+  color: #f2f2f7;
+}
+
+.checkbox:checked .check,
+.radio:checked .check {
+  color: #f2f2f7;
+}
+
+.checkbox .box,
+.radio .box {
+  background: #2c2c2e;
+  border-color: #3a3a3c;
+}
+
+.checkbox:checked .box,
+.radio:checked .box {
+  background: #3a3a3c;
+}
+
+.checkbox .box:hover,
+.radio .box:hover {
+  background: #3a3a3c;
+}
+
+.checkbox .box:active,
+.radio .box:active {
+  background: #3a3a3c;
+}
+
+.checkbox .check:hover,
+.radio .check:hover {
+  color: #ffffff;
+}
+
+.checkbox .check:active,
+.radio .check:active {
+  color: #ffffff;
+}
+
+.switch, switch {
+  color: #f2f2f7;
+}
+
+.switch .track,
+switch track {
+  background: #3a3a3c;
+}
+
+.switch:checked .track,
+switch:checked track {
+  background: #5a5a5f;
+}
+
+.switch:checked .track:active,
+switch:checked track:active {
+  background: #5a5a5f;
+}
+
+.switch .track:hover,
+switch track:hover {
+  background: #4a4a4f;
+}
+
+.switch .track:active,
+switch track:active {
+  background: #5a5a5f;
+}
+
+.switch .knob,
+switch knob {
+  background: #ffffff;
+}
+
+.switch .knob:hover,
+switch knob:hover {
+  background: #f4f4f4;
+}
+
+.switch .knob:active,
+switch knob:active {
+  background: #e8e8e8;
+}
+
+.monospace {
+  color: #f2f2f7;
+}
+
+.tabular {
+  color: #f2f2f7;
+}
+
+.title {
+  color: #f2f2f7;
+}
+
+.subtitle {
+  color: #f2f2f7;
+}
+
+.body {
+  color: #f2f2f7;
+}
+
+list {
+  background: #2c2c2e;
+}
+
+list:selection {
+  background: #3a3a3c;
+}
+
+grid {
+  background: #2c2c2e;
+}
+
+grid:selection {
+  background: #3a3a3c;
+}
+
+appbar {
+  background: #2c2c2e;
+}
+
+dialog {
+  background: #2c2c2e;
+}
+
+.appbar .window-button {
+  border-color: #00000022;
+  border-width: 1;
+}
+
+.appbar .window-close { background: #ff5f57; }
+.appbar .window-min { background: #febc2e; }
+.appbar .window-max { background: #28c840; }
+.appbar .window-close:hover { background: #ff7b73; }
+.appbar .window-close:active { background: #e5534d; }
+.appbar .window-min:hover { background: #ffd066; }
+.appbar .window-min:active { background: #e0a52a; }
+.appbar .window-max:hover { background: #52d870; }
+.appbar .window-max:active { background: #1ea64a; }
+
+.appbar .button:hover {
+  background: #3a3a3c;
+}
+
+.appbar .button:active {
+  background: #4a4a4f;
+}
+
+.appbar .iconbtn:hover {
+  background: #3a3a3c;
+}
+
+.appbar .iconbtn:active {
+  background: #4a4a4f;
+}
+
+menu {
+  background: #2c2c2e;
+  color: #f2f2f7;
+}
+
+menu:selection {
+  background: #3a3a3c;
+}
+
+menu item {
+  background: #2c2c2e;
+  color: #f2f2f7;
+}

@@ -1,0 +1,31 @@
+case COGITO_GRID: {
+      bool hover = false;
+      bool active = false;
+      cogito_node_hover_state(n, &hover, &active);
+      CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
+      if (s.has_bg) { n->bg = s.bg; n->bg_set = true; }
+      if (s.has_border) { n->border_color = s.border; n->border_color_set = true; }
+      if (s.has_border_width) { n->border_width = s.border_width; n->border_width_set = true; }
+      if (s.has_radius) n->border_radius = s.radius;
+      if (n->bg_set || n->border_width > 0) {
+        if (n->shadow_set && n->shadow_level > 0) {
+          cogito_draw_shadow(n->x, n->y, n->w, n->h, n->border_radius, n->shadow_level);
+        }
+        cogito_draw_rect(n->x, n->y, n->w, n->h, n->bg, n->border_radius);
+        if (n->border_width > 0) {
+          cogito_draw_rect_lines(n->x, n->y, n->w, n->h, n->border_color, n->border_radius, n->border_width);
+        }
+      }
+      if (n->selected >= 0 && (size_t)n->selected < n->len) {
+        CogitoNode* sel = n->children[n->selected];
+        int inset = 2;
+        int sr = 0;
+        if (sel->border_radius > 0) sr = sel->border_radius + inset;
+        cogito_draw_rect(sel->x - inset, sel->y - inset, sel->w + inset * 2, sel->h + inset * 2, n->selection_color, sr);
+      }
+      for (size_t i = 0; i < n->len; i++) {
+        cogito_draw_node(n->children[i]);
+      }
+      break;
+    }
+    

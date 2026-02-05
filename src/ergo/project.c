@@ -132,7 +132,7 @@ static Module *load_file(const char *path,
     }
 
     size_t len = 0;
-    char *src = read_file_arena(abs_path, arena, &len, err);
+    char *src = read_file_with_includes(abs_path, "-- @include", arena, &len, err);
     if (!src) {
         free(abs_path);
         return NULL;

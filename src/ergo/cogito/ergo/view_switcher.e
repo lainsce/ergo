@@ -1,0 +1,31 @@
+class ViewSwitcher {
+    fun add(this, child = any) (( -- )) {
+        __cogito_container_add(this, child)
+    }
+    fun set_margins(this, left = num, top = num, right = num, bottom = num) (( -- )) {
+        __cogito_container_set_margins(this, left, top, right, bottom)
+    }
+    fun set_padding(this, left = num, top = num, right = num, bottom = num) (( -- )) {
+        __cogito_container_set_padding(this, left, top, right, bottom)
+    }
+    fun set_align(this, align = num) (( -- )) {
+        __cogito_container_set_align(this, align)
+    }
+    fun halign(this, align = num) (( -- )) {
+        __cogito_container_set_halign(this, align)
+    }
+    fun valign(this, align = num) (( -- )) {
+        __cogito_container_set_valign(this, align)
+    }
+    fun set_active(this, id = string) (( -- )) {
+        __cogito_view_switcher_set_active(this, id)
+    }
+    fun build(this, builder = any) (( ViewSwitcher )) {
+        __cogito_build(this, builder)
+        return this
+    }
+    fun set_disabled(this, on = bool) (( -- )) {
+        __cogito_node_set_disabled(this, on)
+    }
+}
+

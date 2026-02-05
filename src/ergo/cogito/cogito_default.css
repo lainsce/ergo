@@ -215,33 +215,40 @@ label {
   min-width: 64;
 }
 
-.switch .track {
+.switch .track,
+switch track {
   background: #b4b4b4;
 }
 
-.switch:checked .track {
+.switch:checked .track,
+switch:checked track {
   background: #72dec2;
 }
 
-.switch .track:hover {
+.switch .track:hover,
+switch track:hover {
   background: #c4c4c4;
 }
 
-.switch .track:active {
+.switch .track:active,
+switch track:active {
   background: #72dec2;
 }
 
-.switch .knob {
+.switch .knob,
+switch knob {
   background: #ffffff;
   min-width: 32;
   min-height: 24;
 }
 
-.switch .knob:hover {
+.switch .knob:hover,
+switch knob:hover {
   background: #f4f4f4;
 }
 
-.switch .knob:active {
+.switch .knob:active,
+switch knob:active {
   background: #e8e8e8;
 }
 

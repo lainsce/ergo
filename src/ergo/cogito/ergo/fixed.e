@@ -1,0 +1,19 @@
+class Fixed {
+    fun add(this, child = any) (( -- )) {
+        __cogito_container_add(this, child)
+    }
+    fun set_pos(this, child = any, x = num, y = num) (( -- )) {
+        __cogito_fixed_set_pos(this, child, x, y)
+    }
+    fun set_padding(this, left = num, top = num, right = num, bottom = num) (( -- )) {
+        __cogito_container_set_padding(this, left, top, right, bottom)
+    }
+    fun build(this, builder = any) (( Fixed )) {
+        __cogito_build(this, builder)
+        return this
+    }
+    fun set_disabled(this, on = bool) (( -- )) {
+        __cogito_node_set_disabled(this, on)
+    }
+}
+

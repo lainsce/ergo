@@ -1,0 +1,21 @@
+class Toast {
+    fun set_margins(this, left = num, top = num, right = num, bottom = num) (( -- )) {
+        __cogito_container_set_margins(this, left, top, right, bottom)
+    }
+    fun set_padding(this, left = num, top = num, right = num, bottom = num) (( -- )) {
+        __cogito_container_set_padding(this, left, top, right, bottom)
+    }
+    fun set_align(this, align = num) (( -- )) {
+        __cogito_container_set_align(this, align)
+    }
+    fun set_text(this, text = string) (( -- )) {
+        __cogito_toast_set_text(this, text)
+    }
+    fun on_click(this, handler = any) (( -- )) {
+        __cogito_toast_on_click(this, handler)
+    }
+    fun set_disabled(this, on = bool) (( -- )) {
+        __cogito_node_set_disabled(this, on)
+    }
+}
+

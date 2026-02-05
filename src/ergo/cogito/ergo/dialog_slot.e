@@ -1,0 +1,12 @@
+class DialogSlot {
+    fun show(this, dialog = Dialog) (( -- )) {
+        __cogito_dialog_slot_show(this, dialog)
+    }
+    fun clear(this) (( -- )) {
+        __cogito_dialog_slot_clear(this)
+    }
+    fun set_disabled(this, on = bool) (( -- )) {
+        __cogito_node_set_disabled(this, on)
+    }
+}
+

@@ -1,0 +1,33 @@
+class Tabs {
+    fun set_margins(this, left = num, top = num, right = num, bottom = num) (( -- )) {
+        __cogito_container_set_margins(this, left, top, right, bottom)
+    }
+    fun set_padding(this, left = num, top = num, right = num, bottom = num) (( -- )) {
+        __cogito_container_set_padding(this, left, top, right, bottom)
+    }
+    fun set_align(this, align = num) (( -- )) {
+        __cogito_container_set_align(this, align)
+    }
+    fun set_items(this, items = [any]) (( -- )) {
+        __cogito_tabs_set_items(this, items)
+    }
+    fun set_ids(this, ids = [any]) (( -- )) {
+        __cogito_tabs_set_ids(this, ids)
+    }
+    fun set_selected(this, idx = num) (( -- )) {
+        __cogito_tabs_set_selected(this, idx)
+    }
+    fun selected(this) (( num )) {
+        return __cogito_tabs_get_selected(this)
+    }
+    fun on_change(this, handler = any) (( -- )) {
+        __cogito_tabs_on_change(this, handler)
+    }
+    fun bind(this, view = ViewSwitcher) (( -- )) {
+        __cogito_tabs_bind(this, view)
+    }
+    fun set_disabled(this, on = bool) (( -- )) {
+        __cogito_node_set_disabled(this, on)
+    }
+}
+

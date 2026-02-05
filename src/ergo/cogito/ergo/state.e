@@ -1,0 +1,183 @@
+class State {
+    fun get(this) (( any )) {
+        return __cogito_state_get(this)
+    }
+    fun set(this, value = any) (( -- )) {
+        __cogito_state_set(this, value)
+    }
+}
+
+fun app() (( App )) {
+    return __cogito_app()
+}
+
+fun load_css(path = string) (( -- )) {
+    __cogito_load_css(path)
+}
+fun set_class(node = any, cls = string) (( -- )) {
+    __cogito_node_set_class(node, cls)
+}
+fun set_a11y_label(node = any, label = string) (( -- )) {
+    __cogito_node_set_a11y_label(node, label)
+}
+fun set_a11y_role(node = any, role = string) (( -- )) {
+    __cogito_node_set_a11y_role(node, role)
+}
+fun set_tooltip(node = any, text = string) (( -- )) {
+    __cogito_node_set_tooltip(node, text)
+}
+fun pointer_capture(node = any) (( -- )) {
+    __cogito_pointer_capture(node)
+}
+fun pointer_release() (( -- )) {
+    __cogito_pointer_release()
+}
+
+fun window() (( Window )) {
+    return __cogito_window(@"Cogito", 360, 296)
+}
+
+fun window_title(title = string) (( Window )) {
+    return __cogito_window(title, 360, 296)
+}
+
+fun window_size(title = string, w = num, h = num) (( Window )) {
+    return __cogito_window(title, w, h)
+}
+
+fun build(node = any, builder = any) (( any )) {
+    __cogito_build(node, builder)
+    return node
+}
+
+fun state(value = any) (( State )) {
+    return __cogito_state_new(value)
+}
+
+fun set_id(node = any, id = string) (( -- )) {
+    __cogito_node_set_id(node, id)
+}
+
+fun vstack() (( VStack )) {
+    return __cogito_vstack()
+}
+
+fun hstack() (( HStack )) {
+    return __cogito_hstack()
+}
+
+fun zstack() (( ZStack )) {
+    return __cogito_zstack()
+}
+
+fun fixed() (( Fixed )) {
+    return __cogito_fixed()
+}
+
+fun scroller() (( Scroller )) {
+    return __cogito_scroller()
+}
+
+fun list() (( List )) {
+    return __cogito_list()
+}
+
+fun grid(cols = num) (( Grid )) {
+    return __cogito_grid(cols)
+}
+
+fun tabs() (( Tabs )) {
+    return __cogito_tabs()
+}
+
+fun view_switcher() (( ViewSwitcher )) {
+    return __cogito_view_switcher()
+}
+
+fun progress(value = num) (( Progress )) {
+    return __cogito_progress(value)
+}
+
+fun toasts() (( Toasts )) {
+    return __cogito_toasts()
+}
+
+fun toast(text = string) (( Toast )) {
+    return __cogito_toast(text)
+}
+
+fun label(text = string) (( Label )) {
+    return __cogito_label(text)
+}
+
+fun image(icon = string) (( Image )) {
+    return __cogito_image(icon)
+}
+
+fun dialog(title = string) (( Dialog )) {
+    return __cogito_dialog(title)
+}
+
+fun dialog_slot() (( DialogSlot )) {
+    return __cogito_dialog_slot()
+}
+
+fun button(text = string) (( Button )) {
+    return __cogito_button(text)
+}
+
+fun appbar(title = string, subtitle = string) (( AppBar )) {
+    return __cogito_appbar(title, subtitle)
+}
+
+fun checkbox(text = string, group = any) (( Checkbox )) {
+    return __cogito_checkbox(text, group)
+}
+
+fun switch(text = string) (( Switch )) {
+    return __cogito_switch(text)
+}
+
+fun textfield(text = string) (( TextField )) {
+    return __cogito_textfield(text)
+}
+
+fun searchfield(text = string) (( SearchField )) {
+    return __cogito_searchfield(text)
+}
+
+fun textview(text = string) (( TextView )) {
+    return __cogito_textview(text)
+}
+
+fun dropdown() (( Dropdown )) {
+    return __cogito_dropdown()
+}
+
+fun datepicker() (( DatePicker )) {
+    return __cogito_datepicker()
+}
+
+fun stepper(min = num, max = num, value = num, step = num) (( Stepper )) {
+    return __cogito_stepper(min, max, value, step)
+}
+
+fun slider(min = num, max = num, value = num) (( Slider )) {
+    return __cogito_slider(min, max, value)
+}
+
+fun segmented() (( SegmentedControl )) {
+    return __cogito_segmented()
+}
+
+fun treeview() (( TreeView )) {
+    return __cogito_treeview()
+}
+
+fun colorpicker() (( ColorPicker )) {
+    return __cogito_colorpicker()
+}
+
+fun bottom_toolbar() (( BottomToolbar )) {
+    return __cogito_toolbar()
+}

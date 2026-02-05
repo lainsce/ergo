@@ -1,7 +1,7 @@
 bring stdr
 bring cogito
 
-def dialog_slot = cogito.dialog_slot()
+def main_win = cogito.window_title(@"The Kitchensink")
 
 fun on_button(btn = cogito.Button) (( -- )) {
     btn.set_text(@"Clicked!")
@@ -68,7 +68,7 @@ fun on_colorpicker(cp = cogito.ColorPicker) (( -- )) {
 }
 
 fun on_close_dialog(btn = cogito.Button) (( -- )) {
-    dialog_slot.clear()
+    main_win.clear_dialog()
 }
 
 fun on_appbar_settings(btn = cogito.Button) (( -- )) {
@@ -77,7 +77,7 @@ fun on_appbar_settings(btn = cogito.Button) (( -- )) {
     let close_btn = cogito.button(@"Done")
     close_btn.on_click(on_close_dialog)
     dlg.add(close_btn)
-    dialog_slot.show(dlg)
+    main_win.set_dialog(dlg)
 }
 
 fun on_appbar_help(btn = cogito.Button) (( -- )) {
@@ -86,7 +86,7 @@ fun on_appbar_help(btn = cogito.Button) (( -- )) {
     let close_btn = cogito.button(@"Close")
     close_btn.on_click(on_close_dialog)
     dlg.add(close_btn)
-    dialog_slot.show(dlg)
+    main_win.set_dialog(dlg)
 }
 
 fun build_ui(win = cogito.Window) (( -- )) {
@@ -102,9 +102,9 @@ fun build_ui(win = cogito.Window) (( -- )) {
     let root = cogito.zstack()
     let content = cogito.vstack()
     root.add(content)
-    root.add(dialog_slot)
     let toast_layer = cogito.toasts()
     root.add(toast_layer)
+
     let row1 = cogito.hstack()
     let row2 = cogito.hstack()
     let row3 = cogito.hstack()
@@ -115,6 +115,8 @@ fun build_ui(win = cogito.Window) (( -- )) {
     let row8 = cogito.hstack()
     let row9 = cogito.hstack()
     let row10 = cogito.hstack()
+    let row11 = cogito.hstack()
+    let row12 = cogito.hstack()
 
     let label = cogito.label(@"Label")
     let btn = cogito.button(@"Button")
@@ -186,6 +188,9 @@ fun build_ui(win = cogito.Window) (( -- )) {
     tv.on_change(on_textview)
     cogito.set_tooltip(tv, @"Multi-line input")
     row6.add(tv)
+    let sf = cogito.searchfield(@"Search…")
+    cogito.set_tooltip(sf, @"Search field")
+    row6.add(sf)
 
     let dd = cogito.dropdown()
     dd.set_items([@"One", @"Two", @"Three"])
@@ -232,6 +237,44 @@ fun build_ui(win = cogito.Window) (( -- )) {
     cogito.set_tooltip(cp, @"Color picker")
     row10.add(cp)
 
+    let sc = cogito.scroller()
+    sc.set_axes(true, true)
+    let sc_content = cogito.vstack()
+    sc_content.add(cogito.label(@"Scrollable item 1"))
+    sc_content.add(cogito.label(@"Scrollable item 2"))
+    sc_content.add(cogito.label(@"Scrollable item 3"))
+    sc_content.add(cogito.label(@"Scrollable item 4"))
+    sc_content.add(cogito.label(@"Scrollable item 5"))
+    sc_content.add(cogito.label(@"Scrollable item 6"))
+    sc_content.add(cogito.label(@"This line is intentionally very long to force horizontal scrolling."))
+    sc.add(sc_content)
+    row11.add(sc)
+
+    let fixed = cogito.fixed()
+    let fx_label = cogito.label(@"Fixed top-left")
+    fixed.add(fx_label)
+    fixed.set_pos(fx_label, 0, 0)
+    let fx_btn = cogito.button(@"Fixed button")
+    fixed.add(fx_btn)
+    fixed.set_pos(fx_btn, 12, 42)
+    let fx_tag = cogito.label(@"Fixed top-right")
+    fixed.add(fx_tag)
+    fixed.set_pos(fx_tag, 120, 0)
+    row12.add(fixed)
+
+    let text_demo = cogito.vstack()
+    let wrap = cogito.label(@"This label wraps within a max-width constraint and shows alignment.")
+    wrap.set_class(@"body")
+    wrap.set_wrap(true)
+    wrap.set_text_align(1)
+    let ellipsis = cogito.label(@"This label demonstrates ellipsis truncation with a max width.")
+    ellipsis.set_class(@"body")
+    ellipsis.set_ellipsis(true)
+    ellipsis.set_text_align(2)
+    text_demo.add(wrap)
+    text_demo.add(ellipsis)
+    row12.add(text_demo)
+
     let t1 = cogito.toast(@"Saved")
     let t2 = cogito.toast(@"Export complete")
     cogito.set_tooltip(t1, @"Click x to dismiss")
@@ -249,13 +292,25 @@ fun build_ui(win = cogito.Window) (( -- )) {
     content.add(row8)
     content.add(row9)
     content.add(row10)
+    content.add(row11)
+    content.add(row12)
+
+    let toolbar = cogito.bottom_toolbar()
+    let tb_label = cogito.label(@"Bottom toolbar")
+    tb_label.set_class(@"subtitle")
+    toolbar.add(tb_label)
+    content.add(toolbar)
+
     win.add(root)
 }
 
 entry () (( -- )) {
     let app = cogito.app()
-    let win = cogito.window_title(@"The Kitchensink").build(build_ui)
-    win.set_a11y_label(@"Cogito Kitchensink")
-    win.set_resizable (true)
-    app.run(win)
+    cogito.load_css(@"src/ergo/cogito/examples/cogito_examples.css")
+    main_win.build(build_ui)
+    app.set_appid(@"com.example.CogitoKitchensink")
+    app.set_accent_color(@"#007AFF", false)
+    main_win.set_a11y_label(@"Cogito Kitchensink")
+    main_win.set_resizable (true)
+    app.run(main_win)
 }

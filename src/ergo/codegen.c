@@ -2695,6 +2695,44 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_app_set_appid")) {
+                        GenExpr app, idv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &app, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &idv, err)) { gen_expr_free(&app); return false; }
+                        w_line(&cg->w, "cogito_app_set_appid(%s, %s);", app.tmp, idv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", app.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", idv.tmp);
+                        gen_expr_release_except(cg, &app, app.tmp);
+                        gen_expr_release_except(cg, &idv, idv.tmp);
+                        gen_expr_free(&app);
+                        gen_expr_free(&idv);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_app_set_accent_color")) {
+                        GenExpr app, colorv, ov;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &app, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &colorv, err)) { gen_expr_free(&app); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[2], &ov, err)) { gen_expr_free(&app); gen_expr_free(&colorv); return false; }
+                        w_line(&cg->w, "cogito_app_set_accent_color(%s, %s, %s);", app.tmp, colorv.tmp, ov.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", app.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", colorv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", ov.tmp);
+                        gen_expr_release_except(cg, &app, app.tmp);
+                        gen_expr_release_except(cg, &colorv, colorv.tmp);
+                        gen_expr_release_except(cg, &ov, ov.tmp);
+                        gen_expr_free(&app);
+                        gen_expr_free(&colorv);
+                        gen_expr_free(&ov);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_pointer_capture")) {
                         GenExpr node;
                         if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
@@ -4324,7 +4362,7 @@ static bool codegen_gen(Codegen *cg, Diag *err) {
     arena_init(&tmp_arena);
     size_t runtime_len = 0;
     Diag rerr = {0};
-    char *runtime_src = read_file_arena(runtime_path, &tmp_arena, &runtime_len, &rerr);
+    char *runtime_src = read_file_with_includes(runtime_path, "// @include", &tmp_arena, &runtime_len, &rerr);
     if (!runtime_src) {
         arena_free(&tmp_arena);
         return cg_set_err(err, (Str){runtime_path, runtime_path ? strlen(runtime_path) : 0}, "failed to read runtime.inc");
