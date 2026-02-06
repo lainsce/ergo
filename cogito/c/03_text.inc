@@ -558,6 +558,7 @@ static int cogito_text_line_index_from_pos(const CogitoNode* n, const char* text
   return len;
 }
 
+__attribute__((unused))
 static int cogito_text_width_size_n(const char* s, int len, int size) {
   return cogito_text_width_size_n_font(&cogito_font, s, len, size);
 }

@@ -743,6 +743,7 @@ static void cogito_node_set_a11y_role(ErgoVal nodev, ErgoVal rolev) {
   }
 }
 
+__attribute__((unused))
 static void cogito_node_set_tooltip_val(ErgoVal nodev, ErgoVal textv) {
   if (nodev.tag != EVT_OBJ) ergo_trap("cogito.node_set_tooltip expects node");
   CogitoNode* n = (CogitoNode*)nodev.as.p;
@@ -779,11 +780,13 @@ static void cogito_build(ErgoVal nodev, ErgoVal builder) {
 
 
 
+__attribute__((unused))
 static ErgoVal cogito_state_new(ErgoVal initial) {
   CogitoState* s = cogito_state_new_obj(initial);
   return EV_OBJ(s);
 }
 
+__attribute__((unused))
 static ErgoVal cogito_state_get(ErgoVal sv) {
   if (sv.tag != EVT_OBJ) ergo_trap("cogito.state_get expects state");
   CogitoState* s = (CogitoState*)sv.as.p;
@@ -792,6 +795,7 @@ static ErgoVal cogito_state_get(ErgoVal sv) {
   return v;
 }
 
+__attribute__((unused))
 static void cogito_state_set(ErgoVal sv, ErgoVal nv) {
   if (sv.tag != EVT_OBJ) ergo_trap("cogito.state_set expects state");
   CogitoState* s = (CogitoState*)sv.as.p;
@@ -890,17 +894,6 @@ static bool cogito_css_read_ident(const char** p, char* out, size_t cap) {
   size_t len = 0;
   if (!isalpha((unsigned char)**p) && **p != '_' && **p != '-' && **p != '.' && **p != '#') return false;
   while (**p && (isalnum((unsigned char)**p) || **p == '_' || **p == '-' || **p == '.' || **p == '#')) {
-    if (len + 1 < cap) out[len++] = **p;
-    (*p)++;
-  }
-  out[len] = 0;
-  return len > 0;
-}
-
-static bool cogito_css_read_selector(const char** p, char* out, size_t cap) {
-  size_t len = 0;
-  if (!isalpha((unsigned char)**p) && **p != '_' && **p != '-' && **p != '.' && **p != '#' && **p != '*') return false;
-  while (**p && (isalnum((unsigned char)**p) || **p == '_' || **p == '-' || **p == '.' || **p == '#' || **p == ':' || **p == '*')) {
     if (len + 1 < cap) out[len++] = **p;
     (*p)++;
   }

@@ -165,6 +165,7 @@ static float cogito_letter_spacing(const CogitoNode* n) {
   return (n && n->letter_spacing_set) ? n->letter_spacing : 0.0f;
 }
 
+__attribute__((unused))
 static void cogito_draw_text(int x, int y, const char* text, Color color, float spacing) {
   if (!text) return;
   bool premultiply = cogito_text_blend_premultiply();
@@ -206,6 +207,7 @@ static void cogito_draw_text_size_font(Font* f, int x, int y, const char* text, 
   if (premultiply) EndBlendMode();
 }
 
+__attribute__((unused))
 static void cogito_draw_text_size(int x, int y, const char* text, Color color, int size, bool bold, float spacing) {
   cogito_draw_text_size_font(&cogito_font, x, y, text, color, size, bold, spacing);
 }

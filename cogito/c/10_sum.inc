@@ -15,6 +15,17 @@ static void cogito_style_set_margin(CogitoStyle* s, int top, int right, int bott
   s->margin_left = left;
 }
 
+static void cogito_style_set_radius(CogitoStyle* s, int tl, int tr, int br, int bl) {
+  s->has_radius_tl = true;
+  s->has_radius_tr = true;
+  s->has_radius_br = true;
+  s->has_radius_bl = true;
+  s->radius_tl = tl;
+  s->radius_tr = tr;
+  s->radius_br = br;
+  s->radius_bl = bl;
+}
+
 static void cogito_sum_apply_property(CogitoStyle* style, const char* prop, const char** p, bool selection_mode) {
   if (selection_mode) {
     if (strcmp(prop, "background") == 0 || strcmp(prop, "background-color") == 0 ||
@@ -103,8 +114,23 @@ static void cogito_sum_apply_property(CogitoStyle* style, const char* prop, cons
     return;
   }
   if (strcmp(prop, "border-radius") == 0 || strcmp(prop, "radius") == 0) {
-    double v;
-    if (cogito_css_read_number(p, &v)) { style->has_radius = true; style->radius = (int)lround(v); }
+    int vals[4] = {0, 0, 0, 0};
+    int count = cogito_css_parse_ints(p, vals, 4);
+    if (count == 1) {
+      // All corners same
+      cogito_style_set_radius(style, vals[0], vals[0], vals[0], vals[0]);
+      style->has_radius = true;
+      style->radius = vals[0];
+    } else if (count == 2) {
+      // TL/BR = r1, TR/BL = r2
+      cogito_style_set_radius(style, vals[0], vals[1], vals[0], vals[1]);
+    } else if (count == 3) {
+      // TL = r1, TR/BL = r2, BR = r3
+      cogito_style_set_radius(style, vals[0], vals[1], vals[2], vals[1]);
+    } else if (count >= 4) {
+      // TL TR BR BL
+      cogito_style_set_radius(style, vals[0], vals[1], vals[2], vals[3]);
+    }
     return;
   }
   if (strcmp(prop, "font-size") == 0) {
@@ -326,7 +352,71 @@ static void cogito_sum_apply_property(CogitoStyle* style, const char* prop, cons
     if (cogito_css_read_number(p, &v)) { style->has_margin_top = true; style->margin_top = (int)lround(v); }
     return;
   }
-  if (strcmp(prop, "box-shadow") == 0 || strcmp(prop, "elevation") == 0) {
+  if (strcmp(prop, "box-shadow") == 0) {
+    // SUM spec: box-shadow: <dx> <dy> [<blur>] [<spread>] <color> [inset]
+    // For simplicity, we parse a single shadow (not bracketed multiple shadows yet)
+    cogito_css_skip_ws(p);
+
+    // Skip optional opening bracket
+    if (**p == '[') {
+      (*p)++;
+      cogito_css_skip_ws(p);
+    }
+
+    // Parse dx, dy
+    double dx = 0, dy = 0, blur = 0, spread = 0;
+    if (!cogito_css_read_number(p, &dx)) return;
+    if (!cogito_css_read_number(p, &dy)) return;
+
+    // Parse optional blur
+    const char* save = *p;
+    cogito_css_skip_ws(&save);
+    if (save[0] >= '0' && save[0] <= '9') {
+      *p = save;
+      cogito_css_read_number(p, &blur);
+    }
+
+    // Parse optional spread
+    save = *p;
+    cogito_css_skip_ws(&save);
+    if (save[0] >= '0' && save[0] <= '9') {
+      *p = save;
+      cogito_css_read_number(p, &spread);
+    }
+
+    // Parse color
+    Color c = {0, 0, 0, 255};
+    if (!cogito_css_parse_color(p, &c)) return;
+
+    // Parse optional inset
+    bool inset = false;
+    char kw[16];
+    cogito_css_skip_ws(p);
+    const char* kw_start = *p;
+    if (cogito_css_read_ident(p, kw, sizeof(kw))) {
+      if (strcmp(kw, "inset") == 0) {
+        inset = true;
+      } else {
+        // Not inset, rewind
+        *p = kw_start;
+      }
+    }
+
+    // Skip optional closing bracket
+    cogito_css_skip_ws(p);
+    if (**p == ']') (*p)++;
+
+    style->has_box_shadow = true;
+    style->box_shadow.dx = (float)dx;
+    style->box_shadow.dy = (float)dy;
+    style->box_shadow.blur = (float)blur;
+    style->box_shadow.spread = (float)spread;
+    style->box_shadow.color = c;
+    style->box_shadow.inset = inset;
+    return;
+  }
+  if (strcmp(prop, "elevation") == 0) {
+    // Keep legacy elevation for backward compatibility
     double v;
     if (cogito_css_read_number(p, &v)) {
       int level = (int)lround(v);
@@ -364,15 +454,26 @@ static void cogito_sum_apply_property(CogitoStyle* style, const char* prop, cons
   }
   // SUM spec: font shorthand  font: <family> <size> <weight>
   if (strcmp(prop, "font") == 0) {
-    // Skip family (quoted string or bare ident)
+    // Parse family (quoted string or bare ident)
     cogito_css_skip_ws(p);
+    style->font_family[0] = '\0';
     if (**p == '"') {
       (*p)++;
-      while (**p && **p != '"') (*p)++;
+      size_t i = 0;
+      while (**p && **p != '"' && i < sizeof(style->font_family) - 1) {
+        style->font_family[i++] = **p;
+        (*p)++;
+      }
+      style->font_family[i] = '\0';
       if (**p == '"') (*p)++;
+      style->has_font_family = true;
     } else {
       char fam[64];
-      cogito_css_read_ident(p, fam, sizeof(fam));
+      if (cogito_css_read_ident(p, fam, sizeof(fam))) {
+        strncpy(style->font_family, fam, sizeof(style->font_family) - 1);
+        style->font_family[sizeof(style->font_family) - 1] = '\0';
+        style->has_font_family = true;
+      }
     }
     // Size
     double sz;
@@ -405,8 +506,14 @@ static void cogito_sum_apply_property(CogitoStyle* style, const char* prop, cons
     }
     cogito_css_skip_ws(p);
     char bstyle[16];
-    cogito_css_read_ident(p, bstyle, sizeof(bstyle));
-    // border style keyword ignored (only solid supported visually)
+    if (cogito_css_read_ident(p, bstyle, sizeof(bstyle))) {
+      style->has_border_style = true;
+      if (strcmp(bstyle, "none") == 0) style->border_style = COGITO_BORDER_NONE;
+      else if (strcmp(bstyle, "solid") == 0) style->border_style = COGITO_BORDER_SOLID;
+      else if (strcmp(bstyle, "dashed") == 0) style->border_style = COGITO_BORDER_DASHED;
+      else if (strcmp(bstyle, "dotted") == 0) style->border_style = COGITO_BORDER_DOTTED;
+      else style->border_style = COGITO_BORDER_SOLID; // default to solid
+    }
     Color bc;
     if (cogito_css_parse_color(p, &bc)) {
       style->has_border = true;
@@ -1138,6 +1245,7 @@ static void cogito_load_sum(ErgoVal pathv) {
   if (ps) ergo_release_val(EV_STR(ps));
 }
 
+__attribute__((unused))
 static bool cogito_strcasestr(const char* hay, const char* needle) {
   if (!hay || !needle || !*needle) return false;
   size_t nlen = strlen(needle);

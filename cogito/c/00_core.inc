@@ -83,12 +83,33 @@ typedef enum {
   COGITO_KIND_COUNT
 } CogitoKind;
 
+typedef enum {
+  COGITO_BORDER_NONE = 0,
+  COGITO_BORDER_SOLID = 1,
+  COGITO_BORDER_DASHED = 2,
+  COGITO_BORDER_DOTTED = 3
+} CogitoBorderStyle;
+
+typedef struct CogitoBoxShadow {
+  float dx;
+  float dy;
+  float blur;
+  float spread;
+  Color color;
+  bool inset;
+} CogitoBoxShadow;
+
 typedef struct CogitoStyle {
   bool has_bg;
   bool has_text;
   bool has_border;
   bool has_border_width;
+  bool has_border_style;
   bool has_radius;
+  bool has_radius_tl;
+  bool has_radius_tr;
+  bool has_radius_br;
+  bool has_radius_bl;
   bool has_font_size;
   bool has_padding;
   bool has_padding_left;
@@ -109,6 +130,8 @@ typedef struct CogitoStyle {
   bool has_letter_spacing;
   bool has_font_tabular;
   bool has_font_mono;
+  bool has_font_family;
+  bool has_box_shadow;
   bool has_min_w;
   bool has_min_h;
   bool has_max_w;
@@ -140,12 +163,19 @@ typedef struct CogitoStyle {
   Color appbar_btn_max_color;
   Color appbar_btn_border_color;
   int border_width;
+  CogitoBorderStyle border_style;
   int radius;
+  int radius_tl;
+  int radius_tr;
+  int radius_br;
+  int radius_bl;
   int font_size;
   int font_weight;
   float letter_spacing;
   bool font_tabular;
   bool font_mono;
+  char font_family[64];
+  CogitoBoxShadow box_shadow;
   int min_w;
   int min_h;
   int max_w;
@@ -622,6 +652,7 @@ static Color cogito_anim_color(CogitoNode* n, Color target, Color* cur, Color* f
   return *cur;
 }
 
+__attribute__((unused))
 static void cogito_anim_apply(CogitoNode* n, const CogitoStyle* s, Color* bg, Color* text, Color* border, Color* selection) {
   if (!n || !s) return;
   if (s->has_transition_ms) n->anim_ms = s->transition_ms;
