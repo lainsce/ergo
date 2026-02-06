@@ -170,9 +170,8 @@ dropdown:hover
 
 datepicker
   background: #ffffff
-  border-radius: 12
-  min-height: 320
-  min-width: 320
+  border-radius: 18
+  min-width: 300
   padding: 16
   box-shadow: [
     0 1 3 0 #0000001f
@@ -180,9 +179,8 @@ datepicker
 
 .datepicker
   background: #ffffff
-  border-radius: 12
-  min-height: 320
-  min-width: 320
+  border-radius: 18
+  min-width: 300
   padding: 16
   box-shadow: [ 
     0 1 3 0 #0000001f
@@ -306,9 +304,8 @@ treeview
 
 colorpicker
   background: #ffffff
-  border-radius: 12
-  min-height: 320
-  min-width: 320
+  border-radius: 18
+  min-width: 300
   padding: 16
   box-shadow: [
     0 1 3 0 #0000001f
@@ -316,9 +313,8 @@ colorpicker
 
 .colorpicker
   background: #ffffff
-  border-radius: 12
-  min-height: 320
-  min-width: 320
+  border-radius: 18
+  min-width: 300
   padding: 16
   box-shadow: [
     0 1 3 0 #0000001f

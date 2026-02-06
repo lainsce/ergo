@@ -1581,8 +1581,8 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   cogito_sum_append(out, cap, &off, "dropdown\n  background: %s\n  color: %s\n  border-radius: 4 4 0 0\n  min-height: 56\n  padding: 8 16\n", surft, ons);
   cogito_sum_append(out, cap, &off, "dropdown:hover\n  background: %s\n", surfth);
   cogito_sum_append(out, cap, &off, ".dropdown\n  background: %s\n  color: %s\n  border-radius: 4 4 0 0\n  min-height: 56\n  padding: 8 16\n", surft, ons);
-  cogito_sum_append(out, cap, &off, "datepicker\n  background: %s\n  color: %s\n  border-radius: 12\n  min-width: 320\n  min-height: 320\n  padding: 16\n", surf, ons);
-  cogito_sum_append(out, cap, &off, ".datepicker\n  background: %s\n  color: %s\n  border-radius: 12\n  min-width: 320\n  min-height: 320\n  padding: 16\n", surf, ons);
+  cogito_sum_append(out, cap, &off, "datepicker\n  background: %s\n  color: %s\n  border-radius: 18\n  min-height: 260\n", surf, ons);
+  cogito_sum_append(out, cap, &off, ".datepicker\n  background: %s\n  color: %s\n  border-radius: 18\n  min-height: 260\n", surf, ons);
   cogito_sum_append(out, cap, &off, "datepicker:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, ".datepicker:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, "slider\n  background: %s\n  color: %s\n  min-height: 48\n  min-width: 200\n", itrack, p);
@@ -1607,8 +1607,8 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   cogito_sum_append(out, cap, &off, ".toast\n  background: %s\n  color: %s\n  border-radius: 10\n  min-height: 34\n", toastbg, toastfg);
   cogito_sum_append(out, cap, &off, "treeview\n  background: %s\n  color: %s\n  border-radius: 8\n  min-height: 180\n  min-width: 200\n  padding: 8\n", surf, ons);
   cogito_sum_append(out, cap, &off, ".treeview\n  background: %s\n  color: %s\n  border-radius: 8\n  min-height: 180\n  min-width: 200\n  padding: 8\n", surf, ons);
-  cogito_sum_append(out, cap, &off, "colorpicker\n  background: %s\n  border-radius: 12\n  min-width: 320\n  min-height: 320\n  padding: 16\n", surf);
-  cogito_sum_append(out, cap, &off, ".colorpicker\n  background: %s\n  border-radius: 12\n  min-width: 320\n  min-height: 320\n  padding: 16\n", surf);
+  cogito_sum_append(out, cap, &off, "colorpicker\n  background: %s\n  border-radius: 18\n  min-height: 140\n", surf);
+  cogito_sum_append(out, cap, &off, ".colorpicker\n  background: %s\n  border-radius: 18\n\n  min-height: 140\n", surf);
   cogito_sum_append(out, cap, &off, "colorpicker:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, ".colorpicker:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, "toolbar\n  background: %s\n  min-height: 44\n  padding: 8 12\n", surf);

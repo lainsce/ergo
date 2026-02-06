@@ -513,15 +513,6 @@ static void cogito_apply_style_to_node(CogitoNode* n) {
     if (s.has_padding_top) n->padding_top = s.padding_top;
     if (s.has_padding_right) n->padding_right = s.padding_right;
     if (s.has_padding_bottom) n->padding_bottom = s.padding_bottom;
-    if (n->kind == COGITO_VSTACK && n->parent && n->parent->kind == COGITO_WINDOW) {
-      bool has_pad = s.has_padding || s.has_padding_left || s.has_padding_top || s.has_padding_right || s.has_padding_bottom;
-      if (!has_pad) {
-        n->padding_left = 18;
-        n->padding_right = 18;
-        n->padding_top = 0;
-        n->padding_bottom = 18;
-      }
-    }
   }
 
   if (!n->margin_set) {
@@ -701,40 +692,78 @@ static int cogito_label_class_font_size(int cls, int fallback);
 static int cogito_text_height_size(int size);
 static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h);
 
-static void cogito_appbar_row_positions(CogitoNode* n, int* out_buttons_y, int* out_title_y, int* out_subtitle_y, int* out_child_y, int* out_appbar_h) {
+static void cogito_appbar_row_positions(
+  CogitoNode* n,
+  int* out_buttons_y,
+  int* out_title_y,
+  int* out_subtitle_y,
+  int* out_child_y,
+  int* out_appbar_h
+) {
   int btn_size = 12;
   int btn_gap = 6;
   int btn_pad_top = 9;
   int btn_pad_right = 9;
   cogito_appbar_button_metrics(&btn_size, &btn_gap, &btn_pad_top, &btn_pad_right);
+
+  const int has_title = (n->text && n->text->len);
+  const int has_subtitle = (n->subtitle && n->subtitle->len);
+  const int has_children = (n->len > 0);
+
   int title_h = 0;
   int subtitle_h = 0;
-  if (n->text && n->text->len) {
+
+  if (has_title) {
     int tsz = cogito_label_class_font_size(COGITO_LABEL_CLASS_TITLE, 32);
     title_h = cogito_text_height_size(tsz);
   }
-  if (n->subtitle && n->subtitle->len) {
+  if (has_subtitle) {
     int ssz = cogito_label_class_font_size(COGITO_LABEL_CLASS_SUBTITLE, 20);
     subtitle_h = cogito_text_height_size(ssz);
   }
+
   int icon_row_h = 0;
-  for (size_t i = 0; i < n->len; i++) {
-    int cw = 0;
-    int ch = 0;
-    cogito_intrinsic_size(n->children[i], &cw, &ch);
-    if (ch > icon_row_h) icon_row_h = ch;
+  if (has_children) {
+    for (size_t i = 0; i < n->len; i++) {
+      int cw = 0;
+      int ch = 0;
+      cogito_intrinsic_size(n->children[i], &cw, &ch);
+      if (ch > icon_row_h) icon_row_h = ch;
+    }
+    if (icon_row_h == 0) icon_row_h = btn_size;
   }
-  if (icon_row_h == 0) icon_row_h = btn_size;
-  int y0 = n->y + btn_pad_top;
-  int y1 = y0 + btn_size + 18;
-  int y2 = y1 + title_h + 6;
-  int y3 = y2 + subtitle_h + 6;
-  int h = (y3 - n->y) + icon_row_h + 12;
-  if (out_buttons_y) *out_buttons_y = y0;
-  if (out_title_y) *out_title_y = y1;
-  if (out_subtitle_y) *out_subtitle_y = y2;
-  if (out_child_y) *out_child_y = y3;
-  if (out_appbar_h) *out_appbar_h = h;
+
+  const int y_buttons = n->y + btn_pad_top;
+
+  // Baseline where text rows start (same as your previous y1)
+  int cursor_y = y_buttons + btn_size + 18;
+
+  int y_title = 0;
+  int y_subtitle = 0;
+
+  if (has_title) {
+    y_title = cursor_y;
+    cursor_y += title_h + 6;
+  }
+
+  if (has_subtitle) {
+    y_subtitle = cursor_y;
+    cursor_y += subtitle_h + 6;
+  }
+
+  int y_child = 0;
+  if (has_children) {
+    y_child = cursor_y;
+    cursor_y += icon_row_h + 12; // bottom padding for the child row
+  }
+
+  const int h = cursor_y - n->y;
+
+  if (out_buttons_y)  *out_buttons_y  = y_buttons;
+  if (out_title_y)    *out_title_y    = y_title;     // 0 if no title
+  if (out_subtitle_y) *out_subtitle_y = y_subtitle;  // 0 if no subtitle
+  if (out_child_y)    *out_child_y    = y_child;     // 0 if no children
+  if (out_appbar_h)   *out_appbar_h   = h;
 }
 
 static CogitoStyle cogito_appbar_win_btn_style(int kind, int state) {

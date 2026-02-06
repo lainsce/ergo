@@ -1,3 +1,13 @@
+typedef struct {
+  double n;
+  double aw;
+  double nbb;
+  double ncb;
+  double c;
+  double nc;
+  double z;
+  double fl;
+  double rgb_d[3];
 } CogitoCam16Viewing;
 
 static bool cogito_cam16_inited = false;

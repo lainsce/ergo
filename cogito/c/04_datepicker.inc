@@ -89,14 +89,3 @@ static int cogito_datepicker_hit_header(CogitoNode* n, int mx, int my) {
   if (cogito_hit_rect(mx, my, right_x, y, header_h, header_h)) return 1;
   return 0;
 }
-
-typedef struct {
-  double n;
-  double aw;
-  double nbb;
-  double ncb;
-  double c;
-  double nc;
-  double z;
-  double fl;
-  double rgb_d[3];
