@@ -24,7 +24,8 @@ case COGITO_TEXTFIELD: {
       int pad = 8;
       int size = cogito_node_font_size(n);
       Color text = n->text_color;
-      if (s.has_text) text = s.text;
+      if (cogito_has_selection_text) text = cogito_selection_text;
+      else if (s.has_text) text = s.text;
       const char* t = n->text ? n->text->data : "";
       int th = cogito_text_height_size(size);
       int ty = n->y + (n->h - th) / 2;
@@ -45,6 +46,25 @@ case COGITO_TEXTFIELD: {
         }
       }
       cogito_draw_text_ellipsis(n, n->x + pad, ty, n->w - pad * 2, t, text, size, cogito_node_bold(n), 0);
+      if (n->sel_start != n->sel_end) {
+        int a2 = n->sel_start;
+        int b2 = n->sel_end;
+        if (a2 > b2) { int tmp = a2; a2 = b2; b2 = tmp; }
+        int len2 = (int)strlen(t);
+        if (a2 < 0) a2 = 0;
+        if (b2 > len2) b2 = len2;
+        if (b2 > a2) {
+          Color sel2 = s.has_selection ? s.selection : (n->selection_set ? n->selection_color : cogito_rgba(200, 220, 250, 255));
+          Color sel_text = cogito_on_color(sel2);
+          int sx2 = cogito_text_width_size_n_node(n, t, a2, size);
+          char sbuf[1024];
+          int slen = b2 - a2;
+          if (slen > 1000) slen = 1000;
+          memcpy(sbuf, t + a2, (size_t)slen);
+          sbuf[slen] = '\0';
+          cogito_draw_text_size_node(n, n->x + pad + sx2, ty, sbuf, sel_text, size, cogito_node_bold(n));
+        }
+      }
       if (cogito_focused == n && !n->disabled) {
         int caret = n->caret;
         if (caret < 0) caret = 0;

@@ -20,9 +20,8 @@ case COGITO_CHECKBOX: {
       bool is_radio = (n->group.tag != EVT_NULL);
       CogitoStyle check_style = cogito_checkbox_check_style(is_radio, n->checked, over, down);
       CogitoStyle box_style = cogito_checkbox_box_style(is_radio, n->checked, over, down);
-      Color check = n->text_color;
-      if (check_style.has_text) check = check_style.text;
-      else if (n->check_set) check = n->check_color;
+      Color resolved_text = s.has_text ? s.text : n->text_color;
+      Color check = cogito_on_color(box_style.bg);
       bool has_border = n->border_width_set || n->border_color_set;
       if (s.has_bg) { n->bg = s.bg; n->bg_set = true; }
       if (s.has_border) { n->border_color = s.border; n->border_color_set = true; }
@@ -35,7 +34,7 @@ case COGITO_CHECKBOX: {
           DrawCircle(n->x + box / 2, cy + box / 2, box / 2, box_style.bg);
         }
         if (has_border) {
-          DrawCircleLines(n->x + box / 2, cy + box / 2, box / 2, n->border_color.a ? n->border_color : n->text_color);
+          DrawCircleLines(n->x + box / 2, cy + box / 2, box / 2, n->border_color.a ? n->border_color : resolved_text);
         }
         if (n->checked) {
           int r = 4;
@@ -52,7 +51,7 @@ case COGITO_CHECKBOX: {
           cogito_draw_rect(n->x, cy, box, box, box_style.bg, box_radius);
         }
         if (has_border) {
-          cogito_draw_rect_lines(n->x, cy, box, box, n->border_color.a ? n->border_color : n->text_color, box_radius, 1);
+          cogito_draw_rect_lines(n->x, cy, box, box, n->border_color.a ? n->border_color : resolved_text, box_radius, 1);
         }
         if (n->checked) {
           int mark = 16;
@@ -72,7 +71,10 @@ case COGITO_CHECKBOX: {
       if (n->text) {
         int th = cogito_text_height();
         int ty = n->y + (n->h - th) / 2;
-        cogito_draw_text_node(n, n->x + box + 6, ty, n->text->data, n->text_color);
+        Color label_text = n->text_color;
+        if (cogito_has_selection_text) label_text = cogito_selection_text;
+        else if (s.has_text) label_text = s.text;
+        cogito_draw_text_node(n, n->x + box + 6, ty, n->text->data, label_text);
       }
       break;
     }

@@ -14,7 +14,7 @@ case COGITO_TOAST: {
         }
       }
       int size = cogito_node_font_size(n);
-      Color text = s.has_text ? s.text : n->text_color;
+      Color text = cogito_has_selection_text ? cogito_selection_text : (s.has_text ? s.text : n->text_color);
       const char* t = n->text ? n->text->data : "";
       int th = cogito_text_height_size(size);
       int ty = n->y + (n->h - th) / 2;

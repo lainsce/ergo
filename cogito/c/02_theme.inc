@@ -307,7 +307,9 @@ static void cogito_toast_close_rect(CogitoNode* n, int* out_x, int* out_y, int* 
 
 static CogitoStyle cogito_theme_resolve_node_state(const CogitoNode* n, bool hover, bool active) {
   CogitoStyle s = cogito_theme_resolve_node(n);
-  bool checked = (n && (n->kind == COGITO_CHECKBOX || n->kind == COGITO_SWITCH)) ? n->checked : false;
+  bool checked = false;
+  if (n && (n->kind == COGITO_CHECKBOX || n->kind == COGITO_SWITCH)) checked = n->checked;
+  else if (n && n->kind == COGITO_CHIP) checked = n->chip_selected;
   if (n->kind == COGITO_LABEL && n->label_class > COGITO_LABEL_CLASS_NONE && n->label_class < 4) {
     if (checked) s = cogito_style_merge(&s, &cogito_theme.label_class_checked[n->label_class]);
     if (cogito_node_disabled(n)) {

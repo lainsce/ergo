@@ -20,7 +20,8 @@ case COGITO_DROPDOWN: {
       int pad = 8;
       int size = cogito_node_font_size(n);
       Color text = n->text_color;
-      if (s.has_text) text = s.text;
+      if (cogito_has_selection_text) text = cogito_selection_text;
+      else if (s.has_text) text = s.text;
       const char* label = "";
       if (n->menu_len > 0 && n->selected >= 0 && (size_t)n->selected < n->menu_len) {
         label = n->menu_labels[n->selected] ? n->menu_labels[n->selected]->data : "";

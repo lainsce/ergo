@@ -54,9 +54,13 @@ case COGITO_SWITCH: {
       else if (knob_s.has_knob) knob_col = knob_s.knob;
       cogito_draw_rect(kx, ky, knob_w, knob_h, knob_col, knob_h / 2);
       if (n->text) {
+        CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
         int th = cogito_text_height();
         int ty = n->y + (n->h - th) / 2;
-        cogito_draw_text_node(n, n->x + w + 8, ty, n->text->data, n->text_color);
+        Color label_text = n->text_color;
+        if (cogito_has_selection_text) label_text = cogito_selection_text;
+        else if (s.has_text) label_text = s.text;
+        cogito_draw_text_node(n, n->x + w + 8, ty, n->text->data, label_text);
       }
       break;
     }

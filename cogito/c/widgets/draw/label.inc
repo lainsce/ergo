@@ -6,7 +6,8 @@ case COGITO_LABEL: {
         int size = cogito_label_font_size(n);
         Color text = n->text_color;
         CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
-        if (s.has_text) text = s.text;
+        if (cogito_has_selection_text) text = cogito_selection_text;
+        else if (s.has_text) text = s.text;
         int align = n->text_align;
         if (n->text_wrap) {
           cogito_draw_text_wrapped(n, n->x, n->y, n->w, n->text->data, text, size, cogito_label_bold(n), align, true);

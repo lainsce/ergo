@@ -21,7 +21,7 @@ case COGITO_FAB: {
 
     Texture2D tex = {0};
     int tw = 0, th_i = 0;
-    Color icon_color = s.has_text ? s.text : n->text_color;
+    Color icon_color = cogito_has_selection_text ? cogito_selection_text : (s.has_text ? s.text : n->text_color);
 
     if (cogito_icon_load_texture(n->text->data, icon_size, &tex, &tw, &th_i)) {
       float dw = (float)icon_size;
@@ -47,7 +47,7 @@ case COGITO_FAB: {
 
   // Draw label if extended
   if (n->fab_extended && n->subtitle && n->subtitle->data[0]) {
-    Color text_color = s.has_text ? s.text : n->text_color;
+    Color text_color = cogito_has_selection_text ? cogito_selection_text : (s.has_text ? s.text : n->text_color);
     int size = cogito_node_font_size(n);
     int text_h = cogito_text_height_size(size);
     int label_x = n->x + 16 + 24 + 12;  // Icon + gap

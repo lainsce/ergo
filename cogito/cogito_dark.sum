@@ -85,6 +85,7 @@ fab:active
 
 nav_rail
   background: #2b2930
+  color: #f2f2f7
   min-width: 80
   padding: 4 0
 
@@ -94,6 +95,7 @@ nav_rail:selection
 
 textfield
   background: #322f35
+  color: #f2f2f7
   border-radius: 4 4 0 0
   min-height: 56
   padding: 8 16
@@ -103,21 +105,26 @@ textfield:hover
 
 .textfield
   background: #322f35
+  color: #f2f2f7
   border-radius: 4 4 0 0
   min-height: 56
   padding: 8 16
 
 searchfield
   background: #2c2c2e
+  color: #f2f2f7
 
 .searchfield
   background: #2c2c2e
+  color: #f2f2f7
 
 textview
   background: #2c2c2e
+  color: #f2f2f7
 
 .textview
   background: #2c2c2e
+  color: #f2f2f7
 
 textfield:selection
   background: #3a3a3c
@@ -133,9 +140,11 @@ textview:selection
 
 dropdown
   background: #2c2c2e
+  color: #f2f2f7
 
 .dropdown
   background: #2c2c2e
+  color: #f2f2f7
 
 datepicker
   background: #2c2c2e
@@ -185,30 +194,38 @@ slider:active
 
 stepper
   background: #2c2c2e
+  color: #f2f2f7
 
 .stepper
   background: #2c2c2e
+  color: #f2f2f7
 
 tabs
   background: #2c2c2e
+  color: #f2f2f7
 
 .tabs
   background: #2c2c2e
+  color: #f2f2f7
 
 tabs:selection
   background: #3a3a3c
 
 segmented
   background: #2c2c2e
+  color: #f2f2f7
 
 .segmented
   background: #2c2c2e
+  color: #f2f2f7
 
 view-switcher
   background: #1c1c1e
+  color: #f2f2f7
 
 .view-switcher
   background: #1c1c1e
+  color: #f2f2f7
 
 progress
   background: #3a3a3c
@@ -235,9 +252,11 @@ toast
 
 treeview
   background: #2c2c2e
+  color: #f2f2f7
 
 .treeview
   background: #2c2c2e
+  color: #f2f2f7
 
 colorpicker
   background: #2c2c2e
@@ -330,7 +349,7 @@ chip:hover
 chip:active
   background: #48454f
 
-chip.selected
+chip:checked
   background: #4a4458
   color: #e8def8
 
@@ -443,6 +462,7 @@ switch knob:active
 
 list
   background: #2c2c2e
+  color: #f2f2f7
   border-radius: 0
 
 list:selection
@@ -450,12 +470,14 @@ list:selection
 
 grid
   background: #2c2c2e
+  color: #f2f2f7
 
 grid:selection
   background: #3a3a3c
 
 appbar
   background: #2c2c2e
+  color: #f2f2f7
 
 dialog
   background: #2c2c2e
@@ -525,6 +547,7 @@ menu item
 
 bottom_nav
   background: #1c1b1f
+  color: #f2f2f7
   min-height: 80
   padding: 0 8
 

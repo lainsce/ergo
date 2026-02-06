@@ -12,8 +12,6 @@ case COGITO_WINDOW:
       }
       // Draw popover on top if open
       if (n->kind == COGITO_WINDOW && n->popover_open && n->popover) {
-        // Lighter scrim for popovers
-        DrawRectangle(0, 0, n->w, n->h, cogito_rgba(0, 0, 0, 32));
         cogito_draw_node(n->popover);
       }
       break;

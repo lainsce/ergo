@@ -3,8 +3,8 @@ case COGITO_CHIP: {
   cogito_node_hover_state(n, &hover, &active);
   CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
 
-  // Draw pill-shaped background
-  Color bg = n->chip_selected ? (s.has_selection ? s.selection : n->selection_color) : (s.has_bg ? s.bg : n->bg);
+  // Draw pill-shaped background (checked style merged by theme resolver when chip_selected)
+  Color bg = s.has_bg ? s.bg : n->bg;
   int radius = n->h / 2;  // Fully rounded
   cogito_draw_rect(n->x, n->y, n->w, n->h, bg, radius);
 
@@ -15,7 +15,7 @@ case COGITO_CHIP: {
 
   // Draw text
   if (n->text) {
-    Color text_color = s.has_text ? s.text : n->text_color;
+    Color text_color = cogito_has_selection_text ? cogito_selection_text : (s.has_text ? s.text : n->text_color);
     int size = cogito_node_font_size(n);
     int text_w = cogito_text_width_size_node(n, n->text->data, size);
     int text_h = cogito_text_height_size(size);

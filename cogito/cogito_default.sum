@@ -85,6 +85,7 @@ fab:active
 
 nav_rail
   background: #f7f2fa
+  color: #222222
   min-width: 80
   padding: 4 0
 
@@ -94,6 +95,7 @@ nav_rail:selection
 
 textfield
   background: #e7e0ec
+  color: #222222
   border-radius: 4 4 0 0
   border: 0 none #000000
   min-height: 56
@@ -104,12 +106,14 @@ textfield:hover
 
 .textfield
   background: #e7e0ec
+  color: #222222
   border-radius: 4 4 0 0
   min-height: 56
   padding: 8 16
 
 searchfield
   background: #f6f6f6
+  color: #222222
   border-radius: 18
   min-height: 36
   min-width: 180
@@ -117,6 +121,7 @@ searchfield
 
 .searchfield
   background: #f6f6f6
+  color: #222222
   border-radius: 18
   min-height: 36
   min-width: 180
@@ -124,11 +129,13 @@ searchfield
 
 textview
   background: #f6f6f6
+  color: #222222
   border-radius: 8
   min-height: 96
 
 .textview
   background: #f6f6f6
+  color: #222222
   border-radius: 8
   min-height: 96
 
@@ -146,6 +153,7 @@ textview:selection
 
 dropdown
   background: #e7e0ec
+  color: #222222
   border-radius: 4 4 0 0
   min-height: 56
   padding: 8 16
@@ -155,6 +163,7 @@ dropdown:hover
 
 .dropdown
   background: #e7e0ec
+  color: #222222
   border-radius: 4 4 0 0
   min-height: 56
   padding: 8 16
@@ -199,23 +208,27 @@ slider:active
 
 stepper
   background: #f6f6f6
+  color: #222222
   border-radius: 8
   min-height: 32
   min-width: 96
 
 .stepper
   background: #f6f6f6
+  color: #222222
   border-radius: 8
   min-height: 32
   min-width: 96
 
 tabs
   background: #f2f2f2
+  color: #222222
   border-radius: 10
   min-height: 36
 
 .tabs
   background: #f2f2f2
+  color: #222222
   border-radius: 10
   min-height: 36
 
@@ -224,19 +237,23 @@ tabs:selection
 
 segmented
   background: #f2f2f2
+  color: #222222
   border-radius: 10
   min-height: 36
 
 .segmented
   background: #f2f2f2
+  color: #222222
   border-radius: 10
   min-height: 36
 
 view-switcher
   background: #ffffff
+  color: #222222
 
 .view-switcher
   background: #ffffff
+  color: #222222
 
 progress
   background: #dddddd
@@ -273,6 +290,7 @@ toast
 
 treeview
   background: #f6f6f6
+  color: #222222
   border-radius: 8
   min-height: 180
   min-width: 200
@@ -280,6 +298,7 @@ treeview
 
 .treeview
   background: #f6f6f6
+  color: #222222
   border-radius: 8
   min-height: 180
   min-width: 200
@@ -374,7 +393,7 @@ chip:hover
 chip:active
   background: #c4bdd1
 
-chip.selected
+chip:checked
   background: #e8def8
   color: #1d1b20
 

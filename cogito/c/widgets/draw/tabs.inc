@@ -9,7 +9,8 @@ case COGITO_TABS: {
         cogito_draw_rect(n->x, n->y, n->w, n->h, bg, n->border_radius);
       }
       Color text = n->text_color;
-      if (s.has_text) text = s.text;
+      if (cogito_has_selection_text) text = cogito_selection_text;
+      else if (s.has_text) text = s.text;
       Color sel = s.has_selection ? s.selection : cogito_rgba(220, 220, 220, 255);
       int size = cogito_node_font_size(n);
       int th = cogito_text_height_size(size);

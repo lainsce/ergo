@@ -43,6 +43,7 @@ case COGITO_ICONBTN: {
           cogito_draw_rect_lines(n->x, n->y, n->w, n->h, border, radius, border_w);
         }
       }
+      Color icon_color = cogito_has_selection_text ? cogito_selection_text : (s.has_text ? s.text : cogito_on_color(n->selection_color));
       if (n->text) {
         int btn_min = n->w < n->h ? n->w : n->h;
         int target = 24;
@@ -65,14 +66,15 @@ case COGITO_ICONBTN: {
           float dx = n->x + (n->w - dw) * 0.5f;
           float dy = n->y + (n->h - dh) * 0.5f;
           DrawTexturePro(tex, (Rectangle){0, 0, (float)tw, (float)th},
-                         (Rectangle){dx, dy, dw, dh}, (Vector2){0, 0}, 0.0f, WHITE);
+                         (Rectangle){dx, dy, dw, dh}, (Vector2){0, 0}, 0.0f, icon_color);
         } else {
           int text_w = cogito_text_width(n->text->data);
           int text_h = cogito_text_height();
           int tx = n->x + (n->w - text_w) / 2;
           int ty = n->y + (n->h - text_h) / 2;
           Color text = n->text_color;
-          if (s.has_text) text = s.text;
+          if (cogito_has_selection_text) text = cogito_selection_text;
+          else if (s.has_text) text = s.text;
           cogito_draw_text_node(n, tx, ty, n->text->data, text);
         }
       }

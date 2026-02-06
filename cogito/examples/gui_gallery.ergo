@@ -6,6 +6,7 @@ def views = cogito.view_switcher()
 
 fun build_buttons_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
+    vstack.set_gap(6)
 
     let subtitle = cogito.label(@"Filled buttons with elevation")
     subtitle.set_class(@"subtitle")
@@ -28,6 +29,7 @@ fun build_buttons_view() (( cogito.VStack )) {
 
 fun build_textfields_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
+    vstack.set_gap(6)
 
     let subtitle = cogito.label(@"Filled variant with top-only radius")
     subtitle.set_class(@"subtitle")
@@ -50,6 +52,7 @@ fun build_textfields_view() (( cogito.VStack )) {
 
 fun build_checkboxes_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
+    vstack.set_gap(6)
 
     let subtitle = cogito.label(@"Selection controls with state layers")
     subtitle.set_class(@"subtitle")
@@ -80,6 +83,7 @@ fun build_checkboxes_view() (( cogito.VStack )) {
 
 fun build_sliders_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
+    vstack.set_gap(6)
 
     let subtitle = cogito.label(@"Slider with state layers")
     subtitle.set_class(@"subtitle")
@@ -100,6 +104,7 @@ fun build_sliders_view() (( cogito.VStack )) {
 
 fun build_pickers_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
+    vstack.set_gap(6)
 
     let subtitle = cogito.label(@"Date and color pickers with elevation")
     subtitle.set_class(@"subtitle")
@@ -122,6 +127,7 @@ fun build_pickers_view() (( cogito.VStack )) {
 
 fun build_lists_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
+    vstack.set_gap(6)
 
     let subtitle = cogito.label(@"Selectable lists and grid layouts")
     subtitle.set_class(@"subtitle")

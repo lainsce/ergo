@@ -346,12 +346,21 @@ static void cogito_layout_hstack(CogitoNode* n, int x, int y) {
 static void cogito_layout_list(CogitoNode* n, int x, int y) {
   int pad = n->gap;
   int cy = y + n->padding_top;
-  int item_inset = 0;  // Horizontal inset for items (set to 0 for now, controlled by list padding)
+  int item_pad_x = 8;
+  int item_pad_y = 12;
+  int avail_w = n->w - n->padding_left - n->padding_right;
   for (size_t i = 0; i < n->len; i++) {
     CogitoNode* c = n->children[i];
-    int cw = n->w - n->padding_left - n->padding_right - item_inset * 2;
+    // Apply item padding to children that don't already have explicit padding
+    if (!c->padding_left) c->padding_left = item_pad_x;
+    if (!c->padding_right) c->padding_right = item_pad_x;
+    if (!c->padding_top) c->padding_top = item_pad_y;
+    if (!c->padding_bottom) c->padding_bottom = item_pad_y;
+    int cw = 0;
     int ch = 0;
     cogito_intrinsic_size(c, &cw, &ch);
+    // List items always fill the available width
+    if (cw < avail_w) cw = avail_w;
     if (c->kind == COGITO_LABEL && c->text_wrap) {
       int target_w = cw - c->margin_left - c->margin_right;
       if (target_w < 0) target_w = 0;
@@ -361,10 +370,8 @@ static void cogito_layout_list(CogitoNode* n, int x, int y) {
     }
     // Enforce 42px minimum height for list items
     if (ch < 42) ch = 42;
-    // Items fill available width/height within list padding
-    cogito_layout_node(c, x + n->padding_left + item_inset, cy, cw, ch);
+    cogito_layout_node(c, x + n->padding_left, cy, cw, ch);
     cy += ch;
-    // Add gap only between items, not after the last one
     if (i < n->len - 1) cy += pad;
   }
 }

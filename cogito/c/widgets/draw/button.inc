@@ -38,7 +38,8 @@ case COGITO_BUTTON: {
         int tx = n->x + (n->w - tw) / 2;
         int ty = n->y + (n->h - th) / 2;
         Color text = n->text_color;
-        if (s.has_text) text = s.text;
+        if (cogito_has_selection_text) text = cogito_selection_text;
+        else if (s.has_text) text = s.text;
         cogito_draw_text_size_node(n, tx, ty, n->text->data, text, size, cogito_node_bold(n));
       }
       break;

@@ -16,14 +16,21 @@ case COGITO_LIST: {
           cogito_draw_rect_lines(n->x, n->y, n->w, n->h, n->border_color, n->border_radius, n->border_width);
         }
       }
-      // Draw full-width, full-height, unrounded selection background
-      if (n->selected >= 0 && (size_t)n->selected < n->len) {
+      bool has_selection = n->selected >= 0 && (size_t)n->selected < n->len;
+      if (has_selection) {
         CogitoNode* sel = n->children[n->selected];
-        // No inset, full width/height, border-radius 0 for unrounded
         cogito_draw_rect(sel->x, sel->y, sel->w, sel->h, n->selection_color, 0);
       }
       for (size_t i = 0; i < n->len; i++) {
-        cogito_draw_node(n->children[i]);
+        CogitoNode* c = n->children[i];
+        if (has_selection && (size_t)n->selected == i) {
+          cogito_has_selection_text = true;
+          cogito_selection_text = cogito_on_color(n->selection_color);
+          cogito_draw_node(c);
+          cogito_has_selection_text = false;
+        } else {
+          cogito_draw_node(c);
+        }
       }
       break;
     }

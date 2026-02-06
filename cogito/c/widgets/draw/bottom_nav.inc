@@ -43,7 +43,10 @@ case COGITO_BOTTOM_NAV: {
     if (n->bottom_nav_icons && n->bottom_nav_icons[i]) {
       Color icon_color = s.has_text ? s.text : n->text_color;
       if (selected) {
-        icon_color = s.has_selection ? s.text : (Color){103, 80, 164, 255};
+        Color sel_bg = s.has_selection ? s.selection : n->selection_color;
+        icon_color = cogito_on_color(sel_bg);
+      } else if (hover) {
+        icon_color = s.has_text ? s.text : n->text_color;
       }
       Texture2D tex;
       int tw = 0, th = 0;
@@ -60,6 +63,10 @@ case COGITO_BOTTOM_NAV: {
     // Draw label below icon
     if (n->bottom_nav_labels && n->bottom_nav_labels[i]) {
       Color text_color = s.has_text ? s.text : n->text_color;
+      if (selected) {
+        Color sel_bg = s.has_selection ? s.selection : n->selection_color;
+        text_color = cogito_on_color(sel_bg);
+      }
       int label_w = cogito_text_width_size_node(n, n->bottom_nav_labels[i]->data, label_size);
       int label_x = item_x + (item_w - label_w) / 2;
       int label_y = n->y + 12 + icon_size + 4;

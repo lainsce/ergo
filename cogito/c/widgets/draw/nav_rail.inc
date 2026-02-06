@@ -38,7 +38,10 @@ case COGITO_NAV_RAIL: {
     if (n->nav_rail_icons && n->nav_rail_icons[i]) {
       Color icon_color = s.has_text ? s.text : n->text_color;
       if (selected) {
-        icon_color = s.has_selection ? s.text : (Color){103, 80, 164, 255};
+        Color sel_bg = s.has_selection ? s.selection : n->selection_color;
+        icon_color = cogito_on_color(sel_bg);
+      } else if (hover) {
+        icon_color = s.has_text ? s.text : n->text_color;
       }
       Texture2D tex;
       int tw = 0, th = 0;
@@ -55,6 +58,10 @@ case COGITO_NAV_RAIL: {
     // Draw label below icon
     if (n->nav_rail_labels && n->nav_rail_labels[i]) {
       Color text_color = s.has_text ? s.text : n->text_color;
+      if (selected) {
+        Color sel_bg = s.has_selection ? s.selection : n->selection_color;
+        text_color = cogito_on_color(sel_bg);
+      }
       int size = 11;  // Small label size
       int label_w = cogito_text_width_size_node(n, n->nav_rail_labels[i]->data, size);
       int label_x = n->x + (n->w - label_w) / 2;

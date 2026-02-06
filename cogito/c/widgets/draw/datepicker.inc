@@ -58,7 +58,8 @@ case COGITO_DATEPICKER: {
         int dh = cogito_text_height_size(size);
         int dx = cx + (cell_w - dw) / 2;
         int dy = cy + (cell_h - dh) / 2;
-        cogito_draw_text_size_node(n, dx, dy, buf, text, size, false);
+        Color day_text = (day == n->date_day) ? cogito_on_color(sel) : text;
+        cogito_draw_text_size_node(n, dx, dy, buf, day_text, size, false);
       }
       break;
     }

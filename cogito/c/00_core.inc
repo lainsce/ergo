@@ -566,6 +566,9 @@ static bool cogito_sum_default_loaded = false;
 static char* cogito_user_sum = NULL;
 static int cogito_style_version = 0;
 static CogitoNode* cogito_focused = NULL;
+// Draw-context: forced text color for selected children (propagates down render tree)
+static Color cogito_selection_text = {0};
+static bool cogito_has_selection_text = false;
 static CogitoNode* cogito_slider_active = NULL;
 static CogitoNode* cogito_colorpicker_active = NULL;
 static int cogito_colorpicker_channel = -1;
