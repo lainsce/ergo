@@ -9,8 +9,16 @@ case COGITO_APPBAR: {
       n->appbar_btn_y = buttons_y;
       CogitoNode* win = cogito_node_window(n);
       bool allow_max = !win || win->resizable;
-      cogito_appbar_controls_positions(n, x, w, btn_size, btn_gap, btn_pad_right, allow_max,
-                                       &n->appbar_btn_close_x, &n->appbar_btn_min_x, &n->appbar_btn_max_x);
+      // Only show traffic lights on the first (leftmost) appbar
+      if (cogito_is_first_appbar(win, n)) {
+        cogito_appbar_controls_positions(n, x, w, btn_size, btn_gap, btn_pad_right, allow_max,
+                                         &n->appbar_btn_close_x, &n->appbar_btn_min_x, &n->appbar_btn_max_x);
+      } else {
+        // Other appbars don't show traffic lights
+        n->appbar_btn_close_x = -1;
+        n->appbar_btn_min_x = -1;
+        n->appbar_btn_max_x = -1;
+      }
       int title_y = 0;
       int subtitle_y = 0;
       int child_y = 0;

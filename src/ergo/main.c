@@ -349,6 +349,24 @@ int main(int argc, char **argv) {
             return rc == 0 ? 0 : 1;
         }
 
+        // When not using cache, check if binary is up-to-date
+        if (!cache_enabled && path_is_file(unique_bin_name)) {
+            long long bin_mtime = path_mtime(unique_bin_name);
+            long long src_mtime = path_mtime(entry);
+            if (bin_mtime >= 0 && src_mtime >= 0 && bin_mtime >= src_mtime) {
+                // Binary is newer than source, just run it
+                char run_cmd_buf[512];
+#if defined(_WIN32)
+                snprintf(run_cmd_buf, sizeof(run_cmd_buf), ".\\%s", unique_bin_name);
+#else
+                snprintf(run_cmd_buf, sizeof(run_cmd_buf), "./%s", unique_bin_name);
+#endif
+                int rc = run_binary(run_cmd_buf);
+                arena_free(&arena);
+                return rc == 0 ? 0 : 1;
+            }
+        }
+
         prog = lower_program(prog, &arena, &err);
         if (!prog || err.message) {
             diag_print(&err);

@@ -1,5 +1,5 @@
 case COGITO_SLIDER: {
-      // Material Design 3 slider
+      // Slider component
       bool hover = false;
       bool active = false;
       cogito_node_hover_state(n, &hover, &active);

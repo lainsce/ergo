@@ -72,6 +72,30 @@ static void cogito_node_drop(ErgoObj* o) {
     n->tab_len = 0;
     n->tab_cap = 0;
   }
+  if (n->nav_rail_labels) {
+    for (size_t i = 0; i < n->nav_rail_len; i++) {
+      if (n->nav_rail_labels[i]) ergo_release_val(EV_STR(n->nav_rail_labels[i]));
+      if (n->nav_rail_icons && n->nav_rail_icons[i]) ergo_release_val(EV_STR(n->nav_rail_icons[i]));
+    }
+    free(n->nav_rail_labels);
+    free(n->nav_rail_icons);
+    n->nav_rail_labels = NULL;
+    n->nav_rail_icons = NULL;
+    n->nav_rail_len = 0;
+    n->nav_rail_cap = 0;
+  }
+  if (n->bottom_nav_labels) {
+    for (size_t i = 0; i < n->bottom_nav_len; i++) {
+      if (n->bottom_nav_labels[i]) ergo_release_val(EV_STR(n->bottom_nav_labels[i]));
+      if (n->bottom_nav_icons && n->bottom_nav_icons[i]) ergo_release_val(EV_STR(n->bottom_nav_icons[i]));
+    }
+    free(n->bottom_nav_labels);
+    free(n->bottom_nav_icons);
+    n->bottom_nav_labels = NULL;
+    n->bottom_nav_icons = NULL;
+    n->bottom_nav_len = 0;
+    n->bottom_nav_cap = 0;
+  }
   if (n->view_id) {
     ergo_release_val(EV_STR(n->view_id));
     n->view_id = NULL;
@@ -142,6 +166,16 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->tab_ids = NULL;
   n->tab_len = 0;
   n->tab_cap = 0;
+  n->nav_rail_labels = NULL;
+  n->nav_rail_icons = NULL;
+  n->nav_rail_len = 0;
+  n->nav_rail_cap = 0;
+  n->nav_rail_selected = 0;
+  n->bottom_nav_labels = NULL;
+  n->bottom_nav_icons = NULL;
+  n->bottom_nav_len = 0;
+  n->bottom_nav_cap = 0;
+  n->bottom_nav_selected = 0;
   n->appbar_btn_close_x = 0;
   n->appbar_btn_min_x = 0;
   n->appbar_btn_max_x = 0;
@@ -212,6 +246,10 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->padding_right = 0;
   n->padding_bottom = 0;
   n->align = 0;
+  // Layout widgets default to 0 gap, content widgets default to 8 for natural spacing
+  bool is_layout = (kind == COGITO_VSTACK || kind == COGITO_HSTACK || kind == COGITO_ZSTACK ||
+                    kind == COGITO_FIXED || kind == COGITO_SCROLLER);
+  n->gap = is_layout ? 0 : 8;
   n->auto_size = false;
   n->margin_set = false;
   n->padding_set = false;
@@ -345,6 +383,8 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
 
     #include "widgets/intrinsic/checkbox.inc"
 
+    #include "widgets/intrinsic/chip.inc"
+
     #include "widgets/intrinsic/switch.inc"
 
     #include "widgets/intrinsic/textfield.inc"
@@ -356,6 +396,12 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
     #include "widgets/intrinsic/dropdown.inc"
 
     #include "widgets/intrinsic/datepicker.inc"
+
+    #include "widgets/intrinsic/fab.inc"
+
+    #include "widgets/intrinsic/nav_rail.inc"
+
+    #include "widgets/intrinsic/bottom_nav.inc"
 
     #include "widgets/intrinsic/stepper.inc"
 

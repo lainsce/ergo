@@ -8,8 +8,14 @@ case COGITO_TOAST: {
       CogitoStyle s = cogito_theme_resolve_node(n);
       int icon = s.has_icon_size ? s.icon_size : 12;
       int close_box = icon + 8;
-      w = tw + pad_x * 2 + close_box;
+      int action_w = 0;
+      if (n->action_text && n->action_text->data[0]) {
+        action_w = cogito_text_width_size_node(n, n->action_text->data, size);
+        action_w += 24;
+      }
+      w = tw + pad_x * 2 + close_box + action_w;
       h = th + pad_y * 2;
+      if (h < 48) h = 48;
       break;
     }
     

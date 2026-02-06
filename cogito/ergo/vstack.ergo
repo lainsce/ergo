@@ -17,6 +17,15 @@ class VStack {
     fun valign(this, align = num) (( -- )) {
         __cogito_container_set_valign(this, align)
     }
+    fun set_hexpand(this, expand = bool) (( -- )) {
+        __cogito_container_set_hexpand(this, expand)
+    }
+    fun set_vexpand(this, expand = bool) (( -- )) {
+        __cogito_container_set_vexpand(this, expand)
+    }
+    fun set_gap(this, gap = num) (( -- )) {
+        __cogito_container_set_gap(this, gap)
+    }
     fun align_begin(this) (( -- )) {
         __cogito_container_set_align(this, 0)
     }

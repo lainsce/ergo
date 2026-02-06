@@ -24,9 +24,26 @@ case COGITO_TOAST: {
       int cw = 0;
       int ch = 0;
       cogito_toast_close_rect(n, &cx, &cy, &cw, &ch);
+      int action_w = 0;
+      if (n->action_text && n->action_text->data[0]) {
+        action_w = cogito_text_width_size_node(n, n->action_text->data, size);
+      }
       int text_w = (cw > 0) ? (cx - (n->x + pad_x) - 6) : (n->w - pad_x * 2);
+      if (action_w > 0) {
+        text_w -= (action_w + 24);
+      }
       if (text_w < 0) text_w = 0;
       cogito_draw_text_ellipsis(n, n->x + pad_x, ty, text_w, t, text, size, cogito_node_bold(n), 0);
+      if (action_w > 0) {
+        Color action_color = s.has_selection ? s.selection : (Color){103, 80, 164, 255};
+        int action_x = n->x + pad_x + text_w + 24;
+        int action_y = ty;
+        cogito_draw_text_size_node(n, action_x, action_y, n->action_text->data, action_color, size, false);
+        n->action_button_x = action_x;
+        n->action_button_y = action_y;
+        n->action_button_w = action_w;
+        n->action_button_h = th;
+      }
       if (cw > 0 && ch > 0) {
         int icon_size = s.has_icon_size ? s.icon_size : 12;
         if (icon_size < 8) icon_size = 8;

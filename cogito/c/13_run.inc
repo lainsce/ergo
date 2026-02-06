@@ -391,19 +391,27 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         }
         cogito_menu_close();
       } else {
+        bool handled = false;
+        // Check for traffic light clicks on the first appbar
         if (appbar) {
           if (appbar->appbar_btn_close_x >= 0 &&
               cogito_hit_rect(mx, my, appbar->appbar_btn_close_x, appbar->appbar_btn_y, appbar->appbar_btn_size, appbar->appbar_btn_size)) {
             cogito_appbar_window_action(win, 0);
+            handled = true;
           } else if (appbar->appbar_btn_min_x >= 0 &&
                      cogito_hit_rect(mx, my, appbar->appbar_btn_min_x, appbar->appbar_btn_y, appbar->appbar_btn_size, appbar->appbar_btn_size)) {
             cogito_appbar_window_action(win, 1);
+            handled = true;
           } else if (appbar->appbar_btn_max_x >= 0 &&
                      cogito_hit_rect(mx, my, appbar->appbar_btn_max_x, appbar->appbar_btn_y, appbar->appbar_btn_size, appbar->appbar_btn_size)) {
             cogito_appbar_window_action(win, 2);
+            handled = true;
           }
-          else if (cogito_hit_rect(mx, my, appbar->x, appbar->y, appbar->w, appbar->h) &&
-                   !cogito_point_over_appbar_buttons(appbar, mx, my)) {
+        }
+        // Check if click is on ANY appbar for dragging (only if we didn't handle a button click)
+        if (!handled) {
+          CogitoNode* clicked_appbar = cogito_find_appbar_at_point(win, mx, my);
+          if (clicked_appbar && !cogito_point_over_appbar_buttons(clicked_appbar, mx, my)) {
 #if defined(__APPLE__)
             cogito_macos_drag_window();
 #else
@@ -411,14 +419,18 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             cogito_drag_pending_mouse = mp;
             cogito_drag_last_move = 0.0;
 #endif
+            handled = true;  // Mark as handled to skip clickable search
           }
         }
         CogitoNode* slot = (win->dialog && win->dialog->kind == COGITO_DIALOG_SLOT && win->dialog->dialog_open && win->dialog->dialog)
           ? win->dialog
           : cogito_find_dialog_slot(win);
-        CogitoNode* hit = (slot && slot->dialog) ? cogito_find_clickable(slot->dialog, mx, my)
-                                                 : (win->dialog_open && win->dialog ? cogito_find_clickable(win->dialog, mx, my)
-                                                                                   : cogito_find_clickable(win, mx, my));
+        CogitoNode* hit = NULL;
+        if (!handled) {
+          hit = (slot && slot->dialog) ? cogito_find_clickable(slot->dialog, mx, my)
+                                       : (win->dialog_open && win->dialog ? cogito_find_clickable(win->dialog, mx, my)
+                                                                         : cogito_find_clickable(win, mx, my));
+        }
         if (cogito_debug_hit) {
           if (slot && slot->dialog) {
             fprintf(stderr, "cogito: click (%d,%d) dialog rect (%d,%d %dx%d) hit=%p kind=%d\n",
@@ -566,6 +578,13 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
               if (parent) {
                 cogito_container_remove_child(parent, hit);
                 cogito_window_relayout(win);
+              }
+            } else if (hit->action_text && hit->action_button_w > 0 &&
+                      cogito_hit_rect(mx, my, hit->action_button_x, hit->action_button_y,
+                                     hit->action_button_w, hit->action_button_h)) {
+              if (hit->on_action) {
+                ErgoVal arg = EV_OBJ(hit);
+                cogito_invoke(hit->on_action, 1, &arg);
               }
             } else {
               cogito_invoke_click(hit);

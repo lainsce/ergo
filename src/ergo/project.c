@@ -104,11 +104,22 @@ static const char *stdlib_dir_default(void) {
     if (env && env[0]) {
         return env;
     }
+    // Check development locations
     if (path_is_file("src/ergo/stdlib/stdr.ergo")) {
         return "src/ergo/stdlib";
     }
     if (path_is_file("../src/ergo/stdlib/stdr.ergo")) {
         return "../src/ergo/stdlib";
+    }
+    // Check installed locations
+    if (path_is_file("/usr/local/share/ergo/stdlib/stdr.ergo")) {
+        return "/usr/local/share/ergo/stdlib";
+    }
+    if (path_is_file("/opt/homebrew/share/ergo/stdlib/stdr.ergo")) {
+        return "/opt/homebrew/share/ergo/stdlib";
+    }
+    if (path_is_file("/usr/share/ergo/stdlib/stdr.ergo")) {
+        return "/usr/share/ergo/stdlib";
     }
     return "src/ergo/stdlib";
 }
@@ -217,17 +228,33 @@ static Module *load_file(const char *path,
             continue;
         }
         if (str_eq_c(imp->name, "cogito")) {
-            char *p = path_join(stdlib_dir, "cogito.ergo");
-            if (!p || !path_is_file(p)) {
-                set_err(err, abs_path, "cogito.ergo not found in stdlib");
+            // Try multiple locations for cogito.ergo
+            const char *cogito_paths[] = {
+                "cogito/_build/cogito.ergo",
+                "cogito/build/cogito.ergo",
+                NULL  // Will try stdlib_dir as fallback
+            };
+            char *p = NULL;
+            for (size_t i = 0; i < sizeof(cogito_paths) / sizeof(cogito_paths[0]); i++) {
+                if (cogito_paths[i] == NULL) {
+                    p = path_join(stdlib_dir, "cogito.ergo");
+                } else {
+                    p = strdup(cogito_paths[i]);
+                }
+                if (p && path_is_file(p)) {
+                    if (!load_file(p, root_dir, stdlib_dir, arena, visited, hash, err)) {
+                        free(p);
+                        return NULL;
+                    }
+                    free(p);
+                    goto found_cogito;
+                }
                 free(p);
-                return NULL;
+                p = NULL;
             }
-            if (!load_file(p, root_dir, stdlib_dir, arena, visited, hash, err)) {
-                free(p);
-                return NULL;
-            }
-            free(p);
+            set_err(err, abs_path, "cogito.ergo not found in cogito/_build/, cogito/build/, or stdlib");
+            return NULL;
+        found_cogito:
             continue;
         }
         char *name = str_to_c(imp->name);

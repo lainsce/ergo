@@ -2,40 +2,107 @@ static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h);
 static void cogito_window_relayout(CogitoNode* win);
 
 static void cogito_layout_vstack(CogitoNode* n, int x, int y) {
-  int pad = 6;
-  int col = n->align % 3;
+  int pad = n->gap;
+  int avail_w = n->w - n->padding_left - n->padding_right;
+  int avail_h = n->h - n->padding_top - n->padding_bottom;
+  if (avail_w < 0) avail_w = 0;
+  if (avail_h < 0) avail_h = 0;
+
+  // Try both locations
+  FILE* dbg = fopen("/tmp/cogito_vstack_debug.log", "a");
+  if (!dbg) dbg = fopen("cogito_vstack_debug.log", "a");
+  if (dbg) {
+    fprintf(dbg, "\n[DEBUG VSTACK] Container: w=%d h=%d, avail_h=%d, children=%zu\n", n->w, n->h, avail_h, n->len);
+    fflush(dbg);
+  }
+
+  // First pass: calculate total height of non-expanding children and count expanding ones
+  int total_intrinsic = 0;
+  int expand_count = 0;
+  for (size_t i = 0; i < n->len; i++) {
+    CogitoNode* c = n->children[i];
+    if (dbg) { fprintf(dbg, "  Child %zu: vexpand=%d\n", i, c->vexpand); fflush(dbg); }
+    if (c->vexpand) {
+      expand_count++;
+    } else {
+      int ch = 0;
+      cogito_intrinsic_size(c, NULL, &ch);
+      if (dbg) { fprintf(dbg, "  Child %zu intrinsic height: %d\n", i, ch); fflush(dbg); }
+      total_intrinsic += ch + c->margin_top + c->margin_bottom;
+    }
+  }
+
+  // Calculate gaps
+  int total_gaps = (n->len > 0) ? (int)(n->len - 1) * pad : 0;
+  int remaining_h = avail_h - total_intrinsic - total_gaps;
+  if (remaining_h < 0) remaining_h = 0;
+
+  // Height for each expanding child
+  int expand_h = expand_count > 0 ? remaining_h / expand_count : 0;
+  if (dbg) {
+    fprintf(dbg, "  total_intrinsic=%d, gaps=%d, remaining=%d, expand_count=%d, expand_h=%d\n",
+           total_intrinsic, total_gaps, remaining_h, expand_count, expand_h);
+    fflush(dbg);
+  }
+
+  // Second pass: layout children
   int cy = y + n->padding_top;
   for (size_t i = 0; i < n->len; i++) {
     CogitoNode* c = n->children[i];
     int cw = 0;
     int ch = 0;
     cogito_intrinsic_size(c, &cw, &ch);
-    int avail_w = n->w - n->padding_left - n->padding_right;
-    if (avail_w < 0) avail_w = 0;
-    if (c->kind == COGITO_LABEL && c->text_wrap) {
+
+    // Check if child wants to expand vertically
+    if (c->vexpand) {
+      ch = expand_h - c->margin_top - c->margin_bottom;
+      if (ch < 0) ch = 0;
+      if (dbg) {
+        fprintf(dbg, "  Child %zu EXPANDING: expand_h=%d, margins=%d/%d, final ch=%d\n",
+               i, expand_h, c->margin_top, c->margin_bottom, ch);
+        fflush(dbg);
+      }
+    } else {
+      if (dbg) { fprintf(dbg, "  Child %zu NOT expanding: ch=%d\n", i, ch); fflush(dbg); }
+    }
+
+    // Horizontal expansion: if hexpand is set, or if it's a chrome widget (appbar, toolbar, etc.)
+    bool is_chrome = (c->kind == COGITO_APPBAR || c->kind == COGITO_TOOLBAR ||
+                      c->kind == COGITO_NAV_RAIL || c->kind == COGITO_BOTTOM_NAV);
+    if (c->hexpand || is_chrome) {
       int target_w = avail_w - c->margin_left - c->margin_right;
       if (target_w < 0) target_w = 0;
       cw = target_w;
-      ch = cogito_text_wrap_height(c, c->text ? c->text->data : "", cogito_node_font_size(c), target_w);
-      if (ch <= 0) ch = cogito_text_height_size(cogito_node_font_size(c));
+
+      // Recalculate height for text wrap (but not if vexpand is set)
+      if (c->kind == COGITO_LABEL && c->text_wrap && !c->vexpand) {
+        ch = cogito_text_wrap_height(c, c->text ? c->text->data : "", cogito_node_font_size(c), target_w);
+        if (ch <= 0) ch = cogito_text_height_size(cogito_node_font_size(c));
+      }
     }
+
+    // Determine child's horizontal alignment for positioning (0=left, 1=center, 2=right)
+    int child_col = c->align % 3;
     int cx = x + n->padding_left;
     int ox = 0;
-    if (col == 1) {
-      ox = (n->w - cw) / 2;
-    } else if (col == 2) {
-      ox = n->w - cw - n->padding_right;
+    if (child_col == 1) {
+      ox = (avail_w - cw) / 2;
+    } else if (child_col == 2) {
+      ox = avail_w - cw;
     }
     if (ox < 0) ox = 0;
-    if (col == 1) {
-      cogito_layout_node(c, cx + ox + c->margin_left, cy + c->margin_top, cw, ch);
-    } else if (col == 2) {
-      cogito_layout_node(c, cx + ox + c->margin_left, cy + c->margin_top, cw, ch);
-    } else {
-      cogito_layout_node(c, cx + c->margin_left, cy + c->margin_top, cw, ch);
+    cogito_layout_node(c, cx + ox + c->margin_left, cy + c->margin_top, cw, ch);
+    if (dbg) {
+      fprintf(dbg, "  Child %zu final layout: x=%d y=%d w=%d h=%d\n",
+             i, cx + ox + c->margin_left, cy + c->margin_top, cw, ch);
+      fflush(dbg);
     }
-    cy += ch + c->margin_top + c->margin_bottom + pad;
+    cy += ch + c->margin_top + c->margin_bottom;
+    // Add gap only between children, not after the last one
+    if (i < n->len - 1) cy += pad;
   }
+
+  if (dbg) { fclose(dbg); }
 }
 
 static void cogito_layout_zstack(CogitoNode* n, int x, int y) {
@@ -136,7 +203,7 @@ static void cogito_layout_toasts(CogitoNode* n, int x, int y) {
   int inner_h = n->h - n->padding_top - n->padding_bottom;
   if (inner_w < 0) inner_w = 0;
   if (inner_h < 0) inner_h = 0;
-  int gap = 6;
+  int gap = n->gap;
   int cy = inner_y + inner_h;
   for (size_t idx = n->len; idx-- > 0;) {
     CogitoNode* c = n->children[idx];
@@ -148,7 +215,9 @@ static void cogito_layout_toasts(CogitoNode* n, int x, int y) {
     if (cx < inner_x) cx = inner_x;
     if (cy_child < inner_y) cy_child = inner_y;
     cogito_layout_node(c, cx + c->margin_left, cy_child + c->margin_top, cw, ch);
-    cy = cy_child - c->margin_top - gap;
+    cy = cy_child - c->margin_top;
+    // Add gap only between items, not before the first one (we're iterating backwards)
+    if (idx > 0) cy -= gap;
   }
 }
 
@@ -205,39 +274,82 @@ static void cogito_layout_scroller(CogitoNode* n, int x, int y) {
 }
 
 static void cogito_layout_hstack(CogitoNode* n, int x, int y) {
-  int pad = 6;
-  int row = n->align / 3;
+  int pad = n->gap;
+  int avail_w = n->w - n->padding_left - n->padding_right;
+  int avail_h = n->h - n->padding_top - n->padding_bottom;
+  if (avail_w < 0) avail_w = 0;
+  if (avail_h < 0) avail_h = 0;
+
+  // First pass: calculate total width of non-expanding children and count expanding ones
+  int total_intrinsic = 0;
+  int expand_count = 0;
+  for (size_t i = 0; i < n->len; i++) {
+    CogitoNode* c = n->children[i];
+    if (c->hexpand) {
+      expand_count++;
+    } else {
+      int cw = 0;
+      cogito_intrinsic_size(c, &cw, NULL);
+      total_intrinsic += cw + c->margin_left + c->margin_right;
+    }
+  }
+
+  // Calculate gaps
+  int total_gaps = (n->len > 0) ? (int)(n->len - 1) * pad : 0;
+  int remaining_w = avail_w - total_intrinsic - total_gaps;
+  if (remaining_w < 0) remaining_w = 0;
+
+  // Width for each expanding child
+  int expand_w = expand_count > 0 ? remaining_w / expand_count : 0;
+
+  // Second pass: layout children
   int cx = x + n->padding_left;
   for (size_t i = 0; i < n->len; i++) {
     CogitoNode* c = n->children[i];
     int cw = 0;
     int ch = 0;
     cogito_intrinsic_size(c, &cw, &ch);
+
+    // Check if child wants to expand horizontally
+    if (c->hexpand) {
+      cw = expand_w - c->margin_left - c->margin_right;
+      if (cw < 0) cw = 0;
+    }
+
+    // Determine child's vertical alignment (0=top, 1=middle, 2=bottom)
+    int child_row = c->align / 3;
+
+    // Expand to fill available height if vexpand is set, or if it's a chrome widget
+    bool is_chrome = (c->kind == COGITO_APPBAR || c->kind == COGITO_TOOLBAR ||
+                      c->kind == COGITO_NAV_RAIL || c->kind == COGITO_BOTTOM_NAV);
+    if (c->vexpand || is_chrome) {
+      int target_h = avail_h - c->margin_top - c->margin_bottom;
+      if (target_h < 0) target_h = 0;
+      ch = target_h;
+    }
+
     int cy = y + n->padding_top;
     int oy = 0;
-    if (row == 1) {
-      oy = (n->h - ch) / 2;
-    } else if (row == 2) {
-      oy = n->h - ch - n->padding_bottom;
+    if (child_row == 1) {
+      oy = (avail_h - ch) / 2;
+    } else if (child_row == 2) {
+      oy = avail_h - ch;
     }
     if (oy < 0) oy = 0;
-    if (row == 1) {
-      cogito_layout_node(c, cx + c->margin_left, cy + oy + c->margin_top, cw, ch);
-    } else if (row == 2) {
-      cogito_layout_node(c, cx + c->margin_left, cy + oy + c->margin_top, cw, ch);
-    } else {
-      cogito_layout_node(c, cx + c->margin_left, cy + c->margin_top, cw, ch);
-    }
-    cx += cw + c->margin_left + c->margin_right + pad;
+    cogito_layout_node(c, cx + c->margin_left, cy + oy + c->margin_top, cw, ch);
+    cx += cw + c->margin_left + c->margin_right;
+    // Add gap only between children, not after the last one
+    if (i < n->len - 1) cx += pad;
   }
 }
 
 static void cogito_layout_list(CogitoNode* n, int x, int y) {
-  int pad = 6;
+  int pad = n->gap;
   int cy = y + n->padding_top;
+  int item_inset = 0;  // Horizontal inset for items (set to 0 for now, controlled by list padding)
   for (size_t i = 0; i < n->len; i++) {
     CogitoNode* c = n->children[i];
-    int cw = n->w - n->padding_left - n->padding_right;
+    int cw = n->w - n->padding_left - n->padding_right - item_inset * 2;
     int ch = 0;
     cogito_intrinsic_size(c, &cw, &ch);
     if (c->kind == COGITO_LABEL && c->text_wrap) {
@@ -247,8 +359,13 @@ static void cogito_layout_list(CogitoNode* n, int x, int y) {
       ch = cogito_text_wrap_height(c, c->text ? c->text->data : "", cogito_node_font_size(c), target_w);
       if (ch <= 0) ch = cogito_text_height_size(cogito_node_font_size(c));
     }
-    cogito_layout_node(c, x + n->padding_left + pad, cy, cw, ch);
-    cy += ch + pad;
+    // Enforce 42px minimum height for list items
+    if (ch < 42) ch = 42;
+    // Items fill available width/height within list padding
+    cogito_layout_node(c, x + n->padding_left + item_inset, cy, cw, ch);
+    cy += ch;
+    // Add gap only between items, not after the last one
+    if (i < n->len - 1) cy += pad;
   }
 }
 
@@ -411,6 +528,8 @@ static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h) {
 
     #include "widgets/layout/datepicker.inc"
 
+    #include "widgets/layout/fab.inc"
+
     #include "widgets/layout/stepper.inc"
 
     #include "widgets/layout/segmented.inc"
@@ -453,7 +572,13 @@ static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h) {
 
     #include "widgets/layout/label.inc"
 
+    #include "widgets/layout/nav_rail.inc"
+
+    #include "widgets/layout/bottom_nav.inc"
+
     #include "widgets/layout/checkbox.inc"
+
+    #include "widgets/layout/chip.inc"
 
     #include "widgets/layout/switch.inc"
 
@@ -479,15 +604,26 @@ static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h) {
 }
 
 static void cogito_layout_window(CogitoNode* win) {
-  int pad = 12;
+  FILE* wdbg = fopen("/tmp/cogito_window_debug.log", "a");
+  if (!wdbg) wdbg = fopen("cogito_window_debug.log", "a");
+  if (wdbg) {
+    fprintf(wdbg, "\n[WINDOW LAYOUT] w=%d h=%d\n", win->w, win->h);
+    fflush(wdbg);
+    fclose(wdbg);
+  }
+
   win->x = 0;
   win->y = 0;
-  int cx = pad + win->padding_left;
-  int cy = pad + win->padding_top;
+  int cx = win->padding_left;
+  int cy = win->padding_top;
   int appbar_h = 0;
   int toolbar_h = 0;
+  int nav_rail_w = 0;
+  int bottom_nav_h = 0;
   CogitoNode* appbar = NULL;
   CogitoNode* toolbar = NULL;
+  CogitoNode* nav_rail = NULL;
+  CogitoNode* bottom_nav = NULL;
   for (size_t i = 0; i < win->len; i++) {
     if (win->children[i]->kind == COGITO_APPBAR) {
       appbar = win->children[i];
@@ -500,10 +636,22 @@ static void cogito_layout_window(CogitoNode* win) {
       break;
     }
   }
+  for (size_t i = 0; i < win->len; i++) {
+    if (win->children[i]->kind == COGITO_NAV_RAIL) {
+      nav_rail = win->children[i];
+      break;
+    }
+  }
+  for (size_t i = 0; i < win->len; i++) {
+    if (win->children[i]->kind == COGITO_BOTTOM_NAV) {
+      bottom_nav = win->children[i];
+      break;
+    }
+  }
   if (appbar) {
     cogito_intrinsic_size(appbar, NULL, &appbar_h);
     cogito_layout_node(appbar, 0, 0, win->w, appbar_h);
-    cy += appbar_h + 6;
+    cy += appbar_h;
   }
   if (toolbar) {
     cogito_intrinsic_size(toolbar, NULL, &toolbar_h);
@@ -511,27 +659,58 @@ static void cogito_layout_window(CogitoNode* win) {
     if (ty < 0) ty = 0;
     cogito_layout_node(toolbar, 0, ty, win->w, toolbar_h);
   }
+  if (nav_rail) {
+    cogito_intrinsic_size(nav_rail, &nav_rail_w, NULL);
+    int rail_y = appbar ? appbar_h : 0;
+    int rail_h = win->h - rail_y;
+    if (toolbar) rail_h -= toolbar_h;
+    if (bottom_nav) rail_h -= 80;  // Reserve space for bottom nav
+    if (rail_h < 0) rail_h = 0;
+    cogito_layout_node(nav_rail, 0, rail_y, nav_rail_w, rail_h);
+    cx += nav_rail_w;
+  }
+  if (bottom_nav) {
+    cogito_intrinsic_size(bottom_nav, NULL, &bottom_nav_h);
+    int nav_y = win->h - bottom_nav_h;
+    if (nav_y < 0) nav_y = 0;
+    cogito_layout_node(bottom_nav, 0, nav_y, win->w, bottom_nav_h);
+  }
   int appbar_gap = appbar ? 6 : 0;
   int toolbar_gap = toolbar ? 6 : 0;
+
+  // Calculate available space for expanding widgets
+  int avail_w = win->w - win->padding_left - win->padding_right;
+  int avail_h = win->h - win->padding_top - win->padding_bottom;
+  if (appbar) avail_h -= appbar_h + appbar_gap;
+  if (toolbar) avail_h -= toolbar_h + toolbar_gap;
+  if (bottom_nav) avail_h -= bottom_nav_h;
+  if (nav_rail) avail_w -= nav_rail_w;
+  if (avail_w < 0) avail_w = 0;
+  if (avail_h < 0) avail_h = 0;
+  int content_x = win->padding_left + (nav_rail ? nav_rail_w : 0);
+  int content_y = win->padding_top + appbar_h + appbar_gap;
+
   for (size_t i = 0; i < win->len; i++) {
     CogitoNode* c = win->children[i];
-    if (c->kind == COGITO_APPBAR || c->kind == COGITO_TOOLBAR) continue;
+    if (c->kind == COGITO_APPBAR || c->kind == COGITO_TOOLBAR || c->kind == COGITO_NAV_RAIL || c->kind == COGITO_BOTTOM_NAV) continue;
+
     int cw = 0;
     int ch = 0;
     cogito_intrinsic_size(c, &cw, &ch);
     int ch_total = ch + c->margin_top + c->margin_bottom;
-    if (c->kind == COGITO_VSTACK || c->kind == COGITO_HSTACK) {
-      int avail_w = win->w - win->padding_left - win->padding_right;
-      int avail_h = win->h - win->padding_top - win->padding_bottom;
-      if (appbar) avail_h -= appbar_h + appbar_gap;
-      if (toolbar) avail_h -= toolbar_h + toolbar_gap;
-      if (avail_w < 0) avail_w = 0;
-      if (avail_h < 0) avail_h = 0;
-      cogito_layout_node(c, win->padding_left, win->padding_top + appbar_h + appbar_gap, avail_w, avail_h);
-      cy += avail_h + pad + appbar_gap;
+
+    // Check if widget should expand (only if explicit hexpand/vexpand)
+    bool should_hexpand = c->hexpand;
+    bool should_vexpand = c->vexpand;
+
+    if (should_hexpand || should_vexpand) {
+      int target_w = should_hexpand ? avail_w : cw;
+      int target_h = should_vexpand ? avail_h : ch;
+      cogito_layout_node(c, content_x, content_y, target_w, target_h);
+      cy = content_y + target_h;
     } else {
       cogito_layout_node(c, cx + c->margin_left, cy + c->margin_top, cw, ch);
-      cy += ch_total + pad;
+      cy += ch_total;
     }
   }
   if (win->dialog) {
@@ -551,16 +730,15 @@ static void cogito_layout_window(CogitoNode* win) {
 }
 
 static void cogito_window_desired_size(CogitoNode* win, int* out_w, int* out_h) {
-  int pad = 12;
-  int max_w = pad + win->padding_left;
-  int cy = pad + win->padding_top;
+  int max_w = win->padding_left;
+  int cy = win->padding_top;
   int appbar_h = 0;
   int toolbar_h = 0;
   for (size_t i = 0; i < win->len; i++) {
     CogitoNode* c = win->children[i];
     if (c->kind == COGITO_APPBAR) {
       cogito_intrinsic_size(c, NULL, &appbar_h);
-      int row_w = pad + win->padding_left + win->w;
+      int row_w = win->padding_left + win->w;
       if (row_w > max_w) max_w = row_w;
       break;
     }
@@ -569,13 +747,25 @@ static void cogito_window_desired_size(CogitoNode* win, int* out_w, int* out_h) 
     CogitoNode* c = win->children[i];
     if (c->kind == COGITO_TOOLBAR) {
       cogito_intrinsic_size(c, NULL, &toolbar_h);
-      int row_w = pad + win->padding_left + win->w;
+      int row_w = win->padding_left + win->w;
       if (row_w > max_w) max_w = row_w;
       break;
     }
   }
-  if (appbar_h > 0) cy += appbar_h + 6;
-  if (toolbar_h > 0) cy += toolbar_h + 6;
+  if (appbar_h > 0) cy += appbar_h;
+  if (toolbar_h > 0) cy += toolbar_h;
+  // Check if any child wants to expand
+  bool has_vexpanding_child = false;
+  for (size_t i = 0; i < win->len; i++) {
+    CogitoNode* c = win->children[i];
+    if (c->kind == COGITO_APPBAR || c->kind == COGITO_TOOLBAR) continue;
+    if (c->vexpand) {
+      has_vexpanding_child = true;
+      break;
+    }
+  }
+
+  // Calculate intrinsic sizes for all children
   for (size_t i = 0; i < win->len; i++) {
     CogitoNode* c = win->children[i];
     if (c->kind == COGITO_APPBAR || c->kind == COGITO_TOOLBAR) continue;
@@ -584,12 +774,16 @@ static void cogito_window_desired_size(CogitoNode* win, int* out_w, int* out_h) 
     cogito_intrinsic_size(c, &cw, &ch);
     int cw_total = cw + c->margin_left + c->margin_right;
     int ch_total = ch + c->margin_top + c->margin_bottom;
-    int row_w = pad + win->padding_left + cw_total;
+    int row_w = win->padding_left + cw_total;
     if (row_w > max_w) max_w = row_w;
-    cy += ch_total + pad;
+    cy += ch_total;
   }
-  int dw = max_w + win->padding_right + pad;
-  int dh = cy + win->padding_bottom + pad;
+  int dw = max_w + win->padding_right;
+  // Calculate minimum height needed for intrinsic content
+  int min_h = cy + win->padding_bottom;
+  // If there's an expanding child, use max of minimum height and current window height
+  // Otherwise, use the calculated minimum height for auto-sizing
+  int dh = has_vexpanding_child ? (win->h > min_h ? win->h : min_h) : min_h;
   cogito_apply_size_constraints(win, &dw, &dh);
   if (out_w) *out_w = dw;
   if (out_h) *out_h = dh;

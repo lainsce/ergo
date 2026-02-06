@@ -9,7 +9,7 @@ case COGITO_POPOVER: {
       if (s.has_radius) n->border_radius = s.radius;
       if (s.has_shadow) { n->shadow_level = s.shadow_level; n->shadow_set = true; }
 
-      // Material Design 3 elevation shadow for popovers
+      // Elevation shadow for popovers
       if (n->shadow_set && n->shadow_level > 0) {
         cogito_draw_shadow(n->x, n->y, n->w, n->h, n->border_radius, n->shadow_level);
       }

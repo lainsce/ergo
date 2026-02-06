@@ -22,5 +22,13 @@ ergo_exe = executable(
   'ergo',
   ergo_c_sources,
   include_directories : ergo_c_includes,
-  install : false
+  install : true
+)
+
+# Install stdlib files
+install_data(
+  'src/ergo/stdlib/stdr.ergo',
+  'src/ergo/stdlib/math.ergo',
+  'src/ergo/stdlib/cogito.ergo',
+  install_dir : get_option('datadir') / 'ergo' / 'stdlib'
 )

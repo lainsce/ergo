@@ -13,15 +13,84 @@ button
   border-radius: 20
   min-height: 40
   padding: 10 24
-  box-shadow: [ 0 1 3 0 #0000001f ]
+  box-shadow: [ 
+    0 1 3 0 #0000001f
+  ]
 
 button:hover
   background: #e0cfff
-  box-shadow: [ 0 1 2 0 #0000003d ]
+  box-shadow: [ 
+    0 1 2 0 #0000003d
+  ]
 
 button:active
   background: #b69df8
-  box-shadow: [ 0 1 2 0 #00000061 ]
+  box-shadow: [
+    0 1 2 0 #00000061
+  ]
+
+button.outlined
+  background: transparent
+  color: #d0bcff
+  border: 1 solid #938f99
+  box-shadow: none
+
+button.outlined:hover
+  background: #d0bcff12
+  border-color: #d0bcff
+
+button.outlined:active
+  background: #d0bcff1f
+
+button.outlined:disabled
+  color: #cac4d061
+  border-color: #cac4d012
+
+button.text
+  background: transparent
+  color: #d0bcff
+  box-shadow: none
+  padding: 10 12
+
+button.text:hover
+  background: #d0bcff12
+
+button.text:active
+  background: #d0bcff1f
+
+button.text:disabled
+  color: #cac4d061
+
+fab
+  background: #d0bcff
+  color: #381e72
+  border-radius: 100
+  min-width: 56
+  min-height: 56
+  box-shadow: [
+    0 6 10 0 #0000003f
+  ]
+
+fab:hover
+  background: #e0cfff
+  box-shadow: [
+    0 8 12 0 #00000054
+  ]
+
+fab:active
+  background: #b69df8
+  box-shadow: [
+    0 4 8 0 #0000003f
+  ]
+
+nav_rail
+  background: #2b2930
+  min-width: 80
+  padding: 4 0
+
+nav_rail:selection
+  background: #4a4458
+  color: #e8def8
 
 textfield
   background: #322f35
@@ -75,7 +144,9 @@ datepicker
   min-width: 320
   min-height: 320
   padding: 16
-  box-shadow: [ 0 1 3 0 #0000001f ]
+  box-shadow: [
+    0 1 3 0 #0000001f
+  ]
 
 .datepicker
   background: #2c2c2e
@@ -84,7 +155,9 @@ datepicker
   min-width: 320
   min-height: 320
   padding: 16
-  box-shadow: [ 0 1 3 0 #0000001f ]
+  box-shadow: [
+    0 1 3 0 #0000001f
+  ]
 
 datepicker:selection
   background: #3a3a3c
@@ -173,7 +246,9 @@ colorpicker
   min-width: 320
   min-height: 320
   padding: 16
-  box-shadow: [ 0 1 3 0 #0000001f ]
+  box-shadow: [
+    0 1 3 0 #0000001f
+  ]
 
 .colorpicker
   background: #2c2c2e
@@ -182,7 +257,9 @@ colorpicker
   min-width: 320
   min-height: 320
   padding: 16
-  box-shadow: [ 0 1 3 0 #0000001f ]
+  box-shadow: [
+    0 1 3 0 #0000001f
+  ]
 
 colorpicker:selection
   background: #3a3a3c
@@ -239,6 +316,23 @@ checkbox
 
 .radio:checked .check
   color: #f2f2f7
+
+chip
+  background: #322f35
+  color: #e6e1e5
+  border-radius: 100
+  min-height: 32
+  padding: 0 16
+
+chip:hover
+  background: #3f3c42
+
+chip:active
+  background: #48454f
+
+chip.selected
+  background: #4a4458
+  color: #e8def8
 
 .checkbox .box
   background: #2c2c2e
@@ -349,6 +443,7 @@ switch knob:active
 
 list
   background: #2c2c2e
+  border-radius: 0
 
 list:selection
   background: #3a3a3c
@@ -365,13 +460,14 @@ appbar
 dialog
   background: #2c2c2e
   border-radius: 26
-  box-shadow: [ 0 8 16 0 #0000003d ]
 
 popover
   background: #2c2c2e
   border-radius: 12
   padding: 16
-  box-shadow: [ 0 2 8 0 #0000001f ]
+  box-shadow: [
+    0 2 8 0 #0000001f
+  ]
 
 .appbar .window-button
   border-color: #00000022
@@ -426,3 +522,12 @@ menu:selection
 menu item
   background: #2c2c2e
   color: #f2f2f7
+
+bottom_nav
+  background: #1c1b1f
+  min-height: 80
+  padding: 0 8
+
+bottom_nav:selection
+  background: #4a4458
+  color: #e8def8

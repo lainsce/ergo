@@ -11,6 +11,29 @@ static bool cogito_system_is_dark(void);
 static bool cogito_system_accent(Color* out);
 static void cogito_apply_theme(bool dark, Color accent);
 
+// Animation Duration Constants (milliseconds)
+#define COGITO_ANIM_DURATION_SHORT1 50   // Very fast (fab close, etc.)
+#define COGITO_ANIM_DURATION_SHORT2 100  // Fast (switch toggle)
+#define COGITO_ANIM_DURATION_SHORT3 150  // Quick (checkbox)
+#define COGITO_ANIM_DURATION_SHORT4 200  // Standard (button state)
+#define COGITO_ANIM_DURATION_MEDIUM1 250 // Slow (dropdown open)
+#define COGITO_ANIM_DURATION_MEDIUM2 300 // Slower (dialog)
+#define COGITO_ANIM_DURATION_MEDIUM3 350 // Medium (page transition)
+#define COGITO_ANIM_DURATION_MEDIUM4 400
+#define COGITO_ANIM_DURATION_LONG1 450
+#define COGITO_ANIM_DURATION_LONG2 500
+#define COGITO_ANIM_DURATION_LONG3 550
+#define COGITO_ANIM_DURATION_LONG4 600
+
+// Animation Easing Functions
+#define COGITO_EASING_LINEAR 0
+#define COGITO_EASING_STANDARD 1       // Standard easing (smooth start and end)
+#define COGITO_EASING_IN 2             // Accelerate
+#define COGITO_EASING_OUT 3            // Decelerate
+#define COGITO_EASING_IN_OUT 4         // Accelerate then decelerate
+#define COGITO_EASING_EMPHASIZED 5     // Spring with overshoot (in-back)
+#define COGITO_EASING_EMPHASIZED_OUT 6 // Spring decelerate (out-back)
+
 static float cogito_luma(Color c) {
   float r = c.r / 255.0f;
   float g = c.g / 255.0f;
@@ -81,6 +104,10 @@ typedef enum {
   COGITO_DIALOG_SLOT,
   COGITO_APPBAR,
   COGITO_POPOVER,
+  COGITO_CHIP,
+  COGITO_FAB,
+  COGITO_NAV_RAIL,
+  COGITO_BOTTOM_NAV,
   COGITO_KIND_COUNT
 } CogitoKind;
 
@@ -151,6 +178,7 @@ typedef struct CogitoStyle {
   bool has_appbar_btn_border_color;
   bool has_appbar_btn_border_width;
   bool has_shadow;
+  bool has_opacity;
   Color bg;
   Color text;
   Color border;
@@ -199,6 +227,7 @@ typedef struct CogitoStyle {
   int margin_top;
   int margin_right;
   int margin_bottom;
+  float opacity;
 } CogitoStyle;
 
 typedef struct CogitoTheme {
@@ -261,6 +290,14 @@ typedef struct CogitoTheme {
   CogitoStyle switch_knob_hover;
   CogitoStyle switch_knob_active;
   CogitoStyle switch_knob_checked;
+  CogitoStyle button_outlined;
+  CogitoStyle button_outlined_hover;
+  CogitoStyle button_outlined_active;
+  CogitoStyle button_outlined_disabled;
+  CogitoStyle button_text;
+  CogitoStyle button_text_hover;
+  CogitoStyle button_text_active;
+  CogitoStyle button_text_disabled;
 } CogitoTheme;
 
 typedef struct CogitoFontCacheEntry {
@@ -288,6 +325,7 @@ typedef struct CogitoNode {
   ErgoStr* subtitle;
   ErgoStr* icon;
   ErgoStr* tooltip;
+  ErgoStr* action_text;
   ErgoStr* view_id;
   ErgoStr* view_active_id;
   ErgoFn* on_click;
@@ -295,6 +333,7 @@ typedef struct CogitoNode {
   ErgoFn* on_select;
   ErgoFn* on_activate;
   ErgoFn* builder;
+  ErgoFn* on_action;
   ErgoVal group;
   bool checked;
   int x;
@@ -326,6 +365,9 @@ typedef struct CogitoNode {
   int padding_right;
   int padding_bottom;
   int align;
+  bool hexpand;
+  bool vexpand;
+  int gap;
   bool auto_size;
   bool should_close;
   int appbar_btn_close_x;
@@ -336,6 +378,10 @@ typedef struct CogitoNode {
   int appbar_title_y;
   int appbar_subtitle_y;
   char appbar_controls[16];
+  int action_button_x;
+  int action_button_y;
+  int action_button_w;
+  int action_button_h;
   struct CogitoNode* dialog;
   struct CogitoNode* view_switcher;
   bool dialog_open;
@@ -387,6 +433,23 @@ typedef struct CogitoNode {
   Color anim_selection;
   Color anim_selection_from;
   Color anim_selection_target;
+  int anim_x;
+  int anim_x_from;
+  int anim_x_target;
+  int anim_y;
+  int anim_y_from;
+  int anim_y_target;
+  int anim_w;
+  int anim_w_from;
+  int anim_w_target;
+  int anim_h;
+  int anim_h_from;
+  int anim_h_target;
+  bool anim_layout_active;
+  float opacity;
+  float opacity_from;
+  float opacity_target;
+  bool has_opacity;
   double progress_value;
   bool margin_set;
   bool padding_set;
@@ -441,6 +504,21 @@ typedef struct CogitoNode {
   bool font_family_set;
   CogitoBoxShadow box_shadow;
   bool box_shadow_set;
+  bool button_outlined;
+  bool button_text;
+  bool chip_selected;
+  bool chip_has_close;
+  bool fab_extended;
+  ErgoStr** nav_rail_labels;
+  ErgoStr** nav_rail_icons;
+  size_t nav_rail_len;
+  size_t nav_rail_cap;
+  int nav_rail_selected;
+  ErgoStr** bottom_nav_labels;
+  ErgoStr** bottom_nav_icons;
+  size_t bottom_nav_len;
+  size_t bottom_nav_cap;
+  int bottom_nav_selected;
 } CogitoNode;
 
 typedef struct CogitoState {
@@ -505,7 +583,9 @@ enum {
 enum {
   COGITO_STYLE_CLASS_NONE = 0,
   COGITO_STYLE_CLASS_MONO,
-  COGITO_STYLE_CLASS_TABULAR
+  COGITO_STYLE_CLASS_TABULAR,
+  COGITO_STYLE_CLASS_OUTLINED,
+  COGITO_STYLE_CLASS_TEXT
 };
 static bool cogito_drag_active = false;
 static Vector2 cogito_drag_start_mouse = {0};
@@ -638,6 +718,15 @@ static double cogito_ease(double t, int ease) {
     }
     case 1: // ease
       return t * t * (3.0 - 2.0 * t);
+    case 5: { // spring (ease-in-back)
+      double s = 1.70158;
+      return t * t * ((s + 1) * t - s);
+    }
+    case 6: { // spring-out (ease-out-back)
+      double u = t - 1;
+      double s = 1.70158;
+      return u * u * ((s + 1) * u + s) + 1;
+    }
     default: return t; // linear
   }
 }
@@ -670,6 +759,62 @@ static Color cogito_anim_color(CogitoNode* n, Color target, Color* cur, Color* f
   return *cur;
 }
 
+static int cogito_anim_int(CogitoNode* n, int target, int* cur, int* from, int* tgt, double now) {
+  if (!n) return target;
+  if (!n->anim_inited) {
+    *cur = target;
+    *from = target;
+    *tgt = target;
+    n->anim_inited = true;
+    return target;
+  }
+  if (*tgt != target) {
+    *from = *cur;
+    *tgt = target;
+    n->anim_start = now;
+  }
+  if (n->anim_ms <= 0) {
+    *cur = target;
+    return target;
+  }
+  double t = (now - n->anim_start) * 1000.0 / (double)n->anim_ms;
+  if (t >= 1.0) {
+    *cur = target;
+    return target;
+  }
+  double e = cogito_ease(t, n->anim_ease);
+  *cur = (int)(*from + e * (*tgt - *from));
+  return *cur;
+}
+
+static float cogito_anim_float(CogitoNode* n, float target, float* cur, float* from, float* tgt, double now) {
+  if (!n) return target;
+  if (!n->anim_inited) {
+    *cur = target;
+    *from = target;
+    *tgt = target;
+    n->anim_inited = true;
+    return target;
+  }
+  if (*tgt != target) {
+    *from = *cur;
+    *tgt = target;
+    n->anim_start = now;
+  }
+  if (n->anim_ms <= 0) {
+    *cur = target;
+    return target;
+  }
+  double t = (now - n->anim_start) * 1000.0 / (double)n->anim_ms;
+  if (t >= 1.0) {
+    *cur = target;
+    return target;
+  }
+  double e = cogito_ease(t, n->anim_ease);
+  *cur = *from + (float)e * (*tgt - *from);
+  return *cur;
+}
+
 __attribute__((unused))
 static void cogito_anim_apply(CogitoNode* n, const CogitoStyle* s, Color* bg, Color* text, Color* border, Color* selection) {
   if (!n || !s) return;
@@ -680,6 +825,14 @@ static void cogito_anim_apply(CogitoNode* n, const CogitoStyle* s, Color* bg, Co
   if (text) *text = cogito_anim_color(n, *text, &n->anim_text, &n->anim_text_from, &n->anim_text_target, now);
   if (border) *border = cogito_anim_color(n, *border, &n->anim_border, &n->anim_border_from, &n->anim_border_target, now);
   if (selection) *selection = cogito_anim_color(n, *selection, &n->anim_selection, &n->anim_selection_from, &n->anim_selection_target, now);
+}
+
+// Apply opacity to a color by multiplying its alpha channel
+static Color cogito_apply_opacity(Color c, float opacity) {
+  if (opacity >= 1.0f) return c;
+  if (opacity <= 0.0f) return (Color){c.r, c.g, c.b, 0};
+  c.a = (unsigned char)((float)c.a * opacity);
+  return c;
 }
 
 static void cogito_style_clear(CogitoStyle* s) {

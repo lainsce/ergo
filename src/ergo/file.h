@@ -14,5 +14,6 @@ char *path_dirname(const char *path);
 char *path_join(const char *a, const char *b);
 bool path_is_file(const char *path);
 bool path_has_prefix(const char *path, const char *dir);
+long long path_mtime(const char *path);
 
 #endif

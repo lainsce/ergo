@@ -75,24 +75,4 @@ static void cogito_appbar_set_controls(ErgoVal appv, ErgoVal layout) {
     cogito_window_relayout(win);
   }
 }
-static CogitoNode* cogito_find_appbar(CogitoNode* win) {
-  if (!win) return NULL;
-  for (size_t i = 0; i < win->len; i++) {
-    if (win->children[i]->kind == COGITO_APPBAR) return win->children[i];
-  }
-  return NULL;
-}
-static bool cogito_point_over_appbar_buttons(CogitoNode* app, int x, int y) {
-  if (!app) return false;
-  if (app->appbar_btn_close_x >= 0 &&
-      cogito_hit_rect(x, y, app->appbar_btn_close_x, app->appbar_btn_y, app->appbar_btn_size, app->appbar_btn_size)) return true;
-  if (app->appbar_btn_min_x >= 0 &&
-      cogito_hit_rect(x, y, app->appbar_btn_min_x, app->appbar_btn_y, app->appbar_btn_size, app->appbar_btn_size)) return true;
-  if (app->appbar_btn_max_x >= 0 &&
-      cogito_hit_rect(x, y, app->appbar_btn_max_x, app->appbar_btn_y, app->appbar_btn_size, app->appbar_btn_size)) return true;
-  for (size_t i = 0; i < app->len; i++) {
-    CogitoNode* c = app->children[i];
-    if (cogito_hit_rect(x, y, c->x, c->y, c->w, c->h)) return true;
-  }
-  return false;
-}
+// Helper functions moved to 02_theme.inc to be available earlier

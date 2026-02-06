@@ -111,6 +111,7 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_toast_new cogito_toast_new_ergo
 #define cogito_toast_set_text cogito_toast_set_text_ergo
 #define cogito_toast_on_click cogito_toast_on_click_ergo
+#define cogito_toast_set_action cogito_toast_set_action_ergo
 #define cogito_toolbar_new cogito_bottom_toolbar_new_ergo
 #define cogito_dialog_new cogito_dialog_new_ergo
 #define cogito_dialog_slot_new cogito_dialog_slot_new_ergo
@@ -125,6 +126,8 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_list_on_activate cogito_list_on_activate_ergo
 #define cogito_grid_on_select cogito_grid_on_select_ergo
 #define cogito_grid_on_activate cogito_grid_on_activate_ergo
+#define cogito_nav_rail_on_change cogito_nav_rail_on_change_ergo
+#define cogito_bottom_nav_on_change cogito_bottom_nav_on_change_ergo
 #define cogito_window_set_dialog cogito_window_set_dialog_ergo
 #define cogito_window_clear_dialog cogito_window_clear_dialog_ergo
 #define cogito_fixed_set_pos cogito_fixed_set_pos_ergo
@@ -134,6 +137,22 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_grid_set_align cogito_grid_set_align_ergo
 #define cogito_grid_new cogito_grid_new_ergo
 #define cogito_grid_new_with_cols cogito_grid_new_ergo
+#define cogito_chip_new cogito_chip_new_ergo
+#define cogito_chip_set_selected cogito_chip_set_selected_ergo
+#define cogito_chip_get_selected cogito_chip_get_selected_ergo
+#define cogito_chip_set_closable cogito_chip_set_closable_ergo
+#define cogito_chip_on_close cogito_chip_on_close_ergo
+#define cogito_fab_new cogito_fab_new_ergo
+#define cogito_fab_set_extended cogito_fab_set_extended_ergo
+#define cogito_fab_on_click cogito_fab_on_click_ergo
+#define cogito_nav_rail_new cogito_nav_rail_new_ergo
+#define cogito_nav_rail_set_items cogito_nav_rail_set_items_ergo
+#define cogito_nav_rail_set_selected cogito_nav_rail_set_selected_ergo
+#define cogito_nav_rail_get_selected cogito_nav_rail_get_selected_ergo
+#define cogito_bottom_nav_new cogito_bottom_nav_new_ergo
+#define cogito_bottom_nav_set_items cogito_bottom_nav_set_items_ergo
+#define cogito_bottom_nav_set_selected cogito_bottom_nav_set_selected_ergo
+#define cogito_bottom_nav_get_selected cogito_bottom_nav_get_selected_ergo
 #define cogito_pointer_capture cogito_pointer_capture_node
 #define cogito_node_window cogito_node_window_internal
 #define cogito_pointer_capture_set cogito_pointer_capture_set_ergo
@@ -223,6 +242,7 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_toast_new
 #undef cogito_toast_set_text
 #undef cogito_toast_on_click
+#undef cogito_toast_set_action
 #undef cogito_toolbar_new
 #undef cogito_dialog_new
 #undef cogito_dialog_slot_new
@@ -244,6 +264,8 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_list_on_activate
 #undef cogito_grid_on_select
 #undef cogito_grid_on_activate
+#undef cogito_nav_rail_on_change
+#undef cogito_bottom_nav_on_change
 #undef cogito_window_set_dialog
 #undef cogito_window_clear_dialog
 #undef cogito_fixed_set_pos
@@ -253,6 +275,22 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_grid_set_align
 #undef cogito_grid_new
 #undef cogito_grid_new_with_cols
+#undef cogito_chip_new
+#undef cogito_chip_set_selected
+#undef cogito_chip_get_selected
+#undef cogito_chip_set_closable
+#undef cogito_chip_on_close
+#undef cogito_fab_new
+#undef cogito_fab_set_extended
+#undef cogito_fab_on_click
+#undef cogito_nav_rail_new
+#undef cogito_nav_rail_set_items
+#undef cogito_nav_rail_set_selected
+#undef cogito_nav_rail_get_selected
+#undef cogito_bottom_nav_new
+#undef cogito_bottom_nav_set_items
+#undef cogito_bottom_nav_set_selected
+#undef cogito_bottom_nav_get_selected
 #undef cogito_pointer_capture
 #undef cogito_node_window
 #undef cogito_pointer_capture_set
@@ -609,6 +647,21 @@ void cogito_node_set_halign(cogito_node* node, int align) {
 void cogito_node_set_valign(cogito_node* node, int align) {
   if (!node) return;
   cogito_container_set_valign(EV_OBJ(node), EV_INT(align));
+}
+
+void cogito_node_set_hexpand(cogito_node* node, bool expand) {
+  if (!node) return;
+  node->hexpand = expand;
+}
+
+void cogito_node_set_vexpand(cogito_node* node, bool expand) {
+  if (!node) return;
+  node->vexpand = expand;
+}
+
+void cogito_node_set_gap(cogito_node* node, int gap) {
+  if (!node) return;
+  cogito_container_set_gap(EV_OBJ(node), EV_INT(gap));
 }
 
 void cogito_node_set_id(cogito_node* node, const char* id) {
@@ -1216,6 +1269,54 @@ void cogito_grid_on_activate(cogito_node* grid, cogito_index_fn fn, void* user) 
   ErgoFn* wrap = cogito_make_fn(cogito_cb_index, env);
   cogito_grid_on_activate_ergo(EV_OBJ(grid), EV_FN(wrap));
   ergo_release_val(EV_FN(wrap));
+}
+
+void cogito_nav_rail_on_change(cogito_node* rail, cogito_index_fn fn, void* user) {
+  if (!rail) return;
+  if (!fn) { cogito_nav_rail_on_change_ergo(EV_OBJ(rail), EV_NULLV); return; }
+  CogitoCbIndex* env = (CogitoCbIndex*)calloc(1, sizeof(*env));
+  env->fn = fn;
+  env->user = user;
+  env->node = (CogitoNode*)rail;
+  ErgoFn* wrap = cogito_make_fn(cogito_cb_index, env);
+  cogito_nav_rail_on_change_ergo(EV_OBJ(rail), EV_FN(wrap));
+  ergo_release_val(EV_FN(wrap));
+}
+
+void cogito_bottom_nav_on_change(cogito_node* nav, cogito_index_fn fn, void* user) {
+  if (!nav) return;
+  if (!fn) { cogito_bottom_nav_on_change_ergo(EV_OBJ(nav), EV_NULLV); return; }
+  CogitoCbIndex* env = (CogitoCbIndex*)calloc(1, sizeof(*env));
+  env->fn = fn;
+  env->user = user;
+  env->node = (CogitoNode*)nav;
+  ErgoFn* wrap = cogito_make_fn(cogito_cb_index, env);
+  cogito_bottom_nav_on_change_ergo(EV_OBJ(nav), EV_FN(wrap));
+  ergo_release_val(EV_FN(wrap));
+}
+
+cogito_node* cogito_chip_new(const char* text) {
+  ErgoVal tv = cogito_val_from_cstr(text);
+  ErgoVal v = cogito_chip_new_ergo(tv);
+  if (tv.tag == EVT_STR) ergo_release_val(tv);
+  return cogito_from_val(v);
+}
+
+cogito_node* cogito_fab_new(const char* icon) {
+  ErgoVal iv = cogito_val_from_cstr(icon);
+  ErgoVal v = cogito_fab_new_ergo(iv);
+  if (iv.tag == EVT_STR) ergo_release_val(iv);
+  return cogito_from_val(v);
+}
+
+cogito_node* cogito_nav_rail_new(void) {
+  ErgoVal v = cogito_nav_rail_new_ergo();
+  return cogito_from_val(v);
+}
+
+cogito_node* cogito_bottom_nav_new(void) {
+  ErgoVal v = cogito_bottom_nav_new_ergo();
+  return cogito_from_val(v);
 }
 
 void cogito_view_switcher_set_active(cogito_node* view_switcher, const char* id) {

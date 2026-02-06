@@ -10,6 +10,13 @@ class ColorPicker {
     fun set_a11y_role(this, role = string) (( -- )) {
         __cogito_node_set_a11y_role(this, role)
     }
+    fun set_hexpand(this, expand = bool) (( -- )) {
+        __cogito_container_set_hexpand(this, expand)
+    }
+    fun set_vexpand(this, expand = bool) (( -- )) {
+        __cogito_container_set_vexpand(this, expand)
+    }
+
     fun set_disabled(this, on = bool) (( -- )) {
         __cogito_node_set_disabled(this, on)
     }

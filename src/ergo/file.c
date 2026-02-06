@@ -475,6 +475,17 @@ bool path_is_file(const char *path) {
 #endif
 }
 
+long long path_mtime(const char *path) {
+    if (!path) {
+        return -1;
+    }
+    struct stat st;
+    if (stat(path, &st) != 0) {
+        return -1;
+    }
+    return (long long)st.st_mtime;
+}
+
 static char *path_normalize(const char *path) {
     if (!path) {
         return NULL;

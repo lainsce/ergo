@@ -29,6 +29,13 @@ class Dropdown {
     fun on_change(this, handler = any) (( -- )) {
         __cogito_dropdown_on_change(this, handler)
     }
+    fun set_hexpand(this, expand = bool) (( -- )) {
+        __cogito_container_set_hexpand(this, expand)
+    }
+    fun set_vexpand(this, expand = bool) (( -- )) {
+        __cogito_container_set_vexpand(this, expand)
+    }
+
     fun set_disabled(this, on = bool) (( -- )) {
         __cogito_node_set_disabled(this, on)
     }

@@ -24,6 +24,13 @@ class ViewSwitcher {
         __cogito_build(this, builder)
         return this
     }
+    fun set_hexpand(this, expand = bool) (( -- )) {
+        __cogito_container_set_hexpand(this, expand)
+    }
+    fun set_vexpand(this, expand = bool) (( -- )) {
+        __cogito_container_set_vexpand(this, expand)
+    }
+
     fun set_disabled(this, on = bool) (( -- )) {
         __cogito_node_set_disabled(this, on)
     }

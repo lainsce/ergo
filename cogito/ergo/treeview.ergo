@@ -2,5 +2,12 @@ class TreeView {
     fun add(this, child = any) (( -- )) {
         __cogito_container_add(this, child)
     }
+    fun set_hexpand(this, expand = bool) (( -- )) {
+        __cogito_container_set_hexpand(this, expand)
+    }
+    fun set_vexpand(this, expand = bool) (( -- )) {
+        __cogito_container_set_vexpand(this, expand)
+    }
+
 }
 

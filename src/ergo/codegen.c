@@ -2369,6 +2369,40 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_container_set_hexpand")) {
+                        GenExpr node, expand;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &expand, err)) { gen_expr_free(&node); return false; }
+                        w_line(&cg->w, "cogito_container_set_hexpand(%s, %s);", node.tmp, expand.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", expand.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_release_except(cg, &expand, expand.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_free(&expand);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_container_set_vexpand")) {
+                        GenExpr node, expand;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &expand, err)) { gen_expr_free(&node); return false; }
+                        w_line(&cg->w, "cogito_container_set_vexpand(%s, %s);", node.tmp, expand.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", expand.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_release_except(cg, &expand, expand.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_free(&expand);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_dialog_slot_show")) {
                         GenExpr slot, dialog;
                         if (!gen_expr(cg, path, e->as.call.args[0], &slot, err)) return false;

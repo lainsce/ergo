@@ -67,10 +67,14 @@ static void cogito_sum_apply_property(CogitoStyle* style, const char* prop, cons
     cogito_css_read_ident(p, ease, sizeof(ease));
     if (ease[0]) {
       style->has_transition_ease = true;
-      if (strcmp(ease, "ease-in") == 0) style->transition_ease = 2;
+      if (strcmp(ease, "linear") == 0) style->transition_ease = 0;
+      else if (strcmp(ease, "standard") == 0) style->transition_ease = 1;
+      else if (strcmp(ease, "ease") == 0) style->transition_ease = 1;
+      else if (strcmp(ease, "ease-in") == 0) style->transition_ease = 2;
       else if (strcmp(ease, "ease-out") == 0) style->transition_ease = 3;
       else if (strcmp(ease, "ease-in-out") == 0) style->transition_ease = 4;
-      else if (strcmp(ease, "ease") == 0) style->transition_ease = 1;
+      else if (strcmp(ease, "emphasized") == 0) style->transition_ease = 5;
+      else if (strcmp(ease, "emphasized-out") == 0) style->transition_ease = 6;
       else style->transition_ease = 0;
     }
     return;
@@ -90,10 +94,14 @@ static void cogito_sum_apply_property(CogitoStyle* style, const char* prop, cons
     cogito_css_read_ident(p, ease, sizeof(ease));
     if (ease[0]) {
       style->has_transition_ease = true;
-      if (strcmp(ease, "ease-in") == 0) style->transition_ease = 2;
+      if (strcmp(ease, "linear") == 0) style->transition_ease = 0;
+      else if (strcmp(ease, "standard") == 0) style->transition_ease = 1;
+      else if (strcmp(ease, "ease") == 0) style->transition_ease = 1;
+      else if (strcmp(ease, "ease-in") == 0) style->transition_ease = 2;
       else if (strcmp(ease, "ease-out") == 0) style->transition_ease = 3;
       else if (strcmp(ease, "ease-in-out") == 0) style->transition_ease = 4;
-      else if (strcmp(ease, "ease") == 0) style->transition_ease = 1;
+      else if (strcmp(ease, "emphasized") == 0) style->transition_ease = 5;
+      else if (strcmp(ease, "emphasized-out") == 0) style->transition_ease = 6;
       else style->transition_ease = 0;
     }
     return;
@@ -497,6 +505,17 @@ static void cogito_sum_apply_property(CogitoStyle* style, const char* prop, cons
     }
     return;
   }
+  if (strcmp(prop, "opacity") == 0) {
+    double v;
+    if (cogito_css_read_number(p, &v)) {
+      // Clamp opacity between 0.0 and 1.0
+      if (v < 0.0) v = 0.0;
+      if (v > 1.0) v = 1.0;
+      style->has_opacity = true;
+      style->opacity = (float)v;
+    }
+    return;
+  }
   // SUM spec: border shorthand  border: <width> <style> <color>
   if (strcmp(prop, "border") == 0) {
     double bw;
@@ -566,6 +585,14 @@ static bool cogito_sum_selector_kind(const char* sel, CogitoKind* out_kind, bool
     }
     if (strcmp(class_part, "tabular") == 0 || strcmp(class_part, "tnum") == 0) {
       if (out_class) *out_class = COGITO_STYLE_CLASS_TABULAR;
+      return true;
+    }
+    if (strcmp(class_part, "outlined") == 0) {
+      if (out_class) *out_class = COGITO_STYLE_CLASS_OUTLINED;
+      return true;
+    }
+    if (strcmp(class_part, "text") == 0) {
+      if (out_class) *out_class = COGITO_STYLE_CLASS_TEXT;
       return true;
     }
     int cls = cogito_label_class_from_name(class_part);
@@ -755,6 +782,16 @@ static void cogito_sum_add_styles(const char* parent, const char* child, CogitoS
           else if (active) style = &cogito_theme.class_tabular_active;
           else if (hover) style = &cogito_theme.class_tabular_hover;
           else style = &cogito_theme.class_tabular;
+        } else if (class_kind == COGITO_STYLE_CLASS_OUTLINED) {
+          if (disabled) style = &cogito_theme.button_outlined_disabled;
+          else if (active) style = &cogito_theme.button_outlined_active;
+          else if (hover) style = &cogito_theme.button_outlined_hover;
+          else style = &cogito_theme.button_outlined;
+        } else if (class_kind == COGITO_STYLE_CLASS_TEXT) {
+          if (disabled) style = &cogito_theme.button_text_disabled;
+          else if (active) style = &cogito_theme.button_text_active;
+          else if (hover) style = &cogito_theme.button_text_hover;
+          else style = &cogito_theme.button_text;
         }
       } else if (label_class != COGITO_LABEL_CLASS_NONE) {
         if (checked) style = &cogito_theme.label_class_checked[label_class];
@@ -1435,9 +1472,34 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   // SUM format: selector on unindented line, properties indented below
   cogito_sum_append(out, cap, &off, "*\n  color: %s\n  font-size: 13\n", ons);
   cogito_sum_append(out, cap, &off, "window\n  background: %s\n", bg);
-  cogito_sum_append(out, cap, &off, "button\n  background: %s\n  color: %s\n  border-radius: 20\n  min-height: 40\n  padding: 10 24\n  box-shadow: [ 0 1 3 0 #0000001f ]\n", p, op);
-  cogito_sum_append(out, cap, &off, "button:hover\n  background: %s\n  box-shadow: [ 0 1 2 0 #0000003d ]\n", ph);
-  cogito_sum_append(out, cap, &off, "button:active\n  background: %s\n  box-shadow: [ 0 1 2 0 #00000061 ]\n", pa);
+  cogito_sum_append(out, cap, &off, "button\n  background: %s\n  color: %s\n  border-radius: 20\n  min-height: 40\n  padding: 10 24\n", p, op);
+  cogito_sum_append(out, cap, &off, "button:hover\n  background: %s\n", ph);
+  cogito_sum_append(out, cap, &off, "button:active\n  background: %s\n", pa);
+  cogito_sum_append(out, cap, &off, "button.outlined\n  background: transparent\n  color: %s\n  border: 1 solid %s\n  box-shadow: none\n", p, outl);
+  cogito_sum_append(out, cap, &off, "button.outlined:hover\n  background: %s12\n  border-color: %s\n", p, p);
+  cogito_sum_append(out, cap, &off, "button.outlined:active\n  background: %s1f\n", p);
+  cogito_sum_append(out, cap, &off, "button.outlined:disabled\n  color: %s61\n  border-color: %s12\n", ons, ons);
+  cogito_sum_append(out, cap, &off, "button.text\n  background: transparent\n  color: %s\n  box-shadow: none\n  padding: 10 12\n", p);
+  cogito_sum_append(out, cap, &off, "button.text:hover\n  background: %s12\n", p);
+  cogito_sum_append(out, cap, &off, "button.text:active\n  background: %s1f\n", p);
+  cogito_sum_append(out, cap, &off, "button.text:disabled\n  color: %s61\n", ons);
+  cogito_sum_append(out, cap, &off, "fab\n  background: %s\n  color: %s\n  border-radius: 100\n  min-width: 56\n  min-height: 56\n", p, op);
+  cogito_sum_append(out, cap, &off, "fab:hover\n  background: %s\n", ph);
+  cogito_sum_append(out, cap, &off, "fab:active\n  background: %s\n", pa);
+  Color nav_bg = dark ? (Color){43, 41, 48, 255} : (Color){247, 242, 250, 255};
+  Color nav_sel = dark ? (Color){74, 68, 88, 255} : (Color){232, 222, 248, 255};
+  char navbg[8], navsel[8];
+  cogito_color_to_hex(nav_bg, navbg);
+  cogito_color_to_hex(nav_sel, navsel);
+  cogito_sum_append(out, cap, &off, "nav_rail\n  background: %s\n  min-width: 80\n  padding: 4 0\n", navbg);
+  cogito_sum_append(out, cap, &off, "nav_rail:selection\n  background: %s\n", navsel);
+  Color bottom_bg = dark ? (Color){28, 27, 31, 255} : (Color){255, 251, 254, 255};
+  Color bottom_sel = dark ? (Color){74, 68, 88, 255} : (Color){232, 222, 248, 255};
+  char bottombg[8], bottomsel[8];
+  cogito_color_to_hex(bottom_bg, bottombg);
+  cogito_color_to_hex(bottom_sel, bottomsel);
+  cogito_sum_append(out, cap, &off, "bottom_nav\n  background: %s\n  min-height: 80\n  padding: 0 8\n", bottombg);
+  cogito_sum_append(out, cap, &off, "bottom_nav:selection\n  background: %s\n", bottomsel);
   cogito_sum_append(out, cap, &off, "textfield\n  background: %s\n  border-radius: 4 4 0 0\n  border: 0 none #000000\n  min-height: 56\n  padding: 8 16\n", surft);
   cogito_sum_append(out, cap, &off, "textfield:hover\n  background: %s\n", surfth);
   cogito_sum_append(out, cap, &off, ".textfield\n  background: %s\n  border-radius: 4 4 0 0\n  min-height: 56\n  padding: 8 16\n", surft);
@@ -1452,8 +1514,8 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   cogito_sum_append(out, cap, &off, "dropdown\n  background: %s\n  border-radius: 4 4 0 0\n  min-height: 56\n  padding: 8 16\n", surft);
   cogito_sum_append(out, cap, &off, "dropdown:hover\n  background: %s\n", surfth);
   cogito_sum_append(out, cap, &off, ".dropdown\n  background: %s\n  border-radius: 4 4 0 0\n  min-height: 56\n  padding: 8 16\n", surft);
-  cogito_sum_append(out, cap, &off, "datepicker\n  background: %s\n  border-radius: 12\n  min-width: 320\n  min-height: 320\n  padding: 16\n  box-shadow: [ 0 1 3 0 #0000001f ]\n", surf);
-  cogito_sum_append(out, cap, &off, ".datepicker\n  background: %s\n  border-radius: 12\n  min-width: 320\n  min-height: 320\n  padding: 16\n  box-shadow: [ 0 1 3 0 #0000001f ]\n", surf);
+  cogito_sum_append(out, cap, &off, "datepicker\n  background: %s\n  border-radius: 12\n  min-width: 320\n  min-height: 320\n  padding: 16\n", surf);
+  cogito_sum_append(out, cap, &off, ".datepicker\n  background: %s\n  border-radius: 12\n  min-width: 320\n  min-height: 320\n  padding: 16\n", surf);
   cogito_sum_append(out, cap, &off, "datepicker:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, ".datepicker:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, "slider\n  background: %s\n  color: %s\n  min-height: 48\n  min-width: 200\n", itrack, p);
@@ -1491,8 +1553,8 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   cogito_sum_append(out, cap, &off, ".toast\n  background: %s\n  color: %s\n  border-radius: 10\n  min-height: 34\n", toastbg, toastfg);
   cogito_sum_append(out, cap, &off, "treeview\n  background: %s\n  border-radius: 8\n  min-height: 180\n  min-width: 200\n  padding: 8\n", surf);
   cogito_sum_append(out, cap, &off, ".treeview\n  background: %s\n  border-radius: 8\n  min-height: 180\n  min-width: 200\n  padding: 8\n", surf);
-  cogito_sum_append(out, cap, &off, "colorpicker\n  background: %s\n  border-radius: 12\n  min-width: 320\n  min-height: 320\n  padding: 16\n  box-shadow: [ 0 1 3 0 #0000001f ]\n", surf);
-  cogito_sum_append(out, cap, &off, ".colorpicker\n  background: %s\n  border-radius: 12\n  min-width: 320\n  min-height: 320\n  padding: 16\n  box-shadow: [ 0 1 3 0 #0000001f ]\n", surf);
+  cogito_sum_append(out, cap, &off, "colorpicker\n  background: %s\n  border-radius: 12\n  min-width: 320\n  min-height: 320\n  padding: 16\n", surf);
+  cogito_sum_append(out, cap, &off, ".colorpicker\n  background: %s\n  border-radius: 12\n  min-width: 320\n  min-height: 320\n  padding: 16\n", surf);
   cogito_sum_append(out, cap, &off, "colorpicker:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, ".colorpicker:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, "toolbar\n  background: %s\n  min-height: 44\n  padding: 8 12\n", surf);
@@ -1574,7 +1636,7 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   cogito_sum_append(out, cap, &off, ".title\n  font-size: 32\n  font-weight: normal\n");
   cogito_sum_append(out, cap, &off, ".subtitle\n  font-size: 20\n  font-weight: normal\n");
   cogito_sum_append(out, cap, &off, ".body\n  font-size: 11\n  font-weight: normal\n");
-  cogito_sum_append(out, cap, &off, "list\n  background: %s\n  border-radius: 8\n", surf);
+  cogito_sum_append(out, cap, &off, "list\n  background: %s\n  border-radius: 0\n", surf);
   cogito_sum_append(out, cap, &off, "list:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, "grid\n  background: %s\n  border-radius: 8\n", surf);
   cogito_sum_append(out, cap, &off, "grid:selection\n  background: %s\n", p);
@@ -1582,7 +1644,7 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   char appbarbg[8];
   cogito_color_to_hex(appbar_bg, appbarbg);
   cogito_sum_append(out, cap, &off, "appbar\n  background: %s\n", appbarbg);
-  cogito_sum_append(out, cap, &off, "dialog\n  background: %s\n  border-radius: 26\n  min-width: 240\n  min-height: 240\n  padding: 24\n  box-shadow: [ 0 8 16 0 #0000003d ]\n", surf);
+  cogito_sum_append(out, cap, &off, "dialog\n  background: %s\n  border-radius: 26\n  min-width: 240\n  min-height: 240\n  padding: 24\n", surf);
   cogito_sum_append(out, cap, &off, "popover\n  background: %s\n  border-radius: 12\n  padding: 16\n  box-shadow: [ 0 2 8 0 #0000001f ]\n", surf);
   cogito_sum_append(out, cap, &off, ".appbar .window-button\n  border-color: %s\n", outl);
   cogito_sum_append(out, cap, &off, ".appbar .window-close\n  background: #ff5f57\n");

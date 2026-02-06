@@ -121,6 +121,7 @@
 #undef cogito_grid_on_activate
 #undef cogito_view_switcher_set_active
 #undef cogito_toast_on_click
+#undef cogito_toast_set_action
 #undef cogito_node_window
 
 static bool cogito_debug_enabled(void) {
@@ -143,6 +144,7 @@ typedef struct CogitoHandle {
   ErgoVal on_change;
   ErgoVal on_select;
   ErgoVal on_activate;
+  ErgoVal on_action;
   ErgoVal builder;
 } CogitoHandle;
 
@@ -305,6 +307,12 @@ static void cogito_cb_change(cogito_node* node, void* user) {
   cogito_invoke_node_handler(h->on_change, node);
 }
 
+static void cogito_cb_action(cogito_node* node, void* user) {
+  CogitoHandle* h = (CogitoHandle*)user;
+  if (!h) return;
+  cogito_invoke_node_handler(h->on_action, node);
+}
+
 static void cogito_cb_select(cogito_node* node, int idx, void* user) {
   (void)node;
   CogitoHandle* h = (CogitoHandle*)user;
@@ -455,6 +463,35 @@ static ErgoVal __cogito_iconbtn(ErgoVal textv) {
   cogito_node* n = cogito_iconbtn_new(text);
   if (tmp) ergo_release_val(EV_STR(tmp));
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+static ErgoVal __cogito_fab(ErgoVal iconv) {
+  ErgoStr* tmp = NULL;
+  const char* icon = cogito_required_cstr(iconv, &tmp);
+  cogito_node* n = cogito_fab_new(icon);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+static void __cogito_fab_set_extended(ErgoVal fabv, ErgoVal extendedv, ErgoVal labelv) {
+  cogito_node* fab = cogito_node_from_val(fabv);
+  bool extended = ergo_as_bool(extendedv);
+  ErgoStr* tmp = NULL;
+  const char* label = cogito_optional_cstr(labelv, &tmp);
+  cogito_fab_set_extended(fab, extended, label ? label : "");
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
+static void __cogito_fab_on_click(ErgoVal fabv, ErgoVal handler) {
+  cogito_node* fab = cogito_node_from_val(fabv);
+  CogitoHandle* h = (CogitoHandle*)fabv.as.p;
+  if (handler.tag != EVT_FN) {
+    cogito_set_handler(h, &h->on_click, handler);
+    cogito_fab_on_click(fab, NULL, NULL);
+    return;
+  }
+  cogito_set_handler(h, &h->on_click, handler);
+  cogito_fab_on_click(fab, cogito_cb_click, h);
 }
 
 static ErgoVal __cogito_image(ErgoVal iconv) {
@@ -718,6 +755,11 @@ static ErgoVal __cogito_tabs(void) {
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
 }
 
+static ErgoVal __cogito_nav_rail(void) {
+  cogito_node* n = cogito_nav_rail_new();
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
 static ErgoVal __cogito_segmented(void) {
   cogito_node* n = cogito_segmented_new();
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
@@ -825,6 +867,22 @@ static void __cogito_container_set_halign(ErgoVal nodev, ErgoVal align) {
 static void __cogito_container_set_valign(ErgoVal nodev, ErgoVal align) {
   cogito_node* node = cogito_node_from_val(nodev);
   cogito_node_set_valign(node, (int)ergo_as_int(align));
+}
+
+static void __cogito_container_set_hexpand(ErgoVal nodev, ErgoVal expand) {
+  cogito_node* node = cogito_node_from_val(nodev);
+  cogito_node_set_hexpand(node, ergo_as_bool(expand));
+}
+
+static void __cogito_container_set_vexpand(ErgoVal nodev, ErgoVal expand) {
+  cogito_node* node = cogito_node_from_val(nodev);
+  bool expand_bool = ergo_as_bool(expand);
+  cogito_node_set_vexpand(node, expand_bool);
+}
+
+static void __cogito_container_set_gap(ErgoVal nodev, ErgoVal gap) {
+  cogito_node* node = cogito_node_from_val(nodev);
+  cogito_node_set_gap(node, (int)ergo_as_int(gap));
 }
 
 static void __cogito_container_set_padding(ErgoVal nodev, ErgoVal left, ErgoVal top, ErgoVal right, ErgoVal bottom) {
@@ -1133,6 +1191,130 @@ static void __cogito_tabs_bind(ErgoVal tabsv, ErgoVal viewv) {
   cogito_tabs_bind(tabs, view);
 }
 
+static void __cogito_nav_rail_set_items(ErgoVal railv, ErgoVal labelsv, ErgoVal iconsv) {
+  cogito_node* rail = cogito_node_from_val(railv);
+  if (labelsv.tag != EVT_ARR) ergo_trap("cogito.nav_rail_set_items expects array of labels");
+  ErgoArr* labels = (ErgoArr*)labelsv.as.p;
+  size_t count = labels->len;
+
+  const char** label_strs = (const char**)calloc(count, sizeof(char*));
+  ErgoStr** label_temps = (ErgoStr**)calloc(count, sizeof(ErgoStr*));
+  for (size_t i = 0; i < count; i++) {
+    label_strs[i] = cogito_required_cstr(labels->items[i], &label_temps[i]);
+  }
+
+  const char** icon_strs = NULL;
+  ErgoStr** icon_temps = NULL;
+  if (iconsv.tag == EVT_ARR) {
+    ErgoArr* icons = (ErgoArr*)iconsv.as.p;
+    size_t icon_count = icons->len;
+    icon_strs = (const char**)calloc(icon_count, sizeof(char*));
+    icon_temps = (ErgoStr**)calloc(icon_count, sizeof(ErgoStr*));
+    for (size_t i = 0; i < icon_count; i++) {
+      icon_strs[i] = cogito_required_cstr(icons->items[i], &icon_temps[i]);
+    }
+    cogito_nav_rail_set_items(rail, label_strs, icon_strs, icon_count < count ? icon_count : count);
+    for (size_t i = 0; i < icon_count; i++) {
+      if (icon_temps[i]) ergo_release_val(EV_STR(icon_temps[i]));
+    }
+    free(icon_temps);
+    free(icon_strs);
+  } else {
+    cogito_nav_rail_set_items(rail, label_strs, NULL, count);
+  }
+
+  for (size_t i = 0; i < count; i++) {
+    if (label_temps[i]) ergo_release_val(EV_STR(label_temps[i]));
+  }
+  free(label_temps);
+  free(label_strs);
+}
+
+static void __cogito_nav_rail_set_selected(ErgoVal railv, ErgoVal idxv) {
+  cogito_node* rail = cogito_node_from_val(railv);
+  cogito_nav_rail_set_selected(rail, (int)ergo_as_int(idxv));
+}
+
+static ErgoVal __cogito_nav_rail_get_selected(ErgoVal railv) {
+  cogito_node* rail = cogito_node_from_val(railv);
+  return EV_INT(cogito_nav_rail_get_selected(rail));
+}
+
+static ErgoVal __cogito_bottom_nav(void) {
+  cogito_node* n = cogito_bottom_nav_new();
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+static void __cogito_nav_rail_on_change(ErgoVal railv, ErgoVal handler) {
+  cogito_node* rail = cogito_node_from_val(railv);
+  CogitoHandle* h = (CogitoHandle*)railv.as.p;
+  if (handler.tag != EVT_FN) {
+    cogito_set_handler(h, &h->on_select, handler);
+    cogito_nav_rail_on_change(rail, NULL, NULL);
+    return;
+  }
+  cogito_set_handler(h, &h->on_select, handler);
+  cogito_nav_rail_on_change(rail, cogito_cb_select, h);
+}
+
+static void __cogito_bottom_nav_set_items(ErgoVal navv, ErgoVal labelsv, ErgoVal iconsv) {
+  cogito_node* nav = cogito_node_from_val(navv);
+  if (labelsv.tag != EVT_ARR) ergo_trap("cogito.bottom_nav_set_items expects array of labels");
+  ErgoArr* labels = (ErgoArr*)labelsv.as.p;
+  size_t count = labels->len;
+  const char** label_strs = (const char**)calloc(count, sizeof(char*));
+  ErgoStr** label_temps = (ErgoStr**)calloc(count, sizeof(ErgoStr*));
+  for (size_t i = 0; i < count; i++) {
+    label_strs[i] = cogito_required_cstr(labels->items[i], &label_temps[i]);
+  }
+  const char** icon_strs = NULL;
+  ErgoStr** icon_temps = NULL;
+  if (iconsv.tag == EVT_ARR) {
+    ErgoArr* icons = (ErgoArr*)iconsv.as.p;
+    size_t icon_count = icons->len;
+    icon_strs = (const char**)calloc(icon_count, sizeof(char*));
+    icon_temps = (ErgoStr**)calloc(icon_count, sizeof(ErgoStr*));
+    for (size_t i = 0; i < icon_count; i++) {
+      icon_strs[i] = cogito_required_cstr(icons->items[i], &icon_temps[i]);
+    }
+    cogito_bottom_nav_set_items(nav, label_strs, icon_strs, icon_count < count ? icon_count : count);
+    for (size_t i = 0; i < icon_count; i++) {
+      if (icon_temps[i]) ergo_release_val(EV_STR(icon_temps[i]));
+    }
+    free(icon_temps);
+    free(icon_strs);
+  } else {
+    cogito_bottom_nav_set_items(nav, label_strs, NULL, count);
+  }
+  for (size_t i = 0; i < count; i++) {
+    if (label_temps[i]) ergo_release_val(EV_STR(label_temps[i]));
+  }
+  free(label_temps);
+  free(label_strs);
+}
+
+static void __cogito_bottom_nav_set_selected(ErgoVal navv, ErgoVal idxv) {
+  cogito_node* nav = cogito_node_from_val(navv);
+  cogito_bottom_nav_set_selected(nav, (int)ergo_as_int(idxv));
+}
+
+static ErgoVal __cogito_bottom_nav_get_selected(ErgoVal navv) {
+  cogito_node* nav = cogito_node_from_val(navv);
+  return EV_INT(cogito_bottom_nav_get_selected(nav));
+}
+
+static void __cogito_bottom_nav_on_change(ErgoVal navv, ErgoVal handler) {
+  cogito_node* nav = cogito_node_from_val(navv);
+  CogitoHandle* h = (CogitoHandle*)navv.as.p;
+  if (handler.tag != EVT_FN) {
+    cogito_set_handler(h, &h->on_select, handler);
+    cogito_bottom_nav_on_change(nav, NULL, NULL);
+    return;
+  }
+  cogito_set_handler(h, &h->on_select, handler);
+  cogito_bottom_nav_on_change(nav, cogito_cb_select, h);
+}
+
 static void __cogito_view_switcher_set_active(ErgoVal viewv, ErgoVal idv) {
   cogito_node* view = cogito_node_from_val(viewv);
   ErgoStr* tmp = NULL;
@@ -1169,6 +1351,22 @@ static void __cogito_toast_on_click(ErgoVal tv, ErgoVal handler) {
   }
   cogito_set_handler(h, &h->on_click, handler);
   cogito_toast_on_click(t, cogito_cb_click, h);
+}
+
+static void __cogito_toast_set_action(ErgoVal tv, ErgoVal textv, ErgoVal handler) {
+  cogito_node* t = cogito_node_from_val(tv);
+  CogitoHandle* h = (CogitoHandle*)tv.as.p;
+  ErgoStr* tmp = NULL;
+  const char* text = cogito_required_cstr(textv, &tmp);
+  if (handler.tag != EVT_FN) {
+    cogito_set_handler(h, &h->on_action, handler);
+    cogito_toast_set_action(t, text, NULL, NULL);
+    if (tmp) ergo_release_val(EV_STR(tmp));
+    return;
+  }
+  cogito_set_handler(h, &h->on_action, handler);
+  cogito_toast_set_action(t, text, cogito_cb_action, h);
+  if (tmp) ergo_release_val(EV_STR(tmp));
 }
 
 static void __cogito_list_on_select(ErgoVal listv, ErgoVal handler) {
@@ -1256,6 +1454,7 @@ static void __cogito_load_sum(ErgoVal pathv) {
 #define cogito_window_set_builder __cogito_window_set_builder
 #define cogito_button_new __cogito_button
 #define cogito_iconbtn_new __cogito_iconbtn
+#define cogito_fab_new __cogito_fab
 #define cogito_label_new __cogito_label
 #define cogito_dialog_new __cogito_dialog
 #define cogito_dialog_slot_new __cogito_dialog_slot
@@ -1270,6 +1469,8 @@ static void __cogito_load_sum(ErgoVal pathv) {
 #define cogito_stepper_new __cogito_stepper
 #define cogito_slider_new __cogito_slider
 #define cogito_tabs_new __cogito_tabs
+#define cogito_nav_rail_new __cogito_nav_rail
+#define cogito_bottom_nav_new __cogito_bottom_nav
 #define cogito_segmented_new __cogito_segmented
 #define cogito_view_switcher_new __cogito_view_switcher
 #define cogito_progress_new __cogito_progress
@@ -1291,6 +1492,9 @@ static void __cogito_load_sum(ErgoVal pathv) {
 #define cogito_container_set_align __cogito_container_set_align
 #define cogito_container_set_halign __cogito_container_set_halign
 #define cogito_container_set_valign __cogito_container_set_valign
+#define cogito_container_set_hexpand __cogito_container_set_hexpand
+#define cogito_container_set_vexpand __cogito_container_set_vexpand
+#define cogito_container_set_gap __cogito_container_set_gap
 #define cogito_dialog_slot_show __cogito_dialog_slot_show
 #define cogito_dialog_slot_clear __cogito_dialog_slot_clear
 #define cogito_container_set_padding __cogito_container_set_padding
@@ -1338,10 +1542,19 @@ static void __cogito_load_sum(ErgoVal pathv) {
 #define cogito_tabs_get_selected __cogito_tabs_get_selected
 #define cogito_tabs_on_change __cogito_tabs_on_change
 #define cogito_tabs_bind __cogito_tabs_bind
+#define cogito_nav_rail_set_items __cogito_nav_rail_set_items
+#define cogito_nav_rail_set_selected __cogito_nav_rail_set_selected
+#define cogito_nav_rail_get_selected __cogito_nav_rail_get_selected
+#define cogito_nav_rail_on_change __cogito_nav_rail_on_change
+#define cogito_bottom_nav_set_items __cogito_bottom_nav_set_items
+#define cogito_bottom_nav_set_selected __cogito_bottom_nav_set_selected
+#define cogito_bottom_nav_get_selected __cogito_bottom_nav_get_selected
+#define cogito_bottom_nav_on_change __cogito_bottom_nav_on_change
 #define cogito_progress_set_value __cogito_progress_set_value
 #define cogito_progress_get_value __cogito_progress_get_value
 #define cogito_toast_set_text __cogito_toast_set_text
 #define cogito_toast_on_click __cogito_toast_on_click
+#define cogito_toast_set_action __cogito_toast_set_action
 #define cogito_window_set_autosize __cogito_window_set_autosize
 #define cogito_window_set_resizable __cogito_window_set_resizable
 #define cogito_window_set_dialog __cogito_window_set_dialog
@@ -1368,6 +1581,8 @@ static void __cogito_load_sum(ErgoVal pathv) {
 void __cogito_button_on_click(ErgoVal btn, ErgoVal handler);
 #define cogito_button_on_click __cogito_button_on_click
 #define cogito_button_add_menu __cogito_button_add_menu
+#define cogito_fab_set_extended __cogito_fab_set_extended
+#define cogito_fab_on_click __cogito_fab_on_click
 #define cogito_appbar_add_button __cogito_appbar_add_button
 #define cogito_appbar_set_controls __cogito_appbar_set_controls
 #define cogito_iconbtn_add_menu __cogito_iconbtn_add_menu

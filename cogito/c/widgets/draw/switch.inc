@@ -4,11 +4,18 @@ case COGITO_SWITCH: {
       cogito_node_hover_state(n, &hover, &active);
       int text_w = 0;
       if (n->text) text_w = cogito_text_width(n->text->data);
-      int track_w = n->w - (n->text ? (text_w + 8) : 0);
+      // Use intrinsic width unless hexpand is set
+      int intrinsic_w = text_w + 40;
+      int use_w = (n->hexpand && n->w > intrinsic_w) ? n->w : intrinsic_w;
+      int track_w = use_w - (n->text ? (text_w + 8) : 0);
       if (track_w < 24) track_w = 24;
       if (n->min_w_set && track_w < n->min_w) track_w = n->min_w;
       if (n->max_w_set && n->max_w > 0 && track_w > n->max_w) track_w = n->max_w;
-      int h = n->h > 0 ? n->h : 18;
+      // Use intrinsic height unless vexpand is set
+      int text_h = n->text ? cogito_text_height() : 0;
+      int intrinsic_h = text_h + 4;
+      if (intrinsic_h < 18) intrinsic_h = 18;
+      int h = (n->vexpand && n->h > intrinsic_h) ? n->h : intrinsic_h;
       if (n->min_h_set && h < n->min_h) h = n->min_h;
       if (n->max_h_set && n->max_h > 0 && h > n->max_h) h = n->max_h;
       if (h > track_w / 2) h = track_w / 2;

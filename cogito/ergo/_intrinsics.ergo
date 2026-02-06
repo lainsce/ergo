@@ -67,6 +67,9 @@ fun __cogito_state_set(state = State, value = any) (( -- )) { }
 fun __cogito_container_set_align(node = any, align = num) (( -- )) { }
 fun __cogito_container_set_halign(node = any, align = num) (( -- )) { }
 fun __cogito_container_set_valign(node = any, align = num) (( -- )) { }
+fun __cogito_container_set_hexpand(node = any, expand = bool) (( -- )) { }
+fun __cogito_container_set_vexpand(node = any, expand = bool) (( -- )) { }
+fun __cogito_container_set_gap(node = any, gap = num) (( -- )) { }
 fun __cogito_container_set_padding(node = any, left = num, top = num, right = num, bottom = num) (( -- )) { }
 fun __cogito_fixed_set_pos(fixed = Fixed, child = any, x = num, y = num) (( -- )) { }
 fun __cogito_scroller_set_axes(scroller = Scroller, h = bool, v = bool) (( -- )) { }

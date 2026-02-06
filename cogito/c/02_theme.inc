@@ -184,6 +184,8 @@ static CogitoStyle cogito_style_merge(const CogitoStyle* base, const CogitoStyle
   if (over->has_margin_right) { out.has_margin_right = true; out.margin_right = over->margin_right; }
   if (over->has_margin_bottom) { out.has_margin_bottom = true; out.margin_bottom = over->margin_bottom; }
 
+  if (over->has_opacity) { out.has_opacity = true; out.opacity = over->opacity; }
+
   return out;
 }
 
@@ -201,6 +203,12 @@ static CogitoStyle cogito_theme_resolve_node(const CogitoNode* n) {
   }
   if (n->font_tabular) {
     s = cogito_style_merge(&s, &cogito_theme.class_tabular);
+  }
+  if (n->button_outlined) {
+    s = cogito_style_merge(&s, &cogito_theme.button_outlined);
+  }
+  if (n->button_text) {
+    s = cogito_style_merge(&s, &cogito_theme.button_text);
   }
   if (n->parent && n->parent->kind == COGITO_APPBAR) {
     if (n->kind == COGITO_BUTTON) {
@@ -328,6 +336,24 @@ static CogitoStyle cogito_theme_resolve_node_state(const CogitoNode* n, bool hov
     if (!cogito_node_disabled(n)) {
       if (active) s = cogito_style_merge(&s, &cogito_theme.class_tabular_active);
       else if (hover) s = cogito_style_merge(&s, &cogito_theme.class_tabular_hover);
+    }
+  }
+  if (n->button_outlined) {
+    if (cogito_node_disabled(n)) {
+      s = cogito_style_merge(&s, &cogito_theme.button_outlined_disabled);
+    }
+    if (!cogito_node_disabled(n)) {
+      if (active) s = cogito_style_merge(&s, &cogito_theme.button_outlined_active);
+      else if (hover) s = cogito_style_merge(&s, &cogito_theme.button_outlined_hover);
+    }
+  }
+  if (n->button_text) {
+    if (cogito_node_disabled(n)) {
+      s = cogito_style_merge(&s, &cogito_theme.button_text_disabled);
+    }
+    if (!cogito_node_disabled(n)) {
+      if (active) s = cogito_style_merge(&s, &cogito_theme.button_text_active);
+      else if (hover) s = cogito_style_merge(&s, &cogito_theme.button_text_hover);
     }
   }
   if (checked) s = cogito_style_merge(&s, &cogito_theme.per_kind_checked[n->kind]);
@@ -613,6 +639,60 @@ static void cogito_appbar_controls_positions(CogitoNode* n, int x, int w, int bt
   if (out_close) *out_close = pos[0];
   if (out_min) *out_min = pos[1];
   if (out_max) *out_max = pos[2];
+}
+
+// Helper functions for multi-appbar support
+static CogitoNode* cogito_find_appbar_recursive(CogitoNode* n) {
+  if (!n) return NULL;
+  if (n->kind == COGITO_APPBAR) return n;
+  for (size_t i = 0; i < n->len; i++) {
+    CogitoNode* found = cogito_find_appbar_recursive(n->children[i]);
+    if (found) return found;
+  }
+  return NULL;
+}
+
+static CogitoNode* cogito_find_appbar(CogitoNode* win) {
+  if (!win) return NULL;
+  return cogito_find_appbar_recursive(win);
+}
+
+static CogitoNode* cogito_find_appbar_at_point_recursive(CogitoNode* n, int x, int y) {
+  if (!n) return NULL;
+  if (n->kind == COGITO_APPBAR && cogito_hit_rect(x, y, n->x, n->y, n->w, n->h)) {
+    return n;
+  }
+  for (size_t i = 0; i < n->len; i++) {
+    CogitoNode* hit = cogito_find_appbar_at_point_recursive(n->children[i], x, y);
+    if (hit) return hit;
+  }
+  return NULL;
+}
+
+static CogitoNode* cogito_find_appbar_at_point(CogitoNode* win, int x, int y) {
+  if (!win) return NULL;
+  return cogito_find_appbar_at_point_recursive(win, x, y);
+}
+
+static bool cogito_is_first_appbar(CogitoNode* win, CogitoNode* appbar) {
+  if (!win || !appbar) return false;
+  CogitoNode* first = cogito_find_appbar(win);
+  return first == appbar;
+}
+
+static bool cogito_point_over_appbar_buttons(CogitoNode* app, int x, int y) {
+  if (!app) return false;
+  if (app->appbar_btn_close_x >= 0 &&
+      cogito_hit_rect(x, y, app->appbar_btn_close_x, app->appbar_btn_y, app->appbar_btn_size, app->appbar_btn_size)) return true;
+  if (app->appbar_btn_min_x >= 0 &&
+      cogito_hit_rect(x, y, app->appbar_btn_min_x, app->appbar_btn_y, app->appbar_btn_size, app->appbar_btn_size)) return true;
+  if (app->appbar_btn_max_x >= 0 &&
+      cogito_hit_rect(x, y, app->appbar_btn_max_x, app->appbar_btn_y, app->appbar_btn_size, app->appbar_btn_size)) return true;
+  for (size_t i = 0; i < app->len; i++) {
+    CogitoNode* c = app->children[i];
+    if (cogito_hit_rect(x, y, c->x, c->y, c->w, c->h)) return true;
+  }
+  return false;
 }
 
 static int cogito_label_class_font_size(int cls, int fallback);

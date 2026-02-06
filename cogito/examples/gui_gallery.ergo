@@ -7,11 +7,7 @@ def views = cogito.view_switcher()
 fun build_buttons_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
 
-    let title = cogito.label(@"Buttons")
-    title.set_class(@"title")
-    vstack.add(title)
-
-    let subtitle = cogito.label(@"Material Design 3 filled buttons with elevation")
+    let subtitle = cogito.label(@"Filled buttons with elevation")
     subtitle.set_class(@"subtitle")
     vstack.add(subtitle)
 
@@ -33,11 +29,7 @@ fun build_buttons_view() (( cogito.VStack )) {
 fun build_textfields_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
 
-    let title = cogito.label(@"Text Fields")
-    title.set_class(@"title")
-    vstack.add(title)
-
-    let subtitle = cogito.label(@"MD3 filled variant with top-only radius")
+    let subtitle = cogito.label(@"Filled variant with top-only radius")
     subtitle.set_class(@"subtitle")
     vstack.add(subtitle)
 
@@ -58,10 +50,6 @@ fun build_textfields_view() (( cogito.VStack )) {
 
 fun build_checkboxes_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
-
-    let title = cogito.label(@"Checkboxes & Radio")
-    title.set_class(@"title")
-    vstack.add(title)
 
     let subtitle = cogito.label(@"Selection controls with state layers")
     subtitle.set_class(@"subtitle")
@@ -93,11 +81,7 @@ fun build_checkboxes_view() (( cogito.VStack )) {
 fun build_sliders_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
 
-    let title = cogito.label(@"Sliders")
-    title.set_class(@"title")
-    vstack.add(title)
-
-    let subtitle = cogito.label(@"MD3 slider with state layers")
+    let subtitle = cogito.label(@"Slider with state layers")
     subtitle.set_class(@"subtitle")
     vstack.add(subtitle)
 
@@ -116,10 +100,6 @@ fun build_sliders_view() (( cogito.VStack )) {
 
 fun build_pickers_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
-
-    let title = cogito.label(@"Pickers")
-    title.set_class(@"title")
-    vstack.add(title)
 
     let subtitle = cogito.label(@"Date and color pickers with elevation")
     subtitle.set_class(@"subtitle")
@@ -143,10 +123,6 @@ fun build_pickers_view() (( cogito.VStack )) {
 fun build_lists_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
 
-    let title = cogito.label(@"Lists & Grids")
-    title.set_class(@"title")
-    vstack.add(title)
-
     let subtitle = cogito.label(@"Selectable lists and grid layouts")
     subtitle.set_class(@"subtitle")
     vstack.add(subtitle)
@@ -168,10 +144,12 @@ fun build_lists_view() (( cogito.VStack )) {
 }
 
 fun build_ui(win = cogito.Window) (( -- )) {
-    let bar = cogito.appbar(@"Cogito Gallery", @"Widget Showcase")
-    win.add(bar)
+    let bar = cogito.appbar(@"Sidebar", @"")
+    let bar2 = cogito.appbar(@"Main", @"")
 
     let hstack = cogito.hstack()
+    hstack.set_vexpand(true)
+    hstack.set_hexpand(true)
 
     -- Create view switcher and all views first
     let buttons_view = build_buttons_view()
@@ -200,11 +178,11 @@ fun build_ui(win = cogito.Window) (( -- )) {
 
     -- Sidebar (left side)
     let sidebar = cogito.vstack()
-    let sidebar_title = cogito.label(@"Widgets")
-    sidebar_title.set_class(@"subtitle")
-    sidebar.add(sidebar_title)
+    sidebar.set_vexpand(true)
+    sidebar.add(bar)
 
     let sidebar_list = cogito.list()
+    sidebar_list.set_vexpand(true)
     sidebar_list.add(cogito.label(@"Buttons"))
     sidebar_list.add(cogito.label(@"Text Fields"))
     sidebar_list.add(cogito.label(@"Checkboxes"))
@@ -234,6 +212,10 @@ fun build_ui(win = cogito.Window) (( -- )) {
 
     -- Main content area (right side)
     let content = cogito.vstack()
+    content.add(bar2)
+    content.set_hexpand(true)
+    content.set_vexpand(true)
+
     let scroller = cogito.scroller()
     scroller.set_axes(false, true)
     scroller.add(views)

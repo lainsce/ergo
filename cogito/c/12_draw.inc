@@ -25,6 +25,12 @@ static void cogito_draw_node(CogitoNode* n) {
 
     #include "widgets/draw/datepicker.inc"
 
+    #include "widgets/draw/fab.inc"
+
+    #include "widgets/draw/nav_rail.inc"
+
+    #include "widgets/draw/bottom_nav.inc"
+
     #include "widgets/draw/slider.inc"
 
     #include "widgets/draw/colorpicker.inc"
@@ -36,6 +42,8 @@ static void cogito_draw_node(CogitoNode* n) {
     #include "widgets/draw/toast.inc"
 
     #include "widgets/draw/checkbox.inc"
+
+    #include "widgets/draw/chip.inc"
 
     #include "widgets/draw/switch.inc"
 

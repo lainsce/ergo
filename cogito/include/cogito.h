@@ -50,7 +50,11 @@ typedef enum {
   COGITO_NODE_DIALOG,
   COGITO_NODE_DIALOG_SLOT,
   COGITO_NODE_TOOLTIP,
-  COGITO_NODE_IMAGE
+  COGITO_NODE_IMAGE,
+  COGITO_NODE_CHIP,
+  COGITO_NODE_FAB,
+  COGITO_NODE_NAV_RAIL,
+  COGITO_NODE_BOTTOM_NAV,
 } cogito_node_kind;
 
 // App / window lifecycle
@@ -76,6 +80,10 @@ cogito_node* cogito_label_new(const char* text);
 cogito_node* cogito_button_new(const char* text);
 cogito_node* cogito_iconbtn_new(const char* text);
 cogito_node* cogito_checkbox_new(const char* text, const char* group);
+cogito_node* cogito_chip_new(const char* text);
+cogito_node* cogito_fab_new(const char* icon);
+cogito_node* cogito_nav_rail_new(void);
+cogito_node* cogito_bottom_nav_new(void);
 cogito_node* cogito_switch_new(const char* text);
 cogito_node* cogito_textfield_new(const char* text);
 cogito_node* cogito_textview_new(const char* text);
@@ -108,6 +116,9 @@ void cogito_node_set_padding(cogito_node* node, int left, int top, int right, in
 void cogito_node_set_align(cogito_node* node, int align);
 void cogito_node_set_halign(cogito_node* node, int align);
 void cogito_node_set_valign(cogito_node* node, int align);
+void cogito_node_set_hexpand(cogito_node* node, bool expand);
+void cogito_node_set_vexpand(cogito_node* node, bool expand);
+void cogito_node_set_gap(cogito_node* node, int gap);
 void cogito_node_set_id(cogito_node* node, const char* id);
 
 // Common props
@@ -139,11 +150,25 @@ int cogito_tabs_get_selected(cogito_node* tabs);
 void cogito_tabs_set_selected(cogito_node* tabs, int idx);
 void cogito_tabs_bind(cogito_node* tabs, cogito_node* view_switcher);
 
+void cogito_nav_rail_set_items(cogito_node* rail, const char** labels, const char** icons, size_t count);
+int cogito_nav_rail_get_selected(cogito_node* rail);
+void cogito_nav_rail_set_selected(cogito_node* rail, int idx);
+void cogito_nav_rail_on_change(cogito_node* rail, cogito_index_fn fn, void* user);
+
+void cogito_bottom_nav_set_items(cogito_node* nav, const char** labels, const char** icons, size_t count);
+int cogito_bottom_nav_get_selected(cogito_node* nav);
+void cogito_bottom_nav_set_selected(cogito_node* nav, int idx);
+void cogito_bottom_nav_on_change(cogito_node* nav, cogito_index_fn fn, void* user);
+
 double cogito_slider_get_value(cogito_node* slider);
 void cogito_slider_set_value(cogito_node* slider, double value);
 
 bool cogito_checkbox_get_checked(cogito_node* cb);
 void cogito_checkbox_set_checked(cogito_node* cb, bool checked);
+
+bool cogito_chip_get_selected(cogito_node* chip);
+void cogito_chip_set_selected(cogito_node* chip, bool selected);
+void cogito_chip_set_closable(cogito_node* chip, bool closable);
 
 bool cogito_switch_get_checked(cogito_node* sw);
 void cogito_switch_set_checked(cogito_node* sw, bool checked);
@@ -198,6 +223,10 @@ void cogito_button_add_menu(cogito_node* button, const char* label, cogito_node_
 void cogito_iconbtn_add_menu(cogito_node* button, const char* label, cogito_node_fn fn, void* user);
 
 void cogito_checkbox_on_change(cogito_node* cb, cogito_node_fn fn, void* user);
+void cogito_chip_on_click(cogito_node* chip, cogito_node_fn fn, void* user);
+void cogito_chip_on_close(cogito_node* chip, cogito_node_fn fn, void* user);
+void cogito_fab_set_extended(cogito_node* fab, bool extended, const char* label);
+void cogito_fab_on_click(cogito_node* fab, cogito_node_fn fn, void* user);
 void cogito_switch_on_change(cogito_node* sw, cogito_node_fn fn, void* user);
 
 void cogito_textfield_on_change(cogito_node* tf, cogito_node_fn fn, void* user);
@@ -219,6 +248,7 @@ void cogito_view_switcher_set_active(cogito_node* view_switcher, const char* id)
 
 void cogito_toast_set_text(cogito_node* toast, const char* text);
 void cogito_toast_on_click(cogito_node* toast, cogito_node_fn fn, void* user);
+void cogito_toast_set_action(cogito_node* toast, const char* action_text, cogito_node_fn fn, void* user);
 
 // Node/window helpers
 cogito_window* cogito_node_window(cogito_node* node);

@@ -5,8 +5,11 @@ case COGITO_CHECKBOX: {
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
       int text_w = 0;
       if (n->text) text_w = cogito_text_width(n->text->data);
+      // Use intrinsic width unless hexpand is set
+      int intrinsic_w = text_w + 32;
+      int use_w = (n->hexpand && n->w > intrinsic_w) ? n->w : intrinsic_w;
       int max_box = n->h > 0 ? n->h : 16;
-      int avail = n->w - (n->text ? (text_w + 6) : 0);
+      int avail = use_w - (n->text ? (text_w + 6) : 0);
       if (avail < 12) avail = 12;
       int box = max_box;
       if (box > avail) box = avail;

@@ -83,11 +83,13 @@ static void cogito_invoke_select(CogitoNode* n, int idx, bool activate) {
 
 #include "widgets/interaction/button.inc"
 #include "widgets/interaction/checkbox.inc"
+#include "widgets/interaction/chip.inc"
 #include "widgets/interaction/colorpicker.inc"
 #include "widgets/interaction/datepicker.inc"
 #include "widgets/interaction/dialog.inc"
 #include "widgets/interaction/popover.inc"
 #include "widgets/interaction/dropdown.inc"
+#include "widgets/interaction/fab.inc"
 #include "widgets/interaction/fixed.inc"
 #include "widgets/interaction/grid.inc"
 #include "widgets/interaction/hstack.inc"
@@ -95,6 +97,8 @@ static void cogito_invoke_select(CogitoNode* n, int idx, bool activate) {
 #include "widgets/interaction/image.inc"
 #include "widgets/interaction/label.inc"
 #include "widgets/interaction/list.inc"
+#include "widgets/interaction/nav_rail.inc"
+#include "widgets/interaction/bottom_nav.inc"
 #include "widgets/interaction/progress.inc"
 #include "widgets/interaction/scroller.inc"
 #include "widgets/interaction/searchfield.inc"
@@ -197,9 +201,13 @@ static bool cogito_node_focusable(const CogitoNode* n) {
     #include "widgets/interaction/focusable/button.inc"
     #include "widgets/interaction/focusable/iconbtn.inc"
     #include "widgets/interaction/focusable/checkbox.inc"
+    #include "widgets/interaction/focusable/chip.inc"
     #include "widgets/interaction/focusable/switch.inc"
     #include "widgets/interaction/focusable/colorpicker.inc"
     #include "widgets/interaction/focusable/datepicker.inc"
+    #include "widgets/interaction/focusable/fab.inc"
+    #include "widgets/interaction/focusable/nav_rail.inc"
+    #include "widgets/interaction/focusable/bottom_nav.inc"
 
     default:
       return false;
@@ -548,6 +556,24 @@ static void cogito_container_set_valign(ErgoVal nodev, ErgoVal alignv) {
   node->align = row * 3 + col;
 }
 
+static void cogito_container_set_hexpand(ErgoVal nodev, ErgoVal expandv) {
+  if (nodev.tag != EVT_OBJ) ergo_trap("cogito.container_set_hexpand expects object");
+  CogitoNode* node = (CogitoNode*)nodev.as.p;
+  node->hexpand = ergo_as_bool(expandv);
+}
+
+static void cogito_container_set_vexpand(ErgoVal nodev, ErgoVal expandv) {
+  if (nodev.tag != EVT_OBJ) ergo_trap("cogito.container_set_vexpand expects object");
+  CogitoNode* node = (CogitoNode*)nodev.as.p;
+  node->vexpand = ergo_as_bool(expandv);
+}
+
+static void cogito_container_set_gap(ErgoVal nodev, ErgoVal gapv) {
+  if (nodev.tag != EVT_OBJ) ergo_trap("cogito.container_set_gap expects object");
+  CogitoNode* node = (CogitoNode*)nodev.as.p;
+  node->gap = (int)ergo_as_int(gapv);
+}
+
 static void cogito_container_set_padding(ErgoVal nodev, ErgoVal left, ErgoVal top, ErgoVal right, ErgoVal bottom) {
   if (nodev.tag != EVT_OBJ) ergo_trap("cogito.container_set_padding expects object");
   CogitoNode* node = (CogitoNode*)nodev.as.p;
@@ -680,6 +706,8 @@ static void cogito_node_set_class(ErgoVal nodev, ErgoVal classv) {
   const char* s = cs ? cs->data : "";
   n->font_mono = false;
   n->font_tabular = false;
+  n->button_outlined = false;
+  n->button_text = false;
   if (n->kind == COGITO_LABEL) n->label_class = COGITO_LABEL_CLASS_NONE;
   if (s && s[0]) {
     if (strcmp(s, "title") == 0) {
@@ -692,6 +720,10 @@ static void cogito_node_set_class(ErgoVal nodev, ErgoVal classv) {
       n->font_mono = true;
     } else if (strcmp(s, "tabular") == 0 || strcmp(s, "tnum") == 0) {
       n->font_tabular = true;
+    } else if (strcmp(s, "outlined") == 0) {
+      n->button_outlined = true;
+    } else if (strcmp(s, "text") == 0) {
+      n->button_text = true;
     }
   }
   if (temp && cs) ergo_release_val(EV_STR(cs));

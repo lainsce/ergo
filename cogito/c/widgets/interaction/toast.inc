@@ -36,3 +36,19 @@ static void cogito_toast_on_click(ErgoVal tv, ErgoVal handler) {
   t->on_click = (ErgoFn*)handler.as.p;
   ergo_retain_val(EV_FN(t->on_click));
 }
+static void cogito_toast_set_action(ErgoVal tv, ErgoVal textv, ErgoVal handler) {
+  if (tv.tag != EVT_OBJ) ergo_trap("cogito.toast_set_action expects toast");
+  CogitoNode* n = (CogitoNode*)tv.as.p;
+  ErgoStr* ts = stdr_to_string(textv);
+  if (n->action_text) ergo_release_val(EV_STR(n->action_text));
+  n->action_text = ts;
+  ergo_retain_val(EV_STR(n->action_text));
+  if (n->on_action) ergo_release_val(EV_FN(n->on_action));
+  if (handler.tag == EVT_FN) {
+    n->on_action = (ErgoFn*)handler.as.p;
+    ergo_retain_val(EV_FN(n->on_action));
+  } else {
+    n->on_action = NULL;
+  }
+  cogito_window_relayout(cogito_node_window(n));
+}
