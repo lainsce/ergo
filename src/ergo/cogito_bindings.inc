@@ -1355,6 +1355,8 @@ static void __cogito_load_css(ErgoVal pathv) {
 #define cogito_list_on_activate __cogito_list_on_activate
 #define cogito_grid_on_select __cogito_grid_on_select
 #define cogito_grid_on_activate __cogito_grid_on_activate
+// Forward declare FFI functions with ErgoVal signature
+void __cogito_button_on_click(ErgoVal btn, ErgoVal handler);
 #define cogito_button_on_click __cogito_button_on_click
 #define cogito_button_add_menu __cogito_button_add_menu
 #define cogito_appbar_add_button __cogito_appbar_add_button

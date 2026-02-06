@@ -16,18 +16,46 @@ static void cogito_button_set_text(ErgoVal btnv, ErgoVal text) {
   if (btnv.tag != EVT_OBJ) ergo_trap("cogito.button_set_text expects button");
   CogitoNode* btn = (CogitoNode*)btnv.as.p;
   ErgoStr* ts = stdr_to_string(text);
+  static int debug = -1;
+  if (debug < 0) {
+    const char* env = getenv("COGITO_DEBUG_HIT");
+    debug = (env && env[0] && env[0] != '0') ? 1 : 0;
+  }
+  if (debug) {
+    const char* old_text = (btn->text && btn->text->data) ? btn->text->data : "";
+    const char* new_text = (ts && ts->data) ? ts->data : "";
+    fprintf(stderr, "cogito: button_set_text old=\"%s\" new=\"%s\"\n", old_text, new_text);
+    fflush(stderr);
+  }
   cogito_node_set_text(btn, ts);
+  if (debug) {
+    fprintf(stderr, "cogito: button_set_text calling relayout\n");
+    fflush(stderr);
+  }
+  cogito_window_relayout(cogito_node_window(btn));
+  if (debug) {
+    fprintf(stderr, "cogito: button_set_text relayout done\n");
+    fflush(stderr);
+  }
 }
-static void cogito_button_on_click(ErgoVal btnv, ErgoVal handler) {
+void cogito_button_on_click(ErgoVal btnv, ErgoVal handler) {
   if (btnv.tag != EVT_OBJ) ergo_trap("cogito.button_on_click expects button");
   CogitoNode* btn = (CogitoNode*)btnv.as.p;
-  if (btn->on_click) ergo_release_val(EV_FN(btn->on_click));
-  btn->on_click = (ErgoFn*)handler.as.p;
-  ergo_retain_val(EV_FN(btn->on_click));
   static int cogito_debug_hit = -1;
   if (cogito_debug_hit < 0) {
     const char* env = getenv("COGITO_DEBUG_HIT");
     cogito_debug_hit = (env && env[0] && env[0] != '0') ? 1 : 0;
+  }
+  if (cogito_debug_hit) {
+    fprintf(stderr, "cogito: set_on_click handler tag=%d (EVT_FN=%d)\n", (int)handler.tag, EVT_FN);
+    fflush(stderr);
+  }
+  if (btn->on_click) ergo_release_val(EV_FN(btn->on_click));
+  if (handler.tag == EVT_FN) {
+    btn->on_click = (ErgoFn*)handler.as.p;
+    ergo_retain_val(EV_FN(btn->on_click));
+  } else {
+    btn->on_click = NULL;
   }
   if (cogito_debug_hit) {
     const char* t = (btn->text && btn->text->data) ? btn->text->data : "";

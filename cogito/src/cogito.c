@@ -41,14 +41,20 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_window_set_a11y_label cogito_window_set_a11y_label_ergo
 #define cogito_run cogito_run_ergo
 #define cogito_node_new cogito_node_new_ergo
+#define cogito_vstack_new cogito_vstack_new_ergo
+#define cogito_hstack_new cogito_hstack_new_ergo
+#define cogito_zstack_new cogito_zstack_new_ergo
+#define cogito_fixed_new cogito_fixed_new_ergo
+#define cogito_scroller_new cogito_scroller_new_ergo
+#define cogito_list_new cogito_list_new_ergo
 #define cogito_label_new cogito_label_new_ergo
+#define cogito_label_set_class cogito_label_set_class_ergo
 #define cogito_label_set_wrap cogito_label_set_wrap_ergo
 #define cogito_label_set_ellipsis cogito_label_set_ellipsis_ergo
 #define cogito_label_set_align cogito_label_set_align_ergo
 #define cogito_button_new cogito_button_new_ergo
 #define cogito_button_set_text cogito_button_set_text_ergo
 #define cogito_button_add_menu cogito_button_add_menu_ergo
-#define cogito_button_on_click cogito_button_on_click_ergo
 #define cogito_iconbtn_new cogito_iconbtn_new_ergo
 #define cogito_iconbtn_add_menu cogito_iconbtn_add_menu_ergo
 #define cogito_checkbox_new cogito_checkbox_new_ergo
@@ -142,6 +148,7 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_node_set_a11y_role cogito_node_set_a11y_role_ergo
 #define cogito_node_set_tooltip cogito_node_set_tooltip_ergo
 #define cogito_node_set_id cogito_node_set_id_ergo
+#define cogito_load_css cogito_load_css_ergo
 #define cogito_load_css_file cogito_load_css_file_ergo
 
 // Internal engine (same order as previous runtime include).
@@ -170,14 +177,20 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_window_set_a11y_label
 #undef cogito_run
 #undef cogito_node_new
+#undef cogito_vstack_new
+#undef cogito_hstack_new
+#undef cogito_zstack_new
+#undef cogito_fixed_new
+#undef cogito_scroller_new
+#undef cogito_list_new
 #undef cogito_label_new
+#undef cogito_label_set_class
 #undef cogito_label_set_wrap
 #undef cogito_label_set_ellipsis
 #undef cogito_label_set_align
 #undef cogito_button_new
 #undef cogito_button_set_text
 #undef cogito_button_add_menu
-#undef cogito_button_on_click
 #undef cogito_iconbtn_new
 #undef cogito_iconbtn_add_menu
 #undef cogito_checkbox_new
@@ -271,6 +284,7 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_progress_get_value
 #undef cogito_stepper_set_value
 #undef cogito_stepper_get_value
+#undef cogito_load_css
 #undef cogito_load_css_file
 
 #include "cogito.h"
@@ -617,6 +631,41 @@ const char* cogito_node_get_text(cogito_node* node) {
   return n->text ? n->text->data : NULL;
 }
 
+cogito_node* cogito_vstack_new(void) {
+  return cogito_from_val(cogito_vstack_new_ergo());
+}
+
+cogito_node* cogito_hstack_new(void) {
+  return cogito_from_val(cogito_hstack_new_ergo());
+}
+
+cogito_node* cogito_zstack_new(void) {
+  return cogito_from_val(cogito_zstack_new_ergo());
+}
+
+cogito_node* cogito_fixed_new(void) {
+  return cogito_from_val(cogito_fixed_new_ergo());
+}
+
+cogito_node* cogito_scroller_new(void) {
+  return cogito_from_val(cogito_scroller_new_ergo());
+}
+
+cogito_node* cogito_list_new(void) {
+  return cogito_from_val(cogito_list_new_ergo());
+}
+
+void cogito_label_set_class(cogito_node* label, const char* cls) {
+  if (!label) return;
+  ErgoVal cv = cogito_val_from_cstr(cls);
+  cogito_label_set_class_ergo(EV_OBJ(label), cv);
+  if (cv.tag == EVT_STR) ergo_release_val(cv);
+}
+
+void cogito_load_css(ErgoVal pathv) {
+  cogito_load_css_ergo(pathv);
+}
+
 void cogito_node_set_disabled(cogito_node* node, bool on) {
   if (!node) return;
   cogito_node_set_disabled_ergo(EV_OBJ(node), EV_BOOL(on));
@@ -944,11 +993,6 @@ void cogito_window_set_dialog(cogito_window* window, cogito_node* dialog) {
 
 void cogito_window_clear_dialog(cogito_window* window) {
   if (!window) return;
-  const char* env = getenv("COGITO_DEBUG_HIT");
-  if (env && env[0] && env[0] != '0') {
-    fprintf(stderr, "cogito: C API window_clear_dialog window=%p\n", (void*)window);
-    fflush(stderr);
-  }
   cogito_window_clear_dialog_ergo(EV_OBJ(window));
 }
 
