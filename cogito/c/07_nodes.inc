@@ -395,6 +395,8 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
 
     #include "widgets/intrinsic/dialog_slot.inc"
 
+    #include "widgets/intrinsic/popover.inc"
+
     #include "widgets/intrinsic/appbar.inc"
 
     #include "widgets/intrinsic/vstack.inc"

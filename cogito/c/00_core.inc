@@ -80,6 +80,7 @@ typedef enum {
   COGITO_DIALOG,
   COGITO_DIALOG_SLOT,
   COGITO_APPBAR,
+  COGITO_POPOVER,
   COGITO_KIND_COUNT
 } CogitoKind;
 
@@ -338,6 +339,9 @@ typedef struct CogitoNode {
   struct CogitoNode* dialog;
   struct CogitoNode* view_switcher;
   bool dialog_open;
+  struct CogitoNode* popover;
+  struct CogitoNode* popover_anchor;
+  bool popover_open;
   bool resizable;
   bool fixed_pos_set;
   bool text_wrap;
@@ -423,6 +427,20 @@ typedef struct CogitoNode {
   int max_w;
   int max_h;
   int shadow_level;
+  CogitoBorderStyle border_style;
+  bool border_style_set;
+  int radius_tl;
+  int radius_tr;
+  int radius_br;
+  int radius_bl;
+  bool radius_tl_set;
+  bool radius_tr_set;
+  bool radius_br_set;
+  bool radius_bl_set;
+  char font_family[64];
+  bool font_family_set;
+  CogitoBoxShadow box_shadow;
+  bool box_shadow_set;
 } CogitoNode;
 
 typedef struct CogitoState {

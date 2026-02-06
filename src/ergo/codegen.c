@@ -1952,6 +1952,18 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_iconbtn")) {
+                        GenExpr icon;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &icon, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_iconbtn_new(%s);", t, icon.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", icon.tmp);
+                        gen_expr_release_except(cg, &icon, icon.tmp);
+                        gen_expr_free(&icon);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_label")) {
                         GenExpr text;
                         if (!gen_expr(cg, path, e->as.call.args[0], &text, err)) return false;

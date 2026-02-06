@@ -101,7 +101,8 @@ struct ErgoVal {
 #define EV_FN(x) ((ErgoVal){.tag=EVT_FN, .as.p=(x)})
 
 static void ergo_trap(const char* msg) {
-  fprintf(stderr, "ergo trap: %s\n", msg);
+  fprintf(stderr, "runtime error: %s\n", msg ? msg : "unknown error");
+  fprintf(stderr, "  (run with debugger for stack trace)\n");
   abort();
 }
 

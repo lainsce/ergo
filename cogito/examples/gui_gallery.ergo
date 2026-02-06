@@ -1,0 +1,254 @@
+bring stdr
+bring cogito
+
+def main_win = cogito.window_title(@"Cogito Gallery")
+def views = cogito.view_switcher()
+
+fun build_buttons_view() (( cogito.VStack )) {
+    let vstack = cogito.vstack()
+
+    let title = cogito.label(@"Buttons")
+    title.set_class(@"title")
+    vstack.add(title)
+
+    let subtitle = cogito.label(@"Material Design 3 filled buttons with elevation")
+    subtitle.set_class(@"subtitle")
+    vstack.add(subtitle)
+
+    let btn1 = cogito.button(@"Primary Action")
+    cogito.set_tooltip(btn1, @"Filled button with elevation")
+    vstack.add(btn1)
+
+    let btn2 = cogito.button(@"Secondary Action")
+    cogito.set_tooltip(btn2, @"Another action button")
+    vstack.add(btn2)
+
+    let iconbtn = cogito.iconbtn(@"sf:star.fill")
+    cogito.set_tooltip(iconbtn, @"Icon button")
+    vstack.add(iconbtn)
+
+    return vstack
+}
+
+fun build_textfields_view() (( cogito.VStack )) {
+    let vstack = cogito.vstack()
+
+    let title = cogito.label(@"Text Fields")
+    title.set_class(@"title")
+    vstack.add(title)
+
+    let subtitle = cogito.label(@"MD3 filled variant with top-only radius")
+    subtitle.set_class(@"subtitle")
+    vstack.add(subtitle)
+
+    let tf = cogito.textfield(@"Text field")
+    cogito.set_tooltip(tf, @"Type here")
+    vstack.add(tf)
+
+    let sf = cogito.searchfield(@"Search…")
+    cogito.set_tooltip(sf, @"Search field")
+    vstack.add(sf)
+
+    let tv = cogito.textview(@"Multi-line text view")
+    cogito.set_tooltip(tv, @"Multi-line input")
+    vstack.add(tv)
+
+    return vstack
+}
+
+fun build_checkboxes_view() (( cogito.VStack )) {
+    let vstack = cogito.vstack()
+
+    let title = cogito.label(@"Checkboxes & Radio")
+    title.set_class(@"title")
+    vstack.add(title)
+
+    let subtitle = cogito.label(@"Selection controls with state layers")
+    subtitle.set_class(@"subtitle")
+    vstack.add(subtitle)
+
+    let cb1 = cogito.checkbox(@"Option 1", null)
+    cogito.set_tooltip(cb1, @"Toggle checkbox")
+    vstack.add(cb1)
+
+    let cb2 = cogito.checkbox(@"Option 2", null)
+    cogito.set_tooltip(cb2, @"Toggle checkbox")
+    vstack.add(cb2)
+
+    let r1 = cogito.checkbox(@"Choice A", @"group1")
+    cogito.set_tooltip(r1, @"Radio button A")
+    vstack.add(r1)
+
+    let r2 = cogito.checkbox(@"Choice B", @"group1")
+    cogito.set_tooltip(r2, @"Radio button B")
+    vstack.add(r2)
+
+    let sw = cogito.switch(@"Toggle")
+    cogito.set_tooltip(sw, @"Toggle switch")
+    vstack.add(sw)
+
+    return vstack
+}
+
+fun build_sliders_view() (( cogito.VStack )) {
+    let vstack = cogito.vstack()
+
+    let title = cogito.label(@"Sliders")
+    title.set_class(@"title")
+    vstack.add(title)
+
+    let subtitle = cogito.label(@"MD3 slider with state layers")
+    subtitle.set_class(@"subtitle")
+    vstack.add(subtitle)
+
+    let slider_label = cogito.label(@"Value: 50")
+    vstack.add(slider_label)
+
+    let sld = cogito.slider(0, 100, 50)
+    sld.on_change((s = cogito.Slider) => {
+        writef(@"Slider: {s.value()}\n")
+    })
+    cogito.set_tooltip(sld, @"Slider with state layers")
+    vstack.add(sld)
+
+    return vstack
+}
+
+fun build_pickers_view() (( cogito.VStack )) {
+    let vstack = cogito.vstack()
+
+    let title = cogito.label(@"Pickers")
+    title.set_class(@"title")
+    vstack.add(title)
+
+    let subtitle = cogito.label(@"Date and color pickers with elevation")
+    subtitle.set_class(@"subtitle")
+    vstack.add(subtitle)
+
+    let dp = cogito.datepicker()
+    dp.set_a11y_label(@"Choose date")
+    dp.set_a11y_role(@"datepicker")
+    cogito.set_tooltip(dp, @"Date picker")
+    vstack.add(dp)
+
+    let cp = cogito.colorpicker()
+    cp.set_a11y_label(@"Choose color")
+    cp.set_a11y_role(@"colorpicker")
+    cogito.set_tooltip(cp, @"Color picker")
+    vstack.add(cp)
+
+    return vstack
+}
+
+fun build_lists_view() (( cogito.VStack )) {
+    let vstack = cogito.vstack()
+
+    let title = cogito.label(@"Lists & Grids")
+    title.set_class(@"title")
+    vstack.add(title)
+
+    let subtitle = cogito.label(@"Selectable lists and grid layouts")
+    subtitle.set_class(@"subtitle")
+    vstack.add(subtitle)
+
+    let list = cogito.list()
+    list.add(cogito.label(@"List Item 1"))
+    list.add(cogito.label(@"List Item 2"))
+    list.add(cogito.label(@"List Item 3"))
+    vstack.add(list)
+
+    let grid = cogito.grid(2)
+    grid.add(cogito.label(@"A1"))
+    grid.add(cogito.label(@"A2"))
+    grid.add(cogito.label(@"B1"))
+    grid.add(cogito.label(@"B2"))
+    vstack.add(grid)
+
+    return vstack
+}
+
+fun build_ui(win = cogito.Window) (( -- )) {
+    let bar = cogito.appbar(@"Cogito Gallery", @"Widget Showcase")
+    win.add(bar)
+
+    let hstack = cogito.hstack()
+
+    -- Create view switcher and all views first
+    let buttons_view = build_buttons_view()
+    cogito.set_id(buttons_view, @"buttons")
+    views.add(buttons_view)
+
+    let textfields_view = build_textfields_view()
+    cogito.set_id(textfields_view, @"textfields")
+    views.add(textfields_view)
+
+    let checkboxes_view = build_checkboxes_view()
+    cogito.set_id(checkboxes_view, @"checkboxes")
+    views.add(checkboxes_view)
+
+    let sliders_view = build_sliders_view()
+    cogito.set_id(sliders_view, @"sliders")
+    views.add(sliders_view)
+
+    let pickers_view = build_pickers_view()
+    cogito.set_id(pickers_view, @"pickers")
+    views.add(pickers_view)
+
+    let lists_view = build_lists_view()
+    cogito.set_id(lists_view, @"lists")
+    views.add(lists_view)
+
+    -- Sidebar (left side)
+    let sidebar = cogito.vstack()
+    let sidebar_title = cogito.label(@"Widgets")
+    sidebar_title.set_class(@"subtitle")
+    sidebar.add(sidebar_title)
+
+    let sidebar_list = cogito.list()
+    sidebar_list.add(cogito.label(@"Buttons"))
+    sidebar_list.add(cogito.label(@"Text Fields"))
+    sidebar_list.add(cogito.label(@"Checkboxes"))
+    sidebar_list.add(cogito.label(@"Sliders"))
+    sidebar_list.add(cogito.label(@"Pickers"))
+    sidebar_list.add(cogito.label(@"Lists"))
+    sidebar_list.on_select((idx) => {
+        if idx == 0 {
+            views.set_active(@"buttons")
+        } elif idx == 1 {
+            views.set_active(@"textfields")
+        } elif idx == 2 {
+            views.set_active(@"checkboxes")
+        } elif idx == 3 {
+            views.set_active(@"sliders")
+        } elif idx == 4 {
+            views.set_active(@"pickers")
+        } elif idx == 5 {
+            views.set_active(@"lists")
+        } else {
+            views.set_active(@"buttons")
+        }
+    })
+    sidebar.add(sidebar_list)
+
+    hstack.add(sidebar)
+
+    -- Main content area (right side)
+    let content = cogito.vstack()
+    let scroller = cogito.scroller()
+    scroller.set_axes(false, true)
+    scroller.add(views)
+    content.add(scroller)
+    hstack.add(content)
+
+    win.add(hstack)
+}
+
+entry () (( -- )) {
+    let app = cogito.app()
+    main_win.build(build_ui)
+    app.set_appid(@"ergo.cogito.Gallery")
+    app.set_accent_color(@"#6750a4", false)
+    main_win.set_a11y_label(@"Cogito Gallery")
+    main_win.set_resizable(true)
+    app.run(main_win)
+}

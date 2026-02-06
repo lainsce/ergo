@@ -6,6 +6,7 @@ fun __cogito_app_set_appid(app = App, id = string) (( -- )) { }
 fun __cogito_app_set_accent_color(app = App, color = string, override = bool) (( -- )) { }
 fun __cogito_window(title = string, w = num, h = num) (( Window )) { }
 fun __cogito_button(text = string) (( Button )) { }
+fun __cogito_iconbtn(icon = string) (( Button )) { }
 fun __cogito_label(text = string) (( Label )) { }
 fun __cogito_label_set_class(label = Label, cls = string) (( -- )) { }
 fun __cogito_node_set_class(node = any, cls = string) (( -- )) { }

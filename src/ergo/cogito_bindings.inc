@@ -449,6 +449,14 @@ static ErgoVal __cogito_button(ErgoVal textv) {
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
 }
 
+static ErgoVal __cogito_iconbtn(ErgoVal textv) {
+  ErgoStr* tmp = NULL;
+  const char* text = cogito_required_cstr(textv, &tmp);
+  cogito_node* n = cogito_iconbtn_new(text);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
 static ErgoVal __cogito_image(ErgoVal iconv) {
   ErgoStr* tmp = NULL;
   const char* icon = cogito_required_cstr(iconv, &tmp);
@@ -1247,6 +1255,7 @@ static void __cogito_load_sum(ErgoVal pathv) {
 #define cogito_window_set_a11y_label __cogito_window_set_a11y_label
 #define cogito_window_set_builder __cogito_window_set_builder
 #define cogito_button_new __cogito_button
+#define cogito_iconbtn_new __cogito_iconbtn
 #define cogito_label_new __cogito_label
 #define cogito_dialog_new __cogito_dialog
 #define cogito_dialog_slot_new __cogito_dialog_slot

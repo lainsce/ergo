@@ -126,6 +126,10 @@ fun button(text = string) (( Button )) {
     return __cogito_button(text)
 }
 
+fun iconbtn(icon = string) (( Button )) {
+    return __cogito_iconbtn(icon)
+}
+
 fun appbar(title = string, subtitle = string) (( AppBar )) {
     return __cogito_appbar(title, subtitle)
 }

@@ -86,6 +86,7 @@ static void cogito_invoke_select(CogitoNode* n, int idx, bool activate) {
 #include "widgets/interaction/colorpicker.inc"
 #include "widgets/interaction/datepicker.inc"
 #include "widgets/interaction/dialog.inc"
+#include "widgets/interaction/popover.inc"
 #include "widgets/interaction/dropdown.inc"
 #include "widgets/interaction/fixed.inc"
 #include "widgets/interaction/grid.inc"
@@ -936,6 +937,7 @@ static bool cogito_css_parse_hex_color(const char** p, Color* out) {
 
 static bool cogito_css_parse_named_color(const char* name, Color* out) {
   if (!name) return false;
+  if (strcmp(name, "transparent") == 0) { *out = cogito_rgba(0, 0, 0, 0); return true; }
   if (strcmp(name, "white") == 0) { *out = cogito_rgba(255, 255, 255, 255); return true; }
   if (strcmp(name, "black") == 0) { *out = cogito_rgba(0, 0, 0, 255); return true; }
   if (strcmp(name, "gray") == 0 || strcmp(name, "grey") == 0) { *out = cogito_rgba(128, 128, 128, 255); return true; }

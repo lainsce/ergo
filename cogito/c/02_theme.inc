@@ -145,6 +145,21 @@ static CogitoStyle cogito_style_merge(const CogitoStyle* base, const CogitoStyle
   if (over->has_appbar_btn_border_color) { out.has_appbar_btn_border_color = true; out.appbar_btn_border_color = over->appbar_btn_border_color; }
   if (over->has_appbar_btn_border_width) { out.has_appbar_btn_border_width = true; out.appbar_btn_border_width = over->appbar_btn_border_width; }
 
+  if (over->has_border_style) { out.has_border_style = true; out.border_style = over->border_style; }
+  if (over->has_radius_tl) { out.has_radius_tl = true; out.radius_tl = over->radius_tl; }
+  if (over->has_radius_tr) { out.has_radius_tr = true; out.radius_tr = over->radius_tr; }
+  if (over->has_radius_br) { out.has_radius_br = true; out.radius_br = over->radius_br; }
+  if (over->has_radius_bl) { out.has_radius_bl = true; out.radius_bl = over->radius_bl; }
+  if (over->has_font_family) {
+    out.has_font_family = true;
+    strncpy(out.font_family, over->font_family, 63);
+    out.font_family[63] = '\0';
+  }
+  if (over->has_box_shadow) {
+    out.has_box_shadow = true;
+    out.box_shadow = over->box_shadow;
+  }
+
   if (over->has_padding) {
     out.has_padding = true;
     out.padding_left = over->padding_left;
@@ -379,6 +394,25 @@ static void cogito_apply_style_to_node(CogitoNode* n) {
   else { n->max_h_set = false; }
   if (s.has_shadow) { n->shadow_level = s.shadow_level; n->shadow_set = true; }
   else { n->shadow_set = false; }
+  if (s.has_border_style) { n->border_style = s.border_style; n->border_style_set = true; }
+  else { n->border_style_set = false; }
+  if (s.has_radius_tl) { n->radius_tl = s.radius_tl; n->radius_tl_set = true; }
+  else { n->radius_tl_set = false; }
+  if (s.has_radius_tr) { n->radius_tr = s.radius_tr; n->radius_tr_set = true; }
+  else { n->radius_tr_set = false; }
+  if (s.has_radius_br) { n->radius_br = s.radius_br; n->radius_br_set = true; }
+  else { n->radius_br_set = false; }
+  if (s.has_radius_bl) { n->radius_bl = s.radius_bl; n->radius_bl_set = true; }
+  else { n->radius_bl_set = false; }
+  if (s.has_font_family) {
+    strncpy(n->font_family, s.font_family, 63);
+    n->font_family[63] = '\0';
+    n->font_family_set = true;
+  } else {
+    n->font_family_set = false;
+  }
+  if (s.has_box_shadow) { n->box_shadow = s.box_shadow; n->box_shadow_set = true; }
+  else { n->box_shadow_set = false; }
   if (s.has_font_size) {
     if (n->kind == COGITO_WINDOW) {
       int sz = s.font_size;

@@ -405,6 +405,8 @@ static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h) {
 
     #include "widgets/layout/dialog.inc"
 
+    #include "widgets/layout/popover.inc"
+
     #include "widgets/layout/searchfield.inc"
 
     #include "widgets/layout/datepicker.inc"

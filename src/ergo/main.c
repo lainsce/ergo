@@ -276,6 +276,28 @@ int main(int argc, char **argv) {
             extra_ldflags = join_flags(extra_ldflags_buf, sizeof(extra_ldflags_buf), ray_flags, cogito_flags);
         }
 
+        // Generate unique binary name from entry file
+        char unique_bin_name[256];
+        const char *entry_basename = strrchr(entry, '/');
+        if (!entry_basename) {
+            entry_basename = strrchr(entry, '\\');
+        }
+        entry_basename = entry_basename ? entry_basename + 1 : entry;
+
+        // Remove .ergo extension if present
+        char name_without_ext[256];
+        snprintf(name_without_ext, sizeof(name_without_ext), "%s", entry_basename);
+        char *dot = strrchr(name_without_ext, '.');
+        if (dot && strcmp(dot, ".ergo") == 0) {
+            *dot = '\0';
+        }
+
+#if defined(_WIN32)
+        snprintf(unique_bin_name, sizeof(unique_bin_name), "%s.exe", name_without_ext);
+#else
+        snprintf(unique_bin_name, sizeof(unique_bin_name), "%s", name_without_ext);
+#endif
+
         uint64_t build_hash = proj_hash;
         build_hash = hash_cstr(build_hash, cc_path());
         build_hash = hash_cstr(build_hash, cc_flags());
@@ -300,12 +322,10 @@ int main(int argc, char **argv) {
                 snprintf(hex, sizeof(hex), "%016llx", (unsigned long long)build_hash);
                 cache_dir = path_join(cache_base, hex);
                 if (cache_dir && ensure_dir(cache_dir)) {
-                    cache_c = path_join(cache_dir, "run.c");
-#if defined(_WIN32)
-                    cache_bin = path_join(cache_dir, "run.exe");
-#else
-                    cache_bin = path_join(cache_dir, "run");
-#endif
+                    char cache_c_name[512];
+                    snprintf(cache_c_name, sizeof(cache_c_name), "%s.c", name_without_ext);
+                    cache_c = path_join(cache_dir, cache_c_name);
+                    cache_bin = path_join(cache_dir, unique_bin_name);
                 }
             }
         }
@@ -349,13 +369,15 @@ int main(int argc, char **argv) {
             return 1;
         }
         const char *c_path = cache_c ? cache_c : ".ergo_run.c";
+        const char *bin_path = cache_bin ? cache_bin : unique_bin_name;
+
+        char run_cmd_buf[512];
 #if defined(_WIN32)
-        const char *bin_path = cache_bin ? cache_bin : "run.exe";
-        const char *run_cmd = cache_bin ? cache_bin : ".\\run.exe";
+        snprintf(run_cmd_buf, sizeof(run_cmd_buf), ".\\%s", unique_bin_name);
 #else
-        const char *bin_path = cache_bin ? cache_bin : "run";
-        const char *run_cmd = cache_bin ? cache_bin : "./run";
+        snprintf(run_cmd_buf, sizeof(run_cmd_buf), "./%s", unique_bin_name);
 #endif
+        const char *run_cmd = cache_bin ? cache_bin : run_cmd_buf;
         if (!emit_c(prog, c_path, &err)) {
             diag_print(&err);
             free(cache_base);

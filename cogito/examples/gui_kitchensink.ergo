@@ -89,7 +89,15 @@ fun on_appbar_settings(btn = cogito.Button) (( -- )) {
 
 fun on_appbar_help(btn = cogito.Button) (( -- )) {
     let dlg = cogito.dialog(@"About")
-    dlg.add(cogito.label(@"Cogito UI Gallery"))
+    let title = cogito.label(@"Cogito Material Design 3")
+    title.set_class(@"title")
+    dlg.add(title)
+    let desc = cogito.label(@"A modern UI library following principles with elevated surfaces, state layers, and accessible components.")
+    desc.set_class(@"body")
+    desc.set_wrap(true)
+    dlg.add(desc)
+    let features = cogito.label(@"✓ Modern styling\n✓ Popover system\n✓ State layers\n✓ Accessible components")
+    dlg.add(features)
     let close_btn = cogito.button(@"Close")
     close_btn.on_click(on_close_dialog)
     dlg.add(close_btn)
@@ -97,7 +105,7 @@ fun on_appbar_help(btn = cogito.Button) (( -- )) {
 }
 
 fun build_ui(win = cogito.Window) (( -- )) {
-    let bar = cogito.appbar(@"The Kitchensink", @"Cogito UI Gallery")
+    let bar = cogito.appbar(@"The Kitchensink", @"Cogito Gallery")
     let settings_btn = bar.add_button(@"sf:gearshape", on_appbar_settings)
     settings_btn.add_menu(@"Preferences", on_appbar_settings)
     settings_btn.add_menu(@"About", on_appbar_help)
@@ -123,18 +131,23 @@ fun build_ui(win = cogito.Window) (( -- )) {
     let row11 = cogito.hstack()
     let row12 = cogito.hstack()
 
-    let label = cogito.label(@"Label")
-    let btn = cogito.button(@"Button")
+    let md3_label = cogito.label(@"Components")
+    md3_label.set_class(@"title")
+    row1.add(md3_label)
+
+    let btn = cogito.button(@"Filled Button")
     btn.on_click((b = cogito.Button) => { b.set_text(@"Clicked!") })
-    cogito.set_tooltip(btn, @"Click me")
-    row1.add(label)
+    cogito.set_tooltip(btn, @"Filled button - primary action")
     row1.add(btn)
-    let mono = cogito.label(@"Monospace 0123456789")
+
+    let btn2 = cogito.button(@"Secondary Action")
+    btn2.on_click((b = cogito.Button) => { b.set_text(@"Done!") })
+    cogito.set_tooltip(btn2, @"Another action button")
+    row1.add(btn2)
+
+    let mono = cogito.label(@"Monospace: 0123456789")
     mono.set_class(@"monospace")
     row1.add(mono)
-    let tab = cogito.label(@"Tabular 0011223344")
-    tab.set_class(@"tabular")
-    row1.add(tab)
 
     let cb1 = cogito.checkbox(@"Checking In", null)
     cb1.on_change(on_check)
@@ -202,9 +215,11 @@ fun build_ui(win = cogito.Window) (( -- )) {
     dd.on_change(on_dropdown)
     cogito.set_tooltip(dd, @"Choose an option")
     row7.add(dd)
+    let slider_label = cogito.label(@"Slider (0-100):")
+    row7.add(slider_label)
     let sld = cogito.slider(0, 100, 40)
     sld.on_change(on_slider)
-    cogito.set_tooltip(sld, @"Drag to change")
+    cogito.set_tooltip(sld, @"Slider with state layers")
     row7.add(sld)
 
     let tabs = cogito.tabs()
@@ -227,6 +242,10 @@ fun build_ui(win = cogito.Window) (( -- )) {
     let prog = cogito.progress(0.35)
     cogito.set_tooltip(prog, @"Progress 35%")
     row9.add(prog)
+
+    let picker_label = cogito.label(@"Pickers (will be in popovers):")
+    picker_label.set_class(@"subtitle")
+    row10.add(picker_label)
 
     let dp = cogito.datepicker()
     dp.on_change(on_datepicker)

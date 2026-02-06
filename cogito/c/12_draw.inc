@@ -47,6 +47,8 @@ static void cogito_draw_node(CogitoNode* n) {
 
     #include "widgets/draw/dialog.inc"
 
+    #include "widgets/draw/popover.inc"
+
     #include "widgets/draw/bottom_toolbar.inc"
 
     #include "widgets/draw/dialog_slot.inc"

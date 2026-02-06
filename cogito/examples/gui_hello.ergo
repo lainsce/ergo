@@ -1,28 +1,48 @@
 bring stdr
 bring cogito
 
-def label_state = cogito.state(@"Hello")
+fun on_btn(btn = cogito.Button) (( -- )) {
+    btn.set_text(@"Clicked!")
+}
 
 fun build_ui(win = cogito.Window) (( -- )) {
-    let root = cogito.zstack()
-    root.halign(1)
-    root.valign(1)
+    let vstack = cogito.vstack()
 
-    let content = cogito.vstack()
-    let title = cogito.label(label_state.get())
+    let title = cogito.label(@"Cogito")
     title.set_class(@"title")
-    let btn = cogito.button(@"Change Title")
-    btn.on_click((b = cogito.Button) => {
-        label_state.set(@"Title Updated")
+    vstack.add(title)
+
+    let subtitle = cogito.label(@"Welcome to Cogito")
+    subtitle.set_class(@"subtitle")
+    vstack.add(subtitle)
+
+    let desc = cogito.label(@"A UI library for Ergo")
+    desc.set_class(@"body")
+    vstack.add(desc)
+
+    let btn = cogito.button(@"Click Me")
+    btn.on_click(on_btn)
+    cogito.set_tooltip(btn, @"Filled button with elevation")
+    vstack.add(btn)
+
+    let iconbtn = cogito.iconbtn(@"sf:star.fill")
+    cogito.set_tooltip(iconbtn, @"Icon button test")
+    vstack.add(iconbtn)
+
+    let slider = cogito.slider(0, 100, 50)
+    slider.on_change((s = cogito.Slider) => {
+        writef(@"Slider: {s.value()}\n")
     })
-    content.add(title)
-    content.add(btn)
-    root.add(content)
-    win.add(root)
+    cogito.set_tooltip(slider, @"Slider")
+    vstack.add(slider)
+
+    win.add(vstack)
 }
 
 entry () (( -- )) {
     let app = cogito.app()
-    let win = cogito.window_title(@"Hello").build(build_ui)
+    let win = cogito.window_title(@"Cogito Demo")
+    win.build(build_ui)
+    win.set_resizable(false)
     app.run(win)
 }

@@ -1132,7 +1132,10 @@ static Expr *parse_lambda_arrow(Parser *p) {
     lam->as.lambda.params_len = params.len;
     lam->as.lambda.body = body;
 
+    // Copy probe back to main parser, but preserve the original err pointer
+    Diag *original_err = p->err;
     *p = probe;
+    p->err = original_err;
     return lam;
 }
 

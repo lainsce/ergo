@@ -52,7 +52,8 @@ void cogito_compat_release_val(ErgoVal v) {
 }
 
 void cogito_compat_trap(const char* msg) {
-  fprintf(stderr, "cogito: %s\n", msg ? msg : "trap");
+  fprintf(stderr, "cogito error: %s\n", msg ? msg : "unknown error");
+  fprintf(stderr, "  (run with debugger for stack trace)\n");
   abort();
 }
 

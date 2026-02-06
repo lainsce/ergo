@@ -272,6 +272,7 @@ static Module *load_file(const char *path,
 
 bool load_project(const char *entry_path, Arena *arena, Program **out_prog, uint64_t *out_hash, Diag *err) {
     if (!entry_path || !arena || !out_prog) {
+        set_err(err, entry_path ? entry_path : "unknown", "internal error: invalid arguments to load_project");
         return false;
     }
     uint64_t hash = 1469598103934665603ULL;
@@ -308,7 +309,9 @@ bool load_project(const char *entry_path, Arena *arena, Program **out_prog, uint
         }
     }
     if (entry_count != 1) {
-        set_err(err, entry_abs, "init.ergo must contain exactly one entry() decl");
+        // Use module path which is already in arena
+        const char *err_path = init_mod->path.data ? init_mod->path.data : "entry file";
+        set_err(err, err_path, "init.ergo must contain exactly one entry() decl");
         free(entry_abs);
         free(root_dir);
         free(stdlib_abs);
@@ -326,7 +329,9 @@ bool load_project(const char *entry_path, Arena *arena, Program **out_prog, uint
         }
         for (size_t j = 0; j < mod->decls_len; j++) {
             if (mod->decls[j]->kind == DECL_ENTRY) {
-                set_err(err, visited.data[i].path, "entry() is only allowed in init.ergo");
+                // Use module path which is already in arena
+                const char *err_path = mod->path.data ? mod->path.data : "module file";
+                set_err(err, err_path, "entry() is only allowed in init.ergo");
                 free(entry_abs);
                 free(root_dir);
                 free(stdlib_abs);
