@@ -118,5 +118,5 @@ fun __cogito_grid_on_select(grid = Grid, handler = any) (( -- )) { }
 fun __cogito_grid_on_activate(grid = Grid, handler = any) (( -- )) { }
 fun __cogito_button_on_click(btn = Button, handler = any) (( -- )) { }
 fun __cogito_run(app = App, win = Window) (( -- )) { }
-fun __cogito_load_css(path = string) (( -- )) { }
+fun __cogito_load_sum(path = string) (( -- )) { }
 

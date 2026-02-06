@@ -1,0 +1,22 @@
+; Example-only overrides to showcase layout features.
+
+label.body
+  max-width: 320
+
+scroller
+  max-width: 360
+  max-height: 160
+  padding: 8
+  border-width: 1
+  border-color: #c8c8cc
+  border-radius: 8
+  background: #fcfcfe
+
+fixed
+  min-width: 220
+  min-height: 120
+  padding: 6
+  border-width: 1
+  border-color: #c8c8cc
+  border-radius: 8
+  background: #fcfcfe

@@ -103,9 +103,9 @@ static void cogito_theme_init(void) {
   if (!cogito_theme_initialized) {
     cogito_theme_initialized = true;
     cogito_theme_set_defaults();
-    if (!cogito_css_default_loaded) {
-      cogito_css_default_loaded = true;
-      cogito_load_css_file("cogito/cogito_default.css");
+    if (!cogito_sum_default_loaded) {
+      cogito_sum_default_loaded = true;
+      cogito_load_sum_file("cogito/cogito_default.sum");
     }
   }
 }

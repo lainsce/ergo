@@ -3670,10 +3670,10 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
-                    if (str_eq_c(fname, "__cogito_load_css")) {
+                    if (str_eq_c(fname, "__cogito_load_sum")) {
                         GenExpr pathv;
                         if (!gen_expr(cg, path, e->as.call.args[0], &pathv, err)) return false;
-                        w_line(&cg->w, "cogito_load_css(%s);", pathv.tmp);
+                        w_line(&cg->w, "cogito_load_sum(%s);", pathv.tmp);
                         w_line(&cg->w, "ergo_release_val(%s);", pathv.tmp);
                         gen_expr_release_except(cg, &pathv, pathv.tmp);
                         gen_expr_free(&pathv);

@@ -1,0 +1,372 @@
+; Cogito dark theme
+
+*
+  color: #f2f2f7
+  font-size: 16
+
+window
+  background: #1c1c1e
+
+button
+  background: #2c2c2e
+
+textfield
+  background: #2c2c2e
+
+.textfield
+  background: #2c2c2e
+
+searchfield
+  background: #2c2c2e
+
+.searchfield
+  background: #2c2c2e
+
+textview
+  background: #2c2c2e
+
+.textview
+  background: #2c2c2e
+
+textfield:selection
+  background: #3a3a3c
+
+.textfield:selection
+  background: #3a3a3c
+
+textview:selection
+  background: #3a3a3c
+
+.textview:selection
+  background: #3a3a3c
+
+dropdown
+  background: #2c2c2e
+
+.dropdown
+  background: #2c2c2e
+
+datepicker
+  background: #2c2c2e
+  color: #f2f2f7
+  border-color: #3a3a3c
+
+.datepicker
+  background: #2c2c2e
+  color: #f2f2f7
+  border-color: #3a3a3c
+
+datepicker:selection
+  background: #3a3a3c
+
+.datepicker:selection
+  background: #3a3a3c
+
+slider
+  background: #3a3a3c
+  color: #f2f2f7
+
+.slider
+  background: #3a3a3c
+  color: #f2f2f7
+
+stepper
+  background: #2c2c2e
+
+.stepper
+  background: #2c2c2e
+
+tabs
+  background: #2c2c2e
+
+.tabs
+  background: #2c2c2e
+
+tabs:selection
+  background: #3a3a3c
+
+segmented
+  background: #2c2c2e
+
+.segmented
+  background: #2c2c2e
+
+view-switcher
+  background: #1c1c1e
+
+.view-switcher
+  background: #1c1c1e
+
+progress
+  background: #3a3a3c
+
+.progress
+  background: #3a3a3c
+
+progress:selection
+  background: #6b6b6f
+
+toasts
+  color: #f2f2f7
+
+.toasts
+  color: #f2f2f7
+
+toast
+  background: #2c2c2e
+  color: #f2f2f7
+
+.toast
+  background: #2c2c2e
+  color: #f2f2f7
+
+treeview
+  background: #2c2c2e
+
+.treeview
+  background: #2c2c2e
+
+colorpicker
+  background: #2c2c2e
+  color: #f2f2f7
+  border-color: #3a3a3c
+
+.colorpicker
+  background: #2c2c2e
+  color: #f2f2f7
+  border-color: #3a3a3c
+
+colorpicker:selection
+  background: #3a3a3c
+
+.colorpicker:selection
+  background: #3a3a3c
+
+toolbar
+  background: #2c2c2e
+
+.toolbar
+  background: #2c2c2e
+
+.bottom-toolbar
+  background: #2c2c2e
+
+iconbtn
+  background: #2c2c2e
+
+image
+  min-width: 20
+  min-height: 20
+
+label
+  color: #f2f2f7
+
+.tooltip
+  background: #3a3a3c
+  color: #f2f2f7
+
+.checkbox
+  color: #f2f2f7
+
+.radio
+  color: #f2f2f7
+
+checkbox
+  color: #f2f2f7
+
+.checkbox:checked
+  background: #3a3a3c
+
+.radio:checked
+  background: #3a3a3c
+
+.checkbox .check
+  color: #f2f2f7
+
+.radio .check
+  color: #f2f2f7
+
+.checkbox:checked .check
+  color: #f2f2f7
+
+.radio:checked .check
+  color: #f2f2f7
+
+.checkbox .box
+  background: #2c2c2e
+  border-color: #3a3a3c
+
+.radio .box
+  background: #2c2c2e
+  border-color: #3a3a3c
+
+.checkbox:checked .box
+  background: #3a3a3c
+
+.radio:checked .box
+  background: #3a3a3c
+
+.checkbox .box:hover
+  background: #3a3a3c
+
+.radio .box:hover
+  background: #3a3a3c
+
+.checkbox .box:active
+  background: #3a3a3c
+
+.radio .box:active
+  background: #3a3a3c
+
+.checkbox .check:hover
+  color: #ffffff
+
+.radio .check:hover
+  color: #ffffff
+
+.checkbox .check:active
+  color: #ffffff
+
+.radio .check:active
+  color: #ffffff
+
+.switch
+  color: #f2f2f7
+
+switch
+  color: #f2f2f7
+
+.switch .track
+  background: #3a3a3c
+
+switch track
+  background: #3a3a3c
+
+.switch:checked .track
+  background: #5a5a5f
+
+switch:checked track
+  background: #5a5a5f
+
+.switch:checked .track:active
+  background: #5a5a5f
+
+switch:checked track:active
+  background: #5a5a5f
+
+.switch .track:hover
+  background: #4a4a4f
+
+switch track:hover
+  background: #4a4a4f
+
+.switch .track:active
+  background: #5a5a5f
+
+switch track:active
+  background: #5a5a5f
+
+.switch .knob
+  background: #ffffff
+
+switch knob
+  background: #ffffff
+
+.switch .knob:hover
+  background: #f4f4f4
+
+switch knob:hover
+  background: #f4f4f4
+
+.switch .knob:active
+  background: #e8e8e8
+
+switch knob:active
+  background: #e8e8e8
+
+.monospace
+  color: #f2f2f7
+
+.tabular
+  color: #f2f2f7
+
+.title
+  color: #f2f2f7
+
+.subtitle
+  color: #f2f2f7
+
+.body
+  color: #f2f2f7
+
+list
+  background: #2c2c2e
+
+list:selection
+  background: #3a3a3c
+
+grid
+  background: #2c2c2e
+
+grid:selection
+  background: #3a3a3c
+
+appbar
+  background: #2c2c2e
+
+dialog
+  background: #2c2c2e
+
+.appbar .window-button
+  border-color: #00000022
+  border-width: 1
+
+.appbar .window-close
+  background: #ff5f57
+
+.appbar .window-min
+  background: #febc2e
+
+.appbar .window-max
+  background: #28c840
+
+.appbar .window-close:hover
+  background: #ff7b73
+
+.appbar .window-close:active
+  background: #e5534d
+
+.appbar .window-min:hover
+  background: #ffd066
+
+.appbar .window-min:active
+  background: #e0a52a
+
+.appbar .window-max:hover
+  background: #52d870
+
+.appbar .window-max:active
+  background: #1ea64a
+
+.appbar .button:hover
+  background: #3a3a3c
+
+.appbar .button:active
+  background: #4a4a4f
+
+.appbar .iconbtn:hover
+  background: #3a3a3c
+
+.appbar .iconbtn:active
+  background: #4a4a4f
+
+menu
+  background: #2c2c2e
+  color: #f2f2f7
+
+menu:selection
+  background: #3a3a3c
+
+menu item
+  background: #2c2c2e
+  color: #f2f2f7

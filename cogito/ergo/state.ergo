@@ -11,8 +11,8 @@ fun app() (( App )) {
     return __cogito_app()
 }
 
-fun load_css(path = string) (( -- )) {
-    __cogito_load_css(path)
+fun load_sum(path = string) (( -- )) {
+    __cogito_load_sum(path)
 }
 fun set_class(node = any, cls = string) (( -- )) {
     __cogito_node_set_class(node, cls)

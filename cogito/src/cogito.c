@@ -148,8 +148,8 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_node_set_a11y_role cogito_node_set_a11y_role_ergo
 #define cogito_node_set_tooltip cogito_node_set_tooltip_ergo
 #define cogito_node_set_id cogito_node_set_id_ergo
-#define cogito_load_css cogito_load_css_ergo
-#define cogito_load_css_file cogito_load_css_file_ergo
+#define cogito_load_sum cogito_load_sum_ergo
+#define cogito_load_sum_file cogito_load_sum_file_ergo
 
 // Internal engine (same order as previous runtime include).
 #include "../c/00_core.inc"
@@ -162,7 +162,7 @@ static const char* cogito_font_bold_path_active = NULL;
 #include "../c/07_nodes.inc"
 #include "../c/08_layout.inc"
 #include "../c/09_interaction.inc"
-#include "../c/10_css.inc"
+#include "../c/10_sum.inc"
 #include "../c/11_menu.inc"
 #include "../c/12_draw.inc"
 #include "../c/13_run.inc"
@@ -284,8 +284,8 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_progress_get_value
 #undef cogito_stepper_set_value
 #undef cogito_stepper_get_value
-#undef cogito_load_css
-#undef cogito_load_css_file
+#undef cogito_load_sum
+#undef cogito_load_sum_file
 
 #include "cogito.h"
 
@@ -662,8 +662,8 @@ void cogito_label_set_class(cogito_node* label, const char* cls) {
   if (cv.tag == EVT_STR) ergo_release_val(cv);
 }
 
-void cogito_load_css(ErgoVal pathv) {
-  cogito_load_css_ergo(pathv);
+void cogito_load_sum(ErgoVal pathv) {
+  cogito_load_sum_ergo(pathv);
 }
 
 void cogito_node_set_disabled(cogito_node* node, bool on) {
@@ -907,9 +907,9 @@ double cogito_stepper_get_value(cogito_node* stepper) {
   return n->stepper_value;
 }
 
-void cogito_load_css_file(const char* path) {
+void cogito_load_sum_file(const char* path) {
   if (!path) return;
-  cogito_load_css_file_ergo(path);
+  cogito_load_sum_file_ergo(path);
 }
 
 void cogito_node_build(cogito_node* node, cogito_node_fn builder, void* user) {

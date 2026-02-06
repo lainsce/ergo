@@ -570,4 +570,4 @@ static bool cogito_icon_load_texture(const char* name, int size, Texture2D* out,
   return true;
 }
 
-static void cogito_load_css_file(const char* path);
+static void cogito_load_sum_file(const char* path);

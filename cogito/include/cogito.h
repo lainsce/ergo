@@ -162,7 +162,7 @@ void cogito_stepper_set_value(cogito_node* stepper, double value);
 double cogito_stepper_get_value(cogito_node* stepper);
 
 // Theming
-void cogito_load_css_file(const char* path);
+void cogito_load_sum_file(const char* path);
 
 #ifdef __cplusplus
 }

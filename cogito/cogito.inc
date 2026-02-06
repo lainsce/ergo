@@ -9,7 +9,7 @@
 // @include "c/07_nodes.inc"
 // @include "c/08_layout.inc"
 // @include "c/09_interaction.inc"
-// @include "c/10_css.inc"
+// @include "c/10_sum.inc"
 // @include "c/11_menu.inc"
 // @include "c/12_draw.inc"
 // @include "c/13_run.inc"

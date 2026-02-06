@@ -1,0 +1,462 @@
+; Cogito default theme (light)
+
+*
+  color: #222222
+  font-size: 13
+
+window
+  background: #ffffff
+
+button
+  background: #0000000d
+  border-radius: 8
+  min-height: 42
+
+textfield
+  background: #f6f6f6
+  border-radius: 8
+  min-height: 36
+
+.textfield
+  background: #f6f6f6
+  border-radius: 8
+  min-height: 36
+
+searchfield
+  background: #f6f6f6
+  border-radius: 18
+  min-height: 36
+  min-width: 180
+  padding: 6 12
+
+.searchfield
+  background: #f6f6f6
+  border-radius: 18
+  min-height: 36
+  min-width: 180
+  padding: 6 12
+
+textview
+  background: #f6f6f6
+  border-radius: 8
+  min-height: 96
+
+.textview
+  background: #f6f6f6
+  border-radius: 8
+  min-height: 96
+
+textfield:selection
+  background: #72dec2
+
+.textfield:selection
+  background: #72dec2
+
+textview:selection
+  background: #72dec2
+
+.textview:selection
+  background: #72dec2
+
+dropdown
+  background: #f6f6f6
+  border-radius: 8
+  min-height: 36
+
+.dropdown
+  background: #f6f6f6
+  border-radius: 8
+  min-height: 36
+
+datepicker
+  background: #f6f6f6
+  border-radius: 10
+  min-height: 220
+  min-width: 260
+  padding: 10
+
+.datepicker
+  background: #f6f6f6
+  border-radius: 10
+  min-height: 220
+  min-width: 260
+  padding: 10
+
+slider
+  background: #c8c8c8
+  color: #444444
+  min-height: 28
+  min-width: 120
+
+.slider
+  background: #c8c8c8
+  color: #444444
+  min-height: 28
+  min-width: 120
+
+stepper
+  background: #f6f6f6
+  border-radius: 8
+  min-height: 32
+  min-width: 96
+
+.stepper
+  background: #f6f6f6
+  border-radius: 8
+  min-height: 32
+  min-width: 96
+
+tabs
+  background: #f2f2f2
+  border-radius: 10
+  min-height: 36
+
+.tabs
+  background: #f2f2f2
+  border-radius: 10
+  min-height: 36
+
+tabs:selection
+  background: #ffffff
+
+segmented
+  background: #f2f2f2
+  border-radius: 10
+  min-height: 36
+
+.segmented
+  background: #f2f2f2
+  border-radius: 10
+  min-height: 36
+
+view-switcher
+  background: #ffffff
+
+.view-switcher
+  background: #ffffff
+
+progress
+  background: #dddddd
+  border-radius: 6
+  min-height: 10
+  min-width: 120
+
+.progress
+  background: #dddddd
+  border-radius: 6
+  min-height: 10
+  min-width: 120
+
+progress:selection
+  background: #72dec2
+
+toasts
+  padding: 12
+
+.toasts
+  padding: 12
+
+toast
+  background: #222222
+  color: #ffffff
+  border-radius: 10
+  min-height: 34
+
+.toast
+  background: #222222
+  color: #ffffff
+  border-radius: 10
+  min-height: 34
+
+treeview
+  background: #f6f6f6
+  border-radius: 8
+  min-height: 180
+  min-width: 200
+  padding: 8
+
+.treeview
+  background: #f6f6f6
+  border-radius: 8
+  min-height: 180
+  min-width: 200
+  padding: 8
+
+colorpicker
+  background: #f6f6f6
+  border-radius: 10
+  min-height: 220
+  min-width: 260
+  padding: 10
+
+.colorpicker
+  background: #f6f6f6
+  border-radius: 10
+  min-height: 220
+  min-width: 260
+  padding: 10
+
+toolbar
+  background: #f6f6f6
+  min-height: 44
+  padding: 8 12
+
+.toolbar
+  background: #f6f6f6
+  min-height: 44
+  padding: 8 12
+
+.bottom-toolbar
+  background: #f6f6f6
+  min-height: 44
+  padding: 8 12
+
+iconbtn
+  background: #0000000d
+  border-radius: 99
+  min-width: 42
+  min-height: 42
+
+image
+  min-width: 20
+  min-height: 20
+
+label
+  color: #222222
+
+.tooltip
+  background: #1e1e1e
+  color: #ffffff
+  border-radius: 6
+  font-size: 13
+  padding: 6 8
+
+.checkbox
+  color: #222222
+  min-height: 24
+  min-width: 24
+
+.radio
+  color: #222222
+  min-height: 24
+  min-width: 24
+
+checkbox
+  color: #222222
+  min-height: 24
+  min-width: 24
+
+.checkbox:checked
+  background: #72dec2
+
+.radio:checked
+  background: #72dec2
+
+.checkbox .check
+  color: #222222
+
+.radio .check
+  color: #222222
+
+.checkbox:checked .check
+  color: #222222
+
+.radio:checked .check
+  color: #222222
+
+.checkbox .box
+  background: #0000000d
+  border-radius: 4
+
+.radio .box
+  background: #0000000d
+  border-radius: 4
+
+.checkbox:checked .box
+  background: #72dec2
+
+.radio:checked .box
+  background: #72dec2
+
+.checkbox .box:hover
+  background: #72dec2
+
+.radio .box:hover
+  background: #72dec2
+
+.checkbox .box:active
+  background: #72dec2
+
+.radio .box:active
+  background: #72dec2
+
+.checkbox .check:hover
+  color: #111111
+
+.radio .check:hover
+  color: #111111
+
+.checkbox .check:active
+  color: #000000
+
+.radio .check:active
+  color: #000000
+
+.switch
+  color: #222222
+  min-height: 28
+  min-width: 64
+
+switch
+  color: #222222
+  min-height: 28
+  min-width: 64
+
+.switch .track
+  background: #b4b4b4
+
+switch track
+  background: #b4b4b4
+
+.switch:checked .track
+  background: #72dec2
+
+switch:checked track
+  background: #72dec2
+
+.switch .track:hover
+  background: #c4c4c4
+
+switch track:hover
+  background: #c4c4c4
+
+.switch .track:active
+  background: #72dec2
+
+switch track:active
+  background: #72dec2
+
+.switch .knob
+  background: #ffffff
+  min-width: 32
+  min-height: 24
+
+switch knob
+  background: #ffffff
+  min-width: 32
+  min-height: 24
+
+.switch .knob:hover
+  background: #f4f4f4
+
+switch knob:hover
+  background: #f4f4f4
+
+.switch .knob:active
+  background: #e8e8e8
+
+switch knob:active
+  background: #e8e8e8
+
+.monospace
+  font-size: 13
+  font-weight: normal
+
+.tabular
+  font-size: 13
+  font-weight: normal
+
+.title
+  font-size: 32
+  font-weight: normal
+
+.subtitle
+  font-size: 20
+  font-weight: normal
+
+.body
+  font-size: 11
+  font-weight: normal
+
+list
+  background: #ffffff
+  border-radius: 8
+
+list:selection
+  background: #72dec2
+
+grid
+  background: #ffffff
+  border-radius: 8
+
+grid:selection
+  background: #72dec2
+
+appbar
+  background: #f0f0f0
+
+dialog
+  background: #ffffff
+  border-radius: 26
+  min-width: 240
+  min-height: 240
+  padding: 24
+
+.appbar .window-button
+  min-width: 16
+  border-color: #00000022
+  border-width: 1
+
+.appbar .window-close
+  background: #ff5f57
+
+.appbar .window-min
+  background: #febc2e
+
+.appbar .window-max
+  background: #28c840
+
+.appbar .window-close:hover
+  background: #ff7b73
+
+.appbar .window-close:active
+  background: #e5534d
+
+.appbar .window-min:hover
+  background: #ffd066
+
+.appbar .window-min:active
+  background: #e0a52a
+
+.appbar .window-max:hover
+  background: #52d870
+
+.appbar .window-max:active
+  background: #1ea64a
+
+.appbar .button:hover
+  background: #00000014
+
+.appbar .button:active
+  background: #00000024
+
+.appbar .iconbtn:hover
+  background: #00000014
+
+.appbar .iconbtn:active
+  background: #00000024
+
+menu
+  background: #ffffff
+  border-radius: 4
+  color: #222222
+  box-shadow: 2
+  font-size: 13
+
+menu:selection
+  background: #72dec2
+
+menu item
+  border-radius: 0
+  padding: 8 12
+  min-height: 42
