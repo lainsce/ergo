@@ -1422,8 +1422,10 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   size_t off = 0;
   if (cap == 0) return;
   out[0] = 0;
+
   double h = 0.0, c = 0.0, t = 0.0;
   cogito_rgb_to_hct(accent, &h, &c, &t);
+
   double c_primary = c < 24.0 ? 24.0 : c;
   double c_secondary = c_primary * 0.35;
   if (c_secondary < 8.0) c_secondary = 8.0;
@@ -1460,6 +1462,7 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   cogito_color_to_hex(on_surface, ons);
   cogito_color_to_hex(outline, outl);
   cogito_color_to_hex(inactive_track, itrack);
+
   // Compute hover/active colors
   Color p_hover = cogito_mix(primary, dark ? cogito_rgba(255, 255, 255, 255) : cogito_rgba(0, 0, 0, 255), 0.1f);
   Color p_active = cogito_mix(primary, dark ? cogito_rgba(0, 0, 0, 255) : cogito_rgba(255, 255, 255, 255), 0.1f);
@@ -1468,6 +1471,68 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   cogito_color_to_hex(p_hover, ph);
   cogito_color_to_hex(p_active, pa);
   cogito_color_to_hex(surft_hover, surfth);
+    Color nav_bg = dark ? (Color){43, 41, 48, 255} : (Color){247, 242, 250, 255};
+  Color nav_sel = dark ? (Color){74, 68, 88, 255} : (Color){232, 222, 248, 255};
+  char navbg[8], navsel[8];
+  cogito_color_to_hex(nav_bg, navbg);
+  cogito_color_to_hex(nav_sel, navsel);
+  cogito_sum_append(out, cap, &off, "nav_rail\n  background: %s\n  min-width: 80\n  padding: 4 0\n", navbg);
+  cogito_sum_append(out, cap, &off, "nav_rail:selection\n  background: %s\n", navsel);
+  Color bottom_bg = dark ? (Color){28, 27, 31, 255} : (Color){255, 251, 254, 255};
+  Color bottom_sel = dark ? (Color){74, 68, 88, 255} : (Color){232, 222, 248, 255};
+  char bottombg[8], bottomsel[8];
+  cogito_color_to_hex(bottom_bg, bottombg);
+  cogito_color_to_hex(bottom_sel, bottomsel);
+    Color tabs_bg = dark ? (Color){38, 38, 40, 255} : (Color){242, 242, 242, 255};
+  Color tabs_sel = dark ? surface : (Color){255, 255, 255, 255};
+  char tabsbg[8], tabssel[8];
+  cogito_color_to_hex(tabs_bg, tabsbg);
+  cogito_color_to_hex(tabs_sel, tabssel);
+  Color progress_bg = dark ? (Color){60, 60, 62, 255} : (Color){221, 221, 221, 255};
+  char progbg[8];
+  cogito_color_to_hex(progress_bg, progbg);
+  Color toast_bg = dark ? (Color){34, 34, 34, 255} : (Color){34, 34, 34, 255};
+  Color toast_fg = (Color){255, 255, 255, 255};
+  char toastbg[8], toastfg[8];
+  cogito_color_to_hex(toast_bg, toastbg);
+  cogito_color_to_hex(toast_fg, toastfg);
+  // Derive iconbtn background from outline for subtle state layer
+  Color iconbtn_bg = cogito_mix(outline, surface, 0.9f);
+  char iconbg[8];
+  cogito_color_to_hex(iconbtn_bg, iconbg);
+  Color tooltip_bg = dark ? (Color){30, 30, 30, 255} : (Color){30, 30, 30, 255};
+  Color tooltip_fg = (Color){255, 255, 255, 255};
+  char tooltipbg[8], tooltipfg[8];
+  // Derive checkbox/radio box background from outline for subtle state layer
+  Color checkbox_bg = cogito_mix(outline, surface, 0.88f);
+  char checkbg[8];
+  cogito_color_to_hex(checkbox_bg, checkbg);
+  cogito_color_to_hex(tooltip_bg, tooltipbg);
+  cogito_color_to_hex(tooltip_fg, tooltipfg);
+  Color check_hover = dark ? (Color){240, 240, 240, 255} : (Color){17, 17, 17, 255};
+  Color check_active = dark ? (Color){220, 220, 220, 255} : (Color){0, 0, 0, 255};
+  char checkhov[8], checkact[8];
+  cogito_color_to_hex(check_hover, checkhov);
+  cogito_color_to_hex(check_active, checkact);
+  Color switch_track = dark ? (Color){180, 180, 180, 255} : (Color){180, 180, 180, 255};
+  Color switch_track_hover = dark ? (Color){196, 196, 196, 255} : (Color){196, 196, 196, 255};
+  char strack[8], strackh[8];
+  cogito_color_to_hex(switch_track, strack);
+  cogito_color_to_hex(switch_track_hover, strackh);
+  Color knob_color = dark ? (Color){255, 255, 255, 255} : (Color){255, 255, 255, 255};
+  Color knob_hover = dark ? (Color){244, 244, 244, 255} : (Color){244, 244, 244, 255};
+  Color knob_active = dark ? (Color){232, 232, 232, 255} : (Color){232, 232, 232, 255};
+  char knob[8], knobh[8], knoba[8];
+  cogito_color_to_hex(knob_color, knob);
+  cogito_color_to_hex(knob_hover, knobh);
+  cogito_color_to_hex(knob_active, knoba);
+  Color appbar_bg = dark ? (Color){38, 38, 40, 255} : (Color){240, 240, 240, 255};
+  char appbarbg[8];
+  cogito_color_to_hex(appbar_bg, appbarbg);
+  // Appbar iconbtn base state with subtle background
+  Color appbar_iconbtn_base = cogito_mix(on_surface, surface, 0.95f);
+  char appiconbg[8];
+  cogito_color_to_hex(appbar_iconbtn_base, appiconbg);
 
   // SUM format: selector on unindented line, properties indented below
   cogito_sum_append(out, cap, &off, "*\n  color: %s\n  font-size: 13\n", ons);
@@ -1486,18 +1551,6 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   cogito_sum_append(out, cap, &off, "fab\n  background: %s\n  color: %s\n  border-radius: 100\n  min-width: 56\n  min-height: 56\n", p, op);
   cogito_sum_append(out, cap, &off, "fab:hover\n  background: %s\n", ph);
   cogito_sum_append(out, cap, &off, "fab:active\n  background: %s\n", pa);
-  Color nav_bg = dark ? (Color){43, 41, 48, 255} : (Color){247, 242, 250, 255};
-  Color nav_sel = dark ? (Color){74, 68, 88, 255} : (Color){232, 222, 248, 255};
-  char navbg[8], navsel[8];
-  cogito_color_to_hex(nav_bg, navbg);
-  cogito_color_to_hex(nav_sel, navsel);
-  cogito_sum_append(out, cap, &off, "nav_rail\n  background: %s\n  min-width: 80\n  padding: 4 0\n", navbg);
-  cogito_sum_append(out, cap, &off, "nav_rail:selection\n  background: %s\n", navsel);
-  Color bottom_bg = dark ? (Color){28, 27, 31, 255} : (Color){255, 251, 254, 255};
-  Color bottom_sel = dark ? (Color){74, 68, 88, 255} : (Color){232, 222, 248, 255};
-  char bottombg[8], bottomsel[8];
-  cogito_color_to_hex(bottom_bg, bottombg);
-  cogito_color_to_hex(bottom_sel, bottomsel);
   cogito_sum_append(out, cap, &off, "bottom_nav\n  background: %s\n  min-height: 80\n  padding: 0 8\n", bottombg);
   cogito_sum_append(out, cap, &off, "bottom_nav:selection\n  background: %s\n", bottomsel);
   cogito_sum_append(out, cap, &off, "textfield\n  background: %s\n  border-radius: 4 4 0 0\n  border: 0 none #000000\n  min-height: 56\n  padding: 8 16\n", surft);
@@ -1524,11 +1577,6 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   cogito_sum_append(out, cap, &off, ".slider\n  background: %s\n  color: %s\n  min-height: 48\n  min-width: 200\n", itrack, p);
   cogito_sum_append(out, cap, &off, "stepper\n  background: %s\n  border-radius: 8\n  min-height: 32\n  min-width: 96\n", surf);
   cogito_sum_append(out, cap, &off, ".stepper\n  background: %s\n  border-radius: 8\n  min-height: 32\n  min-width: 96\n", surf);
-  Color tabs_bg = dark ? (Color){38, 38, 40, 255} : (Color){242, 242, 242, 255};
-  Color tabs_sel = dark ? surface : (Color){255, 255, 255, 255};
-  char tabsbg[8], tabssel[8];
-  cogito_color_to_hex(tabs_bg, tabsbg);
-  cogito_color_to_hex(tabs_sel, tabssel);
   cogito_sum_append(out, cap, &off, "tabs\n  background: %s\n  border-radius: 10\n  min-height: 36\n", tabsbg);
   cogito_sum_append(out, cap, &off, ".tabs\n  background: %s\n  border-radius: 10\n  min-height: 36\n", tabsbg);
   cogito_sum_append(out, cap, &off, "tabs:selection\n  background: %s\n", tabssel);
@@ -1536,19 +1584,11 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   cogito_sum_append(out, cap, &off, ".segmented\n  background: %s\n  border-radius: 10\n  min-height: 36\n", tabsbg);
   cogito_sum_append(out, cap, &off, "view-switcher\n  background: %s\n", surf);
   cogito_sum_append(out, cap, &off, ".view-switcher\n  background: %s\n", surf);
-  Color progress_bg = dark ? (Color){60, 60, 62, 255} : (Color){221, 221, 221, 255};
-  char progbg[8];
-  cogito_color_to_hex(progress_bg, progbg);
   cogito_sum_append(out, cap, &off, "progress\n  background: %s\n  border-radius: 6\n  min-height: 10\n  min-width: 120\n", progbg);
   cogito_sum_append(out, cap, &off, ".progress\n  background: %s\n  border-radius: 6\n  min-height: 10\n  min-width: 120\n", progbg);
   cogito_sum_append(out, cap, &off, "progress:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, "toasts\n  padding: 12\n");
   cogito_sum_append(out, cap, &off, ".toasts\n  padding: 12\n");
-  Color toast_bg = dark ? (Color){34, 34, 34, 255} : (Color){34, 34, 34, 255};
-  Color toast_fg = (Color){255, 255, 255, 255};
-  char toastbg[8], toastfg[8];
-  cogito_color_to_hex(toast_bg, toastbg);
-  cogito_color_to_hex(toast_fg, toastfg);
   cogito_sum_append(out, cap, &off, "toast\n  background: %s\n  color: %s\n  border-radius: 10\n  min-height: 34\n", toastbg, toastfg);
   cogito_sum_append(out, cap, &off, ".toast\n  background: %s\n  color: %s\n  border-radius: 10\n  min-height: 34\n", toastbg, toastfg);
   cogito_sum_append(out, cap, &off, "treeview\n  background: %s\n  border-radius: 8\n  min-height: 180\n  min-width: 200\n  padding: 8\n", surf);
@@ -1560,18 +1600,9 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   cogito_sum_append(out, cap, &off, "toolbar\n  background: %s\n  min-height: 44\n  padding: 8 12\n", surf);
   cogito_sum_append(out, cap, &off, ".toolbar\n  background: %s\n  min-height: 44\n  padding: 8 12\n", surf);
   cogito_sum_append(out, cap, &off, ".bottom-toolbar\n  background: %s\n  min-height: 44\n  padding: 8 12\n", surf);
-  // Derive iconbtn background from outline for subtle state layer
-  Color iconbtn_bg = cogito_mix(outline, surface, 0.9f);
-  char iconbg[8];
-  cogito_color_to_hex(iconbtn_bg, iconbg);
   cogito_sum_append(out, cap, &off, "iconbtn\n  background: %s\n  border-radius: 99\n  min-width: 42\n  min-height: 42\n", iconbg);
   cogito_sum_append(out, cap, &off, "image\n  min-width: 20\n  min-height: 20\n");
   cogito_sum_append(out, cap, &off, "label\n  color: %s\n", ons);
-  Color tooltip_bg = dark ? (Color){30, 30, 30, 255} : (Color){30, 30, 30, 255};
-  Color tooltip_fg = (Color){255, 255, 255, 255};
-  char tooltipbg[8], tooltipfg[8];
-  cogito_color_to_hex(tooltip_bg, tooltipbg);
-  cogito_color_to_hex(tooltip_fg, tooltipfg);
   cogito_sum_append(out, cap, &off, ".tooltip\n  background: %s\n  color: %s\n  border-radius: 6\n  font-size: 13\n  padding: 6 8\n", tooltipbg, tooltipfg);
   cogito_sum_append(out, cap, &off, ".checkbox\n  color: %s\n  min-height: 24\n  min-width: 24\n", ons);
   cogito_sum_append(out, cap, &off, ".radio\n  color: %s\n  min-height: 24\n  min-width: 24\n", ons);
@@ -1582,34 +1613,22 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   cogito_sum_append(out, cap, &off, ".radio .check\n  color: %s\n", ons);
   cogito_sum_append(out, cap, &off, ".checkbox:checked .check\n  color: %s\n", ons);
   cogito_sum_append(out, cap, &off, ".radio:checked .check\n  color: %s\n", ons);
-  // Derive checkbox/radio box background from outline for subtle state layer
-  Color checkbox_bg = cogito_mix(outline, surface, 0.9f);
-  char checkbg[8];
-  cogito_color_to_hex(checkbox_bg, checkbg);
   cogito_sum_append(out, cap, &off, ".checkbox .box\n  background: %s\n  border-radius: 4\n", checkbg);
   cogito_sum_append(out, cap, &off, ".radio .box\n  background: %s\n  border-radius: 4\n", checkbg);
+  cogito_sum_append(out, cap, &off, "checkbox .box\n  background: %s\n  border-radius: 4\n", checkbg);
+  cogito_sum_append(out, cap, &off, "radio .box\n  background: %s\n  border-radius: 4\n", checkbg);
   cogito_sum_append(out, cap, &off, ".checkbox:checked .box\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, ".radio:checked .box\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, ".checkbox .box:hover\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, ".radio .box:hover\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, ".checkbox .box:active\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, ".radio .box:active\n  background: %s\n", p);
-  Color check_hover = dark ? (Color){240, 240, 240, 255} : (Color){17, 17, 17, 255};
-  Color check_active = dark ? (Color){220, 220, 220, 255} : (Color){0, 0, 0, 255};
-  char checkhov[8], checkact[8];
-  cogito_color_to_hex(check_hover, checkhov);
-  cogito_color_to_hex(check_active, checkact);
   cogito_sum_append(out, cap, &off, ".checkbox .check:hover\n  color: %s\n", checkhov);
   cogito_sum_append(out, cap, &off, ".radio .check:hover\n  color: %s\n", checkhov);
   cogito_sum_append(out, cap, &off, ".checkbox .check:active\n  color: %s\n", checkact);
   cogito_sum_append(out, cap, &off, ".radio .check:active\n  color: %s\n", checkact);
   cogito_sum_append(out, cap, &off, ".switch\n  color: %s\n  min-height: 28\n  min-width: 64\n", ons);
   cogito_sum_append(out, cap, &off, "switch\n  color: %s\n  min-height: 28\n  min-width: 64\n", ons);
-  Color switch_track = dark ? (Color){180, 180, 180, 255} : (Color){180, 180, 180, 255};
-  Color switch_track_hover = dark ? (Color){196, 196, 196, 255} : (Color){196, 196, 196, 255};
-  char strack[8], strackh[8];
-  cogito_color_to_hex(switch_track, strack);
-  cogito_color_to_hex(switch_track_hover, strackh);
   cogito_sum_append(out, cap, &off, ".switch .track\n  background: %s\n", strack);
   cogito_sum_append(out, cap, &off, "switch track\n  background: %s\n", strack);
   cogito_sum_append(out, cap, &off, ".switch:checked .track\n  background: %s\n  border-radius: 100\n", p);
@@ -1618,13 +1637,6 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   cogito_sum_append(out, cap, &off, "switch track:hover\n  background: %s\n", strackh);
   cogito_sum_append(out, cap, &off, ".switch .track:active\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, "switch track:active\n  background: %s\n", p);
-  Color knob_color = dark ? (Color){255, 255, 255, 255} : (Color){255, 255, 255, 255};
-  Color knob_hover = dark ? (Color){244, 244, 244, 255} : (Color){244, 244, 244, 255};
-  Color knob_active = dark ? (Color){232, 232, 232, 255} : (Color){232, 232, 232, 255};
-  char knob[8], knobh[8], knoba[8];
-  cogito_color_to_hex(knob_color, knob);
-  cogito_color_to_hex(knob_hover, knobh);
-  cogito_color_to_hex(knob_active, knoba);
   cogito_sum_append(out, cap, &off, ".switch .knob\n  background: %s\n  min-width: 32\n  min-height: 24\n", knob);
   cogito_sum_append(out, cap, &off, "switch knob\n  background: %s\n  min-width: 32\n  min-height: 24\n", knob);
   cogito_sum_append(out, cap, &off, ".switch .knob:hover\n  background: %s\n", knobh);
@@ -1640,13 +1652,9 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   cogito_sum_append(out, cap, &off, "list:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, "grid\n  background: %s\n  border-radius: 8\n", surf);
   cogito_sum_append(out, cap, &off, "grid:selection\n  background: %s\n", p);
-  Color appbar_bg = dark ? (Color){38, 38, 40, 255} : (Color){240, 240, 240, 255};
-  char appbarbg[8];
-  cogito_color_to_hex(appbar_bg, appbarbg);
   cogito_sum_append(out, cap, &off, "appbar\n  background: %s\n", appbarbg);
   cogito_sum_append(out, cap, &off, "dialog\n  background: %s\n  border-radius: 26\n  min-width: 240\n  min-height: 240\n  padding: 24\n", surf);
   cogito_sum_append(out, cap, &off, "popover\n  background: %s\n  border-radius: 12\n  padding: 16\n  box-shadow: [ 0 2 8 0 #0000001f ]\n", surf);
-  cogito_sum_append(out, cap, &off, ".appbar .window-button\n  border-color: %s\n", outl);
   cogito_sum_append(out, cap, &off, ".appbar .window-close\n  background: #ff5f57\n");
   cogito_sum_append(out, cap, &off, ".appbar .window-min\n  background: #febc2e\n");
   cogito_sum_append(out, cap, &off, ".appbar .window-max\n  background: #28c840\n");
@@ -1658,10 +1666,6 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   cogito_sum_append(out, cap, &off, ".appbar .window-max:active\n  background: #1ea64a\n");
   cogito_sum_append(out, cap, &off, ".appbar .button:hover\n  background: %s\n", surf);
   cogito_sum_append(out, cap, &off, ".appbar .button:active\n  background: %s\n", outl);
-  // Appbar iconbtn base state with subtle background
-  Color appbar_iconbtn_base = cogito_mix(on_surface, surface, 0.95f);
-  char appiconbg[8];
-  cogito_color_to_hex(appbar_iconbtn_base, appiconbg);
   cogito_sum_append(out, cap, &off, ".appbar .iconbtn\n  background: %s\n", appiconbg);
   cogito_sum_append(out, cap, &off, ".appbar .iconbtn:hover\n  background: %s\n", outl);
   cogito_sum_append(out, cap, &off, ".appbar .iconbtn:active\n  background: %s\n", bg);

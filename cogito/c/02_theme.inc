@@ -594,7 +594,7 @@ static void cogito_appbar_button_metrics(int* size, int* gap, int* pad_top, int*
     else if (s.has_min_h) *size = s.min_h;
     else *size = 12;
   }
-  if (gap) *gap = 6;
+  if (gap) *gap = 9;
   if (pad_top) *pad_top = 9;
   if (pad_right) *pad_right = 9;
 }
@@ -708,11 +708,11 @@ static void cogito_appbar_row_positions(CogitoNode* n, int* out_buttons_y, int* 
   int title_h = 0;
   int subtitle_h = 0;
   if (n->text && n->text->len) {
-    int tsz = cogito_label_class_font_size(COGITO_LABEL_CLASS_TITLE, 24);
+    int tsz = cogito_label_class_font_size(COGITO_LABEL_CLASS_TITLE, 32);
     title_h = cogito_text_height_size(tsz);
   }
   if (n->subtitle && n->subtitle->len) {
-    int ssz = cogito_label_class_font_size(COGITO_LABEL_CLASS_SUBTITLE, 18);
+    int ssz = cogito_label_class_font_size(COGITO_LABEL_CLASS_SUBTITLE, 20);
     subtitle_h = cogito_text_height_size(ssz);
   }
   int icon_row_h = 0;

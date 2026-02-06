@@ -540,7 +540,7 @@ popover
   ]
 
 .appbar .window-button
-  min-width: 16
+  min-width: 14
 
 .appbar .window-close
   background: #ff5f57
