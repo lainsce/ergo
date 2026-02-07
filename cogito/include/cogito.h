@@ -252,3 +252,6 @@ void cogito_toast_set_action(cogito_node* toast, const char* action_text, cogito
 
 // Node/window helpers
 cogito_window* cogito_node_window(cogito_node* node);
+cogito_node* cogito_node_get_parent(cogito_node* node);
+size_t cogito_node_get_child_count(cogito_node* node);
+cogito_node* cogito_node_get_child(cogito_node* node, size_t index);

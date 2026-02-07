@@ -156,6 +156,19 @@ static CogitoNode* cogito_node_window(CogitoNode* n) {
   return NULL;
 }
 
+static CogitoNode* cogito_node_get_parent_internal(CogitoNode* n) {
+  return n ? n->parent : NULL;
+}
+
+static size_t cogito_node_get_child_count_internal(CogitoNode* n) {
+  return n ? n->len : 0;
+}
+
+static CogitoNode* cogito_node_get_child_internal(CogitoNode* n, size_t index) {
+  if (!n || index >= n->len) return NULL;
+  return n->children[index];
+}
+
 static bool cogito_hit_rect(int x, int y, int rx, int ry, int rw, int rh) {
   return x >= rx && y >= ry && x <= rx + rw && y <= ry + rh;
 }
@@ -191,7 +204,8 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
       n->kind == COGITO_TEXTFIELD || n->kind == COGITO_TEXTVIEW ||
       n->kind == COGITO_DROPDOWN || n->kind == COGITO_SLIDER ||
       n->kind == COGITO_TABS || n->kind == COGITO_TOAST ||
-      n->kind == COGITO_DATEPICKER || n->kind == COGITO_COLORPICKER) {
+      n->kind == COGITO_DATEPICKER || n->kind == COGITO_COLORPICKER ||
+      n->kind == COGITO_CHIP || n->kind == COGITO_FAB) {
     if (cogito_hit_node(n, x, y)) return n;
   }
   return NULL;

@@ -36,3 +36,21 @@ static void cogito_chip_on_close(ErgoVal chipv, ErgoVal handler) {
     n->on_action = NULL;
   }
 }
+
+static void cogito_chip_close_rect(CogitoNode* n, int* out_x, int* out_y, int* out_w, int* out_h) {
+  if (!n || n->kind != COGITO_CHIP) return;
+  if (!n->chip_has_close) {
+    if (out_x) *out_x = 0;
+    if (out_y) *out_y = 0;
+    if (out_w) *out_w = 0;
+    if (out_h) *out_h = 0;
+    return;
+  }
+  int icon_size = 12;
+  int icon_x = n->x + n->w - 16 - icon_size;  // Right side, matches draw code
+  int icon_y = n->y + (n->h - icon_size) / 2;
+  if (out_x) *out_x = icon_x;
+  if (out_y) *out_y = icon_y;
+  if (out_w) *out_w = icon_size;
+  if (out_h) *out_h = icon_size;
+}

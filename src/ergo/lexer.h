@@ -77,6 +77,7 @@ typedef enum {
 } TokKind;
 
 const char *tok_kind_name(TokKind kind);
+const char *tok_kind_desc(TokKind kind);
 
 typedef enum {
     STR_PART_TEXT,

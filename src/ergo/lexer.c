@@ -106,6 +106,85 @@ const char *tok_kind_name(TokKind kind) {
     return tok_name_default(kind);
 }
 
+const char *tok_kind_desc(TokKind kind) {
+    switch (kind) {
+        // Literals
+        case TOK_EOF: return "end of file";
+        case TOK_IDENT: return "identifier";
+        case TOK_INT: return "integer";
+        case TOK_FLOAT: return "float";
+        case TOK_STR: return "string";
+        
+        // Punctuation
+        case TOK_SEMI: return "';'";
+        case TOK_LPAR: return "'('";
+        case TOK_RPAR: return "')'";
+        case TOK_LBRACK: return "'['";
+        case TOK_RBRACK: return "']'";
+        case TOK_LBRACE: return "'{'";
+        case TOK_RBRACE: return "'}'";
+        case TOK_COMMA: return "','";
+        case TOK_DOT: return "'.'";
+        case TOK_COLON: return "':'";
+        
+        // Operators
+        case TOK_PLUS: return "'+'";
+        case TOK_MINUS: return "'-'";
+        case TOK_STAR: return "'*'";
+        case TOK_SLASH: return "'/'";
+        case TOK_PERCENT: return "'%'";
+        case TOK_BANG: return "'!'";
+        case TOK_EQ: return "'='";
+        case TOK_LT: return "'<'";
+        case TOK_GT: return "'>'";
+        case TOK_BAR: return "'|'";
+        case TOK_EQEQ: return "'=='";
+        case TOK_NEQ: return "'!='";
+        case TOK_LTE: return "'<='";
+        case TOK_GTE: return "'>='";
+        case TOK_ANDAND: return "'&&'";
+        case TOK_OROR: return "'||'";
+        case TOK_ARROW: return "'=>'";
+        case TOK_PLUSEQ: return "'+='";
+        case TOK_MINUSEQ: return "'-='";
+        case TOK_STAREQ: return "'*='";
+        case TOK_SLASHEQ: return "'/='";
+        case TOK_QMARK: return "'?'";
+        case TOK_HASH: return "'#'";
+        
+        // Return syntax
+        case TOK_RET_L: return "'(('";
+        case TOK_RET_R: return "'))'";
+        case TOK_RET_VOID: return "'--'";
+        
+        // Keywords
+        case TOK_KW_module: return "'module'";
+        case TOK_KW_bring: return "'bring'";
+        case TOK_KW_fun: return "'fun'";
+        case TOK_KW_entry: return "'entry'";
+        case TOK_KW_class: return "'class'";
+        case TOK_KW_pub: return "'pub'";
+        case TOK_KW_lock: return "'lock'";
+        case TOK_KW_seal: return "'seal'";
+        case TOK_KW_def: return "'def'";
+        case TOK_KW_let: return "'let'";
+        case TOK_KW_const: return "'const'";
+        case TOK_KW_if: return "'if'";
+        case TOK_KW_else: return "'else'";
+        case TOK_KW_elif: return "'elif'";
+        case TOK_KW_return: return "'return'";
+        case TOK_KW_true: return "'true'";
+        case TOK_KW_false: return "'false'";
+        case TOK_KW_null: return "'null'";
+        case TOK_KW_for: return "'for'";
+        case TOK_KW_match: return "'match'";
+        case TOK_KW_new: return "'new'";
+        case TOK_KW_in: return "'in'";
+        
+        default: return "unknown token";
+    }
+}
+
 static char peek(Lexer *lx, size_t k) {
     size_t idx = lx->i + k;
     if (idx >= lx->len) {

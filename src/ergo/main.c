@@ -96,9 +96,37 @@ static bool program_uses_cogito(Program *prog) {
     return false;
 }
 
+#define ERGO_VERSION "0.1.0"
+
+static bool verbose_mode = false;
+
 static void print_usage(FILE *out) {
-    fprintf(out, "usage: ergo <source.ergo>\n");
-    fprintf(out, "       ergo run <source.ergo>\n");
+    fprintf(out, "Usage: ergo [OPTIONS] <source.ergo>\n");
+    fprintf(out, "       ergo run [OPTIONS] <source.ergo>\n");
+    fprintf(out, "\n");
+    fprintf(out, "Options:\n");
+    fprintf(out, "  -h, --help       Show this help message\n");
+    fprintf(out, "  -v, --version    Show version information\n");
+    fprintf(out, "  --verbose        Enable verbose error output with more context\n");
+    fprintf(out, "\n");
+    fprintf(out, "Examples:\n");
+    fprintf(out, "  ergo init.ergo              # Compile and check init.ergo\n");
+    fprintf(out, "  ergo run init.ergo          # Compile and run init.ergo\n");
+    fprintf(out, "  ergo --help                 # Show this help\n");
+    fprintf(out, "\n");
+    fprintf(out, "Environment Variables:\n");
+    fprintf(out, "  ERGO_STDLIB      Path to standard library (default: src/ergo/stdlib)\n");
+    fprintf(out, "  ERGO_CACHE_DIR   Cache directory for compiled binaries\n");
+    fprintf(out, "  ERGO_NO_CACHE    Set to 1 to disable caching\n");
+    fprintf(out, "  ERGO_KEEP_C      Set to 1 to keep generated C files\n");
+    fprintf(out, "  CC               C compiler to use (default: cc)\n");
+    fprintf(out, "  ERGO_CC_FLAGS    Additional C compiler flags\n");
+    fprintf(out, "  NO_COLOR         Set to disable colored output\n");
+}
+
+static void print_version(void) {
+    printf("ergo version %s\n", ERGO_VERSION);
+    printf("Copyright (c) 2024 Ergo Contributors\n");
 }
 
 static int is_flag(const char *arg, const char *flag) {
@@ -213,6 +241,28 @@ int main(int argc, char **argv) {
         return 2;
     }
 
+    // Handle global flags
+    if (is_flag(argv[1], "--help") || is_flag(argv[1], "-h")) {
+        print_usage(stdout);
+        return 0;
+    }
+
+    if (is_flag(argv[1], "--version") || is_flag(argv[1], "-v")) {
+        print_version();
+        return 0;
+    }
+
+    if (is_flag(argv[1], "--verbose")) {
+        verbose_mode = true;
+        // Shift arguments and continue
+        if (argc < 3) {
+            print_usage(stderr);
+            return 2;
+        }
+        argv++;
+        argc--;
+    }
+
     if (is_flag(argv[1], "--emit-c")) {
         fprintf(stderr, "error: --emit-c is not supported in the C compiler\n");
         return 2;
@@ -240,11 +290,12 @@ int main(int argc, char **argv) {
         Diag err = {0};
         Program *prog = NULL;
         uint64_t proj_hash = 0;
-        if (!load_project(entry, &arena, &prog, &proj_hash, &err)) {
-            diag_print(&err);
-            arena_free(&arena);
-            return 1;
-        }
+    if (!load_project(entry, &arena, &prog, &proj_hash, &err)) {
+        diag_print_enhanced(&err, verbose_mode);
+        arena_free(&arena);
+        return 1;
+    }
+
 
         bool uses_cogito = program_uses_cogito(prog);
         const char *extra_cflags = "";
@@ -369,7 +420,7 @@ int main(int argc, char **argv) {
 
         prog = lower_program(prog, &arena, &err);
         if (!prog || err.message) {
-            diag_print(&err);
+            diag_print_enhanced(&err, verbose_mode);
             free(cache_base);
             free(cache_dir);
             free(cache_c);
@@ -378,7 +429,7 @@ int main(int argc, char **argv) {
             return 1;
         }
         if (!typecheck_program(prog, &arena, &err)) {
-            diag_print(&err);
+            diag_print_enhanced(&err, verbose_mode);
             free(cache_base);
             free(cache_dir);
             free(cache_c);
@@ -397,7 +448,7 @@ int main(int argc, char **argv) {
 #endif
         const char *run_cmd = cache_bin ? cache_bin : run_cmd_buf;
         if (!emit_c(prog, c_path, &err)) {
-            diag_print(&err);
+            diag_print_enhanced(&err, verbose_mode);
             free(cache_base);
             free(cache_dir);
             free(cache_c);
@@ -455,18 +506,18 @@ int main(int argc, char **argv) {
     Diag err = {0};
     Program *prog = NULL;
     if (!load_project(argv[1], &arena, &prog, NULL, &err)) {
-        diag_print(&err);
+        diag_print_enhanced(&err, verbose_mode);
         arena_free(&arena);
         return 1;
     }
     prog = lower_program(prog, &arena, &err);
     if (!prog || err.message) {
-        diag_print(&err);
+        diag_print_enhanced(&err, verbose_mode);
         arena_free(&arena);
         return 1;
     }
     if (!typecheck_program(prog, &arena, &err)) {
-        diag_print(&err);
+        diag_print_enhanced(&err, verbose_mode);
         arena_free(&arena);
         return 1;
     }

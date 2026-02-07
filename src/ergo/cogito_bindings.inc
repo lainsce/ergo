@@ -123,6 +123,8 @@
 #undef cogito_toast_on_click
 #undef cogito_toast_set_action
 #undef cogito_node_window
+#undef cogito_find_parent
+#undef cogito_find_children
 
 static bool cogito_debug_enabled(void) {
   const char* env = getenv("COGITO_DEBUG");
@@ -538,7 +540,7 @@ static void __cogito_chip_on_close(ErgoVal chipv, ErgoVal handler) {
     return;
   }
   cogito_set_handler(h, &h->on_action, handler);
-  cogito_chip_on_close(chip, cogito_cb_click, h);
+  cogito_chip_on_close(chip, cogito_cb_action, h);
 }
 
 static ErgoVal __cogito_image(ErgoVal iconv) {
@@ -626,6 +628,24 @@ static ErgoVal __cogito_node_window(ErgoVal nodev) {
   cogito_node* n = cogito_node_from_val(nodev);
   cogito_window* win = cogito_node_window(n);
   return cogito_wrap_node((cogito_node*)win, COGITO_HANDLE_WINDOW);
+}
+
+static ErgoVal __cogito_find_parent(ErgoVal nodev) {
+  cogito_node* n = cogito_node_from_val(nodev);
+  cogito_node* p = cogito_node_get_parent(n);
+  if (!p) return EV_NULLV;
+  return cogito_wrap_node(p, COGITO_HANDLE_NODE);
+}
+
+static ErgoVal __cogito_find_children(ErgoVal nodev) {
+  cogito_node* n = cogito_node_from_val(nodev);
+  size_t count = cogito_node_get_child_count(n);
+  ErgoArr* arr = stdr_arr_new((int)count);
+  for (size_t i = 0; i < count; i++) {
+    cogito_node* child = cogito_node_get_child(n, i);
+    ergo_arr_add(arr, cogito_wrap_node(child, COGITO_HANDLE_NODE));
+  }
+  return EV_ARR(arr);
 }
 
 static void __cogito_label_set_class(ErgoVal labelv, ErgoVal classv) {
@@ -1607,6 +1627,8 @@ static void __cogito_load_sum(ErgoVal pathv) {
 #define cogito_window_set_dialog __cogito_window_set_dialog
 #define cogito_window_clear_dialog __cogito_window_clear_dialog
 #define cogito_node_window_val __cogito_node_window
+#define cogito_find_parent __cogito_find_parent
+#define cogito_find_children __cogito_find_children
 #define cogito_build __cogito_build
 #define cogito_window_set_builder __cogito_window_set_builder
 #define cogito_state_new __cogito_state_new

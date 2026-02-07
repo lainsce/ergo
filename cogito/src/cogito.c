@@ -327,6 +327,26 @@ static const char* cogito_font_bold_path_active = NULL;
 
 #include "cogito.h"
 
+// Public C API implementations for node hierarchy (access struct fields directly)
+cogito_node* cogito_node_get_parent(cogito_node* node) {
+  if (!node) return NULL;
+  CogitoNode* n = (CogitoNode*)node;
+  return (cogito_node*)n->parent;
+}
+
+size_t cogito_node_get_child_count(cogito_node* node) {
+  if (!node) return 0;
+  CogitoNode* n = (CogitoNode*)node;
+  return n->len;
+}
+
+cogito_node* cogito_node_get_child(cogito_node* node, size_t index) {
+  if (!node) return NULL;
+  CogitoNode* n = (CogitoNode*)node;
+  if (index >= n->len) return NULL;
+  return (cogito_node*)n->children[index];
+}
+
 static cogito_node* cogito_from_val(ErgoVal v);
 
 typedef struct CogitoCbNode {
@@ -1307,6 +1327,62 @@ cogito_node* cogito_fab_new(const char* icon) {
   ErgoVal v = cogito_fab_new_ergo(iv);
   if (iv.tag == EVT_STR) ergo_release_val(iv);
   return cogito_from_val(v);
+}
+
+void cogito_chip_set_selected(cogito_node* chip, bool selected) {
+  if (!chip) return;
+  cogito_chip_set_selected_ergo(EV_OBJ(chip), EV_BOOL(selected));
+}
+
+bool cogito_chip_get_selected(cogito_node* chip) {
+  if (!chip) return false;
+  ErgoVal v = cogito_chip_get_selected_ergo(EV_OBJ(chip));
+  return ergo_as_bool(v);
+}
+
+void cogito_chip_set_closable(cogito_node* chip, bool closable) {
+  if (!chip) return;
+  cogito_chip_set_closable_ergo(EV_OBJ(chip), EV_BOOL(closable));
+}
+
+void cogito_chip_on_click(cogito_node* chip, cogito_node_fn fn, void* user) {
+  if (!chip) return;
+  CogitoNode* n = (CogitoNode*)chip;
+  if (!fn) { cogito_set_fn(&n->on_click, NULL); return; }
+  CogitoCbNode* env = (CogitoCbNode*)calloc(1, sizeof(*env));
+  env->fn = fn;
+  env->user = user;
+  ErgoFn* wrap = cogito_make_fn(cogito_cb_node, env);
+  cogito_set_fn(&n->on_click, wrap);
+}
+
+void cogito_chip_on_close(cogito_node* chip, cogito_node_fn fn, void* user) {
+  if (!chip) return;
+  if (!fn) { cogito_chip_on_close_ergo(EV_OBJ(chip), EV_NULLV); return; }
+  CogitoCbNode* env = (CogitoCbNode*)calloc(1, sizeof(*env));
+  env->fn = fn;
+  env->user = user;
+  ErgoFn* wrap = cogito_make_fn(cogito_cb_node, env);
+  cogito_chip_on_close_ergo(EV_OBJ(chip), EV_FN(wrap));
+  ergo_release_val(EV_FN(wrap));
+}
+
+void cogito_fab_set_extended(cogito_node* fab, bool extended, const char* label) {
+  if (!fab) return;
+  ErgoVal lv = cogito_val_from_cstr(label);
+  cogito_fab_set_extended_ergo(EV_OBJ(fab), EV_BOOL(extended), lv);
+  if (lv.tag == EVT_STR) ergo_release_val(lv);
+}
+
+void cogito_fab_on_click(cogito_node* fab, cogito_node_fn fn, void* user) {
+  if (!fab) return;
+  CogitoNode* n = (CogitoNode*)fab;
+  if (!fn) { cogito_set_fn(&n->on_click, NULL); return; }
+  CogitoCbNode* env = (CogitoCbNode*)calloc(1, sizeof(*env));
+  env->fn = fn;
+  env->user = user;
+  ErgoFn* wrap = cogito_make_fn(cogito_cb_node, env);
+  cogito_set_fn(&n->on_click, wrap);
 }
 
 cogito_node* cogito_nav_rail_new(void) {

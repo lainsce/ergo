@@ -79,6 +79,7 @@ typedef struct ErgoFn {
   int arity;
   ErgoVal (*fn)(void* env, int argc, ErgoVal* argv);
   void* env;
+  int env_size;
 } ErgoFn;
 
 struct ErgoVal {
@@ -439,7 +440,14 @@ static void ergo_release_val(ErgoVal v) {
     }
   } else if (v.tag == EVT_FN) {
     ErgoFn* f = (ErgoFn*)v.as.p;
-    if (--f->ref == 0) free(f);
+    if (--f->ref == 0) {
+      if (f->env && f->env_size > 0) {
+        ErgoVal* caps = (ErgoVal*)f->env;
+        for (int i = 0; i < f->env_size; i++) ergo_release_val(caps[i]);
+        free(f->env);
+      }
+      free(f);
+    }
   }
 }
 
@@ -589,6 +597,17 @@ static ErgoFn* ergo_fn_new(ErgoVal (*fn)(void* env, int argc, ErgoVal* argv), in
   f->arity = arity;
   f->fn = fn;
   f->env = NULL;
+  f->env_size = 0;
+  return f;
+}
+
+static ErgoFn* ergo_fn_new_with_env(ErgoVal (*fn)(void* env, int argc, ErgoVal* argv), int arity, void* env, int env_size) {
+  ErgoFn* f = (ErgoFn*)malloc(sizeof(ErgoFn));
+  f->ref = 1;
+  f->arity = arity;
+  f->fn = fn;
+  f->env = env;
+  f->env_size = env_size;
   return f;
 }
 

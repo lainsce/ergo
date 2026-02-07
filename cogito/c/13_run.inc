@@ -589,6 +589,23 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             } else {
               cogito_invoke_click(hit);
             }
+          } else if (hit->kind == COGITO_CHIP) {
+            int cx = 0, cy = 0, cw = 0, ch = 0;
+            cogito_chip_close_rect(hit, &cx, &cy, &cw, &ch);
+            if (cw > 0 && ch > 0 && cogito_hit_rect(mx, my, cx, cy, cw, ch)) {
+              // Clicked on close button
+              if (hit->on_action) {
+                ErgoVal arg = EV_OBJ(hit);
+                cogito_invoke(hit->on_action, 1, &arg);
+              }
+            } else {
+              // Clicked on chip body - toggle selected state
+              hit->chip_selected = !hit->chip_selected;
+              cogito_invoke_click(hit);
+              cogito_window_relayout(win);
+            }
+          } else if (hit->kind == COGITO_FAB) {
+            cogito_invoke_click(hit);
           }
         }
         if (slot && slot->dialog) {

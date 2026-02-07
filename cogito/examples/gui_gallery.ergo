@@ -254,7 +254,7 @@ fun build_dialogs_view() (( cogito.VStack )) {
                 if dialog != null {
                     let dialog_slot = cogito.find_parent(dialog)
                     if dialog_slot != null {
-                        dialog_slot.clear()
+                        cogito.dialog_slot_clear(dialog_slot)
                     }
                 }
             }

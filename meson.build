@@ -14,6 +14,7 @@ ergo_c_sources = files(
   'src/ergo/platform.c',
   'src/ergo/arena.c',
   'src/ergo/str.c',
+  'src/ergo/diag.c',
 )
 
 ergo_c_includes = include_directories('src/ergo')

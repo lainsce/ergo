@@ -201,3 +201,15 @@ fun nav_rail() (( NavRail )) {
 fun bottom_nav() (( BottomNav )) {
     return __cogito_bottom_nav()
 }
+
+fun find_parent(node = any) (( any )) {
+    return __cogito_find_parent(node)
+}
+
+fun dialog_slot_clear(slot = any) (( -- )) {
+    __cogito_dialog_slot_clear(slot)
+}
+
+fun find_children(node = any) (( [any] )) {
+    return __cogito_find_children(node)
+}

@@ -23,7 +23,8 @@ fun __cogito_image_set_icon(img = Image, icon = string) (( -- )) { }
 fun __cogito_dialog(title = string) (( Dialog )) { }
 fun __cogito_dialog_close(dialog = Dialog) (( -- )) { }
 fun __cogito_dialog_remove(dialog = Dialog) (( -- )) { }
-fun __cogito_node_parent(node = any) (( any )) { }
+fun __cogito_find_parent(node = any) (( any )) { }
+fun __cogito_find_children(node = any) (( [any] )) { }
 fun __cogito_dialog_slot() (( DialogSlot )) { }
 fun __cogito_dialog_slot_show(slot = DialogSlot, dialog = Dialog) (( -- )) { }
 fun __cogito_dialog_slot_clear(slot = DialogSlot) (( -- )) { }

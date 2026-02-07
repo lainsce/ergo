@@ -36,7 +36,21 @@ static void parser_set_error(Parser *p, Tok *t, const char *fmt, ...) {
     va_start(ap, fmt);
     vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
-    p->err->path = p->path;
+    
+    // Copy path to arena so it persists after parse_module returns
+    if (p->path && p->path[0]) {
+        size_t path_len = strlen(p->path);
+        char *path_copy = (char *)arena_alloc(p->arena, path_len + 1);
+        if (path_copy) {
+            memcpy(path_copy, p->path, path_len + 1);
+            p->err->path = path_copy;
+        } else {
+            p->err->path = p->path;  // fallback to original if alloc fails
+        }
+    } else {
+        p->err->path = p->path;
+    }
+    
     p->err->line = t ? t->line : 0;
     p->err->col = t ? t->col : 0;
     size_t len = strlen(buf);
@@ -128,8 +142,8 @@ static Tok *eat(Parser *p, TokKind kind) {
             p,
             t,
             "expected %s, got %s",
-            tok_kind_name(kind),
-            tok_kind_name(t->kind)
+            tok_kind_desc(kind),
+            tok_kind_desc(t->kind)
         );
         return t;
     }
@@ -933,7 +947,7 @@ static Expr *parse_primary(Parser *p) {
         e->as.paren.x = x;
         return e;
     }
-    parser_set_error(p, t, "bad expr token %s", tok_kind_name(t->kind));
+    parser_set_error(p, t, "unexpected token %s in expression", tok_kind_desc(t->kind));
     return NULL;
 }
 
@@ -1036,7 +1050,7 @@ static Pat *parse_pattern(Parser *p) {
         pat->as.name = name_tok->val.ident;
         return pat;
     }
-    parser_set_error(p, t, "bad pattern token %s", tok_kind_name(t->kind));
+    parser_set_error(p, t, "unexpected token %s in pattern", tok_kind_desc(t->kind));
     return NULL;
 }
 
@@ -1222,7 +1236,7 @@ Module *parse_module(Tok *toks, size_t len, const char *path, Arena *arena, Diag
             ptrvec_push(&p, &decls, decl);
         } else {
             Tok *t = peek(&p, 0);
-            parser_set_error(&p, t, "unexpected token %s", tok_kind_name(t->kind));
+            parser_set_error(&p, t, "unexpected token %s", tok_kind_desc(t->kind));
             return NULL;
         }
         skip_semi(&p);

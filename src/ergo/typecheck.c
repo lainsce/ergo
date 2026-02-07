@@ -1944,9 +1944,9 @@ static void tc_stmt_inner(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *re
 static void tc_pat(Pat *pat, Ty *scrut_ty, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *err);
 static Ty *tc_call(Expr *call_expr, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *err);
 
-static Ty *numeric_result(Arena *arena, Ty *a, Ty *b, Str path, const char *op, Diag *err) {
+static Ty *numeric_result(Arena *arena, Ty *a, Ty *b, Str path, int line, int col, const char *op, Diag *err) {
     if (!ty_is_numeric(a) || !ty_is_numeric(b)) {
-        set_errf(err, path, 0, 0, "%.*s: numeric op %s expects numeric types", (int)path.len, path.data, op);
+        set_errf(err, path, line, col, "operator %s expects numeric types", op);
         return NULL;
     }
     return ty_prim(arena, "num");
@@ -2359,10 +2359,10 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
             TokKind op = e->as.binary.op;
             if (op == TOK_PLUS || op == TOK_MINUS || op == TOK_STAR || op == TOK_SLASH || op == TOK_PERCENT) {
                 if (ty_is_nullable(ta) || ty_is_nullable(tb)) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: numeric op on nullable value", (int)ctx->module_path.len, ctx->module_path.data);
+                    set_errf(err, ctx->module_path, e->line, e->col, "operator on nullable value");
                     return NULL;
                 }
-                return numeric_result(env->arena, ty_strip_nullable(ta), ty_strip_nullable(tb), ctx->module_path, tok_kind_name(op), err);
+                return numeric_result(env->arena, ty_strip_nullable(ta), ty_strip_nullable(tb), ctx->module_path, e->line, e->col, tok_kind_name(op), err);
             }
             if (op == TOK_LT || op == TOK_LTE || op == TOK_GT || op == TOK_GTE) {
                 if (ty_is_nullable(ta) || ty_is_nullable(tb)) {

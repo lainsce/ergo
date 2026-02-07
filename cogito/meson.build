@@ -71,8 +71,11 @@ libcogito = shared_library(
   include_directories : cogito_inc,
   dependencies : cogito_deps,
   link_args : ['-framework', 'Cocoa', '-framework', 'CoreGraphics', '-framework', 'Foundation', '-framework', 'AppKit'],
-  install : false,
+  install : true,
 )
+
+# Install header files
+install_headers('include/cogito.h', subdir : 'cogito')
 
 libcogito_dep = declare_dependency(
   include_directories : cogito_inc,

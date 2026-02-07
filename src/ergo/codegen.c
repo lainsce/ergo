@@ -991,6 +991,131 @@ static void collect_stmt(Codegen *cg, Stmt *s, Str path) {
     }
 }
 
+// -----------------
+// Free variable analysis for closures
+// -----------------
+
+typedef VEC(Str) StrVec;
+
+static bool strvec_contains(StrVec *v, Str s) {
+    for (size_t i = 0; i < v->len; i++) {
+        if (str_eq(v->data[i], s)) return true;
+    }
+    return false;
+}
+
+static void fv_expr(Expr *e, StrVec *defined, StrVec *free_vars);
+static void fv_stmt(Stmt *s, StrVec *defined, StrVec *free_vars);
+
+static void fv_expr(Expr *e, StrVec *defined, StrVec *free_vars) {
+    if (!e) return;
+    switch (e->kind) {
+        case EXPR_IDENT: {
+            Str name = e->as.ident.name;
+            if (!strvec_contains(defined, name) && !strvec_contains(free_vars, name)) {
+                VEC_PUSH(*free_vars, name);
+            }
+            break;
+        }
+        case EXPR_STR: {
+            if (e->as.str_lit.parts) {
+                for (size_t i = 0; i < e->as.str_lit.parts->len; i++) {
+                    StrPart *p = &e->as.str_lit.parts->parts[i];
+                    if (p->kind == STR_PART_VAR) {
+                        Str name = p->text;
+                        if (!strvec_contains(defined, name) && !strvec_contains(free_vars, name)) {
+                            VEC_PUSH(*free_vars, name);
+                        }
+                    }
+                }
+            }
+            break;
+        }
+        case EXPR_UNARY: fv_expr(e->as.unary.x, defined, free_vars); break;
+        case EXPR_BINARY: fv_expr(e->as.binary.a, defined, free_vars); fv_expr(e->as.binary.b, defined, free_vars); break;
+        case EXPR_ASSIGN: fv_expr(e->as.assign.target, defined, free_vars); fv_expr(e->as.assign.value, defined, free_vars); break;
+        case EXPR_CALL:
+            fv_expr(e->as.call.fn, defined, free_vars);
+            for (size_t i = 0; i < e->as.call.args_len; i++) fv_expr(e->as.call.args[i], defined, free_vars);
+            break;
+        case EXPR_INDEX: fv_expr(e->as.index.a, defined, free_vars); fv_expr(e->as.index.i, defined, free_vars); break;
+        case EXPR_MEMBER: fv_expr(e->as.member.a, defined, free_vars); break;
+        case EXPR_PAREN: fv_expr(e->as.paren.x, defined, free_vars); break;
+        case EXPR_MATCH:
+            fv_expr(e->as.match_expr.scrut, defined, free_vars);
+            for (size_t i = 0; i < e->as.match_expr.arms_len; i++) {
+                MatchArm *arm = e->as.match_expr.arms[i];
+                if (arm->pat && arm->pat->kind == PAT_IDENT) {
+                    VEC_PUSH(*defined, arm->pat->as.name);
+                }
+                fv_expr(arm->expr, defined, free_vars);
+            }
+            break;
+        case EXPR_LAMBDA: {
+            for (size_t i = 0; i < e->as.lambda.params_len; i++) {
+                VEC_PUSH(*defined, e->as.lambda.params[i]->name);
+            }
+            fv_expr(e->as.lambda.body, defined, free_vars);
+            break;
+        }
+        case EXPR_BLOCK: fv_stmt(e->as.block_expr.block, defined, free_vars); break;
+        case EXPR_NEW:
+            for (size_t i = 0; i < e->as.new_expr.args_len; i++) fv_expr(e->as.new_expr.args[i], defined, free_vars);
+            break;
+        case EXPR_TERNARY:
+            fv_expr(e->as.ternary.cond, defined, free_vars);
+            fv_expr(e->as.ternary.then_expr, defined, free_vars);
+            fv_expr(e->as.ternary.else_expr, defined, free_vars);
+            break;
+        case EXPR_MOVE: fv_expr(e->as.move.x, defined, free_vars); break;
+        case EXPR_TUPLE:
+            for (size_t i = 0; i < e->as.tuple_lit.items_len; i++) fv_expr(e->as.tuple_lit.items[i], defined, free_vars);
+            break;
+        case EXPR_ARRAY:
+            for (size_t i = 0; i < e->as.array_lit.items_len; i++) fv_expr(e->as.array_lit.items[i], defined, free_vars);
+            break;
+        default: break;
+    }
+}
+
+static void fv_stmt(Stmt *s, StrVec *defined, StrVec *free_vars) {
+    if (!s) return;
+    switch (s->kind) {
+        case STMT_LET:
+            fv_expr(s->as.let_s.expr, defined, free_vars);
+            VEC_PUSH(*defined, s->as.let_s.name);
+            break;
+        case STMT_CONST:
+            fv_expr(s->as.const_s.expr, defined, free_vars);
+            VEC_PUSH(*defined, s->as.const_s.name);
+            break;
+        case STMT_EXPR: fv_expr(s->as.expr_s.expr, defined, free_vars); break;
+        case STMT_RETURN: fv_expr(s->as.ret_s.expr, defined, free_vars); break;
+        case STMT_IF:
+            for (size_t i = 0; i < s->as.if_s.arms_len; i++) {
+                fv_expr(s->as.if_s.arms[i]->cond, defined, free_vars);
+                fv_stmt(s->as.if_s.arms[i]->body, defined, free_vars);
+            }
+            break;
+        case STMT_FOR:
+            fv_stmt(s->as.for_s.init, defined, free_vars);
+            fv_expr(s->as.for_s.cond, defined, free_vars);
+            fv_expr(s->as.for_s.step, defined, free_vars);
+            fv_stmt(s->as.for_s.body, defined, free_vars);
+            break;
+        case STMT_FOREACH:
+            fv_expr(s->as.foreach_s.expr, defined, free_vars);
+            VEC_PUSH(*defined, s->as.foreach_s.name);
+            fv_stmt(s->as.foreach_s.body, defined, free_vars);
+            break;
+        case STMT_BLOCK:
+            for (size_t i = 0; i < s->as.block_s.stmts_len; i++) {
+                fv_stmt(s->as.block_s.stmts[i], defined, free_vars);
+            }
+            break;
+    }
+}
+
 static void codegen_collect_lambdas(Codegen *cg) {
     for (size_t i = 0; i < cg->prog->mods_len; i++) {
         Module *m = cg->prog->mods[i];
@@ -1366,8 +1491,55 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                 codegen_add_lambda(cg, e, path);
                 li = codegen_lambda_info(cg, e);
             }
+            // Collect free variables and populate captures
+            StrVec defined = {0};
+            StrVec free_vars = {0};
+            for (size_t p = 0; p < e->as.lambda.params_len; p++) {
+                VEC_PUSH(defined, e->as.lambda.params[p]->name);
+            }
+            fv_expr(e->as.lambda.body, &defined, &free_vars);
+            // Filter: only capture variables that resolve in current local scope
+            size_t cap_count = 0;
+            Capture **caps = NULL;
+            for (size_t fi = 0; fi < free_vars.len; fi++) {
+                Str name = free_vars.data[fi];
+                // Check local scopes only (not module globals/functions - those are always accessible)
+                char *cname = NULL;
+                for (size_t si = cg->scopes_len; si-- > 0;) {
+                    NameScope *ns = &cg->scopes[si];
+                    for (size_t ni = 0; ni < ns->len; ni++) {
+                        if (str_eq(ns->items[ni].name, name)) {
+                            cname = ns->items[ni].cname;
+                            goto found_local;
+                        }
+                    }
+                }
+                found_local:
+                if (!cname) continue;
+                Binding *b = locals_lookup(&cg->ty_loc, name);
+                Capture *cap = (Capture *)arena_alloc(cg->arena, sizeof(Capture));
+                cap->name = name;
+                cap->cname = cname;
+                cap->ty = b ? (void *)b->ty : NULL;
+                caps = (Capture **)realloc(caps, (cap_count + 1) * sizeof(Capture *));
+                caps[cap_count++] = cap;
+            }
+            free(defined.data);
+            free(free_vars.data);
+            e->as.lambda.captures = caps;
+            e->as.lambda.captures_len = cap_count;
+
             char *t = codegen_new_tmp(cg);
-            w_line(&cg->w, "ErgoVal %s = EV_FN(ergo_fn_new(%s, %zu));", t, li->name, e->as.lambda.params_len);
+            if (cap_count > 0) {
+                char *env_name = codegen_new_sym(cg, "env");
+                w_line(&cg->w, "ErgoVal* %s = (ErgoVal*)malloc(sizeof(ErgoVal) * %zu);", env_name, cap_count);
+                for (size_t ci = 0; ci < cap_count; ci++) {
+                    w_line(&cg->w, "%s[%zu] = %s; ergo_retain_val(%s[%zu]);", env_name, ci, caps[ci]->cname, env_name, ci);
+                }
+                w_line(&cg->w, "ErgoVal %s = EV_FN(ergo_fn_new_with_env(%s, %zu, %s, %zu));", t, li->name, e->as.lambda.params_len, env_name, cap_count);
+            } else {
+                w_line(&cg->w, "ErgoVal %s = EV_FN(ergo_fn_new(%s, %zu));", t, li->name, e->as.lambda.params_len);
+            }
             gen_expr_add(out, t);
             out->tmp = t;
             return true;
@@ -3730,6 +3902,191 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    // Chip
+                    if (str_eq_c(fname, "__cogito_chip")) {
+                        GenExpr text;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &text, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_chip_new(%s);", t, text.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", text.tmp);
+                        gen_expr_release_except(cg, &text, text.tmp);
+                        gen_expr_free(&text);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_chip_set_selected")) {
+                        GenExpr chip, sel;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &chip, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &sel, err)) { gen_expr_free(&chip); return false; }
+                        w_line(&cg->w, "cogito_chip_set_selected(%s, %s);", chip.tmp, sel.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", chip.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", sel.tmp);
+                        gen_expr_release_except(cg, &chip, chip.tmp);
+                        gen_expr_release_except(cg, &sel, sel.tmp);
+                        gen_expr_free(&chip);
+                        gen_expr_free(&sel);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_chip_get_selected")) {
+                        GenExpr chip;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &chip, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_chip_get_selected(%s);", t, chip.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", chip.tmp);
+                        gen_expr_release_except(cg, &chip, chip.tmp);
+                        gen_expr_free(&chip);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_chip_set_closable")) {
+                        GenExpr chip, closable;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &chip, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &closable, err)) { gen_expr_free(&chip); return false; }
+                        w_line(&cg->w, "cogito_chip_set_closable(%s, %s);", chip.tmp, closable.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", chip.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", closable.tmp);
+                        gen_expr_release_except(cg, &chip, chip.tmp);
+                        gen_expr_release_except(cg, &closable, closable.tmp);
+                        gen_expr_free(&chip);
+                        gen_expr_free(&closable);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_chip_on_click")) {
+                        GenExpr chip, handler;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &chip, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &handler, err)) { gen_expr_free(&chip); return false; }
+                        w_line(&cg->w, "cogito_chip_on_click(%s, %s);", chip.tmp, handler.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", chip.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", handler.tmp);
+                        gen_expr_release_except(cg, &chip, chip.tmp);
+                        gen_expr_release_except(cg, &handler, handler.tmp);
+                        gen_expr_free(&chip);
+                        gen_expr_free(&handler);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_chip_on_close")) {
+                        GenExpr chip, handler;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &chip, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &handler, err)) { gen_expr_free(&chip); return false; }
+                        w_line(&cg->w, "cogito_chip_on_close(%s, %s);", chip.tmp, handler.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", chip.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", handler.tmp);
+                        gen_expr_release_except(cg, &chip, chip.tmp);
+                        gen_expr_release_except(cg, &handler, handler.tmp);
+                        gen_expr_free(&chip);
+                        gen_expr_free(&handler);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    // FAB
+                    if (str_eq_c(fname, "__cogito_fab")) {
+                        GenExpr icon;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &icon, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_fab_new(%s);", t, icon.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", icon.tmp);
+                        gen_expr_release_except(cg, &icon, icon.tmp);
+                        gen_expr_free(&icon);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_fab_set_extended")) {
+                        GenExpr fab, ext, label;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &fab, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &ext, err)) { gen_expr_free(&fab); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[2], &label, err)) { gen_expr_free(&fab); gen_expr_free(&ext); return false; }
+                        w_line(&cg->w, "cogito_fab_set_extended(%s, %s, %s);", fab.tmp, ext.tmp, label.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", fab.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", ext.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", label.tmp);
+                        gen_expr_release_except(cg, &fab, fab.tmp);
+                        gen_expr_release_except(cg, &ext, ext.tmp);
+                        gen_expr_release_except(cg, &label, label.tmp);
+                        gen_expr_free(&fab);
+                        gen_expr_free(&ext);
+                        gen_expr_free(&label);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_fab_on_click")) {
+                        GenExpr fab, handler;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &fab, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &handler, err)) { gen_expr_free(&fab); return false; }
+                        w_line(&cg->w, "cogito_fab_on_click(%s, %s);", fab.tmp, handler.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", fab.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", handler.tmp);
+                        gen_expr_release_except(cg, &fab, fab.tmp);
+                        gen_expr_release_except(cg, &handler, handler.tmp);
+                        gen_expr_free(&fab);
+                        gen_expr_free(&handler);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    // NavRail
+                    if (str_eq_c(fname, "__cogito_nav_rail")) {
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_nav_rail_new();", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    // BottomNav
+                    if (str_eq_c(fname, "__cogito_bottom_nav")) {
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_bottom_nav_new();", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    // Node tree traversal
+                    if (str_eq_c(fname, "__cogito_find_parent")) {
+                        GenExpr node;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_find_parent(%s);", t, node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_find_children")) {
+                        GenExpr node;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_find_children(%s);", t, node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     FunSig *sig = codegen_fun_sig(cg, cg->current_module, fname);
                     if (!sig && is_stdr_prelude(fname)) {
                         bool allow = str_eq_c(cg->current_module, "stdr");
@@ -4488,107 +4845,6 @@ static bool codegen_gen(Codegen *cg, Diag *err) {
     w_line(&cg->w, "static void ergo_entry(void);");
     w_line(&cg->w, "");
 
-    if (cg->lambdas_len > 0) {
-        w_line(&cg->w, "// ---- lambda defs ----");
-        // generate lambda definitions
-        for (size_t i = 0; i < cg->lambdas_len; i++) {
-            LambdaInfo *li = &cg->lambdas[i];
-            // save state
-            NameScope *saved_scopes = cg->scopes;
-            size_t saved_scopes_len = cg->scopes_len;
-            size_t saved_scopes_cap = cg->scopes_cap;
-            LocalList *saved_locals = cg->scope_locals;
-            size_t saved_locals_len = cg->scope_locals_len;
-            size_t saved_locals_cap = cg->scope_locals_cap;
-            Locals saved_ty = cg->ty_loc;
-            Str saved_mod = cg->current_module;
-            Str *saved_imports = cg->current_imports;
-            size_t saved_imports_len = cg->current_imports_len;
-            Str saved_class = cg->current_class;
-            bool saved_has_class = cg->has_current_class;
-            int saved_indent = cg->w.indent;
-
-            cg->scopes = NULL;
-            cg->scopes_len = 0;
-            cg->scopes_cap = 0;
-            cg->scope_locals = NULL;
-            cg->scope_locals_len = 0;
-            cg->scope_locals_cap = 0;
-            locals_init(&cg->ty_loc);
-            codegen_push_scope(cg);
-            cg->w.indent = 0;
-
-            // set module context
-            Str mod_name = codegen_module_name(cg, li->path);
-            cg->current_module = mod_name;
-            ModuleImport *mi = codegen_module_imports(cg, mod_name);
-            cg->current_imports = mi ? mi->imports : NULL;
-            cg->current_imports_len = mi ? mi->imports_len : 0;
-            cg->has_current_class = false;
-
-            // emit lambda
-            w_line(&cg->w, "static ErgoVal %s(void* env, int argc, ErgoVal* argv) {", li->name);
-            cg->w.indent++;
-            w_line(&cg->w, "(void)env;");
-            w_line(&cg->w, "if (argc != %zu) ergo_trap(\"lambda arity mismatch\");", li->lam->as.lambda.params_len);
-            for (size_t p = 0; p < li->lam->as.lambda.params_len; p++) {
-                Param *param = li->lam->as.lambda.params[p];
-                char *cname = arena_printf(cg->arena, "arg%zu", p);
-                w_line(&cg->w, "ErgoVal %s = argv[%zu];", cname, p);
-                codegen_add_name(cg, param->name, cname);
-                Ty *pty = NULL;
-                if (param->typ) {
-                    pty = cg_ty_from_type_ref(cg, param->typ, cg->current_module, cg->current_imports, cg->current_imports_len, err);
-                } else {
-                    pty = cg_ty_gen(cg, param->name);
-                }
-                Binding b = { pty, param->is_mut, false };
-                locals_define(&cg->ty_loc, param->name, b);
-            }
-            w_line(&cg->w, "ErgoVal __ret = EV_NULLV;");
-            GenExpr ge;
-            if (!gen_expr(cg, li->path, li->lam->as.lambda.body, &ge, err)) return false;
-            w_line(&cg->w, "ergo_move_into(&__ret, %s);", ge.tmp);
-            gen_expr_release_except(cg, &ge, ge.tmp);
-            gen_expr_free(&ge);
-            {
-                LocalList locals = codegen_pop_scope(cg);
-                codegen_release_scope(cg, locals);
-            }
-            w_line(&cg->w, "return __ret;");
-            cg->w.indent--;
-            w_line(&cg->w, "}");
-            w_line(&cg->w, "");
-
-            // cleanup lambda state
-            for (size_t si = 0; si < cg->scopes_len; si++) {
-                free(cg->scopes[si].items);
-            }
-            free(cg->scopes);
-            for (size_t lii = 0; lii < cg->scope_locals_len; lii++) {
-                free(cg->scope_locals[lii].items);
-            }
-            free(cg->scope_locals);
-            locals_free(&cg->ty_loc);
-
-            // restore state
-            cg->scopes = saved_scopes;
-            cg->scopes_len = saved_scopes_len;
-            cg->scopes_cap = saved_scopes_cap;
-            cg->scope_locals = saved_locals;
-            cg->scope_locals_len = saved_locals_len;
-            cg->scope_locals_cap = saved_locals_cap;
-            cg->ty_loc = saved_ty;
-            cg->current_module = saved_mod;
-            cg->current_imports = saved_imports;
-            cg->current_imports_len = saved_imports_len;
-            cg->current_class = saved_class;
-            cg->has_current_class = saved_has_class;
-            cg->w.indent = saved_indent;
-        }
-        w_line(&cg->w, "");
-    }
-
     if (cg->funvals_len > 0) {
         w_line(&cg->w, "// ---- function value defs ----");
         for (size_t i = 0; i < cg->funvals_len; i++) {
@@ -4692,6 +4948,121 @@ static bool codegen_gen(Codegen *cg, Diag *err) {
 
     w_line(&cg->w, "// ---- entry ----");
     if (!gen_entry(cg, err)) return false;
+
+    // ---- deferred lambda bodies ----
+    // Generated AFTER functions/methods/entry so captures are populated
+    w_line(&cg->w, "// ---- lambda defs ----");
+    for (size_t i = 0; i < cg->lambdas_len; i++) {
+        LambdaInfo *li = &cg->lambdas[i];
+        // save state
+        NameScope *saved_scopes = cg->scopes;
+        size_t saved_scopes_len = cg->scopes_len;
+        size_t saved_scopes_cap = cg->scopes_cap;
+        LocalList *saved_locals = cg->scope_locals;
+        size_t saved_locals_len = cg->scope_locals_len;
+        size_t saved_locals_cap = cg->scope_locals_cap;
+        Locals saved_ty = cg->ty_loc;
+        Str saved_mod = cg->current_module;
+        Str *saved_imports = cg->current_imports;
+        size_t saved_imports_len = cg->current_imports_len;
+        Str saved_class = cg->current_class;
+        bool saved_has_class = cg->has_current_class;
+        int saved_indent = cg->w.indent;
+
+        cg->scopes = NULL;
+        cg->scopes_len = 0;
+        cg->scopes_cap = 0;
+        cg->scope_locals = NULL;
+        cg->scope_locals_len = 0;
+        cg->scope_locals_cap = 0;
+        locals_init(&cg->ty_loc);
+        codegen_push_scope(cg);
+        cg->w.indent = 0;
+
+        // set module context
+        Str mod_name = codegen_module_name(cg, li->path);
+        cg->current_module = mod_name;
+        ModuleImport *mi = codegen_module_imports(cg, mod_name);
+        cg->current_imports = mi ? mi->imports : NULL;
+        cg->current_imports_len = mi ? mi->imports_len : 0;
+        cg->has_current_class = false;
+
+        // emit lambda
+        w_line(&cg->w, "static ErgoVal %s(void* env, int argc, ErgoVal* argv) {", li->name);
+        cg->w.indent++;
+
+        // Unpack captured variables from env
+        if (li->lam->as.lambda.captures_len > 0) {
+            w_line(&cg->w, "ErgoVal* __caps = (ErgoVal*)env;");
+            for (size_t c = 0; c < li->lam->as.lambda.captures_len; c++) {
+                Capture *cap = li->lam->as.lambda.captures[c];
+                char *cname = arena_printf(cg->arena, "__cap%zu", c);
+                w_line(&cg->w, "ErgoVal %s = __caps[%zu];", cname, c);
+                codegen_add_name(cg, cap->name, cname);
+                Binding b = { (Ty*)cap->ty, false, false };
+                locals_define(&cg->ty_loc, cap->name, b);
+            }
+        } else {
+            w_line(&cg->w, "(void)env;");
+        }
+
+        w_line(&cg->w, "if (argc != %zu) ergo_trap(\"lambda arity mismatch\");", li->lam->as.lambda.params_len);
+        for (size_t p = 0; p < li->lam->as.lambda.params_len; p++) {
+            Param *param = li->lam->as.lambda.params[p];
+            char *cname = arena_printf(cg->arena, "arg%zu", p);
+            w_line(&cg->w, "ErgoVal %s = argv[%zu];", cname, p);
+            codegen_add_name(cg, param->name, cname);
+            Ty *pty = NULL;
+            if (param->typ) {
+                pty = cg_ty_from_type_ref(cg, param->typ, cg->current_module, cg->current_imports, cg->current_imports_len, err);
+            } else {
+                pty = cg_ty_gen(cg, param->name);
+            }
+            Binding b = { pty, param->is_mut, false };
+            locals_define(&cg->ty_loc, param->name, b);
+        }
+        w_line(&cg->w, "ErgoVal __ret = EV_NULLV;");
+        GenExpr ge;
+        if (!gen_expr(cg, li->path, li->lam->as.lambda.body, &ge, err)) return false;
+        w_line(&cg->w, "ergo_move_into(&__ret, %s);", ge.tmp);
+        gen_expr_release_except(cg, &ge, ge.tmp);
+        gen_expr_free(&ge);
+        {
+            LocalList locals = codegen_pop_scope(cg);
+            codegen_release_scope(cg, locals);
+        }
+        w_line(&cg->w, "return __ret;");
+        cg->w.indent--;
+        w_line(&cg->w, "}");
+        w_line(&cg->w, "");
+
+        // cleanup lambda state
+        for (size_t si = 0; si < cg->scopes_len; si++) {
+            free(cg->scopes[si].items);
+        }
+        free(cg->scopes);
+        for (size_t lii = 0; lii < cg->scope_locals_len; lii++) {
+            free(cg->scope_locals[lii].items);
+        }
+        free(cg->scope_locals);
+        locals_free(&cg->ty_loc);
+
+        // restore state
+        cg->scopes = saved_scopes;
+        cg->scopes_len = saved_scopes_len;
+        cg->scopes_cap = saved_scopes_cap;
+        cg->scope_locals = saved_locals;
+        cg->scope_locals_len = saved_locals_len;
+        cg->scope_locals_cap = saved_locals_cap;
+        cg->ty_loc = saved_ty;
+        cg->current_module = saved_mod;
+        cg->current_imports = saved_imports;
+        cg->current_imports_len = saved_imports_len;
+        cg->current_class = saved_class;
+        cg->has_current_class = saved_has_class;
+        cg->w.indent = saved_indent;
+    }
+    w_line(&cg->w, "");
 
     w_line(&cg->w, "int main(void) {");
     cg->w.indent++;
