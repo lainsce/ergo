@@ -98,7 +98,7 @@ static int cogito_bottom_nav_hit_index(CogitoNode* n, int x, int y) {
   return idx;
 }
 
-static CogitoNode* cogito_find_bottom_nav_hit(CogitoNode* n, int x, int y, int* out_idx) {
+static inline CogitoNode* cogito_find_bottom_nav_hit(CogitoNode* n, int x, int y, int* out_idx) {
   if (!n) return NULL;
   if (n->kind == COGITO_BOTTOM_NAV) {
     int idx = cogito_bottom_nav_hit_index(n, x, y);

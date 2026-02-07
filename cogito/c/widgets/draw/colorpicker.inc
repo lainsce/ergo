@@ -78,6 +78,16 @@ case COGITO_COLORPICKER: {
         if (cx > max_x) cx = max_x;
         DrawLine(cx, ty, cx, ty + th, text);
       }
+      // Color preview rectangle
+      {
+        int prev_pad = s.has_padding_left ? s.padding_left : 10;
+        int prev_x = n->x + prev_pad;
+        int prev_sz = hex_h;
+        Color prev_color = cogito_hct_to_rgb(n->color_h, n->color_c, n->color_t);
+        cogito_draw_rect(prev_x, hex_y, prev_sz, prev_sz, prev_color, 6);
+        Color prev_border = s.has_border ? s.border : cogito_rgba(200, 200, 200, 128);
+        cogito_draw_rect_lines(prev_x, hex_y, prev_sz, prev_sz, prev_border, 6, 1);
+      }
       break;
     }
     

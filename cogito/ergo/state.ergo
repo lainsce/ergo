@@ -185,3 +185,19 @@ fun colorpicker() (( ColorPicker )) {
 fun bottom_toolbar() (( BottomToolbar )) {
     return __cogito_toolbar()
 }
+
+fun chip(text = string) (( Chip )) {
+    return __cogito_chip(text)
+}
+
+fun fab(icon = string) (( FAB )) {
+    return __cogito_fab(icon)
+}
+
+fun nav_rail() (( NavRail )) {
+    return __cogito_nav_rail()
+}
+
+fun bottom_nav() (( BottomNav )) {
+    return __cogito_bottom_nav()
+}

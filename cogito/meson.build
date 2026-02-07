@@ -48,6 +48,10 @@ ergo_source_files = [
   'ergo/toasts.ergo',
   'ergo/toast.ergo',
   'ergo/bottom_toolbar.ergo',
+  'ergo/chip.ergo',
+  'ergo/fab.ergo',
+  'ergo/nav_rail.ergo',
+  'ergo/bottom_nav.ergo',
   'ergo/state.ergo',
 ]
 

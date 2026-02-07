@@ -1242,7 +1242,25 @@ static Str module_name_for_path(Arena *arena, Str path) {
         p[start + name_len - 1] == 'o') {
         name_len -= 5;
     }
-    return arena_str_copy(arena, p + start, name_len);
+    Str name = arena_str_copy(arena, p + start, name_len);
+    
+    // Handle _build directory: if name is "_build", use parent directory name
+    if (str_eq_c(name, "_build") && start > 0) {
+        size_t parent_end = start - 1;  // Position before the '/'
+        size_t parent_start = 0;
+        for (size_t i = 0; i < parent_end; i++) {
+            char c = p[i];
+            if (c == '/' || c == '\\') {
+                parent_start = i + 1;
+            }
+        }
+        size_t parent_len = parent_end - parent_start;
+        if (parent_len > 0) {
+            return arena_str_copy(arena, p + parent_start, parent_len);
+        }
+    }
+    
+    return name;
 }
 
 static Str normalize_import_name(Arena *arena, Str name) {
@@ -2559,8 +2577,7 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
             return arm_ty;
         }
         case EXPR_LAMBDA: {
-            Locals lambda_loc;
-            locals_init(&lambda_loc);
+            Locals lambda_loc = locals_clone(loc);
             size_t n = e->as.lambda.params_len;
             Ty **param_tys = (Ty **)arena_array(env->arena, n, sizeof(Ty *));
             int gen_id = 0;
@@ -2852,7 +2869,12 @@ bool typecheck_program(Program *prog, Arena *arena, Diag *err) {
                         ret_ty = ty_tuple(env->arena, items, rn);
                     }
                 }
-                tc_stmt_inner(d->as.fun.body, &ctx, &loc, env, ret_ty, err);
+                // Skip return checking for empty bodies (internal function declarations)
+                bool is_empty_body = d->as.fun.body && d->as.fun.body->kind == STMT_BLOCK && 
+                                     d->as.fun.body->as.block_s.stmts_len == 0;
+                if (!is_empty_body) {
+                    tc_stmt_inner(d->as.fun.body, &ctx, &loc, env, ret_ty, err);
+                }
                 locals_free(&loc);
             } else if (d->kind == DECL_CLASS) {
                 ClassInfo *ci = find_class(env, qualify_class_name(env->arena, mod_name, d->as.class_decl.name));
@@ -2891,7 +2913,6 @@ bool typecheck_program(Program *prog, Arena *arena, Diag *err) {
                             ret_ty = ty_tuple(env->arena, items, rn);
                         }
                     }
-                    tc_stmt_inner(md->body, &ctx, &loc, env, ret_ty, err);
                     locals_free(&loc);
                 }
             } else if (d->kind == DECL_ENTRY) {

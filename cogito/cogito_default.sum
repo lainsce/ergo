@@ -189,6 +189,7 @@ datepicker
 slider
   background: #79747e
   color: #6750a4
+  track-height: 4
   min-height: 48
   min-width: 200
 
@@ -201,6 +202,7 @@ slider:active
 .slider
   background: #79747e
   color: #6750a4
+  track-height: 4
   min-height: 48
   min-width: 200
 

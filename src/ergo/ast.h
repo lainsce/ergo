@@ -150,9 +150,16 @@ typedef struct {
 } ExprMatch;
 
 typedef struct {
+    Str name;
+    char *cname;
+} Capture;
+
+typedef struct {
     Param **params;
     size_t params_len;
     Expr *body;
+    Capture **captures;
+    size_t captures_len;
 } ExprLambda;
 
 typedef struct {

@@ -1,0 +1,33 @@
+class Chip {
+    fun set_margins(this, left = num, top = num, right = num, bottom = num) (( -- )) {
+        __cogito_container_set_margins(this, left, top, right, bottom)
+    }
+    fun set_padding(this, left = num, top = num, right = num, bottom = num) (( -- )) {
+        __cogito_container_set_padding(this, left, top, right, bottom)
+    }
+    fun set_hexpand(this, expand = bool) (( -- )) {
+        __cogito_container_set_hexpand(this, expand)
+    }
+    fun set_vexpand(this, expand = bool) (( -- )) {
+        __cogito_container_set_vexpand(this, expand)
+    }
+    fun set_selected(this, selected = bool) (( -- )) {
+        __cogito_chip_set_selected(this, selected)
+    }
+    fun selected(this) (( bool )) {
+        return __cogito_chip_get_selected(this)
+    }
+    fun set_closable(this, closable = bool) (( -- )) {
+        __cogito_chip_set_closable(this, closable)
+    }
+    fun on_click(this, handler = any) (( -- )) {
+        __cogito_chip_on_click(this, handler)
+    }
+    fun on_close(this, handler = any) (( -- )) {
+        __cogito_chip_on_close(this, handler)
+    }
+    fun set_disabled(this, on = bool) (( -- )) {
+        __cogito_node_set_disabled(this, on)
+    }
+}
+

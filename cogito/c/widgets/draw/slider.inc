@@ -1,12 +1,17 @@
 case COGITO_SLIDER: {
-      // Slider component
+      // Slider component with disconnected rectangular thumb
       bool hover = false;
       bool active = false;
       cogito_node_hover_state(n, &hover, &active);
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
-      Color inactive_track = s.has_bg ? s.bg : cogito_rgba(121, 116, 126, 255);
+      Color inactive_track = s.has_bg ? s.bg : cogito_rgba(200, 200, 204, 255);
       Color active_track = s.has_text ? s.text : cogito_rgba(103, 80, 164, 255);
 
+      int track_h = n->track_height_set ? n->track_height : (s.has_track_height ? s.track_height : 4);
+      int thumb_w = 8;
+      int thumb_h = 32;
+      int thumb_r = 4;  // corner radius for rounded rect thumb
+      int gap = 6;      // gap between thumb and track on all sides
       int pad = 16;
       int cy = n->y + n->h / 2;
       int x0 = n->x + pad;
@@ -22,15 +27,23 @@ case COGITO_SLIDER: {
       }
       int kx = x0 + (int)((x1 - x0) * t);
 
-      // Draw inactive track (right side)
-      DrawRectangle(kx, cy - 2, x1 - kx, 4, inactive_track);
+      // Thumb edges
+      int thumb_left = kx - thumb_w / 2;
+      int thumb_right = kx + thumb_w / 2;
 
-      // Draw active track (left side)
-      DrawRectangle(x0, cy - 2, kx - x0, 4, active_track);
+      // Draw inactive track (right of thumb + gap) with rounded ends
+      int inactive_start = thumb_right + gap;
+      if (inactive_start < x1) {
+        int track_r = track_h / 2;
+        cogito_draw_rect(inactive_start, cy - track_h / 2, x1 - inactive_start, track_h, inactive_track, track_r);
+      }
 
-      // Draw thumb
-      int thumb_radius = active || n->slider_dragging ? 10 : 8;
-      if (hover) thumb_radius = 10;
+      // Draw active track (left of thumb - gap) with rounded ends
+      int active_end = thumb_left - gap;
+      if (active_end > x0) {
+        int track_r = track_h / 2;
+        cogito_draw_rect(x0, cy - track_h / 2, active_end - x0, track_h, active_track, track_r);
+      }
 
       // State layer for hover/press
       if (hover || active) {
@@ -39,7 +52,8 @@ case COGITO_SLIDER: {
         DrawCircle(kx, cy, 20, state_layer);
       }
 
-      DrawCircle(kx, cy, thumb_radius, active_track);
+      // Draw rectangular thumb with rounded corners
+      cogito_draw_rect(thumb_left, cy - thumb_h / 2, thumb_w, thumb_h, active_track, thumb_r);
       break;
     }
-    
+

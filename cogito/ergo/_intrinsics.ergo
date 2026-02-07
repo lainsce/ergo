@@ -21,6 +21,9 @@ fun __cogito_label_set_align(label = Label, align = num) (( -- )) { }
 fun __cogito_image(icon = string) (( Image )) { }
 fun __cogito_image_set_icon(img = Image, icon = string) (( -- )) { }
 fun __cogito_dialog(title = string) (( Dialog )) { }
+fun __cogito_dialog_close(dialog = Dialog) (( -- )) { }
+fun __cogito_dialog_remove(dialog = Dialog) (( -- )) { }
+fun __cogito_node_parent(node = any) (( any )) { }
 fun __cogito_dialog_slot() (( DialogSlot )) { }
 fun __cogito_dialog_slot_show(slot = DialogSlot, dialog = Dialog) (( -- )) { }
 fun __cogito_dialog_slot_clear(slot = DialogSlot) (( -- )) { }
@@ -121,6 +124,25 @@ fun __cogito_list_on_activate(list = List, handler = any) (( -- )) { }
 fun __cogito_grid_on_select(grid = Grid, handler = any) (( -- )) { }
 fun __cogito_grid_on_activate(grid = Grid, handler = any) (( -- )) { }
 fun __cogito_button_on_click(btn = Button, handler = any) (( -- )) { }
+fun __cogito_chip(text = string) (( Chip )) { }
+fun __cogito_chip_set_selected(chip = Chip, selected = bool) (( -- )) { }
+fun __cogito_chip_get_selected(chip = Chip) (( bool )) { }
+fun __cogito_chip_set_closable(chip = Chip, closable = bool) (( -- )) { }
+fun __cogito_chip_on_click(chip = Chip, handler = any) (( -- )) { }
+fun __cogito_chip_on_close(chip = Chip, handler = any) (( -- )) { }
+fun __cogito_fab(icon = string) (( FAB )) { }
+fun __cogito_fab_set_extended(fab = FAB, extended = bool, label = string) (( -- )) { }
+fun __cogito_fab_on_click(fab = FAB, handler = any) (( -- )) { }
+fun __cogito_nav_rail() (( NavRail )) { }
+fun __cogito_nav_rail_set_items(rail = NavRail, labels = [any], icons = [any]) (( -- )) { }
+fun __cogito_nav_rail_set_selected(rail = NavRail, idx = num) (( -- )) { }
+fun __cogito_nav_rail_get_selected(rail = NavRail) (( num )) { }
+fun __cogito_nav_rail_on_change(rail = NavRail, handler = any) (( -- )) { }
+fun __cogito_bottom_nav() (( BottomNav )) { }
+fun __cogito_bottom_nav_set_items(nav = BottomNav, labels = [any], icons = [any]) (( -- )) { }
+fun __cogito_bottom_nav_set_selected(nav = BottomNav, idx = num) (( -- )) { }
+fun __cogito_bottom_nav_get_selected(nav = BottomNav) (( num )) { }
+fun __cogito_bottom_nav_on_change(nav = BottomNav, handler = any) (( -- )) { }
 fun __cogito_run(app = App, win = Window) (( -- )) { }
 fun __cogito_load_sum(path = string) (( -- )) { }
 

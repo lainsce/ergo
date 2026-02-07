@@ -179,6 +179,7 @@ typedef struct CogitoStyle {
   bool has_appbar_btn_border_width;
   bool has_shadow;
   bool has_opacity;
+  bool has_track_height;
   Color bg;
   Color text;
   Color border;
@@ -228,6 +229,7 @@ typedef struct CogitoStyle {
   int margin_right;
   int margin_bottom;
   float opacity;
+  int track_height;
 } CogitoStyle;
 
 typedef struct CogitoTheme {
@@ -504,6 +506,8 @@ typedef struct CogitoNode {
   bool font_family_set;
   CogitoBoxShadow box_shadow;
   bool box_shadow_set;
+  int track_height;
+  bool track_height_set;
   bool button_outlined;
   bool button_text;
   bool chip_selected;

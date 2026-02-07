@@ -1,0 +1,30 @@
+class BottomNav {
+    fun set_margins(this, left = num, top = num, right = num, bottom = num) (( -- )) {
+        __cogito_container_set_margins(this, left, top, right, bottom)
+    }
+    fun set_padding(this, left = num, top = num, right = num, bottom = num) (( -- )) {
+        __cogito_container_set_padding(this, left, top, right, bottom)
+    }
+    fun set_hexpand(this, expand = bool) (( -- )) {
+        __cogito_container_set_hexpand(this, expand)
+    }
+    fun set_vexpand(this, expand = bool) (( -- )) {
+        __cogito_container_set_vexpand(this, expand)
+    }
+    fun set_items(this, labels = [any], icons = [any]) (( -- )) {
+        __cogito_bottom_nav_set_items(this, labels, icons)
+    }
+    fun set_selected(this, idx = num) (( -- )) {
+        __cogito_bottom_nav_set_selected(this, idx)
+    }
+    fun selected(this) (( num )) {
+        return __cogito_bottom_nav_get_selected(this)
+    }
+    fun on_change(this, handler = any) (( -- )) {
+        __cogito_bottom_nav_on_change(this, handler)
+    }
+    fun set_disabled(this, on = bool) (( -- )) {
+        __cogito_node_set_disabled(this, on)
+    }
+}
+

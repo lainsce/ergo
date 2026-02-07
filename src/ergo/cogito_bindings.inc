@@ -494,6 +494,53 @@ static void __cogito_fab_on_click(ErgoVal fabv, ErgoVal handler) {
   cogito_fab_on_click(fab, cogito_cb_click, h);
 }
 
+static ErgoVal __cogito_chip(ErgoVal textv) {
+  ErgoStr* tmp = NULL;
+  const char* text = cogito_required_cstr(textv, &tmp);
+  cogito_node* n = cogito_chip_new(text);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+static void __cogito_chip_set_selected(ErgoVal chipv, ErgoVal sel) {
+  cogito_node* n = cogito_node_from_val(chipv);
+  cogito_chip_set_selected(n, ergo_as_bool(sel));
+}
+
+static ErgoVal __cogito_chip_get_selected(ErgoVal chipv) {
+  cogito_node* n = cogito_node_from_val(chipv);
+  return EV_BOOL(cogito_chip_get_selected(n));
+}
+
+static void __cogito_chip_set_closable(ErgoVal chipv, ErgoVal closable) {
+  cogito_node* n = cogito_node_from_val(chipv);
+  cogito_chip_set_closable(n, ergo_as_bool(closable));
+}
+
+static void __cogito_chip_on_click(ErgoVal chipv, ErgoVal handler) {
+  cogito_node* chip = cogito_node_from_val(chipv);
+  CogitoHandle* h = (CogitoHandle*)chipv.as.p;
+  if (handler.tag != EVT_FN) {
+    cogito_set_handler(h, &h->on_click, handler);
+    cogito_chip_on_click(chip, NULL, NULL);
+    return;
+  }
+  cogito_set_handler(h, &h->on_click, handler);
+  cogito_chip_on_click(chip, cogito_cb_click, h);
+}
+
+static void __cogito_chip_on_close(ErgoVal chipv, ErgoVal handler) {
+  cogito_node* chip = cogito_node_from_val(chipv);
+  CogitoHandle* h = (CogitoHandle*)chipv.as.p;
+  if (handler.tag != EVT_FN) {
+    cogito_set_handler(h, &h->on_action, handler);
+    cogito_chip_on_close(chip, NULL, NULL);
+    return;
+  }
+  cogito_set_handler(h, &h->on_action, handler);
+  cogito_chip_on_close(chip, cogito_cb_click, h);
+}
+
 static ErgoVal __cogito_image(ErgoVal iconv) {
   ErgoStr* tmp = NULL;
   const char* icon = cogito_required_cstr(iconv, &tmp);
@@ -1583,6 +1630,12 @@ void __cogito_button_on_click(ErgoVal btn, ErgoVal handler);
 #define cogito_button_add_menu __cogito_button_add_menu
 #define cogito_fab_set_extended __cogito_fab_set_extended
 #define cogito_fab_on_click __cogito_fab_on_click
+#define cogito_chip_new __cogito_chip
+#define cogito_chip_set_selected __cogito_chip_set_selected
+#define cogito_chip_get_selected __cogito_chip_get_selected
+#define cogito_chip_set_closable __cogito_chip_set_closable
+#define cogito_chip_on_click __cogito_chip_on_click
+#define cogito_chip_on_close __cogito_chip_on_close
 #define cogito_appbar_add_button __cogito_appbar_add_button
 #define cogito_appbar_set_controls __cogito_appbar_set_controls
 #define cogito_iconbtn_add_menu __cogito_iconbtn_add_menu

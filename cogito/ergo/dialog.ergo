@@ -21,6 +21,12 @@ class Dialog {
     fun set_vexpand(this, expand = bool) (( -- )) {
         __cogito_container_set_vexpand(this, expand)
     }
+    fun close(this) (( -- )) {
+        __cogito_dialog_close(this)
+    }
+    fun remove(this) (( -- )) {
+        __cogito_dialog_remove(this)
+    }
 
     fun set_disabled(this, on = bool) (( -- )) {
         __cogito_node_set_disabled(this, on)

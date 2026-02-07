@@ -185,6 +185,7 @@ static CogitoStyle cogito_style_merge(const CogitoStyle* base, const CogitoStyle
   if (over->has_margin_bottom) { out.has_margin_bottom = true; out.margin_bottom = over->margin_bottom; }
 
   if (over->has_opacity) { out.has_opacity = true; out.opacity = over->opacity; }
+  if (over->has_track_height) { out.has_track_height = true; out.track_height = over->track_height; }
 
   return out;
 }
@@ -441,6 +442,8 @@ static void cogito_apply_style_to_node(CogitoNode* n) {
   }
   if (s.has_box_shadow) { n->box_shadow = s.box_shadow; n->box_shadow_set = true; }
   else { n->box_shadow_set = false; }
+  if (s.has_track_height) { n->track_height = s.track_height; n->track_height_set = true; }
+  else { n->track_height_set = false; }
   if (s.has_font_size) {
     if (n->kind == COGITO_WINDOW) {
       int sz = s.font_size;

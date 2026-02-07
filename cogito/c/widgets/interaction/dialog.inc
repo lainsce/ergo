@@ -33,6 +33,29 @@ static void cogito_dialog_slot_clear(ErgoVal slotv) {
   slot->dialog_open = false;
   cogito_window_relayout(cogito_node_window(slot));
 }
+static void cogito_dialog_close(ErgoVal dialogv) {
+  if (dialogv.tag != EVT_OBJ) ergo_trap("cogito.dialog_close expects dialog");
+  CogitoNode* dlg = (CogitoNode*)dialogv.as.p;
+  if (dlg->parent && dlg->parent->kind == COGITO_DIALOG_SLOT) {
+    dlg->parent->dialog_open = false;
+    cogito_window_relayout(cogito_node_window(dlg->parent));
+  }
+}
+static void cogito_dialog_remove(ErgoVal dialogv) {
+  if (dialogv.tag != EVT_OBJ) ergo_trap("cogito.dialog_remove expects dialog");
+  CogitoNode* dlg = (CogitoNode*)dialogv.as.p;
+  CogitoNode* parent = dlg->parent;
+  if (parent) {
+    cogito_container_remove_child(parent, dlg);
+    cogito_window_relayout(cogito_node_window(parent));
+  }
+}
+static ErgoVal cogito_node_parent(ErgoVal nodev) {
+  if (nodev.tag != EVT_OBJ) ergo_trap("cogito.node_parent expects object");
+  CogitoNode* n = (CogitoNode*)nodev.as.p;
+  if (n->parent) return EV_OBJ(n->parent);
+  return EV_NULLV;
+}
 static CogitoNode* cogito_find_dialog_slot(CogitoNode* n) {
   if (!n) return NULL;
   if (n->kind == COGITO_DIALOG_SLOT && n->dialog_open && n->dialog) return n;

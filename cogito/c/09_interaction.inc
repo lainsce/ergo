@@ -81,6 +81,13 @@ static void cogito_invoke_select(CogitoNode* n, int idx, bool activate) {
 }
 
 
+static void cogito_dialog_slot_show(ErgoVal slotv, ErgoVal dialogv);
+static void cogito_dialog_slot_clear(ErgoVal slotv);
+static void cogito_dialog_close(ErgoVal dialogv);
+static void cogito_dialog_remove(ErgoVal dialogv);
+static ErgoVal cogito_node_parent(ErgoVal nodev);
+static void cogito_container_remove_child(CogitoNode* parent, CogitoNode* child);
+
 #include "widgets/interaction/button.inc"
 #include "widgets/interaction/checkbox.inc"
 #include "widgets/interaction/chip.inc"
@@ -496,6 +503,8 @@ static ErgoVal cogito_app_new(void) {
 
 static void cogito_dialog_slot_show(ErgoVal slotv, ErgoVal dialogv);
 static void cogito_dialog_slot_clear(ErgoVal slotv);
+static void cogito_dialog_close(ErgoVal dialogv);
+static void cogito_dialog_remove(ErgoVal dialogv);
 
 
 

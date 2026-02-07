@@ -19,9 +19,11 @@ static void cogito_colorpicker_layout(CogitoNode* n, int* out_pad_l, int* out_pa
   int slider_h = 6;
   int gap = 8;
   int label_w = 12;
-  int hex_x = n->x + pad_l;
+  int preview_w = row_h;
+  int preview_gap = 8;
+  int hex_x = n->x + pad_l + preview_w + preview_gap;
   int hex_y = n->y + pad_t + (row_h + gap) * 3;
-  int hex_w = n->w - pad_l - pad_r;
+  int hex_w = n->w - pad_l - pad_r - preview_w - preview_gap;
   int hex_h = row_h;
   if (out_pad_l) *out_pad_l = pad_l;
   if (out_pad_t) *out_pad_t = pad_t;
