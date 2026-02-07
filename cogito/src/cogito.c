@@ -105,7 +105,9 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_stepper_new cogito_stepper_new_ergo
 #define cogito_stepper_set_value cogito_stepper_set_value_ergo
 #define cogito_stepper_get_value cogito_stepper_get_value_ergo
+#define cogito_stepper_on_change cogito_stepper_on_change_ergo
 #define cogito_segmented_new cogito_segmented_new_ergo
+#define cogito_segmented_on_select cogito_segmented_on_select_ergo
 #define cogito_treeview_new cogito_treeview_new_ergo
 #define cogito_toasts_new cogito_toasts_new_ergo
 #define cogito_toast_new cogito_toast_new_ergo
@@ -236,7 +238,9 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_colorpicker_new
 #undef cogito_colorpicker_on_change
 #undef cogito_stepper_new
+#undef cogito_stepper_on_change
 #undef cogito_segmented_new
+#undef cogito_segmented_on_select
 #undef cogito_treeview_new
 #undef cogito_toasts_new
 #undef cogito_toast_new
@@ -978,6 +982,28 @@ double cogito_stepper_get_value(cogito_node* stepper) {
   if (!stepper) return 0.0;
   CogitoNode* n = (CogitoNode*)stepper;
   return n->stepper_value;
+}
+
+void cogito_stepper_on_change(cogito_node* stepper, cogito_node_fn fn, void* user) {
+  if (!stepper) return;
+  if (!fn) { cogito_stepper_on_change_ergo(EV_OBJ(stepper), EV_NULLV); return; }
+  CogitoCbNode* env = (CogitoCbNode*)calloc(1, sizeof(*env));
+  env->fn = fn;
+  env->user = user;
+  ErgoFn* wrap = cogito_make_fn(cogito_cb_node, env);
+  cogito_stepper_on_change_ergo(EV_OBJ(stepper), EV_FN(wrap));
+  ergo_release_val(EV_FN(wrap));
+}
+
+void cogito_segmented_on_select(cogito_node* seg, cogito_node_fn fn, void* user) {
+  if (!seg) return;
+  if (!fn) { cogito_segmented_on_select_ergo(EV_OBJ(seg), EV_NULLV); return; }
+  CogitoCbNode* env = (CogitoCbNode*)calloc(1, sizeof(*env));
+  env->fn = fn;
+  env->user = user;
+  ErgoFn* wrap = cogito_make_fn(cogito_cb_node, env);
+  cogito_segmented_on_select_ergo(EV_OBJ(seg), EV_FN(wrap));
+  ergo_release_val(EV_FN(wrap));
 }
 
 void cogito_load_sum_file(const char* path) {

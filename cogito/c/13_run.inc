@@ -252,11 +252,12 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
     if (cogito_focused && !cogito_focused->disabled &&
         (cogito_focused->kind == COGITO_TEXTFIELD || cogito_focused->kind == COGITO_TEXTVIEW ||
+         cogito_focused->kind == COGITO_SEARCHFIELD ||
          (cogito_focused->kind == COGITO_COLORPICKER && cogito_focused->color_hex_editing))) {
       bool changed = false;
       int ch = GetCharPressed();
       while (ch > 0) {
-        if (cogito_focused->kind == COGITO_TEXTFIELD && (ch == '\n' || ch == '\r')) {
+        if ((cogito_focused->kind == COGITO_TEXTFIELD || cogito_focused->kind == COGITO_SEARCHFIELD) && (ch == '\n' || ch == '\r')) {
           ch = GetCharPressed();
           continue;
         }
@@ -344,13 +345,15 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
     if (cogito_focused && !cogito_focused->disabled &&
         (cogito_focused->kind == COGITO_TEXTFIELD || cogito_focused->kind == COGITO_TEXTVIEW ||
+         cogito_focused->kind == COGITO_SEARCHFIELD ||
          (cogito_focused->kind == COGITO_COLORPICKER && cogito_focused->color_hex_editing))) {
       if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && cogito_focused->selecting) {
         int pad = 8;
         int size = cogito_node_font_size(cogito_focused);
         const char* t = cogito_focused->text ? cogito_focused->text->data : "";
-        if (cogito_focused->kind == COGITO_TEXTFIELD) {
-          int rel_x = mx - (cogito_focused->x + pad);
+        if (cogito_focused->kind == COGITO_TEXTFIELD || cogito_focused->kind == COGITO_SEARCHFIELD) {
+          int sf_pad = cogito_focused->kind == COGITO_SEARCHFIELD ? (12 + 16 + 8) : pad;
+          int rel_x = mx - (cogito_focused->x + sf_pad);
           if (rel_x < 0) rel_x = 0;
           int idx = cogito_text_index_from_x(cogito_focused, t, size, rel_x);
           cogito_focused->sel_end = idx;
@@ -463,8 +466,9 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           int pad = 8;
           int size = cogito_node_font_size(focus_hit);
           const char* t = focus_hit->text ? focus_hit->text->data : "";
-          if (focus_hit->kind == COGITO_TEXTFIELD) {
-          int rel_x = mx - (focus_hit->x + pad);
+          if (focus_hit->kind == COGITO_TEXTFIELD || focus_hit->kind == COGITO_SEARCHFIELD) {
+          int sf_pad = focus_hit->kind == COGITO_SEARCHFIELD ? (12 + 16 + 8) : pad;
+          int rel_x = mx - (focus_hit->x + sf_pad);
           if (rel_x < 0) rel_x = 0;
           focus_hit->caret = cogito_text_index_from_x(focus_hit, t, size, rel_x);
             focus_hit->sel_start = focus_hit->caret;
@@ -606,6 +610,11 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             }
           } else if (hit->kind == COGITO_FAB) {
             cogito_invoke_click(hit);
+          } else if (hit->kind == COGITO_STEPPER) {
+            cogito_stepper_click(hit, mx, my);
+          } else if (hit->kind == COGITO_SEGMENTED) {
+            cogito_segmented_click(hit, mx, my);
+            cogito_window_relayout(win);
           }
         }
         if (slot && slot->dialog) {

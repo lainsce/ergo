@@ -252,7 +252,7 @@ static Module *load_file(const char *path,
                 free(p);
                 p = NULL;
             }
-            set_err(err, abs_path, "cogito.ergo not found in cogito/_build/, cogito/build/, or stdlib");
+            set_err(err, abs_path, "Cogito GUI framework not found. Run 'cd cogito && meson setup build && ninja -C build' to build Cogito, or ensure cogito.ergo is in cogito/_build/, cogito/build/, or stdlib");
             return NULL;
         found_cogito:
             continue;

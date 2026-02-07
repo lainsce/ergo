@@ -111,52 +111,29 @@ textfield:hover
   padding: 8 16
 
 searchfield
-  background: #2c2c2e
-  color: #f2f2f7
-
 .searchfield
   background: #2c2c2e
   color: #f2f2f7
 
 textview
-  background: #2c2c2e
-  color: #f2f2f7
-
 .textview
   background: #2c2c2e
   color: #f2f2f7
 
 textfield:selection
-  background: #3a3a3c
-
 .textfield:selection
   background: #3a3a3c
 
 textview:selection
-  background: #3a3a3c
-
 .textview:selection
   background: #3a3a3c
 
 dropdown
-  background: #2c2c2e
-  color: #f2f2f7
-
 .dropdown
   background: #2c2c2e
   color: #f2f2f7
 
 datepicker
-  background: #2c2c2e
-  color: #f2f2f7
-  border-radius: 12
-  min-width: 320
-  min-height: 320
-  padding: 16
-  box-shadow: [
-    0 1 3 0 #0000001f
-  ]
-
 .datepicker
   background: #2c2c2e
   color: #f2f2f7
@@ -169,12 +146,11 @@ datepicker
   ]
 
 datepicker:selection
-  background: #3a3a3c
-
 .datepicker:selection
   background: #3a3a3c
 
 slider
+.slider
   background: #938f99
   color: #d0bcff
   track-height: 4
@@ -187,25 +163,12 @@ slider:hover
 slider:active
   color: #b69df8
 
-.slider
-  background: #938f99
-  color: #d0bcff
-  track-height: 4
-  min-height: 48
-  min-width: 200
-
 stepper
-  background: #2c2c2e
-  color: #f2f2f7
-
 .stepper
   background: #2c2c2e
   color: #f2f2f7
 
 tabs
-  background: #2c2c2e
-  color: #f2f2f7
-
 .tabs
   background: #2c2c2e
   color: #f2f2f7
@@ -214,24 +177,16 @@ tabs:selection
   background: #3a3a3c
 
 segmented
-  background: #2c2c2e
-  color: #f2f2f7
-
 .segmented
   background: #2c2c2e
   color: #f2f2f7
 
 view-switcher
-  background: #1c1c1e
-  color: #f2f2f7
-
 .view-switcher
   background: #1c1c1e
   color: #f2f2f7
 
 progress
-  background: #3a3a3c
-
 .progress
   background: #3a3a3c
 
@@ -239,38 +194,20 @@ progress:selection
   background: #6b6b6f
 
 toasts
-  color: #f2f2f7
-
 .toasts
   color: #f2f2f7
 
 toast
-  background: #2c2c2e
-  color: #f2f2f7
-
 .toast
   background: #2c2c2e
   color: #f2f2f7
 
 treeview
-  background: #2c2c2e
-  color: #f2f2f7
-
 .treeview
   background: #2c2c2e
   color: #f2f2f7
 
 colorpicker
-  background: #2c2c2e
-  color: #f2f2f7
-  border-radius: 12
-  min-width: 320
-  min-height: 320
-  padding: 16
-  box-shadow: [
-    0 1 3 0 #0000001f
-  ]
-
 .colorpicker
   background: #2c2c2e
   color: #f2f2f7
@@ -283,14 +220,10 @@ colorpicker
   ]
 
 colorpicker:selection
-  background: #3a3a3c
-
 .colorpicker:selection
   background: #3a3a3c
 
 toolbar
-  background: #2c2c2e
-
 .toolbar
   background: #2c2c2e
 
@@ -312,29 +245,19 @@ label
   color: #f2f2f7
 
 .checkbox
-  color: #f2f2f7
-
 .radio
-  color: #f2f2f7
-
 checkbox
   color: #f2f2f7
 
 .checkbox:checked
-  background: #3a3a3c
-
 .radio:checked
   background: #3a3a3c
 
 .checkbox .check
-  color: #f2f2f7
-
 .radio .check
   color: #f2f2f7
 
 .checkbox:checked .check
-  color: #f2f2f7
-
 .radio:checked .check
   color: #f2f2f7
 
@@ -356,109 +279,66 @@ chip:checked
   color: #e8def8
 
 .checkbox .box
-  background: #2c2c2e
-  border-color: #3a3a3c
-
 .radio .box
   background: #2c2c2e
   border-color: #3a3a3c
 
 .checkbox:checked .box
-  background: #3a3a3c
-
 .radio:checked .box
   background: #3a3a3c
 
 .checkbox .box:hover
-  background: #3a3a3c
-
 .radio .box:hover
   background: #3a3a3c
 
 .checkbox .box:active
-  background: #3a3a3c
-
 .radio .box:active
   background: #3a3a3c
 
 .checkbox .check:hover
-  color: #ffffff
-
 .radio .check:hover
   color: #ffffff
 
 .checkbox .check:active
-  color: #ffffff
-
 .radio .check:active
   color: #ffffff
 
 .switch
-  color: #f2f2f7
-
 switch
   color: #f2f2f7
 
 .switch .track
-  background: #3a3a3c
-
 switch track
   background: #3a3a3c
 
 .switch:checked .track
-  background: #5a5a5f
-
 switch:checked track
   background: #5a5a5f
 
-.switch:checked .track:active
-  background: #5a5a5f
-
-switch:checked track:active
-  background: #5a5a5f
-
 .switch .track:hover
-  background: #4a4a4f
-
 switch track:hover
   background: #4a4a4f
 
 .switch .track:active
-  background: #5a5a5f
-
 switch track:active
   background: #5a5a5f
 
 .switch .knob
-  background: #ffffff
-
 switch knob
   background: #ffffff
 
 .switch .knob:hover
-  background: #f4f4f4
-
 switch knob:hover
   background: #f4f4f4
 
 .switch .knob:active
-  background: #e8e8e8
-
 switch knob:active
   background: #e8e8e8
 
 .monospace
-  color: #f2f2f7
-
 .tabular
-  color: #f2f2f7
-
 .title
-  color: #f2f2f7
-
 .subtitle
-  color: #f2f2f7
-
 .body
   color: #f2f2f7
 

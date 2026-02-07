@@ -294,8 +294,8 @@ static const char *get_error_tip(const char *msg) {
     if (strstr(msg, "stdr.ergo not found")) {
         return "The standard library is not installed. Set ERGO_STDLIB to the stdlib directory.";
     }
-    if (strstr(msg, "cogito.ergo not found")) {
-        return "Cogito library not found. Build cogito first or check cogito/_build/ directory.";
+    if (strstr(msg, "Cogito GUI framework not found")) {
+        return "Cogito is required for GUI applications. Run 'cd cogito && meson setup build && ninja -C build' to build it.";
     }
     if (strstr(msg, "missing entry() in init.ergo")) {
         return "Your main file needs an entry() function: 'entry() { ... }'.";
@@ -383,6 +383,12 @@ static const char *get_error_tip(const char *msg) {
     }
     if (strstr(msg, "C compiler failed")) {
         return "The C compiler encountered an error. Check the generated C code or your C compiler setup.";
+    }
+    if (strstr(msg, "cogito") && strstr(msg, "linker")) {
+        return "Cogito library linking failed. Ensure libcogito.dylib/so is in cogito/_build/ or cogito/build/.";
+    }
+    if (strstr(msg, "raylib") && (strstr(msg, "not found") || strstr(msg, "undefined"))) {
+        return "Raylib is required for Cogito GUI apps. Install it: 'brew install raylib' (macOS) or see docs.";
     }
     if (strstr(msg, "compile command too long")) {
         return "The compilation command exceeded the buffer size. Try moving files to a shorter path.";

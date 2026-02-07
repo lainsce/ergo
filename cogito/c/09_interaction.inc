@@ -205,7 +205,9 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
       n->kind == COGITO_DROPDOWN || n->kind == COGITO_SLIDER ||
       n->kind == COGITO_TABS || n->kind == COGITO_TOAST ||
       n->kind == COGITO_DATEPICKER || n->kind == COGITO_COLORPICKER ||
-      n->kind == COGITO_CHIP || n->kind == COGITO_FAB) {
+      n->kind == COGITO_CHIP || n->kind == COGITO_FAB ||
+      n->kind == COGITO_STEPPER || n->kind == COGITO_SEGMENTED ||
+      n->kind == COGITO_SEARCHFIELD) {
     if (cogito_hit_node(n, x, y)) return n;
   }
   return NULL;
@@ -229,6 +231,9 @@ static bool cogito_node_focusable(const CogitoNode* n) {
     #include "widgets/interaction/focusable/fab.inc"
     #include "widgets/interaction/focusable/nav_rail.inc"
     #include "widgets/interaction/focusable/bottom_nav.inc"
+    #include "widgets/interaction/focusable/stepper.inc"
+    #include "widgets/interaction/focusable/segmented.inc"
+    #include "widgets/interaction/focusable/searchfield.inc"
 
     default:
       return false;

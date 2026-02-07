@@ -86,6 +86,8 @@
 #undef cogito_progress_get_value
 #undef cogito_stepper_set_value
 #undef cogito_stepper_get_value
+#undef cogito_stepper_on_change
+#undef cogito_segmented_on_select
 #undef cogito_load_sum_file
 #undef cogito_label_set_wrap
 #undef cogito_label_set_ellipsis
@@ -1192,6 +1194,40 @@ static void __cogito_slider_on_change(ErgoVal slv, ErgoVal handler) {
   }
   cogito_set_handler(h, &h->on_change, handler);
   cogito_slider_on_change(sl, cogito_cb_change, h);
+}
+
+static void __cogito_stepper_set_value(ErgoVal stv, ErgoVal valuev) {
+  cogito_node* st = cogito_node_from_val(stv);
+  cogito_stepper_set_value(st, ergo_as_float(valuev));
+}
+
+static ErgoVal __cogito_stepper_get_value(ErgoVal stv) {
+  cogito_node* st = cogito_node_from_val(stv);
+  return EV_FLOAT(cogito_stepper_get_value(st));
+}
+
+static void __cogito_stepper_on_change(ErgoVal stv, ErgoVal handler) {
+  cogito_node* st = cogito_node_from_val(stv);
+  CogitoHandle* h = (CogitoHandle*)stv.as.p;
+  if (handler.tag != EVT_FN) {
+    cogito_set_handler(h, &h->on_change, handler);
+    cogito_stepper_on_change(st, NULL, NULL);
+    return;
+  }
+  cogito_set_handler(h, &h->on_change, handler);
+  cogito_stepper_on_change(st, cogito_cb_change, h);
+}
+
+static void __cogito_segmented_on_select(ErgoVal segv, ErgoVal handler) {
+  cogito_node* seg = cogito_node_from_val(segv);
+  CogitoHandle* h = (CogitoHandle*)segv.as.p;
+  if (handler.tag != EVT_FN) {
+    cogito_set_handler(h, &h->on_change, handler);
+    cogito_segmented_on_select(seg, NULL, NULL);
+    return;
+  }
+  cogito_set_handler(h, &h->on_change, handler);
+  cogito_segmented_on_select(seg, cogito_cb_change, h);
 }
 
 static void __cogito_tabs_set_items(ErgoVal tabsv, ErgoVal itemsv) {

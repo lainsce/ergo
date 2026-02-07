@@ -404,6 +404,8 @@ typedef struct CogitoNode {
   double stepper_max;
   double stepper_value;
   double stepper_step;
+  bool stepper_hit_minus;
+  bool stepper_hit_plus;
   int date_year;
   int date_month;
   int date_day;

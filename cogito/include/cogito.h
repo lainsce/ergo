@@ -185,6 +185,8 @@ double cogito_progress_get_value(cogito_node* prog);
 
 void cogito_stepper_set_value(cogito_node* stepper, double value);
 double cogito_stepper_get_value(cogito_node* stepper);
+void cogito_stepper_on_change(cogito_node* stepper, cogito_node_fn fn, void* user);
+void cogito_segmented_on_select(cogito_node* seg, cogito_node_fn fn, void* user);
 
 // Theming
 void cogito_load_sum_file(const char* path);

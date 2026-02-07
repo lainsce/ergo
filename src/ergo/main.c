@@ -122,11 +122,23 @@ static void print_usage(FILE *out) {
     fprintf(out, "  CC               C compiler to use (default: cc)\n");
     fprintf(out, "  ERGO_CC_FLAGS    Additional C compiler flags\n");
     fprintf(out, "  NO_COLOR         Set to disable colored output\n");
+    fprintf(out, "\n");
+    fprintf(out, "Cogito GUI Framework:\n");
+    fprintf(out, "  To build GUI applications with Cogito:\n");
+    fprintf(out, "    1. Build Cogito: cd cogito && meson setup build && ninja -C build\n");
+    fprintf(out, "    2. Add 'bring cogito;' to your init.ergo\n");
+    fprintf(out, "    3. Ensure raylib is installed (brew install raylib on macOS)\n");
+    fprintf(out, "\n");
+    fprintf(out, "  Cogito Environment Variables:\n");
+    fprintf(out, "    ERGO_COGITO_CFLAGS   Additional C flags for Cogito compilation\n");
+    fprintf(out, "    ERGO_COGITO_FLAGS    Additional linker flags for Cogito\n");
+    fprintf(out, "    ERGO_RAYLIB_CFLAGS   C flags for raylib (auto-detected on macOS/Linux)\n");
+    fprintf(out, "    ERGO_RAYLIB_FLAGS    Linker flags for raylib (auto-detected on macOS/Linux)\n");
 }
 
 static void print_version(void) {
     printf("ergo version %s\n", ERGO_VERSION);
-    printf("Copyright (c) 2024 Ergo Contributors\n");
+    printf("Copyright (c) 2026 Ergo Contributors\n");
 }
 
 static int is_flag(const char *arg, const char *flag) {

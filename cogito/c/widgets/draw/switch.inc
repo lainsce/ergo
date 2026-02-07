@@ -4,14 +4,12 @@ case COGITO_SWITCH: {
       cogito_node_hover_state(n, &hover, &active);
       int text_w = 0;
       if (n->text) text_w = cogito_text_width(n->text->data);
-      // Use intrinsic width unless hexpand is set
       int intrinsic_w = text_w + 40;
       int use_w = (n->hexpand && n->w > intrinsic_w) ? n->w : intrinsic_w;
       int track_w = use_w - (n->text ? (text_w + 8) : 0);
       if (track_w < 24) track_w = 24;
       if (n->min_w_set && track_w < n->min_w) track_w = n->min_w;
       if (n->max_w_set && n->max_w > 0 && track_w > n->max_w) track_w = n->max_w;
-      // Use intrinsic height unless vexpand is set
       int text_h = n->text ? cogito_text_height() : 0;
       int intrinsic_h = text_h + 4;
       if (intrinsic_h < 18) intrinsic_h = 18;
@@ -35,6 +33,10 @@ case COGITO_SWITCH: {
       }
       if (track_s.has_track_on) track_on = track_s.track_on;
       Color track = n->checked ? track_on : track_off;
+
+      // Animate track color
+      cogito_anim_apply(n, &track_s, &track, NULL, NULL, NULL);
+
       cogito_draw_rect(cx, cy, w, h, track, h / 2);
       int knob_w = h - 4;
       int knob_h = h - 4;
@@ -46,8 +48,11 @@ case COGITO_SWITCH: {
       if (knob_h < 4) knob_h = 4;
       if (knob_w > w - 4) knob_w = w - 4;
       if (knob_h > h - 2) knob_h = h - 2;
-      int knob = knob_w;
-      int kx = n->checked ? (cx + w - knob - 2) : (cx + 2);
+
+      // Animate knob position
+      int kx_target = n->checked ? (cx + w - knob_w - 2) : (cx + 2);
+      int kx = cogito_anim_int(n, kx_target, &n->anim_x, &n->anim_x_from, &n->anim_x_target, GetTime());
+
       int ky = cy + (h - knob_h) / 2;
       Color knob_col = n->knob_set ? n->knob_color : cogito_rgba(250, 250, 250, 255);
       if (knob_s.has_bg) knob_col = knob_s.bg;
@@ -64,4 +69,4 @@ case COGITO_SWITCH: {
       }
       break;
     }
-    
+

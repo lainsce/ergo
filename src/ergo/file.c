@@ -38,7 +38,7 @@ char *read_file_arena(const char *path, Arena *arena, size_t *out_len, Diag *err
             err->path = path;
             err->line = 0;
             err->col = 0;
-            err->message = "failed to open file";
+            err->message = "cannot open file (not found or no permission)";
         }
         return NULL;
     }
@@ -113,7 +113,7 @@ static char *read_file_malloc(const char *path, size_t *out_len, Diag *err) {
             err->path = path;
             err->line = 0;
             err->col = 0;
-            err->message = "failed to open file";
+            err->message = "cannot open file (not found or no permission)";
         }
         return NULL;
     }

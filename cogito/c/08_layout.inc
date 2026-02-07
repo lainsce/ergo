@@ -346,7 +346,7 @@ static void cogito_layout_hstack(CogitoNode* n, int x, int y) {
 static void cogito_layout_list(CogitoNode* n, int x, int y) {
   int pad = n->gap;
   int cy = y + n->padding_top;
-  int item_pad_x = 8;
+  int item_pad_x = 16;
   int item_pad_y = 12;
   int avail_w = n->w - n->padding_left - n->padding_right;
   for (size_t i = 0; i < n->len; i++) {
