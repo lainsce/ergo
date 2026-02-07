@@ -5,7 +5,7 @@ case COGITO_STEPPER: {
 
       Color bg = s.has_bg ? s.bg : n->bg;
       Color text_col = s.has_text ? s.text : n->text_color;
-      Color border_col = s.has_border ? s.border : cogito_rgba(200, 200, 200, 255);
+      Color border_col = s.has_border ? s.border : n->border_color;
       int border_w = s.has_border_width ? s.border_width : 1;
       int radius = s.has_radius ? s.radius : (n->h / 2);
       int size = cogito_node_font_size(n);
@@ -75,4 +75,3 @@ case COGITO_STEPPER: {
       cogito_draw_text_size_node(n, tx, ty, val_buf, text_col, size, false);
       break;
     }
-

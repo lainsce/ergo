@@ -35,7 +35,7 @@ case COGITO_TOAST: {
       if (text_w < 0) text_w = 0;
       cogito_draw_text_ellipsis(n, n->x + pad_x, ty, text_w, t, text, size, cogito_node_bold(n), 0);
       if (action_w > 0) {
-        Color action_color = s.has_selection ? s.selection : (Color){103, 80, 164, 255};
+        Color action_color = s.has_selection ? s.selection : (s.has_text ? s.text : n->selection_color);
         int action_x = n->x + pad_x + text_w + 24;
         int action_y = ty;
         cogito_draw_text_size_node(n, action_x, action_y, n->action_text->data, action_color, size, false);
@@ -75,4 +75,3 @@ case COGITO_TOAST: {
       }
       break;
     }
-    

@@ -39,7 +39,7 @@ case COGITO_DATEPICKER: {
       cogito_draw_text_size_node(n, right_x + (header_h / 2) - 4, arrow_y, ">", text, size, false);
       int first = cogito_weekday(n->date_year, n->date_month, 1);
       int dim = cogito_days_in_month(n->date_year, n->date_month);
-      Color sel = s.has_selection ? s.selection : (n->selection_set ? n->selection_color : cogito_rgba(114, 222, 194, 255));
+      Color sel = s.has_selection ? s.selection : n->selection_color;
       for (int day = 1; day <= dim; day++) {
         int idx = first + (day - 1);
         int row = idx / 7;
@@ -63,4 +63,3 @@ case COGITO_DATEPICKER: {
       }
       break;
     }
-    

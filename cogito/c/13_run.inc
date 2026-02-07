@@ -1,5 +1,7 @@
 CogitoNode* cogito_active_window = NULL;
 
+static CogitoNode* cogito_find_stepper_hit(CogitoNode* n, int x, int y);
+
 static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (appv.tag != EVT_OBJ) ergo_trap("cogito.run expects app");
   if (winv.tag != EVT_OBJ) ergo_trap("cogito.run expects window");
@@ -191,6 +193,13 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     Vector2 mp = GetMousePosition();
     int mx = (int)mp.x;
     int my = (int)mp.y;
+    
+    // Update stepper hit states for hover effects
+    CogitoNode* stepper_hit = cogito_find_stepper_hit(win, mx, my);
+    if (stepper_hit) {
+      cogito_stepper_hit_test(stepper_hit, mx, my);
+    }
+    
     float wheel = GetMouseWheelMove();
     bool click = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
     if (cogito_pointer_capture && IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
@@ -615,6 +624,18 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           } else if (hit->kind == COGITO_SEGMENTED) {
             cogito_segmented_click(hit, mx, my);
             cogito_window_relayout(win);
+          } else if (hit->kind == COGITO_NAV_RAIL) {
+            int idx = cogito_nav_rail_hit_index(hit, mx, my);
+            if (idx >= 0) {
+              cogito_handle_nav_rail_select(hit, idx);
+              cogito_window_relayout(win);
+            }
+          } else if (hit->kind == COGITO_BOTTOM_NAV) {
+            int idx = cogito_bottom_nav_hit_index(hit, mx, my);
+            if (idx >= 0) {
+              cogito_handle_bottom_nav_select(hit, idx);
+              cogito_window_relayout(win);
+            }
           }
         }
         if (slot && slot->dialog) {

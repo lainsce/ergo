@@ -6,7 +6,11 @@ case COGITO_WINDOW:
         if (n->dialog->kind == COGITO_DIALOG_SLOT) {
           cogito_draw_node(n->dialog);
         } else if (n->dialog_open) {
-          DrawRectangle(0, 0, n->w, n->h, cogito_rgba(0, 0, 0, 82));
+          bool hover = false, active = false;
+          cogito_node_hover_state(n, &hover, &active);
+          CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
+          Color scrim = s.has_bg ? s.bg : n->bg;
+          DrawRectangle(0, 0, n->w, n->h, scrim);
           cogito_draw_node(n->dialog);
         }
       }
@@ -15,4 +19,3 @@ case COGITO_WINDOW:
         cogito_draw_node(n->popover);
       }
       break;
-    

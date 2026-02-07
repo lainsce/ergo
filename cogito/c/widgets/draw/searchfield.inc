@@ -79,8 +79,7 @@ case COGITO_SEARCHFIELD: {
     if (a > b) { int tmp = a; a = b; b = tmp; }
     int sx = cogito_text_width_size_n_node(n, txt, a, size);
     int ex = cogito_text_width_size_n_node(n, txt, b, size);
-    Color sel = s.has_selection ? s.selection : cogito_rgba(103, 80, 164, 128);
-    sel.a = 100;
+    Color sel = s.has_selection ? s.selection : n->selection_color;
     int x0 = text_x + sx;
     int x1 = text_x + ex;
     if (x1 > x0 && x1 <= text_x + text_avail_w) {
@@ -114,4 +113,3 @@ case COGITO_SEARCHFIELD: {
   }
   break;
 }
-

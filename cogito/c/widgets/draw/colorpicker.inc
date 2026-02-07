@@ -23,7 +23,7 @@ case COGITO_COLORPICKER: {
       cogito_colorpicker_layout(n, NULL, NULL, NULL, NULL, &label_w, &row_h, &slider_h, &gap, &hex_x, &hex_y, &hex_w, &hex_h);
 
       Color text_col = s.has_text ? s.text : n->text_color;
-      Color accent = s.has_selection ? s.selection : cogito_rgba(103, 80, 164, 255);
+      Color accent = s.has_selection ? s.selection : n->selection_color;
       int track_h = s.has_track_height ? s.track_height : 4;
 
       int size = cogito_node_font_size(n);
@@ -87,7 +87,7 @@ case COGITO_COLORPICKER: {
 
       // Draw hex input field
       CogitoStyle hs = cogito_theme_resolve(COGITO_TEXTFIELD);
-      Color hex_bg = hs.has_bg ? hs.bg : cogito_rgba(245, 245, 245, 255);
+      Color hex_bg = hs.has_bg ? hs.bg : n->bg;
       Color hex_border = hs.has_border ? hs.border : cogito_rgba(0, 0, 0, 0);
       int hex_bw = hs.has_border_width ? hs.border_width : 0;
       int hex_radius = hs.has_radius ? hs.radius : 6;
@@ -145,4 +145,3 @@ case COGITO_COLORPICKER: {
       }
       break;
     }
-

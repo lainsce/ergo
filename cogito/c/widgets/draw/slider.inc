@@ -4,8 +4,8 @@ case COGITO_SLIDER: {
       bool active = false;
       cogito_node_hover_state(n, &hover, &active);
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
-      Color inactive_track = s.has_bg ? s.bg : cogito_rgba(200, 200, 204, 255);
-      Color active_track = s.has_text ? s.text : cogito_rgba(103, 80, 164, 255);
+      Color inactive_track = s.has_bg ? s.bg : (s.has_track ? s.track : n->bg);
+      Color active_track = s.has_text ? s.text : (s.has_knob ? s.knob : n->text_color);
 
       int track_h = n->track_height_set ? n->track_height : (s.has_track_height ? s.track_height : 4);
       int thumb_w = 8;
@@ -56,4 +56,3 @@ case COGITO_SLIDER: {
       cogito_draw_rect(thumb_left, cy - thumb_h / 2, thumb_w, thumb_h, active_track, thumb_r);
       break;
     }
-

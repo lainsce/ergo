@@ -18,7 +18,7 @@ case COGITO_TEXTVIEW: {
         }
       }
       if (cogito_focused == n && !n->disabled) {
-        Color focus = s.has_selection ? s.selection : (n->selection_set ? n->selection_color : cogito_rgba(120, 160, 220, 255));
+        Color focus = s.has_selection ? s.selection : n->selection_color;
         cogito_draw_rect_lines(n->x, n->y, n->w, n->h, focus, radius, border_w > 0 ? border_w : 2);
       }
       int pad = 8;
@@ -37,7 +37,7 @@ case COGITO_TEXTVIEW: {
         int idx = 0;
         int line_h = cogito_text_height_size(size);
         int cy = n->y + pad;
-        Color sel = s.has_selection ? s.selection : (n->selection_set ? n->selection_color : cogito_rgba(200, 220, 250, 255));
+        Color sel = s.has_selection ? s.selection : n->selection_color;
         while (idx < len) {
           int line_start = idx;
           int line_len = 0;
@@ -92,7 +92,7 @@ case COGITO_TEXTVIEW: {
         int idx2 = 0;
         int line_h2 = cogito_text_height_size(size);
         int cy2 = n->y + pad;
-        Color sel2 = s.has_selection ? s.selection : (n->selection_set ? n->selection_color : cogito_rgba(200, 220, 250, 255));
+        Color sel2 = s.has_selection ? s.selection : n->selection_color;
         Color sel_text = cogito_on_color(sel2);
         while (idx2 < len2) {
           int line_start2 = idx2;
@@ -190,4 +190,3 @@ case COGITO_TEXTVIEW: {
       }
       break;
     }
-    

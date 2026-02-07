@@ -25,8 +25,8 @@ case COGITO_SWITCH: {
       bool down = active;
       CogitoStyle track_s = cogito_switch_track_style(n->checked, over, down);
       CogitoStyle knob_s = cogito_switch_knob_style(n->checked, over, down);
-      Color track_off = n->track_set ? n->track_color : cogito_rgba(170, 170, 170, 255);
-      Color track_on = n->track_on_set ? n->track_on_color : cogito_rgba(90, 160, 110, 255);
+      Color track_off = n->track_set ? n->track_color : (track_s.has_track ? track_s.track : n->bg);
+      Color track_on = n->track_on_set ? n->track_on_color : (track_s.has_track ? track_s.track : n->bg);
       if (track_s.has_bg) {
         track_off = track_s.bg;
         track_on = track_s.bg;
@@ -54,9 +54,7 @@ case COGITO_SWITCH: {
       int kx = cogito_anim_int(n, kx_target, &n->anim_x, &n->anim_x_from, &n->anim_x_target, GetTime());
 
       int ky = cy + (h - knob_h) / 2;
-      Color knob_col = n->knob_set ? n->knob_color : cogito_rgba(250, 250, 250, 255);
-      if (knob_s.has_bg) knob_col = knob_s.bg;
-      else if (knob_s.has_knob) knob_col = knob_s.knob;
+      Color knob_col = n->knob_set ? n->knob_color : (knob_s.has_knob ? knob_s.knob : (knob_s.has_bg ? knob_s.bg : n->bg));
       cogito_draw_rect(kx, ky, knob_w, knob_h, knob_col, knob_h / 2);
       if (n->text) {
         CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
@@ -69,4 +67,3 @@ case COGITO_SWITCH: {
       }
       break;
     }
-

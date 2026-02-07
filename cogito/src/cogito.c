@@ -171,6 +171,9 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_node_set_id cogito_node_set_id_ergo
 #define cogito_load_sum cogito_load_sum_ergo
 #define cogito_load_sum_file cogito_load_sum_file_ergo
+#define cogito_dialog_close cogito_dialog_close_ergo
+#define cogito_dialog_remove cogito_dialog_remove_ergo
+#define cogito_node_parent cogito_node_parent_ergo
 
 // Internal engine (same order as previous runtime include).
 #include "../c/00_core.inc"
@@ -328,27 +331,23 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_stepper_get_value
 #undef cogito_load_sum
 #undef cogito_load_sum_file
+#undef cogito_dialog_close
+#undef cogito_dialog_remove
+#undef cogito_node_parent
 
 #include "cogito.h"
 
-// Public C API implementations for node hierarchy (access struct fields directly)
+// Public C API implementations for node hierarchy (use internal functions)
 cogito_node* cogito_node_get_parent(cogito_node* node) {
-  if (!node) return NULL;
-  CogitoNode* n = (CogitoNode*)node;
-  return (cogito_node*)n->parent;
+  return (cogito_node*)cogito_node_get_parent_internal((CogitoNode*)node);
 }
 
 size_t cogito_node_get_child_count(cogito_node* node) {
-  if (!node) return 0;
-  CogitoNode* n = (CogitoNode*)node;
-  return n->len;
+  return cogito_node_get_child_count_internal((CogitoNode*)node);
 }
 
 cogito_node* cogito_node_get_child(cogito_node* node, size_t index) {
-  if (!node) return NULL;
-  CogitoNode* n = (CogitoNode*)node;
-  if (index >= n->len) return NULL;
-  return (cogito_node*)n->children[index];
+  return (cogito_node*)cogito_node_get_child_internal((CogitoNode*)node, index);
 }
 
 static cogito_node* cogito_from_val(ErgoVal v);
@@ -674,13 +673,11 @@ void cogito_node_set_valign(cogito_node* node, int align) {
 }
 
 void cogito_node_set_hexpand(cogito_node* node, bool expand) {
-  if (!node) return;
-  node->hexpand = expand;
+  cogito_container_set_hexpand(EV_OBJ(node), EV_BOOL(expand));
 }
 
 void cogito_node_set_vexpand(cogito_node* node, bool expand) {
-  if (!node) return;
-  node->vexpand = expand;
+  cogito_container_set_vexpand(EV_OBJ(node), EV_BOOL(expand));
 }
 
 void cogito_node_set_gap(cogito_node* node, int gap) {
@@ -979,9 +976,8 @@ void cogito_stepper_set_value(cogito_node* stepper, double value) {
 }
 
 double cogito_stepper_get_value(cogito_node* stepper) {
-  if (!stepper) return 0.0;
-  CogitoNode* n = (CogitoNode*)stepper;
-  return n->stepper_value;
+  ErgoVal v = cogito_stepper_get_value_ergo(EV_OBJ(stepper));
+  return ergo_as_float(v);
 }
 
 void cogito_stepper_on_change(cogito_node* stepper, cogito_node_fn fn, void* user) {
@@ -1450,4 +1446,96 @@ cogito_window* cogito_node_window(cogito_node* node) {
   if (!node) return NULL;
   ErgoVal v = cogito_node_window_val_ergo(EV_OBJ(node));
   return v.tag == EVT_OBJ ? (cogito_window*)v.as.p : NULL;
+}
+
+void cogito_toast_set_action(cogito_node* toast, const char* action_text, cogito_node_fn fn, void* user) {
+  if (!toast) return;
+  ErgoVal tv = cogito_val_from_cstr(action_text);
+  ErgoVal handler = EV_NULLV;
+  if (fn) {
+    CogitoCbNode* env = (CogitoCbNode*)calloc(1, sizeof(*env));
+    env->fn = fn;
+    env->user = user;
+    ErgoFn* wrap = cogito_make_fn(cogito_cb_node, env);
+    handler = EV_FN(wrap);
+  }
+  cogito_toast_set_action_ergo(EV_OBJ(toast), tv, handler);
+  if (tv.tag == EVT_STR) ergo_release_val(tv);
+  if (handler.tag == EVT_FN) ergo_release_val(handler);
+}
+
+void cogito_nav_rail_set_items(cogito_node* rail, const char** labels, const char** icons, size_t count) {
+  if (!rail) return;
+  ErgoArr* labels_arr = ergo_arr_new(count);
+  ErgoArr* icons_arr = ergo_arr_new(count);
+  if (labels_arr) labels_arr->len = count;
+  if (icons_arr) icons_arr->len = count;
+  for (size_t i = 0; i < count; i++) {
+    ErgoVal lv = cogito_val_from_cstr(labels[i]);
+    ergo_arr_set(labels_arr, i, lv);
+    if (icons && icons[i]) {
+      ErgoVal iv = cogito_val_from_cstr(icons[i]);
+      ergo_arr_set(icons_arr, i, iv);
+    }
+  }
+  cogito_nav_rail_set_items_ergo(EV_OBJ(rail), EV_ARR(labels_arr), EV_ARR(icons_arr));
+  ergo_release_val(EV_ARR(labels_arr));
+  ergo_release_val(EV_ARR(icons_arr));
+}
+
+int cogito_nav_rail_get_selected(cogito_node* rail) {
+  if (!rail) return -1;
+  ErgoVal v = cogito_nav_rail_get_selected_ergo(EV_OBJ(rail));
+  return (int)ergo_as_int(v);
+}
+
+void cogito_nav_rail_set_selected(cogito_node* rail, int idx) {
+  if (!rail) return;
+  cogito_nav_rail_set_selected_ergo(EV_OBJ(rail), EV_INT(idx));
+}
+
+void cogito_bottom_nav_set_items(cogito_node* nav, const char** labels, const char** icons, size_t count) {
+  if (!nav) return;
+  ErgoArr* labels_arr = ergo_arr_new(count);
+  ErgoArr* icons_arr = ergo_arr_new(count);
+  if (labels_arr) labels_arr->len = count;
+  if (icons_arr) icons_arr->len = count;
+  for (size_t i = 0; i < count; i++) {
+    ErgoVal lv = cogito_val_from_cstr(labels[i]);
+    ergo_arr_set(labels_arr, i, lv);
+    if (icons && icons[i]) {
+      ErgoVal iv = cogito_val_from_cstr(icons[i]);
+      ergo_arr_set(icons_arr, i, iv);
+    }
+  }
+  cogito_bottom_nav_set_items_ergo(EV_OBJ(nav), EV_ARR(labels_arr), EV_ARR(icons_arr));
+  ergo_release_val(EV_ARR(labels_arr));
+  ergo_release_val(EV_ARR(icons_arr));
+}
+
+int cogito_bottom_nav_get_selected(cogito_node* nav) {
+  if (!nav) return -1;
+  ErgoVal v = cogito_bottom_nav_get_selected_ergo(EV_OBJ(nav));
+  return (int)ergo_as_int(v);
+}
+
+void cogito_bottom_nav_set_selected(cogito_node* nav, int idx) {
+  if (!nav) return;
+  cogito_bottom_nav_set_selected_ergo(EV_OBJ(nav), EV_INT(idx));
+}
+
+void cogito_dialog_close(cogito_node* dialog) {
+  if (!dialog) return;
+  cogito_dialog_close_ergo(EV_OBJ(dialog));
+}
+
+void cogito_dialog_remove(cogito_node* dialog) {
+  if (!dialog) return;
+  cogito_dialog_remove_ergo(EV_OBJ(dialog));
+}
+
+cogito_node* cogito_node_parent(cogito_node* node) {
+  if (!node) return NULL;
+  ErgoVal v = cogito_node_parent_ergo(EV_OBJ(node));
+  return v.tag == EVT_OBJ ? (cogito_node*)v.as.p : NULL;
 }

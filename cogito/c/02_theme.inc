@@ -530,6 +530,8 @@ static void cogito_apply_style_to_node(CogitoNode* n) {
     if (s.has_margin_right) n->margin_right = s.margin_right;
     if (s.has_margin_bottom) n->margin_bottom = s.margin_bottom;
   }
+  if (s.has_opacity) { n->opacity = s.opacity; n->opacity_set = true; }
+  else { n->opacity_set = false; n->opacity = 1.0f; }
 }
 
 static void cogito_apply_style_tree(CogitoNode* n) {

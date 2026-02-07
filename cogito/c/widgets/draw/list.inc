@@ -17,15 +17,16 @@ case COGITO_LIST: {
         }
       }
       bool has_selection = n->selected >= 0 && (size_t)n->selected < n->len;
+      Color sel_bg = s.has_selection ? s.selection : n->selection_color;
       if (has_selection) {
         CogitoNode* sel = n->children[n->selected];
-        cogito_draw_rect(sel->x, sel->y, sel->w, sel->h, n->selection_color, 0);
+        cogito_draw_rect(sel->x, sel->y, sel->w, sel->h, sel_bg, 0);
       }
       for (size_t i = 0; i < n->len; i++) {
         CogitoNode* c = n->children[i];
         if (has_selection && (size_t)n->selected == i) {
           cogito_has_selection_text = true;
-          cogito_selection_text = cogito_on_color(n->selection_color);
+          cogito_selection_text = cogito_on_color(sel_bg);
           cogito_draw_node(c);
           cogito_has_selection_text = false;
         } else {
@@ -34,4 +35,3 @@ case COGITO_LIST: {
       }
       break;
     }
-

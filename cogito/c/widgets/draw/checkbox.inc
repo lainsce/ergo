@@ -18,15 +18,16 @@ case COGITO_CHECKBOX: {
       bool down = active;
       bool is_radio = (n->group.tag != EVT_NULL);
       CogitoStyle box_style = cogito_checkbox_box_style(is_radio, n->checked, over, down);
+      CogitoStyle check_style = cogito_checkbox_check_style(is_radio, n->checked, over, down);
       Color resolved_text = s.has_text ? s.text : n->text_color;
 
       // Get box colors
-      Color box_bg = box_style.has_bg ? box_style.bg : cogito_rgba(0, 0, 0, 0);
+      Color box_bg = box_style.has_bg ? box_style.bg : n->bg;
       Color box_border = box_style.has_border ? box_style.border : resolved_text;
       int box_border_w = box_style.has_border_width ? box_style.border_width : 0;
 
-      // Check mark color: contrast against box background if checked, or use text color
-      Color check = n->checked ? cogito_on_color(box_bg) : resolved_text;
+      // Check mark color from theme, fallback to contrast against box background or text color
+      Color check = check_style.has_check ? check_style.check : (n->checked ? cogito_on_color(box_bg) : resolved_text);
 
       if (is_radio) {
         int box_r = box_style.has_radius ? box_style.radius : (box / 2);
@@ -83,4 +84,3 @@ case COGITO_CHECKBOX: {
       }
       break;
     }
-

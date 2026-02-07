@@ -454,6 +454,7 @@ typedef struct CogitoNode {
   float opacity_from;
   float opacity_target;
   bool has_opacity;
+  bool opacity_set;
   double progress_value;
   bool margin_set;
   bool padding_set;
@@ -796,6 +797,8 @@ static int cogito_anim_int(CogitoNode* n, int target, int* cur, int* from, int* 
   return *cur;
 }
 
+static Color cogito_apply_opacity(Color c, float opacity);
+
 static float cogito_anim_float(CogitoNode* n, float target, float* cur, float* from, float* tgt, double now) {
   if (!n) return target;
   if (!n->anim_inited) {
@@ -824,24 +827,40 @@ static float cogito_anim_float(CogitoNode* n, float target, float* cur, float* f
   return *cur;
 }
 
-__attribute__((unused))
-static void cogito_anim_apply(CogitoNode* n, const CogitoStyle* s, Color* bg, Color* text, Color* border, Color* selection) {
-  if (!n || !s) return;
-  if (s->has_transition_ms) n->anim_ms = s->transition_ms;
-  if (s->has_transition_ease) n->anim_ease = s->transition_ease;
-  double now = GetTime();
-  if (bg) *bg = cogito_anim_color(n, *bg, &n->anim_bg, &n->anim_bg_from, &n->anim_bg_target, now);
-  if (text) *text = cogito_anim_color(n, *text, &n->anim_text, &n->anim_text_from, &n->anim_text_target, now);
-  if (border) *border = cogito_anim_color(n, *border, &n->anim_border, &n->anim_border_from, &n->anim_border_target, now);
-  if (selection) *selection = cogito_anim_color(n, *selection, &n->anim_selection, &n->anim_selection_from, &n->anim_selection_target, now);
-}
-
 // Apply opacity to a color by multiplying its alpha channel
 static Color cogito_apply_opacity(Color c, float opacity) {
   if (opacity >= 1.0f) return c;
   if (opacity <= 0.0f) return (Color){c.r, c.g, c.b, 0};
   c.a = (unsigned char)((float)c.a * opacity);
   return c;
+}
+
+static void cogito_anim_apply(CogitoNode* n, const CogitoStyle* s, Color* bg, Color* text, Color* border, Color* selection) {
+  if (!n || !s) return;
+  if (s->has_transition_ms) n->anim_ms = s->transition_ms;
+  if (s->has_transition_ease) n->anim_ease = s->transition_ease;
+  double now = GetTime();
+  // Animate opacity if set
+  float opacity = n->opacity;
+  if (n->opacity_set) {
+    opacity = cogito_anim_float(n, n->opacity, &n->opacity, &n->opacity_from, &n->opacity_target, now);
+  }
+  if (bg) {
+    *bg = cogito_anim_color(n, *bg, &n->anim_bg, &n->anim_bg_from, &n->anim_bg_target, now);
+    *bg = cogito_apply_opacity(*bg, opacity);
+  }
+  if (text) {
+    *text = cogito_anim_color(n, *text, &n->anim_text, &n->anim_text_from, &n->anim_text_target, now);
+    *text = cogito_apply_opacity(*text, opacity);
+  }
+  if (border) {
+    *border = cogito_anim_color(n, *border, &n->anim_border, &n->anim_border_from, &n->anim_border_target, now);
+    *border = cogito_apply_opacity(*border, opacity);
+  }
+  if (selection) {
+    *selection = cogito_anim_color(n, *selection, &n->anim_selection, &n->anim_selection_from, &n->anim_selection_target, now);
+    *selection = cogito_apply_opacity(*selection, opacity);
+  }
 }
 
 static void cogito_style_clear(CogitoStyle* s) {

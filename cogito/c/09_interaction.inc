@@ -599,8 +599,11 @@ static void cogito_container_set_vexpand(ErgoVal nodev, ErgoVal expandv) {
 static void cogito_container_set_gap(ErgoVal nodev, ErgoVal gapv) {
   if (nodev.tag != EVT_OBJ) ergo_trap("cogito.container_set_gap expects object");
   CogitoNode* node = (CogitoNode*)nodev.as.p;
+
   node->gap = (int)ergo_as_int(gapv);
+  cogito_window_relayout(cogito_node_window(node));
 }
+
 
 static void cogito_container_set_padding(ErgoVal nodev, ErgoVal left, ErgoVal top, ErgoVal right, ErgoVal bottom) {
   if (nodev.tag != EVT_OBJ) ergo_trap("cogito.container_set_padding expects object");

@@ -11,7 +11,7 @@ case COGITO_TABS: {
       Color text = n->text_color;
       if (cogito_has_selection_text) text = cogito_selection_text;
       else if (s.has_text) text = s.text;
-      Color sel = s.has_selection ? s.selection : cogito_rgba(220, 220, 220, 255);
+      Color sel = s.has_selection ? s.selection : n->selection_color;
       int size = cogito_node_font_size(n);
       int th = cogito_text_height_size(size);
       int pad_x = 12;
@@ -42,4 +42,3 @@ case COGITO_TABS: {
       }
       break;
     }
-    

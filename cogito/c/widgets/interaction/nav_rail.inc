@@ -102,7 +102,7 @@ static int cogito_nav_rail_hit_index(CogitoNode* n, int x, int y) {
   return -1;
 }
 
-static CogitoNode* cogito_find_nav_rail_hit(CogitoNode* n, int x, int y, int* out_idx) {
+static inline CogitoNode* cogito_find_nav_rail_hit(CogitoNode* n, int x, int y, int* out_idx) {
   if (!n) return NULL;
   if (n->kind == COGITO_NAV_RAIL) {
     int idx = cogito_nav_rail_hit_index(n, x, y);

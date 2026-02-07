@@ -2576,6 +2576,23 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_container_set_gap")) {
+                        GenExpr node, gap;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &gap, err)) { gen_expr_free(&node); return false; }
+                        w_line(&cg->w, "cogito_container_set_gap(%s, %s);", node.tmp, gap.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", gap.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_release_except(cg, &gap, gap.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_free(&gap);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_dialog_slot_show")) {
                         GenExpr slot, dialog;
                         if (!gen_expr(cg, path, e->as.call.args[0], &slot, err)) return false;

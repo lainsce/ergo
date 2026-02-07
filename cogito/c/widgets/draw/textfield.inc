@@ -18,7 +18,7 @@ case COGITO_TEXTFIELD: {
         }
       }
       if (cogito_focused == n && !n->disabled) {
-        Color focus = s.has_selection ? s.selection : (n->selection_set ? n->selection_color : cogito_rgba(120, 160, 220, 255));
+        Color focus = s.has_selection ? s.selection : n->selection_color;
         cogito_draw_rect_lines(n->x, n->y, n->w, n->h, focus, radius, border_w > 0 ? border_w : 2);
       }
       int pad = 8;
@@ -41,7 +41,7 @@ case COGITO_TEXTFIELD: {
         if (x0 < n->x + pad) x0 = n->x + pad;
         if (x1 > max_x) x1 = max_x;
         if (x1 > x0) {
-          Color sel = s.has_selection ? s.selection : (n->selection_set ? n->selection_color : cogito_rgba(200, 220, 250, 255));
+          Color sel = s.has_selection ? s.selection : n->selection_color;
           cogito_draw_rect(x0, ty, x1 - x0, th, sel, 2);
         }
       }
@@ -54,7 +54,7 @@ case COGITO_TEXTFIELD: {
         if (a2 < 0) a2 = 0;
         if (b2 > len2) b2 = len2;
         if (b2 > a2) {
-          Color sel2 = s.has_selection ? s.selection : (n->selection_set ? n->selection_color : cogito_rgba(200, 220, 250, 255));
+          Color sel2 = s.has_selection ? s.selection : n->selection_color;
           Color sel_text = cogito_on_color(sel2);
           int sx2 = cogito_text_width_size_n_node(n, t, a2, size);
           char sbuf[1024];
@@ -76,4 +76,3 @@ case COGITO_TEXTFIELD: {
       }
       break;
     }
-    

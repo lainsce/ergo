@@ -3,8 +3,8 @@ case COGITO_PROGRESS: {
       bool active = false;
       cogito_node_hover_state(n, &hover, &active);
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
-      Color track = s.has_bg ? s.bg : (n->bg_set ? n->bg : cogito_rgba(210, 210, 210, 255));
-      Color fill = s.has_selection ? s.selection : (s.has_text ? s.text : cogito_rgba(120, 160, 220, 255));
+      Color track = s.has_bg ? s.bg : (n->bg_set ? n->bg : (s.has_track ? s.track : n->bg));
+      Color fill = s.has_selection ? s.selection : (s.has_text ? s.text : (s.has_knob ? s.knob : n->text_color));
       int radius = s.has_radius ? s.radius : n->border_radius;
       double t = n->progress_value;
       if (t < 0.0) t = 0.0;
@@ -16,4 +16,3 @@ case COGITO_PROGRESS: {
       }
       break;
     }
-    

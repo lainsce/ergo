@@ -209,6 +209,8 @@ void cogito_appbar_set_controls(cogito_node* appbar, const char* layout);
 // Dialog helpers
 void cogito_dialog_slot_show(cogito_node* slot, cogito_node* dialog);
 void cogito_dialog_slot_clear(cogito_node* slot);
+void cogito_dialog_close(cogito_node* dialog);
+void cogito_dialog_remove(cogito_node* dialog);
 void cogito_window_set_dialog(cogito_window* window, cogito_node* dialog);
 void cogito_window_clear_dialog(cogito_window* window);
 
@@ -255,5 +257,6 @@ void cogito_toast_set_action(cogito_node* toast, const char* action_text, cogito
 // Node/window helpers
 cogito_window* cogito_node_window(cogito_node* node);
 cogito_node* cogito_node_get_parent(cogito_node* node);
+cogito_node* cogito_node_parent(cogito_node* node);
 size_t cogito_node_get_child_count(cogito_node* node);
 cogito_node* cogito_node_get_child(cogito_node* node, size_t index);

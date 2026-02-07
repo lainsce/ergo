@@ -40,6 +40,20 @@ static void cogito_stepper_hit_test(CogitoNode* n, int mx, int my) {
   n->stepper_hit_minus = cogito_hit_rect(mx, my, n->x, n->y, btn_w, n->h);
   n->stepper_hit_plus = cogito_hit_rect(mx, my, n->x + n->w - btn_w, n->y, btn_w, n->h);
 }
+
+static CogitoNode* cogito_find_stepper_hit(CogitoNode* n, int x, int y) {
+  if (!n) return NULL;
+  if (n->kind == COGITO_STEPPER) {
+    if (x >= n->x && x < n->x + n->w && y >= n->y && y < n->y + n->h) {
+      return n;
+    }
+  }
+  for (size_t i = 0; i < n->len; i++) {
+    CogitoNode* hit = cogito_find_stepper_hit(n->children[i], x, y);
+    if (hit) return hit;
+  }
+  return NULL;
+}
 static void cogito_stepper_click(CogitoNode* n, int mx, int my) {
   int btn_w = n->h;
   bool hit_minus = cogito_hit_rect(mx, my, n->x, n->y, btn_w, n->h);
