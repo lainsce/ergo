@@ -2884,19 +2884,6 @@ bool typecheck_program(Program *prog, Arena *arena, Diag *err) {
                         Binding b = { pty, pp->is_mut, false };
                         locals_define(&loc, pp->name, b);
                     }
-                    Ty *ret_ty = md->ret.is_void ? ty_void(env->arena) : NULL;
-                    if (!md->ret.is_void) {
-                        if (md->ret.types_len == 1) {
-                            ret_ty = ty_from_type_ref(env, md->ret.types[0], mod_name, imports, imports_len, err);
-                        } else {
-                            size_t rn = md->ret.types_len;
-                            Ty **items = (Ty **)arena_array(env->arena, rn, sizeof(Ty *));
-                            for (size_t r = 0; r < rn; r++) {
-                                items[r] = ty_from_type_ref(env, md->ret.types[r], mod_name, imports, imports_len, err);
-                            }
-                            ret_ty = ty_tuple(env->arena, items, rn);
-                        }
-                    }
                     locals_free(&loc);
                 }
             } else if (d->kind == DECL_ENTRY) {
