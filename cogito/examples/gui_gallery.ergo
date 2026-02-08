@@ -254,11 +254,23 @@ fun build_dialogs_view() (( cogito.VStack )) {
     subtitle.set_class(@"subtitle")
     vstack.add(subtitle)
 
-    -- Use a dialog slot to manage dialogs
+    let show_btn = cogito.button(@"Show Dialog")
+    vstack.add(show_btn)
+
+    let toast_btn = cogito.button(@"Show Toast")
+    vstack.add(toast_btn)
+
     let slot = cogito.dialog_slot()
     vstack.add(slot)
 
-    let show_btn = cogito.button(@"Show Dialog")
+    let toast_container = cogito.toasts()
+    vstack.add(toast_container)
+
+    toast_btn.on_click((b = cogito.Button) => {
+        let t = cogito.toast(@"Hello from toast!")
+        toast_container.add(t)
+    })
+
     show_btn.on_click((b = cogito.Button) => {
         let dlg = cogito.dialog(@"Example Dialog")
         
@@ -285,17 +297,6 @@ fun build_dialogs_view() (( cogito.VStack )) {
         dlg.add(content)
         slot.show(dlg)
     })
-    vstack.add(show_btn)
-
-    let toast_container = cogito.toasts()
-    vstack.add(toast_container)
-
-    let toast_btn = cogito.button(@"Show Toast")
-    toast_btn.on_click((b = cogito.Button) => {
-        let t = cogito.toast(@"Hello from toast!")
-        toast_container.add(t)
-    })
-    vstack.add(toast_btn)
 
     return vstack
 }
