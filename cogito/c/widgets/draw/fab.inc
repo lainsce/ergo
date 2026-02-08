@@ -7,7 +7,7 @@ case COGITO_FAB: {
   int radius = n->fab_extended ? 16 : (n->h / 2);
 
   // Animate colors
-  cogito_anim_apply(n, &s, &bg, NULL, NULL, NULL);
+  // cogito_anim_apply(n, &s, &bg, NULL, NULL, NULL);
 
   // Draw box shadow (elevation)
   if (s.has_box_shadow && s.box_shadow.blur > 0) {

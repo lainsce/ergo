@@ -218,6 +218,25 @@ static CogitoStyle cogito_theme_resolve_node(const CogitoNode* n) {
       s = cogito_style_merge(&s, &cogito_theme.appbar_child_iconbtn);
     }
   }
+  // Apply custom class styles if class_name is set
+  if (n->class_name && n->class_name->data && n->class_name->len > 0) {
+    // Preserve window background color - custom classes should not override it
+    bool is_window = (n->kind == COGITO_WINDOW);
+    Color saved_bg = s.bg;
+    bool saved_has_bg = s.has_bg;
+    for (int i = 0; i < cogito_theme.custom_class_count; i++) {
+      // Match both class name and widget kind
+      if (strcmp(cogito_theme.custom_classes[i].name, n->class_name->data) == 0 &&
+          cogito_theme.custom_classes[i].kind == n->kind) {
+        s = cogito_style_merge(&s, &cogito_theme.custom_classes[i].style);
+      }
+    }
+    // Restore window background if it was overridden by custom class
+    if (is_window && saved_has_bg) {
+      s.bg = saved_bg;
+      s.has_bg = saved_has_bg;
+    }
+  }
   return s;
 }
 
@@ -357,6 +376,22 @@ static CogitoStyle cogito_theme_resolve_node_state(const CogitoNode* n, bool hov
     if (!cogito_node_disabled(n)) {
       if (active) s = cogito_style_merge(&s, &cogito_theme.button_text_active);
       else if (hover) s = cogito_style_merge(&s, &cogito_theme.button_text_hover);
+    }
+  }
+  // Apply custom class state variants
+  if (n->class_name && n->class_name->data && n->class_name->len > 0) {
+    for (int i = 0; i < cogito_theme.custom_class_count; i++) {
+      if (strcmp(cogito_theme.custom_classes[i].name, n->class_name->data) == 0 &&
+          cogito_theme.custom_classes[i].kind == n->kind) {
+        if (checked) s = cogito_style_merge(&s, &cogito_theme.custom_classes[i].checked);
+        if (cogito_node_disabled(n)) {
+          s = cogito_style_merge(&s, &cogito_theme.custom_classes[i].disabled);
+        } else {
+          if (active) s = cogito_style_merge(&s, &cogito_theme.custom_classes[i].active);
+          else if (hover) s = cogito_style_merge(&s, &cogito_theme.custom_classes[i].hover);
+        }
+        break; // Found the matching custom class
+      }
     }
   }
   if (checked) s = cogito_style_merge(&s, &cogito_theme.per_kind_checked[n->kind]);
@@ -748,12 +783,12 @@ static void cogito_appbar_row_positions(
 
   if (has_title) {
     y_title = cursor_y;
-    cursor_y += title_h + 6;
+    cursor_y += title_h + 12;
   }
 
   if (has_subtitle) {
     y_subtitle = cursor_y;
-    cursor_y += subtitle_h + 6;
+    cursor_y += subtitle_h + 12;
   }
 
   int y_child = 0;

@@ -11,7 +11,7 @@ case COGITO_STEPPER: {
       int size = cogito_node_font_size(n);
 
       // Animated colors
-      cogito_anim_apply(n, &s, &bg, &text_col, &border_col, NULL);
+      // cogito_anim_apply(n, &s, &bg, &text_col, &border_col, NULL);
 
       // Draw outer capsule
       cogito_draw_rect(n->x, n->y, n->w, n->h, bg, radius);

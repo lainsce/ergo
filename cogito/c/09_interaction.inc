@@ -735,6 +735,13 @@ static void cogito_node_set_class(ErgoVal nodev, ErgoVal classv) {
     temp = true;
   }
   const char* s = cs ? cs->data : "";
+  
+  // Clear old class name
+  if (n->class_name) {
+    ergo_release_val(EV_STR(n->class_name));
+    n->class_name = NULL;
+  }
+  
   n->font_mono = false;
   n->font_tabular = false;
   n->button_outlined = false;
@@ -755,6 +762,13 @@ static void cogito_node_set_class(ErgoVal nodev, ErgoVal classv) {
       n->button_outlined = true;
     } else if (strcmp(s, "text") == 0) {
       n->button_text = true;
+    } else {
+      // Store custom class name
+      if (cs) {
+        n->class_name = cs;
+        ergo_retain_val(EV_STR(cs));
+        temp = false; // Don't release if we retained it
+      }
     }
   }
   if (temp && cs) ergo_release_val(EV_STR(cs));

@@ -272,7 +272,7 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->shadow_set = false;
   n->bg = cogito_rgba(0, 0, 0, 0);
   n->text_color = cogito_rgba(30, 30, 30, 255);
-  n->border_color = cogito_rgba(0, 0, 0, 0);
+  n->border_color = cogito_rgba(25, 25, 25, 255);
   n->selection_color = cogito_rgba(208, 220, 245, 255);
   n->track_color = cogito_rgba(170, 170, 170, 255);
   n->track_on_color = cogito_rgba(90, 160, 110, 255);
@@ -454,8 +454,7 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
     case COGITO_KIND_COUNT:
       break;
   
-
-}
+  }
   w += n->padding_left + n->padding_right;
   h += n->padding_top + n->padding_bottom;
   cogito_apply_size_constraints(n, &w, &h);

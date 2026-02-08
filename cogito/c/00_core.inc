@@ -232,6 +232,18 @@ typedef struct CogitoStyle {
   int track_height;
 } CogitoStyle;
 
+#define COGITO_MAX_CUSTOM_CLASSES 32
+
+typedef struct CogitoCustomClassStyle {
+  char name[64];
+  int kind;
+  CogitoStyle style;
+  CogitoStyle hover;
+  CogitoStyle active;
+  CogitoStyle checked;
+  CogitoStyle disabled;
+} CogitoCustomClassStyle;
+
 typedef struct CogitoTheme {
   CogitoStyle base;
   CogitoStyle per_kind[COGITO_KIND_COUNT];
@@ -300,6 +312,8 @@ typedef struct CogitoTheme {
   CogitoStyle button_text_hover;
   CogitoStyle button_text_active;
   CogitoStyle button_text_disabled;
+  CogitoCustomClassStyle custom_classes[COGITO_MAX_CUSTOM_CLASSES];
+  int custom_class_count;
 } CogitoTheme;
 
 typedef struct CogitoFontCacheEntry {
@@ -421,6 +435,7 @@ typedef struct CogitoNode {
   bool font_tabular;
   ErgoStr* a11y_label;
   ErgoStr* a11y_role;
+  ErgoStr* class_name;
   bool anim_inited;
   double anim_start;
   int anim_ms;

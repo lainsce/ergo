@@ -1,4 +1,6 @@
-case COGITO_WINDOW:
+case COGITO_WINDOW: {
+      Color bg = n->bg;
+      cogito_draw_rect(n->x, n->y, n->w, n->h, bg, 0);
       for (size_t i = 0; i < n->len; i++) {
         cogito_draw_node(n->children[i]);
       }
@@ -19,3 +21,5 @@ case COGITO_WINDOW:
         cogito_draw_node(n->popover);
       }
       break;
+}
+

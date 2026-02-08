@@ -1,7 +1,6 @@
 bring stdr
 bring cogito
 
-def main_win = cogito.window_size(@"Cogito Gallery", 800, 600)
 def views = cogito.view_switcher()
 
 fun build_buttons_view() (( cogito.VStack )) {
@@ -326,6 +325,7 @@ fun build_tree_view() (( cogito.VStack )) {
 
 fun build_ui(win = cogito.Window) (( -- )) {
     let bar = cogito.appbar(@"Sidebar", @"")
+    cogito.set_class(bar, @"sidebar")
     let bar2 = cogito.appbar(@"Gallery", @"")
 
     let hstack = cogito.hstack()
@@ -384,7 +384,9 @@ fun build_ui(win = cogito.Window) (( -- )) {
 
     let sidebar_list = cogito.list()
     sidebar_list.set_vexpand(true)
-    sidebar_list.add(cogito.label(@"Buttons"))
+    let buttons_lbl = cogito.label(@"Buttons")
+    buttons_lbl.set_padding (18, 8, 18, 8)
+    sidebar_list.add(buttons_lbl)
     sidebar_list.add(cogito.label(@"Text Fields"))
     sidebar_list.add(cogito.label(@"Checkboxes"))
     sidebar_list.add(cogito.label(@"Sliders"))
@@ -443,9 +445,10 @@ fun build_ui(win = cogito.Window) (( -- )) {
 
 entry () (( -- )) {
     let app = cogito.app()
+    let main_win = cogito.window_size(@"Cogito Gallery", 800, 700)
     main_win.build(build_ui)
     app.set_appid(@"ergo.cogito.Gallery")
-    app.set_accent_color(@"#75dec2", true)
+    app.set_accent_color(@"#75dec2", false)
     main_win.set_a11y_label(@"Cogito Gallery")
     main_win.set_resizable(true)
     app.run(main_win)

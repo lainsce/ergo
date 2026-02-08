@@ -23,7 +23,7 @@ case COGITO_BUTTON: {
       if (s.has_border_width) border_w = s.border_width;
       if (s.has_radius) radius = s.radius;
       // Animate colors
-      cogito_anim_apply(n, &s, &bg, NULL, &border, NULL);
+      //cogito_anim_apply(n, &s, &bg, NULL, &border, NULL);
       if (n->bg_set || border_w > 0) {
         if (n->shadow_set && n->shadow_level > 0) {
           cogito_draw_shadow(n->x, n->y, n->w, n->h, radius, n->shadow_level);

@@ -104,15 +104,7 @@ textfield
 textfield:hover
   background: #ece6f0
 
-.textfield
-  background: #e7e0ec
-  color: #222222
-  border-radius: 4 4 0 0
-  min-height: 56
-  padding: 8 16
-
 searchfield
-.searchfield
   background: #f6f6f6
   color: #222222
   border-radius: 18
@@ -122,22 +114,18 @@ searchfield
   border-radius: 21
 
 textview
-.textview
   background: #f6f6f6
   color: #222222
   border-radius: 8
   min-height: 96
 
 textfield:selection
-.textfield:selection
   background: #72dec2
 
 textview:selection
-.textview:selection
   background: #72dec2
 
 dropdown
-.dropdown
   background: #e7e0ec
   color: #222222
   border-radius: 4 4 0 0
@@ -148,7 +136,6 @@ dropdown:hover
   background: #ece6f0
 
 datepicker
-.datepicker
   background: #ffffff
   border-radius: 18
   min-width: 300
@@ -158,7 +145,6 @@ datepicker
   ]
 
 slider
-.slider
   background: #79747e
   color: #6750a4
   track-height: 4
@@ -172,7 +158,6 @@ slider:active
   color: #5a3f8e
 
 stepper
-.stepper
   background: #f6f6f6
   color: #222222
   border-radius: 8
@@ -180,7 +165,6 @@ stepper
   min-width: 96
 
 tabs
-.tabs
   background: #f2f2f2
   color: #222222
   border-radius: 10
@@ -190,19 +174,16 @@ tabs:selection
   background: #ffffff
 
 segmented
-.segmented
   background: #f2f2f2
   color: #222222
   border-radius: 10
   min-height: 36
 
 view-switcher
-.view-switcher
   background: #ffffff
   color: #222222
 
 progress
-.progress
   background: #dddddd
   border-radius: 6
   min-height: 10
@@ -212,18 +193,15 @@ progress:selection
   background: #72dec2
 
 toasts
-.toasts
   padding: 12
 
 toast
-.toast
   background: #222222
   color: #ffffff
   border-radius: 10
   min-height: 34
 
 treeview
-.treeview
   background: #f6f6f6
   color: #222222
   border-radius: 8
@@ -232,7 +210,6 @@ treeview
   padding: 8
 
 colorpicker
-.colorpicker
   background: #ffffff
   border-radius: 18
   min-width: 300
@@ -242,12 +219,11 @@ colorpicker
   ]
 
 toolbar
-.toolbar
   background: #f6f6f6
   min-height: 44
   padding: 8 12
 
-.bottom-toolbar
+bottom-toolbar
   background: #f6f6f6
   min-height: 44
   padding: 8 12
@@ -264,92 +240,86 @@ image
 
 label
   color: #222222
+  padding: 6
 
-.tooltip
+tooltip
   background: #1e1e1e
   color: #ffffff
   border-radius: 6
   font-size: 13
   padding: 6 8
 
-.checkbox
-.radio
+radio
 checkbox
   color: #222222
   min-height: 24
   min-width: 24
 
-.checkbox:checked
-.radio:checked
+checkbox:checked
+radio:checked
   background: #72dec2
 
-.checkbox .check
-.radio .check
+checkbox .check
+radio .check
   color: #222222
 
-.checkbox:checked .check
-.radio:checked .check
+checkbox:checked .check
+radio:checked .check
   color: #222222
 
-
-.checkbox .box
-.radio .box
+checkbox .box
+radio .box
   background: #0000000d
   border-radius: 4
 
-.checkbox:checked .box
-.radio:checked .box
+checkbox:checked .box
+radio:checked .box
   background: #72dec2
 
-.checkbox .box:hover
-.radio .box:hover
+checkbox .box:hover
+radio .box:hover
   background: #72dec2
 
-.checkbox .box:active
-.radio .box:active
+checkbox .box:active
+radio .box:active
   background: #72dec2
 
-.checkbox .check:hover
-.radio .check:hover
+checkbox .check:hover
+radio .check:hover
   color: #111111
 
-.checkbox .check:active
-.radio .check:active
+checkbox .check:active
+radio .check:active
   color: #000000
 
-.switch
 switch
   color: #222222
   min-height: 28
   min-width: 64
 
-.switch .track
 switch track
   background: #b4b4b4
 
-.switch:checked .track
+switch:checked track
 switch:checked track
   background: #72dec2
 
-.switch .track:hover
+switch track:hover
 switch track:hover
   background: #c4c4c4
 
-.switch .track:active
+switch track:active
 switch track:active
   background: #72dec2
 
-.switch .knob
 switch knob
   background: #ffffff
   min-width: 32
   min-height: 24
 
-.switch .knob:hover
 switch knob:hover
   background: #f4f4f4
 
-.switch .knob:active
 switch knob:active
   background: #e8e8e8
 
@@ -390,6 +360,12 @@ grid:selection
 appbar
   background: #f0f0f0
 
+appbar.view
+  background: #f0f0f0
+
+appbar.sidebar
+  background: #ffffff
+
 dialog
   background: #ffffff
   border-radius: 26
@@ -408,46 +384,46 @@ popover
     0 2 8 0 #0000001f
   ]
 
-.appbar .window-button
+appbar .window-button
   min-width: 14
 
-.appbar .window-close
+appbar .window-close
   background: #ff5f57
 
-.appbar .window-min
+appbar .window-min
   background: #febc2e
 
-.appbar .window-max
+appbar .window-max
   background: #28c840
 
-.appbar .window-close:hover
+appbar .window-close:hover
   background: #ff7b73
 
-.appbar .window-close:active
+appbar .window-close:active
   background: #e5534d
 
-.appbar .window-min:hover
+appbar .window-min:hover
   background: #ffd066
 
-.appbar .window-min:active
+appbar .window-min:active
   background: #e0a52a
 
-.appbar .window-max:hover
+appbar .window-max:hover
   background: #52d870
 
-.appbar .window-max:active
+appbar .window-max:active
   background: #1ea64a
 
-.appbar .button:hover
+appbar .button:hover
   background: #00000014
 
-.appbar .button:active
+appbar .button:active
   background: #00000024
 
-.appbar .iconbtn:hover
+appbar .iconbtn:hover
   background: #00000014
 
-.appbar .iconbtn:active
+appbar .iconbtn:active
   background: #00000024
 
 menu

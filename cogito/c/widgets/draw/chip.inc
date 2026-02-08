@@ -8,7 +8,7 @@ case COGITO_CHIP: {
   int radius = n->h / 2;
 
   // Animate colors
-  cogito_anim_apply(n, &s, &bg, &text_color, NULL, NULL);
+  //cogito_anim_apply(n, &s, &bg, &text_color, NULL, NULL);
 
   // Draw pill-shaped background
   cogito_draw_rect(n->x, n->y, n->w, n->h, bg, radius);

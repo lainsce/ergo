@@ -5,7 +5,7 @@
   font-size: 16
 
 window
-  background: #1c1c1e
+  background: #111111
 
 button
   background: #d0bcff
@@ -103,38 +103,25 @@ textfield
 textfield:hover
   background: #3f3c42
 
-.textfield
-  background: #322f35
-  color: #f2f2f7
-  border-radius: 4 4 0 0
-  min-height: 56
-  padding: 8 16
-
 searchfield
-.searchfield
   background: #2c2c2e
   color: #f2f2f7
 
 textview
-.textview
   background: #2c2c2e
   color: #f2f2f7
 
 textfield:selection
-.textfield:selection
   background: #3a3a3c
 
 textview:selection
-.textview:selection
   background: #3a3a3c
 
 dropdown
-.dropdown
   background: #2c2c2e
   color: #f2f2f7
 
 datepicker
-.datepicker
   background: #2c2c2e
   color: #f2f2f7
   border-radius: 12
@@ -146,11 +133,9 @@ datepicker
   ]
 
 datepicker:selection
-.datepicker:selection
   background: #3a3a3c
 
 slider
-.slider
   background: #938f99
   color: #d0bcff
   track-height: 4
@@ -164,12 +149,10 @@ slider:active
   color: #b69df8
 
 stepper
-.stepper
   background: #2c2c2e
   color: #f2f2f7
 
 tabs
-.tabs
   background: #2c2c2e
   color: #f2f2f7
 
@@ -177,38 +160,31 @@ tabs:selection
   background: #3a3a3c
 
 segmented
-.segmented
   background: #2c2c2e
   color: #f2f2f7
 
 view-switcher
-.view-switcher
   background: #1c1c1e
   color: #f2f2f7
 
 progress
-.progress
   background: #3a3a3c
 
 progress:selection
   background: #6b6b6f
 
 toasts
-.toasts
   color: #f2f2f7
 
 toast
-.toast
   background: #2c2c2e
   color: #f2f2f7
 
 treeview
-.treeview
   background: #2c2c2e
   color: #f2f2f7
 
 colorpicker
-.colorpicker
   background: #2c2c2e
   color: #f2f2f7
   border-radius: 12
@@ -224,10 +200,9 @@ colorpicker:selection
   background: #3a3a3c
 
 toolbar
-.toolbar
   background: #2c2c2e
 
-.bottom-toolbar
+bottom-toolbar
   background: #2c2c2e
 
 iconbtn
@@ -240,25 +215,24 @@ image
 label
   color: #f2f2f7
 
-.tooltip
+tooltip
   background: #3a3a3c
   color: #f2f2f7
 
-.checkbox
-.radio
 checkbox
+radio
   color: #f2f2f7
 
-.checkbox:checked
-.radio:checked
+checkbox:checked
+radio:checked
   background: #3a3a3c
 
-.checkbox .check
-.radio .check
+checkbox .check
+radio .check
   color: #f2f2f7
 
-.checkbox:checked .check
-.radio:checked .check
+checkbox:checked .check
+radio:checked .check
   color: #f2f2f7
 
 chip
@@ -278,60 +252,52 @@ chip:checked
   background: #4a4458
   color: #e8def8
 
-.checkbox .box
-.radio .box
+checkbox .box
+radio .box
   background: #2c2c2e
   border-color: #3a3a3c
 
-.checkbox:checked .box
-.radio:checked .box
+checkbox:checked .box
+radio:checked .box
   background: #3a3a3c
 
-.checkbox .box:hover
-.radio .box:hover
+checkbox .box:hover
+radio .box:hover
   background: #3a3a3c
 
-.checkbox .box:active
-.radio .box:active
+checkbox .box:active
+radio .box:active
   background: #3a3a3c
 
-.checkbox .check:hover
-.radio .check:hover
+checkbox .check:hover
+radio .check:hover
   color: #ffffff
 
-.checkbox .check:active
-.radio .check:active
+checkbox .check:active
+radio .check:active
   color: #ffffff
 
-.switch
 switch
   color: #f2f2f7
 
-.switch .track
 switch track
   background: #3a3a3c
 
-.switch:checked .track
 switch:checked track
   background: #5a5a5f
 
-.switch .track:hover
 switch track:hover
   background: #4a4a4f
 
-.switch .track:active
 switch track:active
   background: #5a5a5f
 
-.switch .knob
 switch knob
   background: #ffffff
 
-.switch .knob:hover
 switch knob:hover
   background: #f4f4f4
 
-.switch .knob:active
 switch knob:active
   background: #e8e8e8
 
@@ -361,6 +327,13 @@ appbar
   background: #2c2c2e
   color: #f2f2f7
 
+appbar.view
+  background: #2c2c2e
+  color: #f2f2f7
+
+appbar.sidebar
+  background: #1c1c1e
+
 dialog
   background: #2c2c2e
   border-radius: 26
@@ -373,47 +346,47 @@ popover
     0 2 8 0 #0000001f
   ]
 
-.appbar .window-button
+appbar .window-button
   border-color: #00000022
   border-width: 1
 
-.appbar .window-close
+appbar .window-close
   background: #ff5f57
 
-.appbar .window-min
+appbar .window-min
   background: #febc2e
 
-.appbar .window-max
+appbar .window-max
   background: #28c840
 
-.appbar .window-close:hover
+appbar .window-close:hover
   background: #ff7b73
 
-.appbar .window-close:active
+appbar .window-close:active
   background: #e5534d
 
-.appbar .window-min:hover
+appbar .window-min:hover
   background: #ffd066
 
-.appbar .window-min:active
+appbar .window-min:active
   background: #e0a52a
 
-.appbar .window-max:hover
+appbar .window-max:hover
   background: #52d870
 
-.appbar .window-max:active
+appbar .window-max:active
   background: #1ea64a
 
-.appbar .button:hover
+appbar .button:hover
   background: #3a3a3c
 
-.appbar .button:active
+appbar .button:active
   background: #4a4a4f
 
-.appbar .iconbtn:hover
+appbar .iconbtn:hover
   background: #3a3a3c
 
-.appbar .iconbtn:active
+appbar .iconbtn:active
   background: #4a4a4f
 
 menu

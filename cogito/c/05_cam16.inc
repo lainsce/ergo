@@ -161,7 +161,7 @@ static void cogito_cam16_to_xyz(double J, double C, double h, double* x, double*
   double p2 = A / vc->nbb + 0.305;
   double sin_h = sin(h_rad);
   double cos_h = cos(h_rad);
-  double gamma = (p2 * 23.0) / (p1 * (23.0 * cos_h + 11.0 * sin_h) + 108.0 * sin_h);
+  double gamma = (p2 * 23.0) / (23.0 * p1 + 11.0 * cos_h + 108.0 * sin_h);
   double a = gamma * cos_h;
   double bb = gamma * sin_h;
   double r_a = (460.0 * p2 + 451.0 * a + 288.0 * bb) / 1403.0;

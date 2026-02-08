@@ -12,7 +12,7 @@ case COGITO_SEARCHFIELD: {
   int radius = s.has_radius ? s.radius : (n->h / 2);
 
   // Animate colors
-  cogito_anim_apply(n, &s, &bg, &text_color, &border_col, NULL);
+  //cogito_anim_apply(n, &s, &bg, &text_color, &border_col, NULL);
 
   // Override border for focus state
   if (focused) {
