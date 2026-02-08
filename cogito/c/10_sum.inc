@@ -579,10 +579,6 @@ static bool cogito_sum_selector_kind(const char* sel, CogitoKind* out_kind, bool
     return true;
   }
   if (class_part) {
-    if (out_custom_class && custom_class_cap > 0) {
-      strncpy(out_custom_class, class_part, custom_class_cap - 1);
-      out_custom_class[custom_class_cap - 1] = 0;
-    }
     if (strcmp(class_part, "monospace") == 0 || strcmp(class_part, "mono") == 0) {
       if (out_class) *out_class = COGITO_STYLE_CLASS_MONO;
       return true;
@@ -607,41 +603,49 @@ static bool cogito_sum_selector_kind(const char* sel, CogitoKind* out_kind, bool
         return true;
       }
     }
+    if (out_custom_class && custom_class_cap > 0) {
+      strncpy(out_custom_class, class_part, custom_class_cap - 1);
+      out_custom_class[custom_class_cap - 1] = 0;
+    }
   }
   if (strcmp(s, "window") == 0) { if (out_kind) *out_kind = COGITO_WINDOW; return true; }
   if (strcmp(s, "vstack") == 0) { if (out_kind) *out_kind = COGITO_VSTACK; return true; }
   if (strcmp(s, "hstack") == 0) { if (out_kind) *out_kind = COGITO_HSTACK; return true; }
   if (strcmp(s, "zstack") == 0) { if (out_kind) *out_kind = COGITO_ZSTACK; return true; }
   if (strcmp(s, "fixed") == 0) { if (out_kind) *out_kind = COGITO_FIXED; return true; }
-  if (strcmp(s, "scroller") == 0 || strcmp(s, "scroll") == 0) { if (out_kind) *out_kind = COGITO_SCROLLER; return true; }
-  if (strcmp(s, "textfield") == 0 || strcmp(s, "text-field") == 0) { if (out_kind) *out_kind = COGITO_TEXTFIELD; return true; }
-  if (strcmp(s, "searchfield") == 0 || strcmp(s, "search-field") == 0) { if (out_kind) *out_kind = COGITO_SEARCHFIELD; return true; }
-  if (strcmp(s, "textview") == 0 || strcmp(s, "text-view") == 0) { if (out_kind) *out_kind = COGITO_TEXTVIEW; return true; }
-  if (strcmp(s, "dropdown") == 0 || strcmp(s, "select") == 0) { if (out_kind) *out_kind = COGITO_DROPDOWN; return true; }
-  if (strcmp(s, "date-picker") == 0 || strcmp(s, "datepicker") == 0) { if (out_kind) *out_kind = COGITO_DATEPICKER; return true; }
+  if (strcmp(s, "scroller") == 0) { if (out_kind) *out_kind = COGITO_SCROLLER; return true; }
+  if (strcmp(s, "textfield") == 0) { if (out_kind) *out_kind = COGITO_TEXTFIELD; return true; }
+  if (strcmp(s, "searchfield") == 0) { if (out_kind) *out_kind = COGITO_SEARCHFIELD; return true; }
+  if (strcmp(s, "textview") == 0) { if (out_kind) *out_kind = COGITO_TEXTVIEW; return true; }
+  if (strcmp(s, "dropdown") == 0) { if (out_kind) *out_kind = COGITO_DROPDOWN; return true; }
+  if (strcmp(s, "datepicker") == 0) { if (out_kind) *out_kind = COGITO_DATEPICKER; return true; }
   if (strcmp(s, "stepper") == 0) { if (out_kind) *out_kind = COGITO_STEPPER; return true; }
   if (strcmp(s, "slider") == 0) { if (out_kind) *out_kind = COGITO_SLIDER; return true; }
   if (strcmp(s, "tabs") == 0) { if (out_kind) *out_kind = COGITO_TABS; return true; }
-  if (strcmp(s, "segmented") == 0 || strcmp(s, "segmented-control") == 0) { if (out_kind) *out_kind = COGITO_SEGMENTED; return true; }
-  if (strcmp(s, "view-switcher") == 0 || strcmp(s, "viewswitcher") == 0) { if (out_kind) *out_kind = COGITO_VIEWSWITCHER; return true; }
+  if (strcmp(s, "segmented") == 0) { if (out_kind) *out_kind = COGITO_SEGMENTED; return true; }
+  if (strcmp(s, "viewswitcher") == 0) { if (out_kind) *out_kind = COGITO_VIEWSWITCHER; return true; }
   if (strcmp(s, "progress") == 0) { if (out_kind) *out_kind = COGITO_PROGRESS; return true; }
-  if (strcmp(s, "tree") == 0 || strcmp(s, "treeview") == 0) { if (out_kind) *out_kind = COGITO_TREEVIEW; return true; }
-  if (strcmp(s, "color") == 0 || strcmp(s, "colorpicker") == 0 || strcmp(s, "color-picker") == 0) { if (out_kind) *out_kind = COGITO_COLORPICKER; return true; }
+  if (strcmp(s, "treeview") == 0) { if (out_kind) *out_kind = COGITO_TREEVIEW; return true; }
+  if (strcmp(s, "colorpicker") == 0) { if (out_kind) *out_kind = COGITO_COLORPICKER; return true; }
   if (strcmp(s, "toasts") == 0) { if (out_kind) *out_kind = COGITO_TOASTS; return true; }
   if (strcmp(s, "toast") == 0) { if (out_kind) *out_kind = COGITO_TOAST; return true; }
   if (strcmp(s, "tooltip") == 0) { if (out_kind) *out_kind = COGITO_TOOLTIP; return true; }
-  if (strcmp(s, "toolbar") == 0 || strcmp(s, "bottom-toolbar") == 0) { if (out_kind) *out_kind = COGITO_TOOLBAR; return true; }
+  if (strcmp(s, "bottom-toolbar") == 0) { if (out_kind) *out_kind = COGITO_TOOLBAR; return true; }
+  if (strcmp(s, "bottom-nav") == 0) { if (out_kind) *out_kind = COGITO_BOTTOM_NAV; return true; }
+  if (strcmp(s, "nav-rail") == 0) { if (out_kind) *out_kind = COGITO_NAV_RAIL; return true; }
   if (strcmp(s, "button") == 0) { if (out_kind) *out_kind = COGITO_BUTTON; return true; }
-  if (strcmp(s, "iconbtn") == 0 || strcmp(s, "icon-button") == 0) { if (out_kind) *out_kind = COGITO_ICONBTN; return true; }
-  if (strcmp(s, "image") == 0 || strcmp(s, "img") == 0) { if (out_kind) *out_kind = COGITO_IMAGE; return true; }
+  if (strcmp(s, "iconbtn") == 0) { if (out_kind) *out_kind = COGITO_ICONBTN; return true; }
+  if (strcmp(s, "image") == 0) { if (out_kind) *out_kind = COGITO_IMAGE; return true; }
   if (strcmp(s, "label") == 0) { if (out_kind) *out_kind = COGITO_LABEL; return true; }
   if (strcmp(s, "checkbox") == 0) { if (out_kind) *out_kind = COGITO_CHECKBOX; return true; }
   if (strcmp(s, "switch") == 0) { if (out_kind) *out_kind = COGITO_SWITCH; return true; }
   if (strcmp(s, "list") == 0) { if (out_kind) *out_kind = COGITO_LIST; return true; }
   if (strcmp(s, "grid") == 0) { if (out_kind) *out_kind = COGITO_GRID; return true; }
   if (strcmp(s, "dialog") == 0) { if (out_kind) *out_kind = COGITO_DIALOG; return true; }
-  if (strcmp(s, "dialog-slot") == 0 || strcmp(s, "dialogslot") == 0) { if (out_kind) *out_kind = COGITO_DIALOG_SLOT; return true; }
-  if (strcmp(s, "appbar") == 0 || strcmp(s, "app-bar") == 0) { if (out_kind) *out_kind = COGITO_APPBAR; return true; }
+  if (strcmp(s, "dialogslot") == 0) { if (out_kind) *out_kind = COGITO_DIALOG_SLOT; return true; }
+  if (strcmp(s, "appbar") == 0) { if (out_kind) *out_kind = COGITO_APPBAR; return true; }
+  if (strcmp(s, "fab") == 0) { if (out_kind) *out_kind = COGITO_FAB; return true; }
+  if (strcmp(s, "chip") == 0) { if (out_kind) *out_kind = COGITO_CHIP; return true; }
   if (strcmp(s, "menu") == 0) { if (out_menu) *out_menu = true; return true; }
   return false;
 }
@@ -1675,20 +1679,20 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   cogito_sum_append(out, cap, &off, "button.text:hover\n  background: %s12\n", p);
   cogito_sum_append(out, cap, &off, "button.text:active\n  background: %s1f\n", p);
   cogito_sum_append(out, cap, &off, "button.text:disabled\n  color: %s61\n", ons);
-  cogito_sum_append(out, cap, &off, "fab\n  background: %s\n  color: %s\n  border-radius: 100\n  min-width: 56\n  min-height: 56\n  box-shadow: [ 0 3 6 1 #00000026 ]\n", p, op);
-  cogito_sum_append(out, cap, &off, "fab:hover\n  background: %s\n  color: %s\n  box-shadow: [ 0 6 10 2 #0000001f ]\n", ph, op);
-  cogito_sum_append(out, cap, &off, "fab:active\n  background: %s\n  color: %s\n  box-shadow: [ 0 1 3 0 #00000033 ]\n", pa, op);
+  cogito_sum_append(out, cap, &off, "fab\n  background: %s\n  color: %s\n  border-radius: 100\n  min-width: 56\n  min-height: 56\n", p, op);
+  cogito_sum_append(out, cap, &off, "fab:hover\n  background: %s\n  color: %s\n", ph, op);
+  cogito_sum_append(out, cap, &off, "fab:active\n  background: %s\n  color: %s\n", pa, op);
   cogito_sum_append(out, cap, &off, "chip\n  background: transparent\n  color: %s\n  border-radius: 100\n  min-height: 32\n  padding: 0 16\n  border: 1 solid %s\n", ons, outl);
   cogito_sum_append(out, cap, &off, "chip:hover\n  background: %s\n  border-color: %s\n", chiphov, ons);
   cogito_sum_append(out, cap, &off, "chip:active\n  background: %s\n", chipact);
   cogito_sum_append(out, cap, &off, "chip:checked\n  background: %s\n  color: %s\n  border: 0 none %s\n", chipsel, ons, chipsel);
-  cogito_sum_append(out, cap, &off, "nav_rail\n  background: %s\n  color: %s\n  min-width: 80\n  padding: 4 0\n", navbg, ons);
-  cogito_sum_append(out, cap, &off, "nav_rail:selection\n  background: %s\n", navsel);
+  cogito_sum_append(out, cap, &off, "nav-rail\n  background: %s\n  color: %s\n  min-width: 80\n  padding: 4 0\n", navbg, ons);
+  cogito_sum_append(out, cap, &off, "nav-rail:selection\n  background: %s\n", navsel);
   cogito_sum_append(out, cap, &off, "bottom_nav\n  background: %s\n  color: %s\n  min-height: 80\n  padding: 0 8\n", bottombg, ons);
   cogito_sum_append(out, cap, &off, "bottom_nav:selection\n  background: %s\n", bottomsel);
   cogito_sum_append(out, cap, &off, "textfield\n  background: %s\n  color: %s\n  border-radius: 4 4 0 0\n  border: 0 none #000000\n  min-height: 56\n  padding: 8 16\n", surft, ons);
   cogito_sum_append(out, cap, &off, "textfield:hover\n  background: %s\n", surfth);
-  cogito_sum_append(out, cap, &off, "searchfield\n  background: %s\n  color: %s\n  border-radius: 18\n  min-height: 36\n  min-width: 180\n  padding: 6 12\n  border: 1 solid %s\n", surft, ons, outl);
+  cogito_sum_append(out, cap, &off, "searchfield\n  background: %s\n  color: %s\n  border-radius: 18\n  min-height: 36\n  min-width: 180\n  padding: 6 12\n", surft, ons);
   cogito_sum_append(out, cap, &off, "searchfield:hover\n  background: %s\n  border-color: %s\n", surfth, ons);
   cogito_sum_append(out, cap, &off, "searchfield:active\n  border-color: %s\n  border-width: 2\n", p);
   cogito_sum_append(out, cap, &off, "searchfield:selection\n  background: %s\n", p);
@@ -1703,12 +1707,12 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   cogito_sum_append(out, cap, &off, "slider\n  background: %s\n  color: %s\n  track-height: 4\n  min-height: 48\n  min-width: 200\n", outl, p);
   cogito_sum_append(out, cap, &off, "slider:hover\n  color: %s\n", ph);
   cogito_sum_append(out, cap, &off, "slider:active\n  color: %s\n", pa);
-  cogito_sum_append(out, cap, &off, "stepper\n  background: %s\n  color: %s\n  border-radius: 100\n  min-height: 40\n  min-width: 120\n  border: 1 solid %s\n  padding: 4 8\n  transition: 150 standard\n", surf, ons, outl);
+  cogito_sum_append(out, cap, &off, "stepper\n  background: %s\n  color: %s\n  border-radius: 100\n  min-height: 40\n  min-width: 120\n  border: 1 solid %s\n  padding: 4 8\n", surf, ons, outl);
   cogito_sum_append(out, cap, &off, "tabs\n  background: %s\n  color: %s\n  border-radius: 10\n  min-height: 36\n", tabsbg, ons);
   cogito_sum_append(out, cap, &off, "tabs:selection\n  background: %s\n", tabssel);
-  cogito_sum_append(out, cap, &off, "segmented\n  background: transparent\n  color: %s\n  border-radius: 100\n  min-height: 40\n  border: 1 solid %s\n  transition: 200 standard\n", ons, outl);
+  cogito_sum_append(out, cap, &off, "segmented\n  background: transparent\n  color: %s\n  border-radius: 100\n  min-height: 40\n  border: 1 solid %s\n", ons, outl);
   cogito_sum_append(out, cap, &off, "segmented:selection\n  background: %s\n", p);
-  cogito_sum_append(out, cap, &off, "view-switcher\n  background: %s\n  color: %s\n", surf, ons);
+  cogito_sum_append(out, cap, &off, "viewswitcher\n  background: %s\n  color: %s\n", surf, ons);
   cogito_sum_append(out, cap, &off, "progress\n  background: %s\n  border-radius: 6\n  min-height: 10\n  min-width: 120\n", progbg);
   cogito_sum_append(out, cap, &off, "progress:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, "toasts\n  padding: 12\n");
