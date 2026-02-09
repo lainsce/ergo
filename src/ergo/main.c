@@ -214,6 +214,9 @@ static const char *raylib_default_ldflags(void) {
 #endif
 
 static const char *cogito_default_cflags(void) {
+    if (path_is_file("cogito/src/cogito.h")) {
+        return "-Icogito/src";
+    }
     if (path_is_file("cogito/include/cogito.h")) {
         return "-Icogito/include";
     }
@@ -459,7 +462,7 @@ int main(int argc, char **argv) {
         snprintf(run_cmd_buf, sizeof(run_cmd_buf), "./%s", unique_bin_name);
 #endif
         const char *run_cmd = cache_bin ? cache_bin : run_cmd_buf;
-        if (!emit_c(prog, c_path, &err)) {
+        if (!emit_c(prog, c_path, uses_cogito, &err)) {
             diag_print_enhanced(&err, verbose_mode);
             free(cache_base);
             free(cache_dir);

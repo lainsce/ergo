@@ -230,6 +230,7 @@ static Module *load_file(const char *path,
         if (str_eq_c(imp->name, "cogito")) {
             // Try multiple locations for cogito.ergo
             const char *cogito_paths[] = {
+                "cogito/cogito.ergo",
                 "cogito/_build/cogito.ergo",
                 "cogito/build/cogito.ergo",
                 NULL  // Will try stdlib_dir as fallback
