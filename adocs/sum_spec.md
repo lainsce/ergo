@@ -5,6 +5,7 @@ Sum is a minimal, script-friendly styling language for applying visual propertie
 ## 1. Units
 
 ### 1.1 `sp`
+
 `sp` is the primary length unit.
 
 - Definition: `1sp = 254/3 µm`
@@ -31,7 +32,7 @@ A file is a sequence of **rules**.
 
 A **rule** is:
 
-```
+```c
 <selector-line>
   <declaration-line>
   <declaration-line>
@@ -42,7 +43,7 @@ A **selector-line** is a selector (see §4).
 
 A **declaration-line** is:
 
-```
+```c
 <property-name> ":" <value>
 ```
 
@@ -53,19 +54,23 @@ Property names are lowercase ASCII words with `-` allowed.
 Sum supports a small subset of CSS-like selectors.
 
 ### 4.1 Supported selectors
+
 - Universal: `*`
 - Type: `button`
 - Class: `.fancy`
 - Type + class: `button.fancy`
 
 ### 4.2 Matching rules
+
 A selector matches a node if:
+
 - `*` always matches
 - `type` matches node type name exactly
 - `.class` matches if node has that class
 - `type.class` matches if both match
 
 ### 4.3 Specificity
+
 Specificity determines tie-breaking:
 
 - `*` → (0)
@@ -78,12 +83,15 @@ Higher number wins. If equal specificity, the later rule in the file wins.
 ## 5. Cascade & inheritance
 
 ### 5.1 Cascade order (highest priority last)
+
 1. Earlier rules
 2. Later rules (same specificity)
 3. Higher specificity
 
 ### 5.2 Inheritance
+
 Only these properties inherit by default:
+
 - `font`
 - `color`
 - `background`
@@ -111,6 +119,7 @@ Unknown properties MUST be ignored.
 ## 7. Value types
 
 ### 7.1 Colors
+
 A color is:
 
 - `#RGB`
@@ -120,23 +129,28 @@ A color is:
 Channels are hex. For `#RRGGBBAA`, `AA` is alpha (00–FF).
 
 ### 7.2 Lengths
+
 A length is:
 
 - `<number>sp` (preferred)
 
 ### 7.3 Identifiers
+
 Keywords are lowercase ASCII identifiers (e.g., `solid`).
 
 ### 7.4 Strings
+
 A string is double-quoted. Backslash escapes are implementation-defined (may be omitted in v0.1).
 
 ## 8. Property definitions
 
 ### 8.1 `font`
+
 Groups: family, size, weight — in this order.
 
 Syntax:
-```
+
+```c
 font: <family> <size> <weight>
 ```
 
@@ -149,27 +163,34 @@ font: <family> <size> <weight>
   - `normal` (=400), `bold` (=700)
 
 Example:
-```
+
+```sum
 font: "Inter" 14sp 600
 ```
 
 ### 8.2 `color`
+
 Syntax:
-```
+
+```sum
 color: <color>
 ```
 
 ### 8.3 `background`
+
 No images in v0.1.
 
 Syntax:
-```
+
+```sum
 background: <color>
 ```
 
 ### 8.4 `border`
+
 Syntax:
-```
+
+```sum
 border: <width> <style> <color>
 ```
 
@@ -178,13 +199,16 @@ border: <width> <style> <color>
 - `<color>` is a color
 
 Border width rendering rule:
+
 - If width is `0`, border is off.
 
 ### 8.5 `radius`
+
 Controls corner radii.
 
 Syntax:
-```
+
+```sum
 radius: <r1>
 radius: <r1> <r2>
 radius: <r1> <r2> <r3>
@@ -192,14 +216,17 @@ radius: <r1> <r2> <r3> <r4>
 ```
 
 Each `<rN>` is a length. Corner mapping (CSS-like):
+
 - 1 value: all corners
 - 2 values: TL/BR = r1, TR/BL = r2
 - 3 values: TL = r1, TR/BL = r2, BR = r3
 - 4 values: TL TR BR BL
 
 ### 8.6 `margin`
+
 Syntax:
-```
+
+```sum
 margin: <m1>
 margin: <m1> <m2>
 margin: <m1> <m2> <m3>
@@ -207,26 +234,31 @@ margin: <m1> <m2> <m3> <m4>
 ```
 
 Mapping (CSS-like):
+
 - 1: all
 - 2: vertical = m1, horizontal = m2
 - 3: top = m1, horizontal = m2, bottom = m3
 - 4: top right bottom left
 
 ### 8.7 `padding`
+
 Same syntax and mapping as `margin`.
 
 ### 8.8 `box-shadow`
+
 A list of one or more shadow entries.
 
 Syntax:
-```
+
+```sum
 box-shadow: [ <shadow> ; <shadow> ; ... ]
 ```
 
 Semicolons inside the bracket are optional line separators; newlines are allowed.
 
 Each `<shadow>` is:
-```
+
+```sum
 <dx> <dy> [<blur>] [<spread>] <color> [inset]
 ```
 
@@ -237,7 +269,8 @@ Each `<shadow>` is:
 - Missing `<spread>` defaults to `0`
 
 Example:
-```
+
+```sum
 box-shadow: [
   0 0 0 1sp #0000002d
 ]

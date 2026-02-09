@@ -29,7 +29,8 @@ This document provides a comprehensive reference for the Ergo programming langua
 - Case-sensitive.
 
 Examples:
-```
+
+```c
 foo
 _bar
 x1
@@ -38,7 +39,8 @@ x1
 ### Keywords
 
 Reserved words include:
-```
+
+```c
 module, bring, fun, entry, class, pub, lock, seal, def, let, const, if, elif, else, for, match, return, true, false, null, new, in
 ```
 
@@ -99,7 +101,7 @@ module, bring, fun, entry, class, pub, lock, seal, def, let, const, if, elif, el
 
 ### Local bindings
 
-```
+```c
 let x = 5;
 let ?count = 0;
 const greeting = @"Ergo";
@@ -113,7 +115,7 @@ const greeting = @"Ergo";
 
 Use `def` for module-level (global) bindings:
 
-```
+```c
 def version = @"1.0.0";
 def ?counter = 0;
 const BUILD = @"dev";
@@ -129,14 +131,15 @@ const BUILD = @"dev";
 
 ### Declaration
 
-```
+```c
 fun name(param1 = Type1, param2 = Type2) (( ReturnType )) {
     -- function body
 }
 ```
 
 Example:
-```
+
+```c
 fun add(a = num, b = num) (( num )) {
     a + b
 }
@@ -144,7 +147,7 @@ fun add(a = num, b = num) (( num )) {
 
 ### Calling Functions
 
-```
+```c
 let result = add(2, 3);
 ```
 
@@ -154,7 +157,7 @@ let result = add(2, 3);
 
 ### If/Else
 
-```
+```c
 if condition {
     -- statements
 } else {
@@ -164,7 +167,7 @@ if condition {
 
 ### For Loop
 
-```
+```c
 for (init; cond; step) {
     -- statements
 }
@@ -172,7 +175,7 @@ for (init; cond; step) {
 
 `for` can be used as a `while` by omitting init/step:
 
-```
+```c
 for (; cond; ) {
     -- statements
 }
@@ -180,7 +183,7 @@ for (; cond; ) {
 
 Foreach form:
 
-```
+```c
 for (item in collection) {
     -- statements
 }
@@ -197,9 +200,11 @@ for (item in collection) {
 - Array indexing: `arr[0]`
 - String interpolation: `@"Hello, $name!"`
 - Match expression:
-```
+
+```c
 match x: 0 => @"zero", _ => @"other"
 ```
+
 - Lambda expressions:
   - Bar form: `|x = num| x + 1`
   - Arrow form: `(x = num, y = num) => x + y`
@@ -266,7 +271,7 @@ Values used in conditionals (`if`, `for`, `&&`, `||`, `!`) are coerced to boolea
 
 Use `bring` to import modules:
 
-```
+```c
 bring stdr;
 bring math;
 ```
@@ -290,7 +295,7 @@ Name resolution notes:
 
 Every program must define an entry point:
 
-```
+```c
 entry () (( -- )) {
     -- program body
 }
@@ -325,7 +330,8 @@ entry () (( -- )) {
 - Single-line comments start with `--` and continue to the end of the line.
 
 Example:
-```
+
+```c
 -- This is a comment
 let x = 5; -- Inline comment
 ```
@@ -341,7 +347,7 @@ let x = 5; -- Inline comment
 
 ## Example Program
 
-```
+```c
 bring stdr;
 
 fun fib(n = num) (( num )) {
@@ -369,7 +375,7 @@ For more details and examples, see the `examples/` directory and the quickstart 
 
 When using standard library modules, you must bring them explicitly with `bring modulename;`. Constants are accessed as `module.CONSTANT`, and functions as `module.function(args)`. For example:
 
-```
+```c
 bring math;
 let circumference = 2 * math.PI * r;
 let s = math.sin(angle);

@@ -12,12 +12,10 @@ Cogito supports client-side window decorations for borderless windows, enabling 
 
 When a window has an AppBar and uses borderless mode (`FLAG_WINDOW_UNDECORATED`), the framework automatically configures hit-test regions:
 
-| Region | Behavior | Priority |
-|--------|----------|----------|
-| 8px window edges | Resize handles (8 directions) | Highest |
-| Window control buttons (close/min/max) | Clickable, non-draggable | High |
-| AppBar title area | Draggable (moves window) | Normal |
-| All other areas | Normal window content | Low |
+- 8px window edges = Resize handles (8 directions), Highest
+- Window control buttons (close/min/max) = Clickable, non-draggable, High
+- AppBar title area = Draggable (moves window), Normal
+- All other areas = Normal window content, Low
 
 ### Environment Variables
 
@@ -85,16 +83,6 @@ Windows with AppBars automatically use borderless mode on non-macOS platforms. T
 3. Hit-test callback evaluated for mouse events on borderless windows
 4. Cogito node tree processes input for widgets
 
-## Migration from Raylib
-
-When porting from raylib-based Cogito:
-
-1. Replace `InitWindow()` / `CloseWindow()` with `cogito_window_create()` / `cogito_window_destroy()`
-2. Replace `WindowShouldClose()` with event loop checking `COGITO_EVENT_WINDOW_CLOSE`
-3. Replace `GetMousePosition()` with `COGITO_EVENT_MOUSE_MOVE` events
-4. Replace `BeginDrawing()` / `EndDrawing()` with renderer begin/end calls
-5. Enable CSD by adding AppBar to window (automatic on supported platforms)
-
 ## Debug Features
 
 ### Computed Style Dump
@@ -104,6 +92,7 @@ Cogito provides a debug utility to inspect the computed styles of any widget nod
 #### Enabling Style Debug
 
 Set the environment variable:
+
 ```bash
 COGITO_DEBUG_STYLE=1 ./my_app
 ```
@@ -124,11 +113,13 @@ void cogito_style_dump_button_demo(void);
 #### Output Format
 
 The style dump shows:
+
 - **Property name**: The CSS-like property name
 - **Computed value**: The final value after cascade
 - **Origin**: Source of the value in brackets `[type:selector]`
 
 Origin types:
+
 - `base` - Base theme defaults
 - `kind` - Per-widget kind styles
 - `class` - Class-based styles (mono, tabular, outlined, text)
@@ -137,7 +128,8 @@ Origin types:
 - `inline` - Direct node settings
 
 Example output:
-```
+
+```ini
 === Style Dump: button ===
 Class: fancy
 ----------------------------------------
@@ -162,6 +154,7 @@ if (cogito_debug_style()) {
 ```
 
 Or use the demo function to see a button's computed style under the current theme:
+
 ```c
 cogito_style_dump_button_demo();
 ```
@@ -172,7 +165,7 @@ Cogito now uses SDL3 as its primary backend for windowing, input, and rendering.
 
 ### Building with SDL3
 
-#### Dependencies
+#### Deps
 
 - **SDL3** (required): Windowing and input
 - **OpenGL 3.3+** (required): Rendering backend
@@ -191,7 +184,7 @@ meson compile -C build
 meson install -C build
 ```
 
-#### Environment Variables
+#### Environment Vars
 
 - `COGITO_DEBUG_CSD=1` — Show client-side decoration hit-test regions
 - `COGITO_DEBUG_STYLE=1` — Enable computed style dump debugging
@@ -199,66 +192,12 @@ meson install -C build
 - `COGITO_FONT_SIZE=14` — Base font size
 - `COGITO_TARGET_FPS=60` — Frame rate limit (default: monitor refresh)
 
-### Ergo Example: SDL3 Demo
-
-The `ergo_sdl3_demo.ergo` example demonstrates:
-- AppBar with window controls
-- SUM-styled button with click counter
-- Scroller with clipped content
-- Clean quit on window close
-
-```ergo
-bring stdr
-bring cogito
-
-fun build_ui(win = cogito.Window) (( -- )) {
-    let main_vstack = cogito.vstack()
-    
-    -- AppBar at top
-    let appbar = cogito.appbar(@"Cogito SDL3", @"Backend Demo")
-    main_vstack.add(appbar)
-    
-    -- Scroller for main content
-    let scroller = cogito.scroller()
-    scroller.set_vexpand(true)
-    
-    let content = cogito.vstack()
-    content.set_gap(16)
-    
-    let btn = cogito.button(@"Click Me!")
-    btn.set_class(@"primary")
-    content.add(btn)
-    
-    scroller.add(content)
-    main_vstack.add(scroller)
-    win.add(main_vstack)
-}
-
-entry () (( -- )) {
-    let app = cogito.app()
-    let win = cogito.window_title(@"Cogito SDL3 Demo")
-    win.build(build_ui)
-    win.set_resizable(true)
-    app.run(win)
-}
-```
-
-### Running the Demo
-
-```bash
-# From the Ergo project root
-ergo run cogito/examples/ergo_sdl3_demo.ergo
-
-# Or compile first
-ergo build cogito/examples/ergo_sdl3_demo.ergo -o sdl3_demo
-./sdl3_demo
-```
-
 ### API Stability
 
 The public C API (`cogito.h`) and Ergo bindings remain stable. The SDL3 backend is an internal implementation detail—existing Ergo code continues to work without changes.
 
 Key preserved APIs:
+
 - `cogito.app()` / `cogito.app_run()`
 - `cogito.window_title()` / `window.build()`
 - All widget constructors (`cogito.button()`, `cogito.scroller()`, etc.)
@@ -281,10 +220,8 @@ The inspector is only available in debug builds. Enable it by:
 
 The inspector window is divided into two panels:
 
-| Panel | Content |
-|-------|---------|
-| **Left** | Widget tree view with expand/collapse indicators |
-| **Right** | Selected node details and computed style dump |
+- **Left**  = Widget tree view with expand/collapse indicators.
+- **Right** = Selected node details and computed style dump.
 
 ### Widget Tree View
 
@@ -298,14 +235,12 @@ The inspector window is divided into two panels:
 
 The right panel displays:
 
-| Section | Information |
-|---------|-------------|
-| **Identity** | Type, ID, class name |
-| **Geometry** | Position (x, y), size (w, h) |
-| **Clip Rect** | Current scissor/clip bounds |
-| **Visibility** | visible/hidden, opacity value |
-| **Input State** | hover, active, focused, disabled flags |
-| **SUM Style** | Computed style dump with origin info |
+- **Identity** = Type, ID, class name.
+- **Geometry** = Position (x, y), size (w, h).
+- **Clip Rect** = Current scissor/clip bounds.
+- **Visibility** = visible/hidden, opacity value.
+- **Input State** = hover, active, focused, disabled flags.
+- **SUM Style** = Computed style dump with origin info.
 
 ### Style Dump Integration
 
@@ -319,6 +254,7 @@ The inspector automatically shows the SUM computed-style dump for the selected n
 ### Highlighting
 
 When a widget is selected in the inspector:
+
 - A **red outline** appears around the widget in the main window
 - The outline updates as the widget moves/resizes
 - Highlight is only visible when inspector is open
@@ -338,7 +274,6 @@ COGITO_INSPECTOR=1 ./build/my_app
 
 ### Limitations
 
-- Inspector is debug-build only (stripped from release builds)
 - Maximum one inspector window per application
 - Cannot inspect the inspector itself (no recursion)
 - Selection highlight requires main window to be rendering
@@ -351,12 +286,10 @@ Cogito provides access to platform-native window handles for advanced customizat
 
 Each `CogitoWindow` stores a reference to its platform-native window handle:
 
-| Platform | Handle Type | SDL Property |
-|----------|-------------|--------------|
-| **macOS** | `NSWindow*` | `SDL_PROP_WINDOW_COCOA_WINDOW_POINTER` |
-| **Windows** | `HWND` | `SDL_PROP_WINDOW_WIN32_HWND_POINTER` |
-| **Linux (X11)** | `Window` (unsigned long) | `SDL_PROP_WINDOW_X11_WINDOW_NUMBER` |
-| **Linux (Wayland)** | `wl_surface*` | `SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER` |
+- **macOS** = `NSWindow*`: `SDL_PROP_WINDOW_COCOA_WINDOW_POINTER`
+- **Windows** = `HWND`: `SDL_PROP_WINDOW_WIN32_HWND_POINTER`
+- **Linux (X11)** = `Window` (unsigned long): `SDL_PROP_WINDOW_X11_WINDOW_NUMBER`
+- **Linux (Wayland)** | `wl_surface*`: `SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER`
 
 ### Public API
 
@@ -377,7 +310,8 @@ COGITO_DEBUG_NATIVE=1 ./my_app
 ```
 
 Logs handle retrieval success/failure per window:
-```
+
+```sh
 [COGITO_NATIVE] Platform initialized, native handle debugging enabled
 [COGITO_NATIVE] retrieve: window=0x7f8b3c0, handle=0x7f8b5000 [SUCCESS]
 [COGITO_NATIVE] destroy: window=0x7f8b3c0, handle=0x7f8b5000 [SUCCESS]
@@ -387,14 +321,13 @@ Logs handle retrieval success/failure per window:
 
 The native handle seam enables future platform-specific effects:
 
-| Feature | macOS Implementation | Windows Implementation |
-|---------|-------------------|----------------------|
-| **Frosted Glass** | `NSVisualEffectView` with `NSWindow` contentView | `DwmSetWindowAttribute` with `DWMWA_USE_HOST_BACKDROPBRUSH` |
-| **Rounded Corners** | `NSWindow` `cornerRadius` property | `DwmSetWindowAttribute` with `DWMWA_WINDOW_CORNER_PREFERENCE` |
-| **Window Shadow** | `NSWindow` `hasShadow` property | `CS_DROPSHADOW` class style |
-| **Traffic Lights** | `NSWindow` `standardWindowButton:` | Custom title bar with `DwmExtendFrameIntoClientArea` |
+- **Frosted Glass** = `NSVisualEffectView` with `NSWindow` contentView | `DwmSetWindowAttribute` with `DWMWA_USE_HOST_BACKDROPBRUSH`.
+- **Rounded Corners** = `NSWindow` `cornerRadius` property | `DwmSetWindowAttribute` with `DWMWA_WINDOW_CORNER_PREFERENCE`.
+- **Window Shadow** = `NSWindow` `hasShadow` property | `CS_DROPSHADOW` class style.
+- **Traffic Lights** = `NSWindow` `standardWindowButton:` | Custom title bar with `DwmExtendFrameIntoClientArea`.
 
 Example future usage:
+
 ```c
 // Platform-specific frosted glass effect
 void cogito_window_set_frosted_glass(CogitoWindow* window, bool enable) {
@@ -426,38 +359,22 @@ Cogito supports multiple simultaneous windows with independent content and prope
 
 All input events are routed to their target window using SDL's window ID:
 
-| Event Type | Routing Behavior |
-|------------|------------------|
-| `WINDOW_CLOSE` | Sent to specific window that was closed |
-| `WINDOW_RESIZE` | Triggers relayout + viewport update for that window only |
-| `WINDOW_FOCUS` | Updates focused window for keyboard input |
-| `MOUSE_*` | Routed to window containing the cursor |
-| `KEY_*` | Only sent to window with keyboard focus |
-| `TEXT_INPUT` | Only sent to focused window |
+- `WINDOW_CLOSE` = Sent to specific window that was closed
+- `WINDOW_RESIZE` = Triggers relayout + viewport update for that window only
+- `WINDOW_FOCUS` = Updates focused window for keyboard input
+- `MOUSE_*` = Routed to window containing the cursor
+- `KEY_*` = Only sent to window with keyboard focus
+- `TEXT_INPUT` = Only sent to focused window
 
 ### Per-Window State
 
 Each window maintains independent:
+
 - **Renderer context**: Separate OpenGL context per window
 - **Viewport/scissor**: Updated on resize, independent per window
 - **Event queue**: 64-event ring buffer per window
 - **Mouse position**: Tracked per-window for hover effects
 - **Layout state**: Relayout triggered independently on resize
-
-### Multi-Window Demo
-
-The `multi_window_test.c` example demonstrates:
-- Two windows with different sizes and positions
-- Independent UI content (vstack vs hstack layouts)
-- Separate click counters per window
-- Focus tracking and keyboard routing
-- Resize handling with independent relayout
-
-```bash
-# Build and run multi-window test
-meson compile -C build
-./build/multi_window_test
-```
 
 ### Behavior Differences from Single-Window
 
@@ -466,8 +383,6 @@ meson compile -C build
 3. **Drag operations**: Cannot drag between windows (each window is isolated)
 4. **Clipboard**: Shared across all windows (system clipboard)
 
-### Limitations
+### Limits
 
 - Maximum 8 windows (increase `COGITO_MAX_WINDOWS` in `13_run.inc` if needed)
-- No window-to-window drag-and-drop
-- No child/parent window relationships (all windows are top-level)
