@@ -187,9 +187,10 @@ static const char* cogito_font_bold_path_active = NULL;
 #include "../c/08_layout.inc"
 #include "../c/09_interaction.inc"
 #include "../c/10_sum.inc"
-#include "../c/11_menu.inc"
-#include "../c/12_draw.inc"
-#include "../c/13_run.inc"
+#include "../c/11_sum_cogito.inc"
+#include "../c/12_menu.inc"
+#include "../c/13_draw.inc"
+#include "../c/14_run.inc"
 
 // Restore public names.
 #undef cogito_app_new

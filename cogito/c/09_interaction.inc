@@ -80,7 +80,6 @@ static void cogito_invoke_select(CogitoNode* n, int idx, bool activate) {
   if (activate && n->on_activate) cogito_invoke(n->on_activate, 1, &arg);
 }
 
-
 static void cogito_dialog_slot_show(ErgoVal slotv, ErgoVal dialogv);
 static void cogito_dialog_slot_clear(ErgoVal slotv);
 static void cogito_dialog_close(ErgoVal dialogv);
@@ -126,8 +125,6 @@ static void cogito_container_remove_child(CogitoNode* parent, CogitoNode* child)
 #include "widgets/interaction/window.inc"
 #include "widgets/interaction/zstack.inc"
 #include "widgets/interaction/appbar.inc"
-
-
 
 static void cogito_state_drop(ErgoObj* o) {
   CogitoState* s = (CogitoState*)o;
@@ -213,7 +210,6 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
   return NULL;
 }
 
-
 static bool cogito_node_focusable(const CogitoNode* n) {
   if (!n || n->disabled) return false;
   switch (n->kind) {
@@ -234,11 +230,9 @@ static bool cogito_node_focusable(const CogitoNode* n) {
     #include "widgets/interaction/focusable/stepper.inc"
     #include "widgets/interaction/focusable/segmented.inc"
     #include "widgets/interaction/focusable/searchfield.inc"
-
     default:
       return false;
-
-}
+  }
 }
 
 static CogitoNode* cogito_focus_next(CogitoNode* n, CogitoNode* current, bool* found_current) {
@@ -299,8 +293,6 @@ static void cogito_clear_children(CogitoNode* node) {
   node->len = 0;
   node->cap = 0;
 }
-
-
 
 static void cogito_app_drop(ErgoObj* o) {
   CogitoApp* app = (CogitoApp*)o;
@@ -402,72 +394,6 @@ static void cogito_app_set_accent_color(ErgoVal appv, ErgoVal colorv, ErgoVal ov
   cogito_app_update_theme(app);
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 static ErgoVal cogito_app_new(void) {
   if (cogito_debug_enabled()) {
     fprintf(stderr, "cogito: app_new\n");
@@ -476,70 +402,10 @@ static ErgoVal cogito_app_new(void) {
   return EV_OBJ(cogito_app_new_obj());
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 static void cogito_dialog_slot_show(ErgoVal slotv, ErgoVal dialogv);
 static void cogito_dialog_slot_clear(ErgoVal slotv);
 static void cogito_dialog_close(ErgoVal dialogv);
 static void cogito_dialog_remove(ErgoVal dialogv);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 static void cogito_container_add(ErgoVal parentv, ErgoVal childv) {
   if (parentv.tag != EVT_OBJ || childv.tag != EVT_OBJ) ergo_trap("cogito.container_add expects objects");
@@ -604,7 +470,6 @@ static void cogito_container_set_gap(ErgoVal nodev, ErgoVal gapv) {
   cogito_window_relayout(cogito_node_window(node));
 }
 
-
 static void cogito_container_set_padding(ErgoVal nodev, ErgoVal left, ErgoVal top, ErgoVal right, ErgoVal bottom) {
   if (nodev.tag != EVT_OBJ) ergo_trap("cogito.container_set_padding expects object");
   CogitoNode* node = (CogitoNode*)nodev.as.p;
@@ -615,22 +480,6 @@ static void cogito_container_set_padding(ErgoVal nodev, ErgoVal left, ErgoVal to
   node->padding_set = true;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 static void cogito_node_set_disabled(ErgoVal nodev, ErgoVal onv) {
   if (nodev.tag != EVT_OBJ) ergo_trap("cogito.node_set_disabled expects object");
   CogitoNode* n = (CogitoNode*)nodev.as.p;
@@ -638,42 +487,6 @@ static void cogito_node_set_disabled(ErgoVal nodev, ErgoVal onv) {
   if (n == cogito_focused && n->disabled) cogito_focused = NULL;
   cogito_window_relayout(cogito_node_window(n));
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 static void cogito_node_set_id(ErgoVal nodev, ErgoVal idv) {
   if (nodev.tag != EVT_OBJ) ergo_trap("cogito.node_set_id expects object");
@@ -689,26 +502,6 @@ static void cogito_node_set_id(ErgoVal nodev, ErgoVal idv) {
   n->view_id = s;
   cogito_window_relayout(cogito_node_window(n));
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 static void cogito_pointer_capture_set(ErgoVal nodev) {
   if (nodev.tag == EVT_NULL) {
@@ -840,12 +633,6 @@ static void cogito_node_set_tooltip_val(ErgoVal nodev, ErgoVal textv) {
   }
 }
 
-
-
-
-
-
-
 static void cogito_build(ErgoVal nodev, ErgoVal builder) {
   if (builder.tag != EVT_FN) ergo_trap("cogito.build expects function");
   if (nodev.tag != EVT_OBJ) ergo_trap("cogito.build expects object");
@@ -856,238 +643,10 @@ static void cogito_build(ErgoVal nodev, ErgoVal builder) {
   ergo_release_val(ret);
 }
 
-
-
-__attribute__((unused))
-static ErgoVal cogito_state_new(ErgoVal initial) {
-  CogitoState* s = cogito_state_new_obj(initial);
-  return EV_OBJ(s);
-}
-
-__attribute__((unused))
-static ErgoVal cogito_state_get(ErgoVal sv) {
-  if (sv.tag != EVT_OBJ) ergo_trap("cogito.state_get expects state");
-  CogitoState* s = (CogitoState*)sv.as.p;
-  ErgoVal v = s->value;
-  ergo_retain_val(v);
-  return v;
-}
-
-__attribute__((unused))
-static void cogito_state_set(ErgoVal sv, ErgoVal nv) {
-  if (sv.tag != EVT_OBJ) ergo_trap("cogito.state_set expects state");
-  CogitoState* s = (CogitoState*)sv.as.p;
-  if (s->value.tag != EVT_NULL) ergo_release_val(s->value);
-  s->value = nv;
-  if (nv.tag != EVT_NULL) ergo_retain_val(nv);
-  (void)sv;
-  extern CogitoNode* cogito_active_window;
-  if (cogito_active_window) {
-    cogito_window_rebuild(cogito_active_window);
-  }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 static ErgoVal cogito_node_window_val(ErgoVal nodev) {
   if (nodev.tag != EVT_OBJ) ergo_trap("cogito.node_window expects object");
   CogitoNode* n = (CogitoNode*)nodev.as.p;
   CogitoNode* win = cogito_node_window(n);
   if (win) return EV_OBJ(win);
   return EV_NULLV;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-static int cogito_css_hex_value(char c) {
-  if (c >= '0' && c <= '9') return c - '0';
-  if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
-  if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
-  return -1;
-}
-
-static void cogito_css_skip_ws(const char** p) {
-  while (**p) {
-    if (isspace((unsigned char)**p)) { (*p)++; continue; }
-    if ((*p)[0] == '/' && (*p)[1] == '/') {
-      (*p) += 2;
-      while (**p && **p != '\n') (*p)++;
-      continue;
-    }
-    if ((*p)[0] == '/' && (*p)[1] == '*') {
-      (*p) += 2;
-      while (**p && !((*p)[0] == '*' && (*p)[1] == '/')) (*p)++;
-      if (**p) (*p) += 2;
-      continue;
-    }
-    break;
-  }
-}
-
-static bool cogito_css_read_ident(const char** p, char* out, size_t cap) {
-  size_t len = 0;
-  if (!isalpha((unsigned char)**p) && **p != '_' && **p != '-' && **p != '.' && **p != '#') return false;
-  while (**p && (isalnum((unsigned char)**p) || **p == '_' || **p == '-' || **p == '.' || **p == '#')) {
-    if (len + 1 < cap) out[len++] = **p;
-    (*p)++;
-  }
-  out[len] = 0;
-  return len > 0;
-}
-
-static bool cogito_css_read_number(const char** p, double* out) {
-  char* end = NULL;
-  double v = strtod(*p, &end);
-  if (end == *p) return false;
-  *p = end;
-  if ((*p)[0] == 'p' && (*p)[1] == 'x') (*p) += 2;
-  *out = v;
-  return true;
-}
-
-static bool cogito_css_parse_hex_color(const char** p, CogitoColor* out) {
-  if (**p != '#') return false;
-  const char* s = *p + 1;
-  int len = 0;
-  while (cogito_css_hex_value(s[len]) >= 0) len++;
-  if (len != 3 && len != 4 && len != 6 && len != 8) return false;
-  int r = 0, g = 0, b = 0, a = 255;
-  if (len == 3 || len == 4) {
-    r = cogito_css_hex_value(s[0]) * 17;
-    g = cogito_css_hex_value(s[1]) * 17;
-    b = cogito_css_hex_value(s[2]) * 17;
-    if (len == 4) a = cogito_css_hex_value(s[3]) * 17;
-  } else if (len == 6 || len == 8) {
-    r = cogito_css_hex_value(s[0]) * 16 + cogito_css_hex_value(s[1]);
-    g = cogito_css_hex_value(s[2]) * 16 + cogito_css_hex_value(s[3]);
-    b = cogito_css_hex_value(s[4]) * 16 + cogito_css_hex_value(s[5]);
-    if (len == 8) a = cogito_css_hex_value(s[6]) * 16 + cogito_css_hex_value(s[7]);
-  }
-  *out = cogito_rgba(r, g, b, a);
-  *p += 1 + len;
-  return true;
-}
-
-static bool cogito_css_parse_named_color(const char* name, CogitoColor* out) {
-  if (!name) return false;
-  if (strcmp(name, "transparent") == 0) { *out = cogito_rgba(0, 0, 0, 0); return true; }
-  if (strcmp(name, "white") == 0) { *out = cogito_rgba(255, 255, 255, 255); return true; }
-  if (strcmp(name, "black") == 0) { *out = cogito_rgba(0, 0, 0, 255); return true; }
-  if (strcmp(name, "gray") == 0 || strcmp(name, "grey") == 0) { *out = cogito_rgba(128, 128, 128, 255); return true; }
-  if (strcmp(name, "red") == 0) { *out = cogito_rgba(220, 60, 60, 255); return true; }
-  if (strcmp(name, "green") == 0) { *out = cogito_rgba(60, 170, 90, 255); return true; }
-  if (strcmp(name, "blue") == 0) { *out = cogito_rgba(70, 110, 200, 255); return true; }
-  if (strcmp(name, "yellow") == 0) { *out = cogito_rgba(230, 210, 90, 255); return true; }
-  if (strcmp(name, "orange") == 0) { *out = cogito_rgba(230, 150, 60, 255); return true; }
-  if (strcmp(name, "purple") == 0) { *out = cogito_rgba(160, 100, 210, 255); return true; }
-  return false;
-}
-
-static bool cogito_css_parse_rgb_color(const char** p, CogitoColor* out) {
-  const char* s = *p;
-  bool has_alpha = false;
-  if (strncmp(s, "rgba", 4) == 0) {
-    has_alpha = true;
-    s += 4;
-  } else if (strncmp(s, "rgb", 3) == 0) {
-    s += 3;
-  } else {
-    return false;
-  }
-  cogito_css_skip_ws(&s);
-  if (*s != '(') return false;
-  s++;
-  double vals[4] = {0, 0, 0, 1};
-  int count = 0;
-  while (*s && count < (has_alpha ? 4 : 3)) {
-    cogito_css_skip_ws(&s);
-    double v = 0;
-    if (!cogito_css_read_number(&s, &v)) break;
-    vals[count++] = v;
-    cogito_css_skip_ws(&s);
-    if (*s == ',') s++;
-  }
-  cogito_css_skip_ws(&s);
-  if (*s != ')') return false;
-  s++;
-  if (count < (has_alpha ? 4 : 3)) return false;
-  int r = (int)lround(vals[0]);
-  int g = (int)lround(vals[1]);
-  int b = (int)lround(vals[2]);
-  int a = 255;
-  if (has_alpha) {
-    if (vals[3] <= 1.0) a = (int)lround(vals[3] * 255.0);
-    else a = (int)lround(vals[3]);
-  }
-  *out = cogito_rgba(r, g, b, a);
-  *p = s;
-  return true;
-}
-
-static bool cogito_css_parse_color(const char** p, CogitoColor* out) {
-  cogito_css_skip_ws(p);
-  if (**p == '#') return cogito_css_parse_hex_color(p, out);
-  if (strncmp(*p, "rgb", 3) == 0) return cogito_css_parse_rgb_color(p, out);
-  char name[32];
-  const char* s = *p;
-  if (!cogito_css_read_ident(&s, name, sizeof(name))) return false;
-  if (cogito_css_parse_named_color(name, out)) { *p = s; return true; }
-  return false;
-}
-
-static int cogito_css_parse_ints(const char** p, int* out, int max) {
-  int count = 0;
-  while (count < max) {
-    cogito_css_skip_ws(p);
-    double v = 0;
-    if (!cogito_css_read_number(p, &v)) break;
-    out[count++] = (int)lround(v);
-    cogito_css_skip_ws(p);
-    if (**p == ',') (*p)++;
-  }
-  return count;
 }

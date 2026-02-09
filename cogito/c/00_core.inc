@@ -7,8 +7,19 @@
 #include <objc/runtime.h>
 #endif
 
-static bool cogito_system_is_dark(void);
-static bool cogito_system_accent(CogitoColor* out);
+static bool cogito_system_is_dark(void) {
+  // Default implementation - can be overridden by platform-specific code
+  return false;
+}
+
+static bool cogito_system_accent(CogitoColor* out) {
+  // Default implementation - can be overridden by platform-specific code
+  if (out) {
+    *out = cogito_color(114, 222, 194, 255); // Default teal accent
+  }
+  return false; // No system accent available by default
+}
+
 static void cogito_apply_theme(bool dark, CogitoColor accent);
 
 // Animation Duration Constants (milliseconds)
@@ -620,7 +631,7 @@ static void cogito_configure_macos_window(bool has_appbar) {
 #if defined(__OBJC__)
       (__bridge id)cogito_backend->window_get_native_handle(cogito_active_window);
 #else
-      (id)cogito_backend->window_get_native_handle(cogito_active_window);
+      (id)cogito_backend->window_get_native_handle((CogitoWindow*)cogito_active_window);
 #endif
   if (!nsw) return;
   SEL sel_set_title = sel_registerName("setTitle:");
@@ -652,7 +663,7 @@ static void cogito_macos_drag_window(void) {
 #if defined(__OBJC__)
       (__bridge id)cogito_backend->window_get_native_handle(cogito_active_window);
 #else
-      (id)cogito_backend->window_get_native_handle(cogito_active_window);
+      (id)cogito_backend->window_get_native_handle((CogitoWindow*)cogito_active_window);
 #endif
   if (!nsw) return;
   Class nsapp = (Class)objc_getClass("NSApplication");
@@ -673,7 +684,7 @@ static void cogito_macos_set_window_a11y_label(const char* label) {
 #if defined(__OBJC__)
       (__bridge id)cogito_backend->window_get_native_handle(cogito_active_window);
 #else
-      (id)cogito_backend->window_get_native_handle(cogito_active_window);
+      (id)cogito_backend->window_get_native_handle((CogitoWindow*)cogito_active_window);
 #endif
   if (!nsw) return;
   SEL sel = sel_registerName("setAccessibilityLabel:");

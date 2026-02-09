@@ -15,7 +15,7 @@ static void cogito_window_rebuild(CogitoNode* win) {
       win->w = dw;
       win->h = dh;
       if (cogito_backend_ready && cogito_active_window) {
-        cogito_backend->window_set_size(cogito_active_window, dw, dh);
+        cogito_backend->window_set_size((CogitoWindow*)cogito_active_window, dw, dh);
       }
     }
   }

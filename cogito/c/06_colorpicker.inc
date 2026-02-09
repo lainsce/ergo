@@ -130,7 +130,27 @@ static int cogito_text_wrap_height(const CogitoNode* n, const char* text, int si
   return lines * line_h;
 }
 
-static void cogito_draw_text_size_node(const CogitoNode* n, int x, int y, const char* text, CogitoColor color, int size, bool bold);
+static void cogito_draw_text_size_node(const CogitoNode* n, int x, int y, const char* text, CogitoColor color, int size, bool bold) {
+  if (!text || !n) return;
+  if (size <= 0) size = cogito_font_size();
+  CogitoFont* f = cogito_font_for_node(n);
+  if (bold && f == cogito_font && cogito_font_bold_ready) {
+    f = cogito_font_bold;
+  }
+  if (n && n->font_tabular) {
+    f = cogito_font_tabular_for(f, size);
+  }
+  if (cogito_backend && cogito_backend->draw_text) {
+    cogito_backend->draw_text(f, text, x, y, size, color);
+  }
+}
+
+static void cogito_draw_text_node(const CogitoNode* n, int x, int y, const char* text, CogitoColor color) {
+  if (!text || !n) return;
+  int size = cogito_node_font_size(n);
+  bool bold = cogito_node_bold(n);
+  cogito_draw_text_size_node(n, x, y, text, color, size, bold);
+}
 
 static void cogito_draw_text_ellipsis(const CogitoNode* n, int x, int y, int w, const char* text, CogitoColor color, int size, bool bold, int align) {
   if (!text || w <= 0) return;

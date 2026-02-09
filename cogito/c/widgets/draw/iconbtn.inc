@@ -31,7 +31,7 @@ case COGITO_ICONBTN: {
         if (over || down) {
           CogitoStyle overlay = down ? cogito_theme.appbar_child_iconbtn_active : cogito_theme.appbar_child_iconbtn_hover;
           if (overlay.has_bg) {
-            bg = cogito_blend(bg, overlay.bg);
+            bg = cogito_color_blend(bg, overlay.bg);
           }
         }
       }

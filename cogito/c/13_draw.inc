@@ -1,3 +1,37 @@
+static float cogito_roundness_for(int w, int h, int radius) {
+  if (radius <= 0) return 0.0f;
+  float min = (float)(w < h ? w : h);
+  if (min <= 0.0f) return 0.0f;
+  float roundness = (float)radius / (min * 0.5f);
+  if (roundness > 1.0f) roundness = 1.0f;
+  if (roundness < 0.0f) roundness = 0.0f;
+  return roundness;
+}
+
+static void cogito_draw_rect(int x, int y, int w, int h, CogitoColor bg, int radius) {
+  if (w <= 0 || h <= 0) return;
+  if (cogito_backend && cogito_backend->draw_rect_rounded) {
+    float roundness = cogito_roundness_for(w, h, radius);
+    if (roundness > 0.0f) {
+      cogito_backend->draw_rect_rounded(x, y, w, h, bg, roundness);
+    } else {
+      cogito_backend->draw_rect(x, y, w, h, bg);
+    }
+  }
+}
+
+static void cogito_draw_rect_lines(int x, int y, int w, int h, CogitoColor border, int radius, int thickness) {
+  if (w <= 0 || h <= 0 || thickness <= 0) return;
+  if (cogito_backend && cogito_backend->draw_rect_rounded_lines) {
+    float roundness = cogito_roundness_for(w, h, radius);
+    if (roundness > 0.0f) {
+      cogito_backend->draw_rect_rounded_lines(x, y, w, h, border, roundness, thickness);
+    } else {
+      cogito_backend->draw_rect_lines(x, y, w, h, border, thickness);
+    }
+  }
+}
+
 static void cogito_draw_line(int x1, int y1, int x2, int y2, CogitoColor color) {
   if (cogito_backend && cogito_backend->draw_line) {
     cogito_backend->draw_line(x1, y1, x2, y2, color, 1);

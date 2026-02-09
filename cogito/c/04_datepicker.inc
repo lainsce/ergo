@@ -1,3 +1,26 @@
+static bool cogito_is_leap_year(int y) {
+  return ((y % 4) == 0 && (y % 100) != 0) || (y % 400) == 0;
+}
+
+static int cogito_days_in_month(int y, int m) {
+  static const int days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  if (m < 1) m = 1;
+  if (m > 12) m = 12;
+  int d = days[m - 1];
+  if (m == 2 && cogito_is_leap_year(y)) d = 29;
+  return d;
+}
+
+static int cogito_weekday(int y, int m, int d) {
+  struct tm t;
+  memset(&t, 0, sizeof(t));
+  t.tm_year = y - 1900;
+  t.tm_mon = m - 1;
+  t.tm_mday = d;
+  mktime(&t);
+  return t.tm_wday;
+}
+
 static void cogito_datepicker_ensure_date(CogitoNode* n) {
   if (!n || n->kind != COGITO_DATEPICKER) return;
   if (n->date_year <= 0 || n->date_month <= 0) {

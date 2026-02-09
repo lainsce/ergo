@@ -1,3 +1,38 @@
+static void cogito_style_set_padding(CogitoStyle* s, int top, int right, int bottom, int left) {
+  s->has_padding = true;
+  s->padding_top = top;
+  s->padding_right = right;
+  s->padding_bottom = bottom;
+  s->padding_left = left;
+}
+
+static void cogito_style_set_margin(CogitoStyle* s, int top, int right, int bottom, int left) {
+  s->has_margin = true;
+  s->margin_top = top;
+  s->margin_right = right;
+  s->margin_bottom = bottom;
+  s->margin_left = left;
+}
+
+static void cogito_style_set_radius(CogitoStyle* s, int tl, int tr, int br, int bl) {
+  s->has_radius_tl = true;
+  s->has_radius_tr = true;
+  s->has_radius_br = true;
+  s->has_radius_bl = true;
+  s->radius_tl = tl;
+  s->radius_tr = tr;
+  s->radius_br = br;
+  s->radius_bl = bl;
+}
+
+static int cogito_label_class_from_name(const char* s) {
+  if (!s || !s[0]) return COGITO_LABEL_CLASS_NONE;
+  if (strcmp(s, "title") == 0) return COGITO_LABEL_CLASS_TITLE;
+  if (strcmp(s, "subtitle") == 0 || strcmp(s, "sub-title") == 0) return COGITO_LABEL_CLASS_SUBTITLE;
+  if (strcmp(s, "body") == 0) return COGITO_LABEL_CLASS_BODY;
+  return COGITO_LABEL_CLASS_NONE;
+}
+
 static void cogito_theme_set_defaults(void) {
   cogito_style_clear(&cogito_theme.base);
   for (int i = 0; i < COGITO_KIND_COUNT; i++) {
@@ -846,4 +881,146 @@ static CogitoColor cogito_label_class_color(int cls, CogitoColor fallback) {
     if (s->has_text) return s->text;
   }
   return fallback;
+}
+
+static int cogito_css_hex_value(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
+  if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
+  return -1;
+}
+
+static void cogito_css_skip_ws(const char** p) {
+  while (**p) {
+    if (isspace((unsigned char)**p)) { (*p)++; continue; }
+    if ((*p)[0] == '/' && (*p)[1] == '/') {
+      (*p) += 2;
+      while (**p && **p != '\n') (*p)++;
+      continue;
+    }
+    if ((*p)[0] == '/' && (*p)[1] == '*') {
+      (*p) += 2;
+      while (**p && !((*p)[0] == '*' && (*p)[1] == '/')) (*p)++;
+      if (**p) (*p) += 2;
+      continue;
+    }
+    break;
+  }
+}
+
+static bool cogito_css_read_ident(const char** p, char* out, size_t cap) {
+  size_t len = 0;
+  if (!isalpha((unsigned char)**p) && **p != '_' && **p != '-' && **p != '.' && **p != '#') return false;
+  while (**p && (isalnum((unsigned char)**p) || **p == '_' || **p == '-' || **p == '.' || **p == '#')) {
+    if (len + 1 < cap) out[len++] = **p;
+    (*p)++;
+  }
+  out[len] = 0;
+  return len > 0;
+}
+
+static bool cogito_css_read_number(const char** p, double* out) {
+  char* end = NULL;
+  double v = strtod(*p, &end);
+  if (end == *p) return false;
+  *p = end;
+  if ((*p)[0] == 'p' && (*p)[1] == 'x') (*p) += 2;
+  *out = v;
+  return true;
+}
+
+static bool cogito_css_parse_hex_color(const char** p, CogitoColor* out) {
+  if (**p != '#') return false;
+  const char* s = *p + 1;
+  int len = 0;
+  while (cogito_css_hex_value(s[len]) >= 0) len++;
+  if (len != 3 && len != 4 && len != 6 && len != 8) return false;
+  int r = 0, g = 0, b = 0, a = 255;
+  if (len == 3 || len == 4) {
+    r = cogito_css_hex_value(s[0]) * 17;
+    g = cogito_css_hex_value(s[1]) * 17;
+    b = cogito_css_hex_value(s[2]) * 17;
+    if (len == 4) a = cogito_css_hex_value(s[3]) * 17;
+  } else if (len == 6 || len == 8) {
+    r = cogito_css_hex_value(s[0]) * 16 + cogito_css_hex_value(s[1]);
+    g = cogito_css_hex_value(s[2]) * 16 + cogito_css_hex_value(s[3]);
+    b = cogito_css_hex_value(s[4]) * 16 + cogito_css_hex_value(s[5]);
+    if (len == 8) a = cogito_css_hex_value(s[6]) * 16 + cogito_css_hex_value(s[7]);
+  }
+  *out = cogito_rgba(r, g, b, a);
+  *p += 1 + len;
+  return true;
+}
+
+static bool cogito_css_parse_named_color(const char* name, CogitoColor* out) {
+  if (!name) return false;
+  if (strcmp(name, "transparent") == 0) { *out = cogito_rgba(0, 0, 0, 0); return true; }
+  if (strcmp(name, "white") == 0) { *out = cogito_rgba(255, 255, 255, 255); return true; }
+  if (strcmp(name, "black") == 0) { *out = cogito_rgba(0, 0, 0, 255); return true; }
+  return false;
+}
+
+static bool cogito_css_parse_rgb_color(const char** p, CogitoColor* out) {
+  const char* s = *p;
+  bool has_alpha = false;
+  if (strncmp(s, "rgba", 4) == 0) {
+    has_alpha = true;
+    s += 4;
+  } else if (strncmp(s, "rgb", 3) == 0) {
+    s += 3;
+  } else {
+    return false;
+  }
+  cogito_css_skip_ws(&s);
+  if (*s != '(') return false;
+  s++;
+  double vals[4] = {0, 0, 0, 1};
+  int count = 0;
+  while (*s && count < (has_alpha ? 4 : 3)) {
+    cogito_css_skip_ws(&s);
+    double v = 0;
+    if (!cogito_css_read_number(&s, &v)) break;
+    vals[count++] = v;
+    cogito_css_skip_ws(&s);
+    if (*s == ',') s++;
+  }
+  cogito_css_skip_ws(&s);
+  if (*s != ')') return false;
+  s++;
+  if (count < (has_alpha ? 4 : 3)) return false;
+  int r = (int)lround(vals[0]);
+  int g = (int)lround(vals[1]);
+  int b = (int)lround(vals[2]);
+  int a = 255;
+  if (has_alpha) {
+    if (vals[3] <= 1.0) a = (int)lround(vals[3] * 255.0);
+    else a = (int)lround(vals[3]);
+  }
+  *out = cogito_rgba(r, g, b, a);
+  *p = s;
+  return true;
+}
+
+static bool cogito_css_parse_color(const char** p, CogitoColor* out) {
+  cogito_css_skip_ws(p);
+  if (**p == '#') return cogito_css_parse_hex_color(p, out);
+  if (strncmp(*p, "rgb", 3) == 0) return cogito_css_parse_rgb_color(p, out);
+  char name[32];
+  const char* s = *p;
+  if (!cogito_css_read_ident(&s, name, sizeof(name))) return false;
+  if (cogito_css_parse_named_color(name, out)) { *p = s; return true; }
+  return false;
+}
+
+static int cogito_css_parse_ints(const char** p, int* out, int max) {
+  int count = 0;
+  while (count < max) {
+    cogito_css_skip_ws(p);
+    double v = 0;
+    if (!cogito_css_read_number(p, &v)) break;
+    out[count++] = (int)lround(v);
+    cogito_css_skip_ws(p);
+    if (**p == ',') (*p)++;
+  }
+  return count;
 }
