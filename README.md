@@ -50,12 +50,14 @@ Build Cogito:
 ```sh
 meson setup cogito/_build cogito
 meson compile -C cogito/_build
+cd _build
+sudo ninja install
 ```
 
 Run a GUI example:
 
 ```sh
-ergo run cogito/examples/gui_kitchensink.ergo
+ergo run cogito/examples/gui_gallery.ergo
 ```
 
 ## Contributing
