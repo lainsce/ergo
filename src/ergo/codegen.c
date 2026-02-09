@@ -4769,33 +4769,30 @@ static void codegen_free(Codegen *cg) {
 static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
     codegen_collect_lambdas(cg);
 
-    // Only include stdr.inc when NOT using cogito (cogito has its own runtime with bindings)
-    if (!uses_cogito) {
-        const char *runtime_path = getenv("ERGO_RUNTIME");
-        if (!runtime_path || !runtime_path[0]) {
-            if (path_is_file("ergo/src/ergo/stdr.inc")) {
-                runtime_path = "ergo/src/ergo/stdr.inc";
-            } else if (path_is_file("../ergo/src/ergo/stdr.inc")) {
-                runtime_path = "../ergo/src/ergo/stdr.inc";
-            } else {
-                runtime_path = "ergo/src/ergo/stdr.inc";
-            }
+    const char *runtime_path = getenv("ERGO_RUNTIME");
+    if (!runtime_path || !runtime_path[0]) {
+        if (path_is_file("src/ergo/runtime.inc")) {
+            runtime_path = "src/ergo/runtime.inc";
+        } else if (path_is_file("../src/ergo/runtime.inc")) {
+            runtime_path = "../src/ergo/runtime.inc";
+        } else {
+            runtime_path = "src/ergo/runtime.inc";
         }
-        Arena tmp_arena;
-        arena_init(&tmp_arena);
-        size_t runtime_len = 0;
-        Diag rerr = {0};
-        char *runtime_src = read_file_with_includes(runtime_path, "// @include", &tmp_arena, &runtime_len, &rerr);
-        if (!runtime_src) {
-            arena_free(&tmp_arena);
-            return cg_set_err(err, (Str){runtime_path, runtime_path ? strlen(runtime_path) : 0}, "failed to read stdr.inc");
-        }
-        w_raw(&cg->w, runtime_src);
-        if (runtime_len == 0 || runtime_src[runtime_len - 1] != '\n') {
-            sb_append_char(&cg->out, '\n');
-        }
-        arena_free(&tmp_arena);
     }
+    Arena tmp_arena;
+    arena_init(&tmp_arena);
+    size_t runtime_len = 0;
+    Diag rerr = {0};
+    char *runtime_src = read_file_with_includes(runtime_path, "// @include", &tmp_arena, &runtime_len, &rerr);
+    if (!runtime_src) {
+        arena_free(&tmp_arena);
+        return cg_set_err(err, (Str){runtime_path, runtime_path ? strlen(runtime_path) : 0}, "failed to read runtime.inc");
+    }
+    w_raw(&cg->w, runtime_src);
+    if (runtime_len == 0 || runtime_src[runtime_len - 1] != '\n') {
+        sb_append_char(&cg->out, '\n');
+    }
+    arena_free(&tmp_arena);
 
     w_line(&cg->w, "// ---- module globals ----");
     for (size_t i = 0; i < cg->prog->mods_len; i++) {

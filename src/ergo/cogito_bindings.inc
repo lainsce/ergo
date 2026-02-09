@@ -1,5 +1,6 @@
 // ---- Cogito bindings (shared library) ----
 #include <cogito.h>
+
 #undef cogito_app_new
 #undef cogito_app_free
 #undef cogito_app_run
