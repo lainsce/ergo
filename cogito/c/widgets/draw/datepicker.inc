@@ -4,8 +4,8 @@ case COGITO_DATEPICKER: {
       bool active = false;
       cogito_node_hover_state(n, &hover, &active);
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
-      Color bg = n->bg;
-      Color border = n->border_color;
+      CogitoColor bg = n->bg;
+      CogitoColor border = n->border_color;
       int border_w = n->border_width;
       int radius = n->border_radius;
       if (s.has_bg) bg = s.bg;
@@ -22,7 +22,7 @@ case COGITO_DATEPICKER: {
       int header_h = 0, grid_x = 0, grid_y = 0, cell_w = 0, cell_h = 0;
       cogito_datepicker_layout(n, &pad_l, &pad_t, &pad_r, &pad_b, &header_h, &grid_x, &grid_y, &cell_w, &cell_h);
       int size = cogito_node_font_size(n);
-      Color text = s.has_text ? s.text : n->text_color;
+      CogitoColor text = s.has_text ? s.text : n->text_color;
       static const char* months[] = {"January","February","March","April","May","June","July","August","September","October","November","December"};
       const char* mname = (n->date_month >= 1 && n->date_month <= 12) ? months[n->date_month - 1] : "";
       char header[64];
@@ -39,7 +39,7 @@ case COGITO_DATEPICKER: {
       cogito_draw_text_size_node(n, right_x + (header_h / 2) - 4, arrow_y, ">", text, size, false);
       int first = cogito_weekday(n->date_year, n->date_month, 1);
       int dim = cogito_days_in_month(n->date_year, n->date_month);
-      Color sel = s.has_selection ? s.selection : n->selection_color;
+      CogitoColor sel = s.has_selection ? s.selection : n->selection_color;
       for (int day = 1; day <= dim; day++) {
         int idx = first + (day - 1);
         int row = idx / 7;
@@ -58,7 +58,7 @@ case COGITO_DATEPICKER: {
         int dh = cogito_text_height_size(size);
         int dx = cx + (cell_w - dw) / 2;
         int dy = cy + (cell_h - dh) / 2;
-        Color day_text = (day == n->date_day) ? cogito_on_color(sel) : text;
+        CogitoColor day_text = (day == n->date_day) ? cogito_on_color(sel) : text;
         cogito_draw_text_size_node(n, dx, dy, buf, day_text, size, false);
       }
       break;

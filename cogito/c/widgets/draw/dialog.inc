@@ -28,7 +28,7 @@ case COGITO_DIALOG: {
 
       // Draw title if set
       if (n->text && n->text->data[0]) {
-        Color title_color = s.has_text ? s.text : n->text_color;
+        CogitoColor title_color = s.has_text ? s.text : n->text_color;
         int title_size = 20;
         int title_h = cogito_text_height_size(title_size);
         int pad_l = s.has_padding_left ? s.padding_left : 24;
@@ -43,4 +43,3 @@ case COGITO_DIALOG: {
       }
       break;
     }
-

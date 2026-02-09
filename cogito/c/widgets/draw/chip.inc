@@ -3,8 +3,8 @@ case COGITO_CHIP: {
   cogito_node_hover_state(n, &hover, &active);
   CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
 
-  Color bg = s.has_bg ? s.bg : n->bg;
-  Color text_color = s.has_text ? s.text : n->text_color;
+  CogitoColor bg = s.has_bg ? s.bg : n->bg;
+  CogitoColor text_color = s.has_text ? s.text : n->text_color;
   int radius = n->h / 2;
 
   // Animate colors
@@ -23,10 +23,17 @@ case COGITO_CHIP: {
     int check_size = 12;
     int check_x = n->x + 8;
     int check_cy = n->y + n->h / 2;
-    DrawLineEx((Vector2){(float)check_x, (float)check_cy},
-               (Vector2){(float)(check_x + check_size * 3 / 8), (float)(check_cy + check_size * 3 / 8)}, 1.5f, text_color);
-    DrawLineEx((Vector2){(float)(check_x + check_size * 3 / 8), (float)(check_cy + check_size * 3 / 8)},
-               (Vector2){(float)(check_x + check_size), (float)(check_cy - check_size * 3 / 8)}, 1.5f, text_color);
+    // TODO: Replace with backend line drawing
+    // DrawLineEx((Vector2){(float)check_x, (float)check_cy},
+    //            (Vector2){(float)(check_x + check_size * 3 / 8), (float)(check_cy + check_size * 3 / 8)}, 1.5f, text_color);
+    // DrawLineEx((Vector2){(float)(check_x + check_size * 3 / 8), (float)(check_cy + check_size * 3 / 8)},
+    //            (Vector2){(float)(check_x + check_size), (float)(check_cy - check_size * 3 / 8)}, 1.5f, text_color);
+    int mid_x = check_x + check_size * 3 / 8;
+    int mid_y = check_cy + check_size * 3 / 8;
+    int end_x = check_x + check_size;
+    int end_y = check_cy - check_size * 3 / 8;
+    cogito_draw_line(check_x, check_cy, mid_x, mid_y, text_color);
+    cogito_draw_line(mid_x, mid_y, end_x, end_y, text_color);
   }
 
   // Draw text
@@ -42,14 +49,16 @@ case COGITO_CHIP: {
       int icon_size = 12;
       int icon_x = n->x + n->w - 16 - icon_size;
       int icon_y = n->y + (n->h - icon_size) / 2;
-      Color close_col = text_color;
+      CogitoColor close_col = text_color;
       close_col.a = 180;
-      DrawLineEx((Vector2){(float)icon_x, (float)icon_y},
-                 (Vector2){(float)(icon_x + icon_size), (float)(icon_y + icon_size)}, 1.5f, close_col);
-      DrawLineEx((Vector2){(float)(icon_x + icon_size), (float)icon_y},
-                 (Vector2){(float)icon_x, (float)(icon_y + icon_size)}, 1.5f, close_col);
+      // TODO: Replace with backend line drawing
+      // DrawLineEx((Vector2){(float)icon_x, (float)icon_y},
+      //            (Vector2){(float)(icon_x + icon_size), (float)(icon_y + icon_size)}, 1.5f, close_col);
+      // DrawLineEx((Vector2){(float)(icon_x + icon_size), (float)icon_y},
+      //            (Vector2){(float)icon_x, (float)(icon_y + icon_size)}, 1.5f, close_col);
+      cogito_draw_line(icon_x, icon_y, icon_x + icon_size, icon_y + icon_size, close_col);
+      cogito_draw_line(icon_x + icon_size, icon_y, icon_x, icon_y + icon_size, close_col);
     }
   }
   break;
 }
-

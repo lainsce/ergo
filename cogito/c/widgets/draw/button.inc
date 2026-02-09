@@ -4,18 +4,20 @@ case COGITO_BUTTON: {
       cogito_node_hover_state(n, &hover, &active);
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
       if (n->parent && n->parent->kind == COGITO_APPBAR) {
-        int mx = (int)GetMousePosition().x;
-        int my = (int)GetMousePosition().y;
+        int mx = 0, my = 0;
+        if (cogito_backend && cogito_backend_ready) {
+          cogito_backend->get_mouse_position(&mx, &my);
+        }
         bool over = cogito_hit_rect(mx, my, n->x, n->y, n->w, n->h);
-        bool down = over && IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+        bool down = over && (cogito_backend && cogito_backend->is_mouse_button_down(0));
         if (down) {
           s = cogito_style_merge(&s, &cogito_theme.appbar_child_button_active);
         } else if (over) {
           s = cogito_style_merge(&s, &cogito_theme.appbar_child_button_hover);
         }
       }
-      Color bg = n->bg;
-      Color border = n->border_color;
+      CogitoColor bg = n->bg;
+      CogitoColor border = n->border_color;
       int border_w = n->border_width;
       int radius = n->border_radius;
       if (s.has_bg) bg = s.bg;
@@ -39,11 +41,10 @@ case COGITO_BUTTON: {
         int th = cogito_text_height_size(size);
         int tx = n->x + (n->w - tw) / 2;
         int ty = n->y + (n->h - th) / 2;
-        Color text = n->text_color;
+        CogitoColor text = n->text_color;
         if (cogito_has_selection_text) text = cogito_selection_text;
         else if (s.has_text) text = s.text;
         cogito_draw_text_size_node(n, tx, ty, n->text->data, text, size, cogito_node_bold(n));
       }
       break;
     }
-    

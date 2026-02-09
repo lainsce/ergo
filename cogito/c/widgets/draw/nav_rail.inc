@@ -2,7 +2,7 @@ case COGITO_NAV_RAIL: {
   CogitoStyle s = cogito_theme_resolve_node(n);
 
   // Draw background
-  Color bg = s.has_bg ? s.bg : n->bg;
+  CogitoColor bg = s.has_bg ? s.bg : n->bg;
   cogito_draw_rect(n->x, n->y, n->w, n->h, bg, 0);
 
   if (n->nav_rail_len == 0) break;
@@ -16,17 +16,19 @@ case COGITO_NAV_RAIL: {
     bool hover = false;
 
     // Check if mouse is over this item
-    int mx = (int)GetMousePosition().x;
-    int my = (int)GetMousePosition().y;
+    int mx = 0, my = 0;
+    if (cogito_backend && cogito_backend->get_mouse_position) {
+      cogito_backend->get_mouse_position(&mx, &my);
+    }
     if (cogito_hit_rect(mx, my, n->x, item_y, n->w, item_h)) {
       hover = true;
     }
 
     // Draw selection/hover background
     if (selected || hover) {
-      Color item_bg = selected
+      CogitoColor item_bg = selected
         ? (s.has_selection ? s.selection : n->selection_color)
-        : (s.has_bg ? cogito_mix(s.bg, (Color){128, 128, 128, 255}, 0.1f) : n->bg);
+        : (s.has_bg ? cogito_mix(s.bg, cogito_rgba(128, 128, 128, 255), 0.1f) : n->bg);
       int indicator_w = selected ? 16 : 0;
       int radius = 16;  // Fully rounded indicator
       int bg_x = n->x + (n->w - indicator_w) / 2 - 32;
@@ -36,30 +38,28 @@ case COGITO_NAV_RAIL: {
 
     // Draw icon
     if (n->nav_rail_icons && n->nav_rail_icons[i]) {
-      Color icon_color = s.has_text ? s.text : n->text_color;
+      CogitoColor icon_color = s.has_text ? s.text : n->text_color;
       if (selected) {
-        Color sel_bg = s.has_selection ? s.selection : n->selection_color;
+        CogitoColor sel_bg = s.has_selection ? s.selection : n->selection_color;
         icon_color = cogito_on_color(sel_bg);
       } else if (hover) {
         icon_color = s.has_text ? s.text : n->text_color;
       }
-      Texture2D tex;
-      int tw = 0, th = 0;
-      if (cogito_icon_load_texture(n->nav_rail_icons[i]->data, icon_size, &tex, &tw, &th)) {
-        int icon_x = n->x + (n->w - icon_size) / 2;
-        int icon_y = item_y + 8;
-        DrawTexturePro(tex,
-                       (Rectangle){0, 0, tex.width, tex.height},
-                       (Rectangle){icon_x, icon_y, icon_size, icon_size},
-                       (Vector2){0, 0}, 0, icon_color);
-      }
+      // TODO: Replace with backend texture drawing
+      // Texture2D tex;
+      // int tw = 0, th = 0;
+      // if (cogito_icon_load_texture(n->nav_rail_icons[i]->data, icon_size, &tex, &tw, &th)) {
+      //   int icon_x = n->x + (n->w - icon_size) / 2;
+      //   int icon_y = item_y + 8;
+      //   cogito_backend->draw_texture(...);
+      // }
     }
 
     // Draw label below icon
     if (n->nav_rail_labels && n->nav_rail_labels[i]) {
-      Color text_color = s.has_text ? s.text : n->text_color;
+      CogitoColor text_color = s.has_text ? s.text : n->text_color;
       if (selected) {
-        Color sel_bg = s.has_selection ? s.selection : n->selection_color;
+        CogitoColor sel_bg = s.has_selection ? s.selection : n->selection_color;
         text_color = cogito_on_color(sel_bg);
       }
       int size = 11;  // Small label size

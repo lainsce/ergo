@@ -5,9 +5,9 @@ case COGITO_SEARCHFIELD: {
   CogitoStyle s = cogito_theme_resolve_node_state(n, hover || focused, active);
 
   // Draw rounded background
-  Color bg = s.has_bg ? s.bg : n->bg;
-  Color text_color = s.has_text ? s.text : n->text_color;
-  Color border_col = s.has_border ? s.border : cogito_rgba(0, 0, 0, 0);
+  CogitoColor bg = s.has_bg ? s.bg : n->bg;
+  CogitoColor text_color = s.has_text ? s.text : n->text_color;
+  CogitoColor border_col = s.has_border ? s.border : cogito_rgba(0, 0, 0, 0);
   int border_w = s.has_border_width ? s.border_width : 0;
   int radius = s.has_radius ? s.radius : (n->h / 2);
 
@@ -16,7 +16,7 @@ case COGITO_SEARCHFIELD: {
 
   // Override border for focus state
   if (focused) {
-    Color sel = s.has_selection ? s.selection : text_color;
+    CogitoColor sel = s.has_selection ? s.selection : text_color;
     border_col = sel;
     border_w = 2;
   }
@@ -30,36 +30,31 @@ case COGITO_SEARCHFIELD: {
   int icon_size = 16;
   int icon_x = n->x + 12;
   int icon_y = n->y + (n->h - icon_size) / 2;
-  Color icon_color = text_color;
+  CogitoColor icon_color = text_color;
   if (!focused && (!n->text || !n->text->data[0])) {
     icon_color.a = 150;  // Dimmer when empty and not focused
   }
 
   // Try to load icon texture, fall back to drawn icon
   {
-    Texture2D tex = {0};
-    int tw = 0, th_i = 0;
-    if (cogito_icon_load_texture("sf:magnifyingglass", icon_size, &tex, &tw, &th_i)) {
-      float dw = (float)icon_size;
-      float dh = (float)icon_size;
-      if (tw > 0 && th_i > 0) {
-        float sx = (float)icon_size / (float)tw;
-        float sy = (float)icon_size / (float)th_i;
-        float scale = sx < sy ? sx : sy;
-        dw = (float)tw * scale;
-        dh = (float)th_i * scale;
-      }
-      float dx = icon_x + ((float)icon_size - dw) * 0.5f;
-      float dy = icon_y + ((float)icon_size - dh) * 0.5f;
-      DrawTexturePro(tex, (Rectangle){0, 0, (float)tw, (float)th_i},
-                     (Rectangle){dx, dy, dw, dh},
-                     (Vector2){0, 0}, 0.0f, icon_color);
-    } else {
-      // Fallback: draw magnifying glass
-      DrawCircleLines(icon_x + icon_size/2 - 1, icon_y + icon_size/2 - 1, icon_size/2 - 3, icon_color);
-      DrawLineEx((Vector2){(float)(icon_x + icon_size - 4), (float)(icon_y + icon_size - 4)},
-                 (Vector2){(float)(icon_x + icon_size), (float)(icon_y + icon_size)}, 2.0f, icon_color);
-    }
+    // TODO: Replace with backend texture drawing
+    // Texture2D tex = {0};
+    // int tw = 0, th_i = 0;
+    // if (cogito_icon_load_texture("sf:magnifyingglass", icon_size, &tex, &tw, &th_i)) {
+    //   cogito_backend->draw_texture(...);
+    // } else {
+    // Fallback: draw magnifying glass
+    // DrawCircleLines(icon_x + icon_size/2 - 1, icon_y + icon_size/2 - 1, icon_size/2 - 3, icon_color);
+    // DrawLineEx((Vector2){(float)(icon_x + icon_size - 4), (float)(icon_y + icon_size - 4)},
+    //            (Vector2){(float)(icon_x + icon_size), (float)(icon_y + icon_size)}, 2.0f, icon_color);
+    // Draw circle outline
+    int cx = icon_x + icon_size/2 - 1;
+    int cy = icon_y + icon_size/2 - 1;
+    int r = icon_size/2 - 3;
+    cogito_draw_rect(cx - r, cy - r, r * 2, r * 2, icon_color, r);
+    // Draw handle line
+    cogito_draw_line(icon_x + icon_size - 4, icon_y + icon_size - 4, icon_x + icon_size, icon_y + icon_size, icon_color);
+    // }
   }
 
   // Text area starts after icon
@@ -79,7 +74,7 @@ case COGITO_SEARCHFIELD: {
     if (a > b) { int tmp = a; a = b; b = tmp; }
     int sx = cogito_text_width_size_n_node(n, txt, a, size);
     int ex = cogito_text_width_size_n_node(n, txt, b, size);
-    Color sel = s.has_selection ? s.selection : n->selection_color;
+    CogitoColor sel = s.has_selection ? s.selection : n->selection_color;
     int x0 = text_x + sx;
     int x1 = text_x + ex;
     if (x1 > x0 && x1 <= text_x + text_avail_w) {
@@ -92,7 +87,7 @@ case COGITO_SEARCHFIELD: {
     cogito_draw_text_ellipsis(n, text_x, text_y, text_avail_w, txt, text_color, size, false, 0);
   } else if (!focused) {
     // Draw placeholder
-    Color placeholder = text_color;
+    CogitoColor placeholder = text_color;
     placeholder.a = 120;
     cogito_draw_text_size_node(n, text_x, text_y, "Search...", placeholder, size, false);
   }
@@ -106,9 +101,12 @@ case COGITO_SEARCHFIELD: {
     int max_cx = text_x + text_avail_w;
     if (cx > max_cx) cx = max_cx;
     // Blink: show for 500ms, hide for 500ms
-    double time = GetTime();
+    double time = 0.0;
+    if (cogito_backend && cogito_backend->get_time) {
+      time = cogito_backend->get_time();
+    }
     if ((int)(time * 2.0) % 2 == 0) {
-      DrawLine(cx, text_y, cx, text_y + text_h, text_color);
+      cogito_draw_line(cx, text_y, cx, text_y + text_h, text_color);
     }
   }
   break;

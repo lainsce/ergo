@@ -1,6 +1,6 @@
-// ---- Cogito GUI (raylib) ----
+// ---- Cogito GUI (SDL3) ----
 
-#include <raylib.h>
+#include "backend.h"
 #if defined(__APPLE__)
 #include <objc/objc.h>
 #include <objc/message.h>
@@ -8,8 +8,8 @@
 #endif
 
 static bool cogito_system_is_dark(void);
-static bool cogito_system_accent(Color* out);
-static void cogito_apply_theme(bool dark, Color accent);
+static bool cogito_system_accent(CogitoColor* out);
+static void cogito_apply_theme(bool dark, CogitoColor accent);
 
 // Animation Duration Constants (milliseconds)
 #define COGITO_ANIM_DURATION_SHORT1 50   // Very fast (fab close, etc.)
@@ -34,37 +34,20 @@ static void cogito_apply_theme(bool dark, Color accent);
 #define COGITO_EASING_EMPHASIZED 5     // Spring with overshoot (in-back)
 #define COGITO_EASING_EMPHASIZED_OUT 6 // Spring decelerate (out-back)
 
-static float cogito_luma(Color c) {
-  float r = c.r / 255.0f;
-  float g = c.g / 255.0f;
-  float b = c.b / 255.0f;
-  return 0.2126f * r + 0.7152f * g + 0.0722f * b;
-}
-
-static Color cogito_mix(Color a, Color b, float t) {
-  Color c;
-  c.r = (unsigned char)(a.r + (b.r - a.r) * t);
-  c.g = (unsigned char)(a.g + (b.g - a.g) * t);
-  c.b = (unsigned char)(a.b + (b.b - a.b) * t);
-  c.a = (unsigned char)(a.a + (b.a - a.a) * t);
-  return c;
-}
-
-static Color cogito_on_color(Color c) {
-  return cogito_luma(c) > 0.55f
-    ? (Color){0, 0, 0, 255}
-    : (Color){255, 255, 255, 255};
-}
+// Color functions now use backend.h implementations
+#define cogito_luma cogito_color_luma
+#define cogito_mix cogito_color_mix
+#define cogito_on_color cogito_color_on_color
 
 typedef struct CogitoApp {
   ErgoObj base;
   void* native;
   ErgoStr* app_id;
   bool accent_override;
-  Color accent_color;
+  CogitoColor accent_color;
   bool accent_set;
   bool system_dark;
-  Color system_accent;
+  CogitoColor system_accent;
   bool system_accent_set;
 } CogitoApp;
 
@@ -123,7 +106,7 @@ typedef struct CogitoBoxShadow {
   float dy;
   float blur;
   float spread;
-  Color color;
+  CogitoColor color;
   bool inset;
 } CogitoBoxShadow;
 
@@ -180,18 +163,18 @@ typedef struct CogitoStyle {
   bool has_shadow;
   bool has_opacity;
   bool has_track_height;
-  Color bg;
-  Color text;
-  Color border;
-  Color selection;
-  Color track;
-  Color track_on;
-  Color knob;
-  Color check;
-  Color appbar_btn_close_color;
-  Color appbar_btn_min_color;
-  Color appbar_btn_max_color;
-  Color appbar_btn_border_color;
+  CogitoColor bg;
+  CogitoColor text;
+  CogitoColor border;
+  CogitoColor selection;
+  CogitoColor track;
+  CogitoColor track_on;
+  CogitoColor knob;
+  CogitoColor check;
+  CogitoColor appbar_btn_close_color;
+  CogitoColor appbar_btn_min_color;
+  CogitoColor appbar_btn_max_color;
+  CogitoColor appbar_btn_border_color;
   int border_width;
   CogitoBorderStyle border_style;
   int radius;
@@ -211,7 +194,7 @@ typedef struct CogitoStyle {
   int max_w;
   int max_h;
   int icon_size;
-  Color icon_color;
+  CogitoColor icon_color;
   int transition_ms;
   int transition_ease;
   int appbar_btn_size;
@@ -318,7 +301,7 @@ typedef struct CogitoTheme {
 
 typedef struct CogitoFontCacheEntry {
   int size;
-  Font font;
+  CogitoFont* font;
   bool ready;
 } CogitoFontCacheEntry;
 
@@ -440,18 +423,18 @@ typedef struct CogitoNode {
   double anim_start;
   int anim_ms;
   int anim_ease;
-  Color anim_bg;
-  Color anim_bg_from;
-  Color anim_bg_target;
-  Color anim_text;
-  Color anim_text_from;
-  Color anim_text_target;
-  Color anim_border;
-  Color anim_border_from;
-  Color anim_border_target;
-  Color anim_selection;
-  Color anim_selection_from;
-  Color anim_selection_target;
+  CogitoColor anim_bg;
+  CogitoColor anim_bg_from;
+  CogitoColor anim_bg_target;
+  CogitoColor anim_text;
+  CogitoColor anim_text_from;
+  CogitoColor anim_text_target;
+  CogitoColor anim_border;
+  CogitoColor anim_border_from;
+  CogitoColor anim_border_target;
+  CogitoColor anim_selection;
+  CogitoColor anim_selection_from;
+  CogitoColor anim_selection_target;
   int anim_x;
   int anim_x_from;
   int anim_x_target;
@@ -490,14 +473,14 @@ typedef struct CogitoNode {
   bool max_w_set;
   bool shadow_set;
   bool max_h_set;
-  Color bg;
-  Color text_color;
-  Color border_color;
-  Color selection_color;
-  Color track_color;
-  Color track_on_color;
-  Color knob_color;
-  Color check_color;
+  CogitoColor bg;
+  CogitoColor text_color;
+  CogitoColor border_color;
+  CogitoColor selection_color;
+  CogitoColor track_color;
+  CogitoColor track_on_color;
+  CogitoColor knob_color;
+  CogitoColor check_color;
   int border_width;
   int border_radius;
   int label_class;
@@ -564,16 +547,16 @@ typedef struct CogitoMenu {
 
 static CogitoTheme cogito_theme;
 static bool cogito_theme_initialized = false;
-static bool cogito_raylib_ready = false;
+static bool cogito_backend_ready = false;
 static CogitoMenu cogito_menu = {0};
-static Font cogito_font;
+static CogitoFont* cogito_font = NULL;
 static bool cogito_font_ready = false;
-static Font cogito_font_mono;
+static CogitoFont* cogito_font_mono = NULL;
 static bool cogito_font_mono_ready = false;
 static bool cogito_font_mono_from_env = false;
 static const char* cogito_font_mono_path_active = NULL;
 static int cogito_font_mono_loaded_size = 0;
-static Font cogito_font_bold;
+static CogitoFont* cogito_font_bold = NULL;
 static bool cogito_font_bold_ready = false;
 static bool cogito_font_bold_variable = false;
 static CogitoFontCacheEntry cogito_font_cache[8];
@@ -589,7 +572,7 @@ static char* cogito_user_sum = NULL;
 static int cogito_style_version = 0;
 static CogitoNode* cogito_focused = NULL;
 // Draw-context: forced text color for selected children (propagates down render tree)
-static Color cogito_selection_text = {0};
+static CogitoColor cogito_selection_text = {0};
 static bool cogito_has_selection_text = false;
 static CogitoNode* cogito_slider_active = NULL;
 static CogitoNode* cogito_colorpicker_active = NULL;
@@ -597,8 +580,9 @@ static int cogito_colorpicker_channel = -1;
 static CogitoNode* cogito_pointer_capture = NULL;
 static CogitoNode* cogito_tooltip_hovered = NULL;
 static CogitoApp* cogito_active_app = NULL;
+static CogitoNode* cogito_active_window = NULL;
 static bool cogito_theme_dark = false;
-static Color cogito_theme_accent = {114, 222, 194, 255};
+static CogitoColor cogito_theme_accent = {114, 222, 194, 255};
 enum {
   COGITO_LABEL_CLASS_NONE = 0,
   COGITO_LABEL_CLASS_TITLE,
@@ -613,10 +597,10 @@ enum {
   COGITO_STYLE_CLASS_TEXT
 };
 static bool cogito_drag_active = false;
-static Vector2 cogito_drag_start_mouse = {0};
-static Vector2 cogito_drag_start_win = {0};
+static CogitoVec2 cogito_drag_start_mouse = {0};
+static CogitoVec2 cogito_drag_start_win = {0};
 static bool cogito_drag_pending = false;
-static Vector2 cogito_drag_pending_mouse = {0};
+static CogitoVec2 cogito_drag_pending_mouse = {0};
 static double cogito_drag_last_move = 0.0;
 
 #if defined(__APPLE__)
@@ -630,11 +614,13 @@ static id cogito_nsstring(const char* s) {
 
 static void cogito_configure_macos_window(bool has_appbar) {
   if (!has_appbar) return;
+  // Get native window handle from backend
+  if (!cogito_backend || !cogito_active_window) return;
   id nsw =
 #if defined(__OBJC__)
-      (__bridge id)GetWindowHandle();
+      (__bridge id)cogito_backend->window_get_native_handle(cogito_active_window);
 #else
-      (id)GetWindowHandle();
+      (id)cogito_backend->window_get_native_handle(cogito_active_window);
 #endif
   if (!nsw) return;
   SEL sel_set_title = sel_registerName("setTitle:");
@@ -661,11 +647,12 @@ static void cogito_configure_macos_window(bool has_appbar) {
 }
 
 static void cogito_macos_drag_window(void) {
+  if (!cogito_backend || !cogito_active_window) return;
   id nsw =
 #if defined(__OBJC__)
-      (__bridge id)GetWindowHandle();
+      (__bridge id)cogito_backend->window_get_native_handle(cogito_active_window);
 #else
-      (id)GetWindowHandle();
+      (id)cogito_backend->window_get_native_handle(cogito_active_window);
 #endif
   if (!nsw) return;
   Class nsapp = (Class)objc_getClass("NSApplication");
@@ -681,11 +668,12 @@ static void cogito_macos_drag_window(void) {
 }
 
 static void cogito_macos_set_window_a11y_label(const char* label) {
+  if (!cogito_backend || !cogito_active_window) return;
   id nsw =
 #if defined(__OBJC__)
-      (__bridge id)GetWindowHandle();
+      (__bridge id)cogito_backend->window_get_native_handle(cogito_active_window);
 #else
-      (id)GetWindowHandle();
+      (id)cogito_backend->window_get_native_handle(cogito_active_window);
 #endif
   if (!nsw) return;
   SEL sel = sel_registerName("setAccessibilityLabel:");
@@ -694,43 +682,24 @@ static void cogito_macos_set_window_a11y_label(const char* label) {
 }
 #endif
 
-static Color cogito_rgba(int r, int g, int b, int a) {
-  if (r < 0) r = 0; if (r > 255) r = 255;
-  if (g < 0) g = 0; if (g > 255) g = 255;
-  if (b < 0) b = 0; if (b > 255) b = 255;
-  if (a < 0) a = 0; if (a > 255) a = 255;
-  Color c;
-  c.r = (unsigned char)r;
-  c.g = (unsigned char)g;
-  c.b = (unsigned char)b;
-  c.a = (unsigned char)a;
-  return c;
-}
+// Use cogito_color from backend.h instead
+#define cogito_rgba cogito_color
 
-static Font* cogito_font_for_node(const CogitoNode* n) {
+static CogitoFont* cogito_font_for_node(const CogitoNode* n) {
   if (n && n->font_tabular) {
-    return &cogito_font;
+    return cogito_font;
   }
-  if (n && n->font_mono && cogito_font_mono_ready) return &cogito_font_mono;
-  return &cogito_font;
+  if (n && n->font_mono && cogito_font_mono_ready) return cogito_font_mono;
+  return cogito_font;
 }
 
-static bool cogito_color_eq(Color a, Color b) {
-  return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
-}
+// Use backend.h implementations
+#define cogito_color_eq(a, b) ((a).r == (b).r && (a).g == (b).g && (a).b == (b).b && (a).a == (b).a)
 
-static Color cogito_color_lerp(Color a, Color b, double t) {
-  if (t <= 0.0) return a;
-  if (t >= 1.0) return b;
-  Color out;
-  out.r = (unsigned char)lround(a.r + (b.r - a.r) * t);
-  out.g = (unsigned char)lround(a.g + (b.g - a.g) * t);
-  out.b = (unsigned char)lround(a.b + (b.b - a.b) * t);
-  out.a = (unsigned char)lround(a.a + (b.a - a.a) * t);
-  return out;
-}
+// Use backend.h implementation
+#define cogito_ease cogito_backend_ease
 
-static double cogito_ease(double t, int ease) {
+static double cogito_backend_ease(double t, int ease) {
   if (t <= 0.0) return 0.0;
   if (t >= 1.0) return 1.0;
   switch (ease) {
@@ -756,7 +725,7 @@ static double cogito_ease(double t, int ease) {
   }
 }
 
-static Color cogito_anim_color(CogitoNode* n, Color target, Color* cur, Color* from, Color* tgt, double now) {
+static CogitoColor cogito_anim_color(CogitoNode* n, CogitoColor target, CogitoColor* cur, CogitoColor* from, CogitoColor* tgt, double now) {
   if (!n) return target;
   if (!n->anim_inited) {
     *cur = target;
@@ -765,7 +734,9 @@ static Color cogito_anim_color(CogitoNode* n, Color target, Color* cur, Color* f
     n->anim_inited = true;
     return target;
   }
-  if (!cogito_color_eq(*tgt, target)) {
+  // Check if target color has changed
+  bool colors_equal = (tgt->r == target.r && tgt->g == target.g && tgt->b == target.b && tgt->a == target.a);
+  if (!colors_equal) {
     *from = *cur;
     *tgt = target;
     n->anim_start = now;
@@ -812,7 +783,8 @@ static int cogito_anim_int(CogitoNode* n, int target, int* cur, int* from, int* 
   return *cur;
 }
 
-static Color cogito_apply_opacity(Color c, float opacity);
+// Use backend.h implementation
+#define cogito_apply_opacity cogito_color_apply_opacity
 
 static float cogito_anim_float(CogitoNode* n, float target, float* cur, float* from, float* tgt, double now) {
   if (!n) return target;
@@ -843,18 +815,14 @@ static float cogito_anim_float(CogitoNode* n, float target, float* cur, float* f
 }
 
 // Apply opacity to a color by multiplying its alpha channel
-static Color cogito_apply_opacity(Color c, float opacity) {
-  if (opacity >= 1.0f) return c;
-  if (opacity <= 0.0f) return (Color){c.r, c.g, c.b, 0};
-  c.a = (unsigned char)((float)c.a * opacity);
-  return c;
-}
+// Use backend.h implementation
+#define cogito_apply_opacity cogito_color_apply_opacity
 
-static void cogito_anim_apply(CogitoNode* n, const CogitoStyle* s, Color* bg, Color* text, Color* border, Color* selection) {
+static void cogito_anim_apply(CogitoNode* n, const CogitoStyle* s, CogitoColor* bg, CogitoColor* text, CogitoColor* border, CogitoColor* selection) {
   if (!n || !s) return;
   if (s->has_transition_ms) n->anim_ms = s->transition_ms;
   if (s->has_transition_ease) n->anim_ease = s->transition_ease;
-  double now = GetTime();
+  double now = cogito_backend->get_time();
   // Animate opacity if set
   float opacity = n->opacity;
   if (n->opacity_set) {
@@ -882,17 +850,17 @@ static void cogito_style_clear(CogitoStyle* s) {
   memset(s, 0, sizeof(*s));
 }
 
-static void cogito_draw_rect(int x, int y, int w, int h, Color bg, int radius);
+static void cogito_draw_rect(int x, int y, int w, int h, CogitoColor bg, int radius);
 static bool cogito_hit_rect(int x, int y, int rx, int ry, int rw, int rh);
 static CogitoNode* cogito_node_window(CogitoNode* n);
 static bool cogito_file_exists(const char* path);
 static int cogito_font_weight_normal(void);
 static int cogito_font_weight_bold(void);
-static bool cogito_load_font_file_ex(Font* out, const char* path, int size, int weight, bool* out_weight_applied);
-static bool cogito_load_font_file(Font* out, const char* path, int size, int weight);
-static bool cogito_load_font_file_tabular(Font* out, const char* path, int size, int weight);
-static Font* cogito_font_for_size(Font* f, int size);
-static Font* cogito_font_tabular_for(Font* f, int size);
+static bool cogito_load_font_file_ex(CogitoFont** out, const char* path, int size, int weight, bool* out_weight_applied);
+static bool cogito_load_font_file(CogitoFont** out, const char* path, int size, int weight);
+static bool cogito_load_font_file_tabular(CogitoFont** out, const char* path, int size, int weight);
+static CogitoFont* cogito_font_for_size(CogitoFont* f, int size);
+static CogitoFont* cogito_font_tabular_for(CogitoFont* f, int size);
 static void cogito_font_cache_clear(void);
 
 static void cogito_draw_shadow(int x, int y, int w, int h, int radius, int level) {
@@ -908,7 +876,7 @@ static void cogito_draw_shadow(int x, int y, int w, int h, int radius, int level
     int s = steps[i];
     if (s <= 0) continue;
     int r = radius + s;
-    Color c = cogito_rgba(0, 0, 0, alphas[i]);
+    CogitoColor c = cogito_rgba(0, 0, 0, alphas[i]);
     cogito_draw_rect(x - s, y - s + offset, w + s * 2, h + s * 2, c, r);
   }
 }

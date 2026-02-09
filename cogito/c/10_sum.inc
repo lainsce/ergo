@@ -30,7 +30,7 @@ static void cogito_sum_apply_property(CogitoStyle* style, const char* prop, cons
     if (strcmp(prop, "background") == 0 || strcmp(prop, "background-color") == 0 ||
         strcmp(prop, "selection-color") == 0 || strcmp(prop, "selection-background") == 0 ||
         strcmp(prop, "highlight-color") == 0) {
-      Color c;
+      CogitoColor c;
       if (cogito_css_parse_color(p, &c)) { style->has_selection = true; style->selection = c; }
       return;
     }
@@ -38,7 +38,7 @@ static void cogito_sum_apply_property(CogitoStyle* style, const char* prop, cons
     return;
   }
   if (strcmp(prop, "background") == 0 || strcmp(prop, "background-color") == 0) {
-    Color c;
+    CogitoColor c;
     if (cogito_css_parse_color(p, &c)) { style->has_bg = true; style->bg = c; }
     return;
   }
@@ -48,7 +48,7 @@ static void cogito_sum_apply_property(CogitoStyle* style, const char* prop, cons
     return;
   }
   if (strcmp(prop, "icon-color") == 0 || strcmp(prop, "icon-tint") == 0) {
-    Color c;
+    CogitoColor c;
     if (cogito_css_parse_color(p, &c)) { style->has_icon_color = true; style->icon_color = c; }
     return;
   }
@@ -106,12 +106,12 @@ static void cogito_sum_apply_property(CogitoStyle* style, const char* prop, cons
     return;
   }
   if (strcmp(prop, "color") == 0 || strcmp(prop, "text-color") == 0) {
-    Color c;
+    CogitoColor c;
     if (cogito_css_parse_color(p, &c)) { style->has_text = true; style->text = c; }
     return;
   }
   if (strcmp(prop, "border-color") == 0) {
-    Color c;
+    CogitoColor c;
     if (cogito_css_parse_color(p, &c)) { style->has_border = true; style->border = c; }
     return;
   }
@@ -191,22 +191,22 @@ static void cogito_sum_apply_property(CogitoStyle* style, const char* prop, cons
     return;
   }
   if (strcmp(prop, "appbar-btn-close-color") == 0) {
-    Color c;
+    CogitoColor c;
     if (cogito_css_parse_color(p, &c)) { style->has_appbar_btn_close_color = true; style->appbar_btn_close_color = c; }
     return;
   }
   if (strcmp(prop, "appbar-btn-min-color") == 0) {
-    Color c;
+    CogitoColor c;
     if (cogito_css_parse_color(p, &c)) { style->has_appbar_btn_min_color = true; style->appbar_btn_min_color = c; }
     return;
   }
   if (strcmp(prop, "appbar-btn-max-color") == 0) {
-    Color c;
+    CogitoColor c;
     if (cogito_css_parse_color(p, &c)) { style->has_appbar_btn_max_color = true; style->appbar_btn_max_color = c; }
     return;
   }
   if (strcmp(prop, "appbar-btn-border-color") == 0) {
-    Color c;
+    CogitoColor c;
     if (cogito_css_parse_color(p, &c)) { style->has_appbar_btn_border_color = true; style->appbar_btn_border_color = c; }
     return;
   }
@@ -392,7 +392,7 @@ static void cogito_sum_apply_property(CogitoStyle* style, const char* prop, cons
     }
 
     // Parse color
-    Color c = {0, 0, 0, 255};
+    CogitoColor c = {0, 0, 0, 255};
     if (!cogito_css_parse_color(p, &c)) return;
 
     // Parse optional inset
@@ -440,12 +440,12 @@ static void cogito_sum_apply_property(CogitoStyle* style, const char* prop, cons
     return;
   }
   if (strcmp(prop, "track-color") == 0 || strcmp(prop, "track") == 0) {
-    Color c;
+    CogitoColor c;
     if (cogito_css_parse_color(p, &c)) { style->has_track = true; style->track = c; }
     return;
   }
   if (strcmp(prop, "knob-color") == 0 || strcmp(prop, "knob") == 0) {
-    Color c;
+    CogitoColor c;
     if (cogito_css_parse_color(p, &c)) { style->has_knob = true; style->knob = c; }
     return;
   }
@@ -460,7 +460,7 @@ static void cogito_sum_apply_property(CogitoStyle* style, const char* prop, cons
     return;
   }
   if (strcmp(prop, "check-color") == 0 || strcmp(prop, "check") == 0) {
-    Color c;
+    CogitoColor c;
     if (cogito_css_parse_color(p, &c)) { style->has_check = true; style->check = c; }
     return;
   }
@@ -537,7 +537,7 @@ static void cogito_sum_apply_property(CogitoStyle* style, const char* prop, cons
       else if (strcmp(bstyle, "dotted") == 0) style->border_style = COGITO_BORDER_DOTTED;
       else style->border_style = COGITO_BORDER_SOLID; // default to solid
     }
-    Color bc;
+    CogitoColor bc;
     if (cogito_css_parse_color(p, &bc)) {
       style->has_border = true;
       style->border = bc;
@@ -1281,7 +1281,9 @@ static void cogito_load_sum_file(const char* path) {
       if (dw > 0 && dh > 0) {
         cogito_active_window->w = dw;
         cogito_active_window->h = dh;
-        if (cogito_raylib_ready) SetWindowSize(dw, dh);
+        if (cogito_backend_ready && cogito_backend && cogito_active_window) {
+          cogito_backend->window_set_size(cogito_active_window, dw, dh);
+        }
       }
     }
     cogito_window_relayout(cogito_active_window);
@@ -1351,7 +1353,7 @@ static bool cogito_system_is_dark(void) {
 #endif
 }
 
-static bool cogito_system_accent(Color* out) {
+static bool cogito_system_accent(CogitoColor* out) {
 #if defined(__APPLE__)
   // Prefer AppleHighlightColor (string) to avoid accent index mismatches.
   Class udc = (Class)objc_getClass("NSUserDefaults");
@@ -1392,7 +1394,7 @@ static bool cogito_system_accent(Color* out) {
   if (!num) return false;
   SEL sel_int = sel_registerName("integerValue");
   int v = (int)((long(*)(id, SEL))objc_msgSend)(num, sel_int);
-  Color c = cogito_rgba(10, 132, 255, 255);
+  CogitoColor c = cogito_rgba(10, 132, 255, 255);
   switch (v) {
     case -1: c = cogito_rgba(10, 132, 255, 255); break;   // blue
     case 0: c = cogito_rgba(142, 142, 147, 255); break;   // graphite
@@ -1413,7 +1415,7 @@ static bool cogito_system_accent(Color* out) {
                    "Software\\Microsoft\\Windows\\DWM",
                    "ColorizationColor",
                    RRF_RT_REG_DWORD, NULL, &val, &size) == ERROR_SUCCESS) {
-    Color c = cogito_rgba((val >> 16) & 0xFF, (val >> 8) & 0xFF, val & 0xFF, 255);
+    CogitoColor c = cogito_rgba((val >> 16) & 0xFF, (val >> 8) & 0xFF, val & 0xFF, 255);
     *out = c;
     return true;
   }
@@ -1438,7 +1440,7 @@ static void cogito_sum_append(char* dst, size_t dst_cap, size_t* dst_off, const 
   }
 }
 
-static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t cap) {
+static void cogito_build_dynamic_sum(bool dark, CogitoColor accent, char* out, size_t cap) {
   size_t off = 0;
   if (cap == 0) return;
   out[0] = 0;
@@ -1449,82 +1451,82 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   // === Full Color Token System ===
 
   // Primary
-  Color primary = accent;
-  Color on_primary = cogito_on_color(primary);
-  Color primary_container = dark
+  CogitoColor primary = accent;
+  CogitoColor on_primary = cogito_on_color(primary);
+  CogitoColor primary_container = dark
     ? cogito_mix(primary, cogito_rgba(0, 0, 0, 255), 0.45f)
     : cogito_mix(primary, cogito_rgba(255, 255, 255, 255), 0.65f);
-  Color on_primary_container = cogito_on_color(primary_container);
+  CogitoColor on_primary_container = cogito_on_color(primary_container);
 
   // Secondary (desaturated primary)
-  Color secondary = dark
+  CogitoColor secondary = dark
     ? cogito_mix(primary, cogito_rgba(255, 255, 255, 255), 0.25f)
     : cogito_mix(primary, cogito_rgba(0, 0, 0, 255), 0.25f);
-  Color on_secondary = cogito_on_color(secondary);
-  Color secondary_container = dark
+  CogitoColor on_secondary = cogito_on_color(secondary);
+  CogitoColor secondary_container = dark
     ? cogito_mix(secondary, cogito_rgba(0, 0, 0, 255), 0.40f)
     : cogito_mix(secondary, cogito_rgba(255, 255, 255, 255), 0.70f);
-  Color on_secondary_container = cogito_on_color(secondary_container);
+  CogitoColor on_secondary_container = cogito_on_color(secondary_container);
 
   // Tertiary (hue-shifted +60 degrees)
   double tert_h = fmod(h + 60.0, 360.0);
   double tert_c = c < 24.0 ? 24.0 : c * 0.8;
-  Color tertiary = dark
+  CogitoColor tertiary = dark
     ? cogito_hct_to_rgb(tert_h, tert_c, 80.0)
     : cogito_hct_to_rgb(tert_h, tert_c, 40.0);
-  Color on_tertiary = cogito_on_color(tertiary);
-  Color tertiary_container = dark
+  CogitoColor on_tertiary = cogito_on_color(tertiary);
+  CogitoColor tertiary_container = dark
     ? cogito_mix(tertiary, cogito_rgba(0, 0, 0, 255), 0.45f)
     : cogito_mix(tertiary, cogito_rgba(255, 255, 255, 255), 0.70f);
-  Color on_tertiary_container = cogito_on_color(tertiary_container);
+  CogitoColor on_tertiary_container = cogito_on_color(tertiary_container);
 
   // Error - HCT-based red tones
-  Color error = cogito_hct_to_rgb(20.0, 60.0, dark ? 75.0 : 45.0);
-  Color on_error = cogito_hct_to_rgb(20.0, 30.0, dark ? 35.0 : 98.0);
-  Color error_container = cogito_hct_to_rgb(20.0, 50.0, dark ? 50.0 : 90.0);
-  Color on_error_container = cogito_hct_to_rgb(20.0, 40.0, dark ? 90.0 : 25.0);
+  CogitoColor error = cogito_hct_to_rgb(20.0, 60.0, dark ? 75.0 : 45.0);
+  CogitoColor on_error = cogito_hct_to_rgb(20.0, 30.0, dark ? 35.0 : 98.0);
+  CogitoColor error_container = cogito_hct_to_rgb(20.0, 50.0, dark ? 50.0 : 90.0);
+  CogitoColor on_error_container = cogito_hct_to_rgb(20.0, 40.0, dark ? 90.0 : 25.0);
 
   // Surface system - HCT-based neutrals
-  Color background = cogito_hct_to_rgb(h, 8.0, dark ? 10.0 : 95.0);
-  Color surface = cogito_hct_to_rgb(h, 6.0, dark ? 14.0 : 98.0);
-  Color on_surface = cogito_hct_to_rgb(h, 4.0, dark ? 92.0 : 12.0);
-  Color surface_variant = cogito_hct_to_rgb(h, 12.0, dark ? 35.0 : 88.0);
-  Color on_surface_variant = cogito_hct_to_rgb(h, 10.0, dark ? 78.0 : 45.0);
-  Color surface_tint = dark
-    ? cogito_mix(primary, surface, 0.08f)
+  CogitoColor background = cogito_hct_to_rgb(h, 8.0, dark ? 10.0 : 95.0);
+  CogitoColor surface = cogito_hct_to_rgb(h, 6.0, dark ? 14.0 : 98.0);
+  CogitoColor on_surface = cogito_hct_to_rgb(h, 4.0, dark ? 92.0 : 12.0);
+  CogitoColor surface_variant = cogito_hct_to_rgb(h, 12.0, dark ? 35.0 : 88.0);
+  CogitoColor on_surface_variant = cogito_hct_to_rgb(h, 10.0, dark ? 78.0 : 45.0);
+  CogitoColor surface_tint = dark
+    ? cogito_mix(primary, surface, 0.92f)
     : cogito_mix(primary, cogito_rgba(255, 255, 255, 255), 0.92f);
 
   // Surface containers (blended with primary at varying levels)
-  Color surface_dim = cogito_hct_to_rgb(h, 8.0, dark ? 8.0 : 92.0);
-  Color surface_bright = cogito_hct_to_rgb(h, 8.0, dark ? 30.0 : 99.0);
-  Color surface_cont_lowest = cogito_hct_to_rgb(h, 6.0, dark ? 6.0 : 100.0);
-  Color surface_cont_low = dark
+  CogitoColor surface_dim = cogito_hct_to_rgb(h, 8.0, dark ? 8.0 : 92.0);
+  CogitoColor surface_bright = cogito_hct_to_rgb(h, 8.0, dark ? 30.0 : 99.0);
+  CogitoColor surface_cont_lowest = cogito_hct_to_rgb(h, 6.0, dark ? 6.0 : 100.0);
+  CogitoColor surface_cont_low = dark
     ? cogito_mix(surface, primary, 0.02f)
     : cogito_mix(surface, primary, 0.01f);
-  Color surface_cont = dark
+  CogitoColor surface_cont = dark
     ? cogito_mix(surface, primary, 0.04f)
     : cogito_mix(surface, primary, 0.02f);
-  Color surface_cont_high = dark
+  CogitoColor surface_cont_high = dark
     ? cogito_mix(surface, primary, 0.06f)
     : cogito_mix(surface, primary, 0.04f);
-  Color surface_cont_highest = dark
+  CogitoColor surface_cont_highest = dark
     ? cogito_mix(surface, primary, 0.08f)
     : cogito_mix(surface, primary, 0.06f);
 
   // Outline - HCT-based low chroma neutrals
-  Color outline = cogito_hct_to_rgb(h, 4.0, dark ? 45.0 : 78.0);
-  Color outline_variant = cogito_hct_to_rgb(h, 6.0, dark ? 38.0 : 82.0);
+  CogitoColor outline = cogito_hct_to_rgb(h, 4.0, dark ? 45.0 : 78.0);
+  CogitoColor outline_variant = cogito_hct_to_rgb(h, 6.0, dark ? 38.0 : 82.0);
 
   // Inverse - HCT-based swapped tones
-  Color inverse_surface = cogito_hct_to_rgb(h, 6.0, dark ? 88.0 : 22.0);
-  Color inverse_on_surface = cogito_hct_to_rgb(h, 4.0, dark ? 22.0 : 94.0);
-  Color inverse_primary = dark
+  CogitoColor inverse_surface = cogito_hct_to_rgb(h, 6.0, dark ? 88.0 : 22.0);
+  CogitoColor inverse_on_surface = cogito_hct_to_rgb(h, 4.0, dark ? 22.0 : 94.0);
+  CogitoColor inverse_primary = dark
     ? cogito_hct_to_rgb(h, c < 24.0 ? 24.0 : c, 40.0)
     : cogito_hct_to_rgb(h, c < 24.0 ? 24.0 : c, 80.0);
 
   // Shadow & Scrim - pure black via HCT
-  Color shadow = cogito_hct_to_rgb(0.0, 0.0, 0.0);
-  Color scrim = cogito_hct_to_rgb(0.0, 0.0, 0.0);
+  CogitoColor shadow = cogito_hct_to_rgb(0.0, 0.0, 0.0);
+  CogitoColor scrim = cogito_hct_to_rgb(0.0, 0.0, 0.0);
 
   // === Hex conversions ===
   char p[8], op[8], pc[8], opc[8];
@@ -1575,84 +1577,84 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   cogito_color_to_hex(scrim, scrm);
 
   // === Component-specific derivations ===
-  Color p_hover = cogito_mix(primary, dark ? cogito_rgba(255, 255, 255, 255) : cogito_rgba(0, 0, 0, 255), 0.1f);
-  Color p_active = cogito_mix(primary, dark ? cogito_rgba(0, 0, 0, 255) : cogito_rgba(255, 255, 255, 255), 0.1f);
-  Color surft_hover = cogito_mix(surface_tint, dark ? cogito_rgba(255, 255, 255, 255) : cogito_rgba(0, 0, 0, 255), 0.05f);
+  CogitoColor p_hover = cogito_mix(primary, dark ? cogito_rgba(255, 255, 255, 255) : cogito_rgba(0, 0, 0, 255), 0.1f);
+  CogitoColor p_active = cogito_mix(primary, dark ? cogito_rgba(0, 0, 0, 255) : cogito_rgba(255, 255, 255, 255), 0.1f);
+  CogitoColor surft_hover = cogito_mix(surface_tint, dark ? cogito_rgba(255, 255, 255, 255) : cogito_rgba(0, 0, 0, 255), 0.05f);
   char ph[8], pa[8], surfth[8];
   cogito_color_to_hex(p_hover, ph);
   cogito_color_to_hex(p_active, pa);
   cogito_color_to_hex(surft_hover, surfth);
 
-  Color nav_bg = cogito_hct_to_rgb(h, 10.0, dark ? 25.0 : 96.0);
-  Color nav_sel = cogito_hct_to_rgb(h, 25.0, dark ? 40.0 : 88.0);
+  CogitoColor nav_bg = cogito_hct_to_rgb(h, 10.0, dark ? 25.0 : 96.0);
+  CogitoColor nav_sel = cogito_hct_to_rgb(h, 25.0, dark ? 40.0 : 88.0);
   char navbg[8], navsel[8];
   cogito_color_to_hex(nav_bg, navbg);
   cogito_color_to_hex(nav_sel, navsel);
 
-  Color bottom_bg = cogito_hct_to_rgb(h, 8.0, dark ? 14.0 : 99.0);
-  Color bottom_sel = cogito_hct_to_rgb(h, 25.0, dark ? 40.0 : 88.0);
+  CogitoColor bottom_bg = cogito_hct_to_rgb(h, 8.0, dark ? 14.0 : 99.0);
+  CogitoColor bottom_sel = cogito_hct_to_rgb(h, 25.0, dark ? 40.0 : 88.0);
   char bottombg[8], bottomsel[8];
   cogito_color_to_hex(bottom_bg, bottombg);
   cogito_color_to_hex(bottom_sel, bottomsel);
 
-  Color tabs_bg = cogito_hct_to_rgb(h, 4.0, dark ? 20.0 : 94.0);
-  Color tabs_sel = dark ? surface : cogito_hct_to_rgb(h, 2.0, 100.0);
+  CogitoColor tabs_bg = cogito_hct_to_rgb(h, 4.0, dark ? 20.0 : 94.0);
+  CogitoColor tabs_sel = dark ? surface : cogito_hct_to_rgb(h, 2.0, 100.0);
   char tabsbg[8], tabssel[8];
   cogito_color_to_hex(tabs_bg, tabsbg);
   cogito_color_to_hex(tabs_sel, tabssel);
 
-  Color progress_bg = cogito_hct_to_rgb(h, 3.0, dark ? 35.0 : 85.0);
+  CogitoColor progress_bg = cogito_hct_to_rgb(h, 3.0, dark ? 35.0 : 85.0);
   char progbg[8];
   cogito_color_to_hex(progress_bg, progbg);
 
-  Color toast_bg = cogito_hct_to_rgb(h, 4.0, 18.0);
-  Color toast_fg = cogito_hct_to_rgb(0.0, 0.0, 100.0);
+  CogitoColor toast_bg = cogito_hct_to_rgb(h, 4.0, 18.0);
+  CogitoColor toast_fg = cogito_hct_to_rgb(0.0, 0.0, 100.0);
   char toastbg[8], toastfg[8];
   cogito_color_to_hex(toast_bg, toastbg);
   cogito_color_to_hex(toast_fg, toastfg);
 
-  Color iconbtn_bg = cogito_mix(outline, surface, 0.9f);
+  CogitoColor iconbtn_bg = cogito_mix(outline, surface, 0.9f);
   char iconbg[8];
   cogito_color_to_hex(iconbtn_bg, iconbg);
 
-  Color tooltip_bg = cogito_hct_to_rgb(h, 4.0, 16.0);
-  Color tooltip_fg = cogito_hct_to_rgb(0.0, 0.0, 100.0);
+  CogitoColor tooltip_bg = cogito_hct_to_rgb(h, 4.0, 16.0);
+  CogitoColor tooltip_fg = cogito_hct_to_rgb(0.0, 0.0, 100.0);
   char tooltipbg[8], tooltipfg[8];
   cogito_color_to_hex(tooltip_bg, tooltipbg);
   cogito_color_to_hex(tooltip_fg, tooltipfg);
 
-  Color checkbox_bg = cogito_mix(outline, surface, 0.88f);
+  CogitoColor checkbox_bg = cogito_mix(outline, surface, 0.88f);
   char checkbg[8];
   cogito_color_to_hex(checkbox_bg, checkbg);
 
-  Color check_hover = cogito_hct_to_rgb(h, 2.0, dark ? 92.0 : 10.0);
-  Color check_active = cogito_hct_to_rgb(h, 2.0, dark ? 85.0 : 2.0);
+  CogitoColor check_hover = cogito_hct_to_rgb(h, 2.0, dark ? 92.0 : 10.0);
+  CogitoColor check_active = cogito_hct_to_rgb(h, 2.0, dark ? 85.0 : 2.0);
   char checkhov[8], checkact[8];
   cogito_color_to_hex(check_hover, checkhov);
   cogito_color_to_hex(check_active, checkact);
 
-  Color switch_track = cogito_hct_to_rgb(h, 2.0, 72.0);
-  Color switch_track_hover = cogito_hct_to_rgb(h, 2.0, 78.0);
+  CogitoColor switch_track = cogito_hct_to_rgb(h, 2.0, 72.0);
+  CogitoColor switch_track_hover = cogito_hct_to_rgb(h, 2.0, 78.0);
   char strack[8], strackh[8];
   cogito_color_to_hex(switch_track, strack);
   cogito_color_to_hex(switch_track_hover, strackh);
 
-  Color knob_color = cogito_hct_to_rgb(0.0, 0.0, 100.0);
-  Color knob_hover = cogito_hct_to_rgb(0.0, 0.0, 96.0);
-  Color knob_active = cogito_hct_to_rgb(0.0, 0.0, 91.0);
+  CogitoColor knob_color = cogito_hct_to_rgb(0.0, 0.0, 100.0);
+  CogitoColor knob_hover = cogito_hct_to_rgb(0.0, 0.0, 96.0);
+  CogitoColor knob_active = cogito_hct_to_rgb(0.0, 0.0, 91.0);
   char knob[8], knobh[8], knoba[8];
   cogito_color_to_hex(knob_color, knob);
   cogito_color_to_hex(knob_hover, knobh);
   cogito_color_to_hex(knob_active, knoba);
 
-  Color appbar_iconbtn_base = cogito_mix(on_surface, surface, 0.95f);
+  CogitoColor appbar_iconbtn_base = cogito_mix(on_surface, surface, 0.95f);
   char appiconbg[8];
   cogito_color_to_hex(appbar_iconbtn_base, appiconbg);
 
-  Color chip_bg = surface_tint;
-  Color chip_hover = cogito_mix(surface_tint, dark ? cogito_rgba(255, 255, 255, 255) : cogito_rgba(0, 0, 0, 255), 0.08f);
-  Color chip_active = cogito_mix(surface_tint, dark ? cogito_rgba(255, 255, 255, 255) : cogito_rgba(0, 0, 0, 255), 0.12f);
-  Color chip_sel = dark ? nav_sel : cogito_hct_to_rgb(h, 25.0, 88.0);
+  CogitoColor chip_bg = surface_tint;
+  CogitoColor chip_hover = cogito_mix(surface_tint, dark ? cogito_rgba(255, 255, 255, 255) : cogito_rgba(0, 0, 0, 255), 0.08f);
+  CogitoColor chip_active = cogito_mix(surface_tint, dark ? cogito_rgba(255, 255, 255, 255) : cogito_rgba(0, 0, 0, 255), 0.12f);
+  CogitoColor chip_sel = dark ? nav_sel : cogito_hct_to_rgb(h, 25.0, 88.0);
   char chipbg[8], chiphov[8], chipact[8], chipsel[8];
   cogito_color_to_hex(chip_bg, chipbg);
   cogito_color_to_hex(chip_hover, chiphov);
@@ -1781,15 +1783,15 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   cogito_sum_append(out, cap, &off, "dialog\n  background: %s\n  color: %s\n  border-radius: 26\n  min-width: 280\n  min-height: 160\n  padding: 24\n  box-shadow: [ 0 8 24 4 %s33 ]\n", surf, ons, shad);
   cogito_sum_append(out, cap, &off, "popover\n  background: %s\n  border-radius: 12\n  padding: 16\n  box-shadow: [ 0 2 8 0 #0000001f ]\n", surf);
   // Window control buttons - HCT-based semantic colors
-  Color win_close = cogito_hct_to_rgb(15.0, 60.0, 65.0);   // Red
-  Color win_min = cogito_hct_to_rgb(85.0, 55.0, 75.0);     // Yellow
-  Color win_max = cogito_hct_to_rgb(130.0, 55.0, 65.0);    // Green
-  Color win_close_hov = cogito_hct_to_rgb(15.0, 55.0, 72.0);
-  Color win_close_act = cogito_hct_to_rgb(15.0, 50.0, 58.0);
-  Color win_min_hov = cogito_hct_to_rgb(85.0, 50.0, 82.0);
-  Color win_min_act = cogito_hct_to_rgb(85.0, 45.0, 68.0);
-  Color win_max_hov = cogito_hct_to_rgb(130.0, 50.0, 72.0);
-  Color win_max_act = cogito_hct_to_rgb(130.0, 45.0, 58.0);
+  CogitoColor win_close = cogito_hct_to_rgb(15.0, 60.0, 65.0);   // Red
+  CogitoColor win_min = cogito_hct_to_rgb(85.0, 55.0, 75.0);     // Yellow
+  CogitoColor win_max = cogito_hct_to_rgb(130.0, 55.0, 65.0);    // Green
+  CogitoColor win_close_hov = cogito_hct_to_rgb(15.0, 55.0, 72.0);
+  CogitoColor win_close_act = cogito_hct_to_rgb(15.0, 50.0, 58.0);
+  CogitoColor win_min_hov = cogito_hct_to_rgb(85.0, 50.0, 82.0);
+  CogitoColor win_min_act = cogito_hct_to_rgb(85.0, 45.0, 68.0);
+  CogitoColor win_max_hov = cogito_hct_to_rgb(130.0, 50.0, 72.0);
+  CogitoColor win_max_act = cogito_hct_to_rgb(130.0, 45.0, 58.0);
   char win_close_hex[8], win_min_hex[8], win_max_hex[8];
   char win_close_hov_hex[8], win_close_act_hex[8];
   char win_min_hov_hex[8], win_min_act_hex[8];
@@ -1843,7 +1845,7 @@ static void cogito_build_dynamic_sum(bool dark, Color accent, char* out, size_t 
   cogito_sum_append(out, cap, &off, ".scrim\n  background: %s\n", scrm);
 }
 
-static void cogito_apply_theme(bool dark, Color accent) {
+static void cogito_apply_theme(bool dark, CogitoColor accent) {
   cogito_theme_initialized = true;
   cogito_sum_default_loaded = true;
   cogito_theme_set_defaults();

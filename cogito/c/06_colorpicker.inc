@@ -1,6 +1,6 @@
 static void cogito_colorpicker_sync_hex(CogitoNode* n) {
   if (!n || n->kind != COGITO_COLORPICKER) return;
-  Color c = cogito_hct_to_rgb(n->color_h, n->color_c, n->color_t);
+  CogitoColor c = cogito_hct_to_rgb(n->color_h, n->color_c, n->color_t);
   char buf[8];
   cogito_color_to_hex(c, buf);
   cogito_text_set_from_buf(n, buf, strlen(buf));
@@ -130,9 +130,9 @@ static int cogito_text_wrap_height(const CogitoNode* n, const char* text, int si
   return lines * line_h;
 }
 
-static void cogito_draw_text_size_node(const CogitoNode* n, int x, int y, const char* text, Color color, int size, bool bold);
+static void cogito_draw_text_size_node(const CogitoNode* n, int x, int y, const char* text, CogitoColor color, int size, bool bold);
 
-static void cogito_draw_text_ellipsis(const CogitoNode* n, int x, int y, int w, const char* text, Color color, int size, bool bold, int align) {
+static void cogito_draw_text_ellipsis(const CogitoNode* n, int x, int y, int w, const char* text, CogitoColor color, int size, bool bold, int align) {
   if (!text || w <= 0) return;
   if (size <= 0) size = cogito_font_size();
   int len = (int)strlen(text);
@@ -166,7 +166,7 @@ static void cogito_draw_text_ellipsis(const CogitoNode* n, int x, int y, int w, 
   cogito_draw_text_size_node(n, tx + cogito_text_width_size_node(n, buf, size), y, dots, color, size, bold);
 }
 
-static int cogito_draw_text_wrapped(const CogitoNode* n, int x, int y, int w, const char* text, Color color, int size, bool bold, int align, bool draw) {
+static int cogito_draw_text_wrapped(const CogitoNode* n, int x, int y, int w, const char* text, CogitoColor color, int size, bool bold, int align, bool draw) {
   if (!text || w <= 0) return 0;
   if (size <= 0) size = cogito_font_size();
   int line_h = cogito_text_height_size(size);

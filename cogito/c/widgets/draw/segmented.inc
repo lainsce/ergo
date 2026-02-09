@@ -3,9 +3,9 @@ case COGITO_SEGMENTED: {
       cogito_node_hover_state(n, &hover, &active);
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
 
-      Color bg = s.has_bg ? s.bg : n->bg;
-      Color text_col = s.has_text ? s.text : n->text_color;
-      Color border_col = s.has_border ? s.border : n->border_color;
+      CogitoColor bg = s.has_bg ? s.bg : n->bg;
+      CogitoColor text_col = s.has_text ? s.text : n->text_color;
+      CogitoColor border_col = s.has_border ? s.border : n->border_color;
       int border_w = s.has_border_width ? s.border_width : 1;
       int radius = s.has_radius ? s.radius : (n->h / 2);
       int size = cogito_node_font_size(n);
@@ -30,8 +30,8 @@ case COGITO_SEGMENTED: {
       if (sel >= (int)n->len) sel = (int)n->len - 1;
 
       // Selection color from theme
-      Color sel_bg = s.has_selection ? s.selection : n->selection_color;
-      Color sel_text = cogito_on_color(sel_bg);
+      CogitoColor sel_bg = s.has_selection ? s.selection : n->selection_color;
+      CogitoColor sel_text = cogito_on_color(sel_bg);
 
       // Draw selected segment background (pill shape)
       {
@@ -45,9 +45,9 @@ case COGITO_SEGMENTED: {
       for (int i = 1; i < (int)n->len; i++) {
         if (i == sel || i == sel + 1) continue;
         int div_x = n->x + i * seg_w;
-        Color divider = border_col;
+        CogitoColor divider = border_col;
         divider.a = (unsigned char)(divider.a * 0.4f);
-        DrawLine(div_x, n->y + 8, div_x, n->y + n->h - 8, divider);
+        cogito_draw_line(div_x, n->y + 8, div_x, n->y + n->h - 8, divider);
       }
 
       // Draw segment labels
@@ -62,13 +62,16 @@ case COGITO_SEGMENTED: {
         int ly = n->y + (n->h - label_h) / 2;
 
         bool is_sel = (i == sel);
-        Color lc = is_sel ? sel_text : text_col;
+        CogitoColor lc = is_sel ? sel_text : text_col;
 
         // Hover highlight on non-selected segments
         if (!is_sel && hover) {
-          int hmx = GetMouseX();
+          int hmx = 0, hmy = 0;
+          if (cogito_backend && cogito_backend_ready) {
+            cogito_backend->get_mouse_position(&hmx, &hmy);
+          }
           if (hmx >= sx && hmx < sx + sw) {
-            Color hl = text_col;
+            CogitoColor hl = text_col;
             hl.a = 15;
             int inset = border_w;
             int seg_radius = (i == 0 || i == (int)n->len - 1) ? (radius > inset ? radius - inset : radius) : 0;
@@ -82,10 +85,10 @@ case COGITO_SEGMENTED: {
           int check_x = lx - check_size - 4;
           int check_cy = ly + label_h / 2;
           if (check_x > sx + 4) {
-            DrawLineEx((Vector2){(float)check_x, (float)check_cy},
-                       (Vector2){(float)(check_x + check_size * 3 / 8), (float)(check_cy + check_size * 3 / 8)}, 1.5f, lc);
-            DrawLineEx((Vector2){(float)(check_x + check_size * 3 / 8), (float)(check_cy + check_size * 3 / 8)},
-                       (Vector2){(float)(check_x + check_size), (float)(check_cy - check_size * 3 / 8)}, 1.5f, lc);
+            cogito_draw_line(check_x, check_cy,
+                       check_x + check_size * 3 / 8, check_cy + check_size * 3 / 8, lc);
+            cogito_draw_line(check_x + check_size * 3 / 8, check_cy + check_size * 3 / 8,
+                       check_x + check_size, check_cy - check_size * 3 / 8, lc);
           }
         }
 

@@ -3,8 +3,8 @@ case COGITO_COLORPICKER: {
       bool active = false;
       cogito_node_hover_state(n, &hover, &active);
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
-      Color bg = s.has_bg ? s.bg : n->bg;
-      Color border = s.has_border ? s.border : n->border_color;
+      CogitoColor bg = s.has_bg ? s.bg : n->bg;
+      CogitoColor border = s.has_border ? s.border : n->border_color;
       int border_w = s.has_border_width ? s.border_width : n->border_width;
       int radius = s.has_radius ? s.radius : n->border_radius;
 
@@ -22,8 +22,8 @@ case COGITO_COLORPICKER: {
       int hex_x = 0, hex_y = 0, hex_w = 0, hex_h = 0;
       cogito_colorpicker_layout(n, NULL, NULL, NULL, NULL, &label_w, &row_h, &slider_h, &gap, &hex_x, &hex_y, &hex_w, &hex_h);
 
-      Color text_col = s.has_text ? s.text : n->text_color;
-      Color accent = s.has_selection ? s.selection : n->selection_color;
+      CogitoColor text_col = s.has_text ? s.text : n->text_color;
+      CogitoColor accent = s.has_selection ? s.selection : n->selection_color;
       int track_h = s.has_track_height ? s.track_height : 4;
 
       int size = cogito_node_font_size(n);
@@ -37,7 +37,7 @@ case COGITO_COLORPICKER: {
       int thumb_r = 3;
       int thumb_gap = 4;
       int slider_pad = 8;
-      Color inactive_track = text_col;
+      CogitoColor inactive_track = text_col;
       inactive_track.a = 60;
 
       for (int i = 0; i < 3; i++) {
@@ -87,8 +87,8 @@ case COGITO_COLORPICKER: {
 
       // Draw hex input field
       CogitoStyle hs = cogito_theme_resolve(COGITO_TEXTFIELD);
-      Color hex_bg = hs.has_bg ? hs.bg : n->bg;
-      Color hex_border = hs.has_border ? hs.border : cogito_rgba(0, 0, 0, 0);
+      CogitoColor hex_bg = hs.has_bg ? hs.bg : n->bg;
+      CogitoColor hex_border = hs.has_border ? hs.border : cogito_rgba(0, 0, 0, 0);
       int hex_bw = hs.has_border_width ? hs.border_width : 0;
       int hex_radius = hs.has_radius ? hs.radius : 6;
 
@@ -126,9 +126,12 @@ case COGITO_COLORPICKER: {
         int cx = hex_x + pad + tw;
         int max_x = hex_x + hex_w - pad;
         if (cx > max_x) cx = max_x;
-        double time = GetTime();
+        double time = 0.0;
+        if (cogito_backend && cogito_backend->get_time) {
+          time = cogito_backend->get_time();
+        }
         if ((int)(time * 2.0) % 2 == 0) {
-          DrawLine(cx, ty, cx, ty + th, text_col);
+          cogito_draw_line(cx, ty, cx, ty + th, text_col);
         }
       }
 
@@ -137,9 +140,9 @@ case COGITO_COLORPICKER: {
         int prev_pad = s.has_padding_left ? s.padding_left : 12;
         int prev_x = n->x + prev_pad;
         int prev_sz = hex_h;
-        Color prev_color = cogito_hct_to_rgb(n->color_h, n->color_c, n->color_t);
+        CogitoColor prev_color = cogito_hct_to_rgb(n->color_h, n->color_c, n->color_t);
         cogito_draw_rect(prev_x, hex_y, prev_sz, prev_sz, prev_color, 6);
-        Color prev_border = text_col;
+        CogitoColor prev_border = text_col;
         prev_border.a = 60;
         cogito_draw_rect_lines(prev_x, hex_y, prev_sz, prev_sz, prev_border, 6, 1);
       }

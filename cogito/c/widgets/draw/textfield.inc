@@ -3,8 +3,8 @@ case COGITO_TEXTFIELD: {
       bool active = false;
       cogito_node_hover_state(n, &hover, &active);
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
-      Color bg = n->bg;
-      Color border = n->border_color;
+      CogitoColor bg = n->bg;
+      CogitoColor border = n->border_color;
       int border_w = n->border_width;
       int radius = n->border_radius;
       if (s.has_bg) bg = s.bg;
@@ -18,12 +18,12 @@ case COGITO_TEXTFIELD: {
         }
       }
       if (cogito_focused == n && !n->disabled) {
-        Color focus = s.has_selection ? s.selection : n->selection_color;
+        CogitoColor focus = s.has_selection ? s.selection : n->selection_color;
         cogito_draw_rect_lines(n->x, n->y, n->w, n->h, focus, radius, border_w > 0 ? border_w : 2);
       }
       int pad = 8;
       int size = cogito_node_font_size(n);
-      Color text = n->text_color;
+      CogitoColor text = n->text_color;
       if (cogito_has_selection_text) text = cogito_selection_text;
       else if (s.has_text) text = s.text;
       const char* t = n->text ? n->text->data : "";
@@ -41,7 +41,7 @@ case COGITO_TEXTFIELD: {
         if (x0 < n->x + pad) x0 = n->x + pad;
         if (x1 > max_x) x1 = max_x;
         if (x1 > x0) {
-          Color sel = s.has_selection ? s.selection : n->selection_color;
+          CogitoColor sel = s.has_selection ? s.selection : n->selection_color;
           cogito_draw_rect(x0, ty, x1 - x0, th, sel, 2);
         }
       }
@@ -54,8 +54,8 @@ case COGITO_TEXTFIELD: {
         if (a2 < 0) a2 = 0;
         if (b2 > len2) b2 = len2;
         if (b2 > a2) {
-          Color sel2 = s.has_selection ? s.selection : n->selection_color;
-          Color sel_text = cogito_on_color(sel2);
+          CogitoColor sel2 = s.has_selection ? s.selection : n->selection_color;
+          CogitoColor sel_text = cogito_on_color(sel2);
           int sx2 = cogito_text_width_size_n_node(n, t, a2, size);
           char sbuf[1024];
           int slen = b2 - a2;
@@ -72,7 +72,7 @@ case COGITO_TEXTFIELD: {
         int cx = n->x + pad + tw;
         int max_x = n->x + n->w - pad;
         if (cx > max_x) cx = max_x;
-        DrawLine(cx, ty, cx, ty + th, text);
+        cogito_draw_line(cx, ty, cx, ty + th, text);
       }
       break;
     }

@@ -4,7 +4,7 @@ case COGITO_LABEL: {
         bool active = false;
         cogito_node_hover_state(n, &hover, &active);
         int size = cogito_label_font_size(n);
-        Color text = n->text_color;
+        CogitoColor text = n->text_color;
         CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
         if (cogito_has_selection_text) text = cogito_selection_text;
         else if (s.has_text) text = s.text;
@@ -27,4 +27,3 @@ case COGITO_LABEL: {
       }
       break;
     }
-    

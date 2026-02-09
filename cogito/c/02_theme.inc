@@ -222,7 +222,7 @@ static CogitoStyle cogito_theme_resolve_node(const CogitoNode* n) {
   if (n->class_name && n->class_name->data && n->class_name->len > 0) {
     // Preserve window background color - custom classes should not override it
     bool is_window = (n->kind == COGITO_WINDOW);
-    Color saved_bg = s.bg;
+    CogitoColor saved_bg = s.bg;
     bool saved_has_bg = s.has_bg;
     for (int i = 0; i < cogito_theme.custom_class_count; i++) {
       // Match both class name and widget kind
@@ -311,13 +311,13 @@ static void cogito_node_hover_state(const CogitoNode* n, bool* out_hover, bool* 
   if (cogito_pointer_capture) {
     if (cogito_pointer_capture != n) return;
     *out_hover = true;
-    *out_active = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+    *out_active = cogito_backend->is_mouse_button_down(0); // 0 = left button
     return;
   }
-  int mx = (int)GetMousePosition().x;
-  int my = (int)GetMousePosition().y;
+  int mx = 0, my = 0;
+  cogito_backend->get_mouse_position(&mx, &my);
   bool hover = cogito_hit_rect(mx, my, n->x, n->y, n->w, n->h);
-  bool active = hover && IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+  bool active = hover && cogito_backend->is_mouse_button_down(0); // 0 = left button
   *out_hover = hover;
   *out_active = active;
 }
@@ -484,45 +484,42 @@ static void cogito_apply_style_to_node(CogitoNode* n) {
       int sz = s.font_size;
       if (sz > 0 && sz != cogito_font_size_value) {
         cogito_font_size_value = sz;
-        if (cogito_raylib_ready && cogito_font_ready && cogito_font_from_env) {
+        if (cogito_backend_ready && cogito_font_ready && cogito_font_from_env) {
           const char* font_path = cogito_font_path_active;
           if (font_path && font_path[0] && cogito_font_loaded_size != sz) {
-            UnloadFont(cogito_font);
+            cogito_backend->font_unload(cogito_font);
             if (cogito_load_font_file(&cogito_font, font_path, sz, cogito_font_weight_normal())) {
               cogito_font_ready = true;
-              SetTextureFilter(cogito_font.texture, TEXTURE_FILTER_BILINEAR);
               cogito_font_loaded_size = sz;
             } else {
               cogito_font_ready = false;
             }
           }
         }
-        if (cogito_raylib_ready && cogito_font_mono_ready && cogito_font_mono_from_env) {
+        if (cogito_backend_ready && cogito_font_mono_ready && cogito_font_mono_from_env) {
           const char* mono_path = cogito_font_mono_path_active;
           if (mono_path && mono_path[0] && cogito_font_mono_loaded_size != sz) {
-            UnloadFont(cogito_font_mono);
+            cogito_backend->font_unload(cogito_font_mono);
             if (cogito_load_font_file(&cogito_font_mono, mono_path, sz, cogito_font_weight_normal())) {
               cogito_font_mono_ready = true;
-              SetTextureFilter(cogito_font_mono.texture, TEXTURE_FILTER_BILINEAR);
               cogito_font_mono_loaded_size = sz;
             } else {
               cogito_font_mono_ready = false;
             }
           }
         }
-        if (cogito_raylib_ready && cogito_font_bold_ready && cogito_font_bold_from_env) {
+        if (cogito_backend_ready && cogito_font_bold_ready && cogito_font_bold_from_env) {
           const char* bold_path = cogito_font_bold_path_active;
           if (bold_path && bold_path[0] && cogito_font_bold_loaded_size != sz) {
-            UnloadFont(cogito_font_bold);
+            cogito_backend->font_unload(cogito_font_bold);
             bool weight_applied = false;
             if (cogito_load_font_file_ex(&cogito_font_bold, bold_path, sz, cogito_font_weight_bold(), &weight_applied)) {
               if (cogito_font_bold_variable && !weight_applied) {
-                UnloadFont(cogito_font_bold);
+                cogito_backend->font_unload(cogito_font_bold);
                 cogito_font_bold_ready = false;
                 cogito_font_bold_variable = false;
               } else {
                 cogito_font_bold_ready = true;
-                SetTextureFilter(cogito_font_bold.texture, TEXTURE_FILTER_BILINEAR);
                 cogito_font_bold_loaded_size = sz;
               }
             } else {
@@ -842,7 +839,7 @@ static bool cogito_label_class_bold(int cls, bool fallback) {
   return fallback;
 }
 
-static Color cogito_label_class_color(int cls, Color fallback) {
+static CogitoColor cogito_label_class_color(int cls, CogitoColor fallback) {
   cogito_theme_init();
   if (cls > COGITO_LABEL_CLASS_NONE && cls < 4) {
     CogitoStyle* s = &cogito_theme.label_class[cls];

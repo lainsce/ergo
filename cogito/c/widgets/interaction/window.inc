@@ -14,7 +14,9 @@ static void cogito_window_rebuild(CogitoNode* win) {
     if (dw > 0 && dh > 0) {
       win->w = dw;
       win->h = dh;
-      if (cogito_raylib_ready) SetWindowSize(dw, dh);
+      if (cogito_backend_ready && cogito_active_window) {
+        cogito_backend->window_set_size(cogito_active_window, dw, dh);
+      }
     }
   }
   cogito_layout_window(win);
@@ -47,10 +49,9 @@ static void cogito_window_set_resizable(ErgoVal winv, ErgoVal onv) {
   if (winv.tag != EVT_OBJ) ergo_trap("cogito.window_set_resizable expects window");
   CogitoNode* win = (CogitoNode*)winv.as.p;
   win->resizable = ergo_as_bool(onv);
-  if (cogito_raylib_ready) {
-    if (win->resizable) SetWindowState(FLAG_WINDOW_RESIZABLE);
-    else ClearWindowState(FLAG_WINDOW_RESIZABLE);
-  }
+  // Window resizability is set at creation time in SDL3
+  // For runtime changes, we'd need to recreate the window or use SDL hints
+  (void)win;
   cogito_window_relayout(win);
 }
 static void cogito_window_set_builder(ErgoVal winv, ErgoVal builder) {

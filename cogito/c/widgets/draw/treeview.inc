@@ -4,7 +4,7 @@ case COGITO_TREEVIEW: {
   CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
 
   // Draw background
-  Color bg = s.has_bg ? s.bg : n->bg;
+  CogitoColor bg = s.has_bg ? s.bg : n->bg;
   int radius = s.has_radius ? s.radius : 8;
   cogito_draw_rect(n->x, n->y, n->w, n->h, bg, radius);
 

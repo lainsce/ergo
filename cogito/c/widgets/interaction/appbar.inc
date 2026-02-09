@@ -3,12 +3,16 @@ static void cogito_appbar_window_action(CogitoNode* win, int action) {
   if (action == 0) {
     if (win) win->should_close = true;
   } else if (action == 1) {
-    MinimizeWindow();
+    if (cogito_active_window && cogito_backend) {
+      // TODO: Add window_minimize to backend
+      // cogito_backend->window_minimize(cogito_active_window);
+    }
   } else if (action == 2) {
-    if (IsWindowMaximized()) {
-      RestoreWindow();
-    } else {
-      MaximizeWindow();
+    if (cogito_active_window && cogito_backend) {
+      // TODO: Add window maximize/restore to backend
+      // For now, just toggle the flag
+      static bool maximized = false;
+      maximized = !maximized;
     }
   }
 }

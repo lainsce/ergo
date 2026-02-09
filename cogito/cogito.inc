@@ -1,4 +1,4 @@
-// ---- Cogito GUI (raylib) ----
+// ---- Cogito GUI (SDL3) ----
 // @include "c/00_core.inc"
 // @include "c/01_icons.inc"
 // @include "c/02_theme.inc"

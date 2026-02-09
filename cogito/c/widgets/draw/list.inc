@@ -17,7 +17,7 @@ case COGITO_LIST: {
         }
       }
       bool has_selection = n->selected >= 0 && (size_t)n->selected < n->len;
-      Color sel_bg = s.has_selection ? s.selection : n->selection_color;
+      CogitoColor sel_bg = s.has_selection ? s.selection : n->selection_color;
       if (has_selection) {
         CogitoNode* sel = n->children[n->selected];
         cogito_draw_rect(sel->x, sel->y, sel->w, sel->h, sel_bg, 0);

@@ -3,8 +3,8 @@ case COGITO_TEXTVIEW: {
       bool active = false;
       cogito_node_hover_state(n, &hover, &active);
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
-      Color bg = n->bg;
-      Color border = n->border_color;
+      CogitoColor bg = n->bg;
+      CogitoColor border = n->border_color;
       int border_w = n->border_width;
       int radius = n->border_radius;
       if (s.has_bg) bg = s.bg;
@@ -18,12 +18,12 @@ case COGITO_TEXTVIEW: {
         }
       }
       if (cogito_focused == n && !n->disabled) {
-        Color focus = s.has_selection ? s.selection : n->selection_color;
+        CogitoColor focus = s.has_selection ? s.selection : n->selection_color;
         cogito_draw_rect_lines(n->x, n->y, n->w, n->h, focus, radius, border_w > 0 ? border_w : 2);
       }
       int pad = 8;
       int size = cogito_node_font_size(n);
-      Color text = n->text_color;
+      CogitoColor text = n->text_color;
       if (cogito_has_selection_text) text = cogito_selection_text;
       else if (s.has_text) text = s.text;
       const char* t = n->text ? n->text->data : "";
@@ -37,7 +37,7 @@ case COGITO_TEXTVIEW: {
         int idx = 0;
         int line_h = cogito_text_height_size(size);
         int cy = n->y + pad;
-        Color sel = s.has_selection ? s.selection : n->selection_color;
+        CogitoColor sel = s.has_selection ? s.selection : n->selection_color;
         while (idx < len) {
           int line_start = idx;
           int line_len = 0;
@@ -92,8 +92,8 @@ case COGITO_TEXTVIEW: {
         int idx2 = 0;
         int line_h2 = cogito_text_height_size(size);
         int cy2 = n->y + pad;
-        Color sel2 = s.has_selection ? s.selection : n->selection_color;
-        Color sel_text = cogito_on_color(sel2);
+        CogitoColor sel2 = s.has_selection ? s.selection : n->selection_color;
+        CogitoColor sel_text = cogito_on_color(sel2);
         while (idx2 < len2) {
           int line_start2 = idx2;
           int line_len2 = 0;
@@ -181,7 +181,7 @@ case COGITO_TEXTVIEW: {
             int cx = n->x + pad + cogito_text_width_size_n_node(n, t + line_start, local, size);
             int max_x = n->x + n->w - pad;
             if (cx > max_x) cx = max_x;
-            DrawLine(cx, cy, cx, cy + line_h, text);
+            cogito_draw_line(cx, cy, cx, cy + line_h, text);
             break;
           }
           cy += line_h;

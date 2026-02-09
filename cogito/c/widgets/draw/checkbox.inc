@@ -19,15 +19,15 @@ case COGITO_CHECKBOX: {
       bool is_radio = (n->group.tag != EVT_NULL);
       CogitoStyle box_style = cogito_checkbox_box_style(is_radio, n->checked, over, down);
       CogitoStyle check_style = cogito_checkbox_check_style(is_radio, n->checked, over, down);
-      Color resolved_text = s.has_text ? s.text : n->text_color;
+      CogitoColor resolved_text = s.has_text ? s.text : n->text_color;
 
       // Get box colors
-      Color box_bg = box_style.has_bg ? box_style.bg : n->bg;
-      Color box_border = box_style.has_border ? box_style.border : resolved_text;
+      CogitoColor box_bg = box_style.has_bg ? box_style.bg : n->bg;
+      CogitoColor box_border = box_style.has_border ? box_style.border : resolved_text;
       int box_border_w = box_style.has_border_width ? box_style.border_width : 0;
 
       // Check mark color from theme, fallback to contrast against box background or text color
-      Color check = check_style.has_check ? check_style.check : (n->checked ? cogito_on_color(box_bg) : resolved_text);
+      CogitoColor check = check_style.has_check ? check_style.check : (n->checked ? cogito_on_color(box_bg) : resolved_text);
 
       if (is_radio) {
         int box_r = box_style.has_radius ? box_style.radius : (box / 2);
@@ -35,17 +35,26 @@ case COGITO_CHECKBOX: {
 
         // Draw radio box
         if (box_bg.a > 10) {
-          DrawCircle(n->x + box / 2, cy + box / 2, box / 2, box_bg);
+          // TODO: Replace with backend circle drawing
+          // DrawCircle(n->x + box / 2, cy + box / 2, box / 2, box_bg);
+          cogito_draw_rect(n->x, cy, box, box, box_bg, box / 2);
         }
         // Draw radio border
         if (box_border_w > 0) {
-          DrawCircleLinesV((Vector2){(float)(n->x + box / 2), (float)(cy + box / 2)}, (float)(box / 2), box_border);
+          // TODO: Replace with backend circle drawing
+          // DrawCircleLinesV((Vector2){(float)(n->x + box / 2), (float)(cy + box / 2)}, (float)(box / 2), box_border);
+          cogito_draw_rect_lines(n->x, cy, box, box, box_border, box / 2, box_border_w);
         }
         // Draw inner dot when checked
         if (n->checked) {
           int r = box / 4;
           if (r < 3) r = 3;
-          DrawCircle(n->x + box / 2, cy + box / 2, r, check);
+          // TODO: Replace with backend circle drawing
+          // DrawCircle(n->x + box / 2, cy + box / 2, r, check);
+          int dot_size = r * 2;
+          int dot_x = n->x + box / 2 - r;
+          int dot_y = cy + box / 2 - r;
+          cogito_draw_rect(dot_x, dot_y, dot_size, dot_size, check, r);
         }
       } else {
         int box_radius = box_style.has_radius ? box_style.radius : 4;
@@ -70,14 +79,17 @@ case COGITO_CHECKBOX: {
           int y2 = y0 + (mark * 4) / 16;
           int sx = x0 + (mark * 3) / 16;
           int sy = y0 + (mark * 8) / 16;
-          DrawLineEx((Vector2){(float)sx, (float)sy}, (Vector2){(float)x1, (float)y1}, 2.0f, check);
-          DrawLineEx((Vector2){(float)x1, (float)y1}, (Vector2){(float)x2, (float)y2}, 2.0f, check);
+          // TODO: Replace with backend line drawing
+          // DrawLineEx((Vector2){(float)sx, (float)sy}, (Vector2){(float)x1, (float)y1}, 2.0f, check);
+          // DrawLineEx((Vector2){(float)x1, (float)y1}, (Vector2){(float)x2, (float)y2}, 2.0f, check);
+          cogito_draw_line(sx, sy, x1, y1, check);
+          cogito_draw_line(x1, y1, x2, y2, check);
         }
       }
       if (n->text) {
         int th = cogito_text_height();
         int ty = n->y + (n->h - th) / 2;
-        Color label_text = n->text_color;
+        CogitoColor label_text = n->text_color;
         if (cogito_has_selection_text) label_text = cogito_selection_text;
         else if (s.has_text) label_text = s.text;
         cogito_draw_text_node(n, n->x + box + 6, ty, n->text->data, label_text);

@@ -1,5 +1,5 @@
 case COGITO_WINDOW: {
-      Color bg = n->bg;
+      CogitoColor bg = n->bg;
       cogito_draw_rect(n->x, n->y, n->w, n->h, bg, 0);
       for (size_t i = 0; i < n->len; i++) {
         cogito_draw_node(n->children[i]);
@@ -11,8 +11,8 @@ case COGITO_WINDOW: {
           bool hover = false, active = false;
           cogito_node_hover_state(n, &hover, &active);
           CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
-          Color scrim = s.has_bg ? s.bg : n->bg;
-          DrawRectangle(0, 0, n->w, n->h, scrim);
+          CogitoColor scrim = s.has_bg ? s.bg : n->bg;
+          cogito_draw_rect(0, 0, n->w, n->h, scrim, 0);
           cogito_draw_node(n->dialog);
         }
       }
@@ -22,4 +22,3 @@ case COGITO_WINDOW: {
       }
       break;
 }
-

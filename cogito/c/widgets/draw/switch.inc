@@ -25,14 +25,14 @@ case COGITO_SWITCH: {
       bool down = active;
       CogitoStyle track_s = cogito_switch_track_style(n->checked, over, down);
       CogitoStyle knob_s = cogito_switch_knob_style(n->checked, over, down);
-      Color track_off = n->track_set ? n->track_color : (track_s.has_track ? track_s.track : n->bg);
-      Color track_on = n->track_on_set ? n->track_on_color : (track_s.has_track ? track_s.track : n->bg);
+      CogitoColor track_off = n->track_set ? n->track_color : (track_s.has_track ? track_s.track : n->bg);
+      CogitoColor track_on = n->track_on_set ? n->track_on_color : (track_s.has_track ? track_s.track : n->bg);
       if (track_s.has_bg) {
         track_off = track_s.bg;
         track_on = track_s.bg;
       }
       if (track_s.has_track_on) track_on = track_s.track_on;
-      Color track = n->checked ? track_on : track_off;
+      CogitoColor track = n->checked ? track_on : track_off;
 
       // Animate track color
       cogito_anim_apply(n, &track_s, &track, NULL, NULL, NULL);
@@ -51,16 +51,20 @@ case COGITO_SWITCH: {
 
       // Animate knob position
       int kx_target = n->checked ? (cx + w - knob_w - 2) : (cx + 2);
-      int kx = cogito_anim_int(n, kx_target, &n->anim_x, &n->anim_x_from, &n->anim_x_target, GetTime());
+      double now = 0.0;
+      if (cogito_backend && cogito_backend->get_time) {
+        now = cogito_backend->get_time();
+      }
+      int kx = cogito_anim_int(n, kx_target, &n->anim_x, &n->anim_x_from, &n->anim_x_target, now);
 
       int ky = cy + (h - knob_h) / 2;
-      Color knob_col = n->knob_set ? n->knob_color : (knob_s.has_knob ? knob_s.knob : (knob_s.has_bg ? knob_s.bg : n->bg));
+      CogitoColor knob_col = n->knob_set ? n->knob_color : (knob_s.has_knob ? knob_s.knob : (knob_s.has_bg ? knob_s.bg : n->bg));
       cogito_draw_rect(kx, ky, knob_w, knob_h, knob_col, knob_h / 2);
       if (n->text) {
         CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
         int th = cogito_text_height();
         int ty = n->y + (n->h - th) / 2;
-        Color label_text = n->text_color;
+        CogitoColor label_text = n->text_color;
         if (cogito_has_selection_text) label_text = cogito_selection_text;
         else if (s.has_text) label_text = s.text;
         cogito_draw_text_node(n, n->x + w + 8, ty, n->text->data, label_text);

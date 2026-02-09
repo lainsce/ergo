@@ -323,7 +323,7 @@ static CogitoApp* cogito_app_new_obj(void) {
   return app;
 }
 
-static Color cogito_app_effective_accent(const CogitoApp* app) {
+static CogitoColor cogito_app_effective_accent(const CogitoApp* app) {
   if (app->accent_override && app->accent_set) return app->accent_color;
   if (app->system_accent_set) return app->system_accent;
   if (app->accent_set) return app->accent_color;
@@ -332,7 +332,7 @@ static Color cogito_app_effective_accent(const CogitoApp* app) {
 
 static void cogito_app_update_theme(CogitoApp* app) {
   bool dark = app ? app->system_dark : false;
-  Color accent = app ? cogito_app_effective_accent(app) : cogito_rgba(114, 222, 194, 255);
+  CogitoColor accent = app ? cogito_app_effective_accent(app) : cogito_rgba(114, 222, 194, 255);
   if (dark != cogito_theme_dark ||
       accent.r != cogito_theme_accent.r || accent.g != cogito_theme_accent.g ||
       accent.b != cogito_theme_accent.b) {
@@ -343,7 +343,7 @@ static void cogito_app_update_theme(CogitoApp* app) {
 static void cogito_update_system_theme(CogitoApp* app) {
   if (!app) return;
   bool dark = cogito_system_is_dark();
-  Color acc = {0};
+  CogitoColor acc = {0};
   bool has_acc = cogito_system_accent(&acc);
   bool changed = false;
   if (dark != app->system_dark) {
@@ -392,7 +392,7 @@ static void cogito_app_set_accent_color(ErgoVal appv, ErgoVal colorv, ErgoVal ov
       s = stdr_to_string(colorv);
       temp = true;
     }
-    Color c = {0};
+    CogitoColor c = {0};
     if (s && s->data && cogito_hex_to_color(s->data, &c)) {
       app->accent_color = c;
       app->accent_set = true;
@@ -796,7 +796,7 @@ static void cogito_node_set_a11y_label(ErgoVal nodev, ErgoVal labelv) {
     n->a11y_label = stdr_to_string(labelv);
   }
 #if defined(__APPLE__)
-  if (n->kind == COGITO_WINDOW && cogito_raylib_ready) {
+  if (n->kind == COGITO_WINDOW && cogito_backend_ready) {
     const char* s = n->a11y_label ? n->a11y_label->data : "";
     cogito_macos_set_window_a11y_label(s);
   }
@@ -989,7 +989,7 @@ static bool cogito_css_read_number(const char** p, double* out) {
   return true;
 }
 
-static bool cogito_css_parse_hex_color(const char** p, Color* out) {
+static bool cogito_css_parse_hex_color(const char** p, CogitoColor* out) {
   if (**p != '#') return false;
   const char* s = *p + 1;
   int len = 0;
@@ -1012,7 +1012,7 @@ static bool cogito_css_parse_hex_color(const char** p, Color* out) {
   return true;
 }
 
-static bool cogito_css_parse_named_color(const char* name, Color* out) {
+static bool cogito_css_parse_named_color(const char* name, CogitoColor* out) {
   if (!name) return false;
   if (strcmp(name, "transparent") == 0) { *out = cogito_rgba(0, 0, 0, 0); return true; }
   if (strcmp(name, "white") == 0) { *out = cogito_rgba(255, 255, 255, 255); return true; }
@@ -1027,7 +1027,7 @@ static bool cogito_css_parse_named_color(const char* name, Color* out) {
   return false;
 }
 
-static bool cogito_css_parse_rgb_color(const char** p, Color* out) {
+static bool cogito_css_parse_rgb_color(const char** p, CogitoColor* out) {
   const char* s = *p;
   bool has_alpha = false;
   if (strncmp(s, "rgba", 4) == 0) {
@@ -1068,7 +1068,7 @@ static bool cogito_css_parse_rgb_color(const char** p, Color* out) {
   return true;
 }
 
-static bool cogito_css_parse_color(const char** p, Color* out) {
+static bool cogito_css_parse_color(const char** p, CogitoColor* out) {
   cogito_css_skip_ws(p);
   if (**p == '#') return cogito_css_parse_hex_color(p, out);
   if (strncmp(*p, "rgb", 3) == 0) return cogito_css_parse_rgb_color(p, out);

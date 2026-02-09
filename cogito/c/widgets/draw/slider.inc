@@ -4,8 +4,8 @@ case COGITO_SLIDER: {
       bool active = false;
       cogito_node_hover_state(n, &hover, &active);
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
-      Color inactive_track = s.has_bg ? s.bg : (s.has_track ? s.track : n->bg);
-      Color active_track = s.has_text ? s.text : (s.has_knob ? s.knob : n->text_color);
+      CogitoColor inactive_track = s.has_bg ? s.bg : (s.has_track ? s.track : n->bg);
+      CogitoColor active_track = s.has_text ? s.text : (s.has_knob ? s.knob : n->text_color);
 
       int track_h = n->track_height_set ? n->track_height : (s.has_track_height ? s.track_height : 4);
       int thumb_w = 8;
@@ -47,9 +47,11 @@ case COGITO_SLIDER: {
 
       // State layer for hover/press
       if (hover || active) {
-        Color state_layer = active_track;
+        CogitoColor state_layer = active_track;
         state_layer.a = active ? 30 : 20;
-        DrawCircle(kx, cy, 20, state_layer);
+        // TODO: Replace with backend circle drawing
+        // DrawCircle(kx, cy, 20, state_layer);
+        cogito_draw_rect(kx - 20, cy - 20, 40, 40, state_layer, 20);
       }
 
       // Draw rectangular thumb with rounded corners

@@ -17,7 +17,7 @@ case COGITO_GRID: {
         }
       }
       bool has_selection = n->selected >= 0 && (size_t)n->selected < n->len;
-      Color sel_bg = s.has_selection ? s.selection : n->selection_color;
+      CogitoColor sel_bg = s.has_selection ? s.selection : n->selection_color;
       if (has_selection) {
         CogitoNode* sel = n->children[n->selected];
         int inset = 2;

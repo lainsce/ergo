@@ -3,7 +3,7 @@ case COGITO_FAB: {
   cogito_node_hover_state(n, &hover, &active);
   CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
 
-  Color bg = s.has_bg ? s.bg : n->bg;
+  CogitoColor bg = s.has_bg ? s.bg : n->bg;
   int radius = n->fab_extended ? 16 : (n->h / 2);
 
   // Animate colors
@@ -22,7 +22,7 @@ case COGITO_FAB: {
 
   // State layer for hover/press
   if (hover || active) {
-    Color state_layer = s.has_text ? s.text : n->text_color;
+    CogitoColor state_layer = s.has_text ? s.text : n->text_color;
     state_layer.a = active ? 25 : 15;
     cogito_draw_rect(n->x, n->y, n->w, n->h, state_layer, radius);
   }
@@ -33,34 +33,22 @@ case COGITO_FAB: {
     int icon_x = n->fab_extended ? (n->x + 16) : (n->x + (n->w - icon_size) / 2);
     int icon_y = n->y + (n->h - icon_size) / 2;
 
-    Texture2D tex = {0};
-    int tw = 0, th_i = 0;
-    Color icon_color = s.has_text ? s.text : n->text_color;
+    // TODO: Replace with backend texture drawing
+    // Texture2D tex = {0};
+    // int tw = 0, th_i = 0;
+    CogitoColor icon_color = s.has_text ? s.text : n->text_color;
 
-    if (cogito_icon_load_texture(n->text->data, icon_size, &tex, &tw, &th_i)) {
-      float dw = (float)icon_size;
-      float dh = (float)icon_size;
-      if (tw > 0 && th_i > 0) {
-        float sx = (float)icon_size / (float)tw;
-        float sy = (float)icon_size / (float)th_i;
-        float scale = sx < sy ? sx : sy;
-        dw = (float)tw * scale;
-        dh = (float)th_i * scale;
-      }
-      float dx = icon_x + ((float)icon_size - dw) * 0.5f;
-      float dy = icon_y + ((float)icon_size - dh) * 0.5f;
-      DrawTexturePro(tex, (Rectangle){0, 0, (float)tw, (float)th_i},
-                     (Rectangle){dx, dy, dw, dh},
-                     (Vector2){0, 0}, 0.0f, icon_color);
-    } else {
-      int size = cogito_node_font_size(n);
-      cogito_draw_text_size_node(n, icon_x, icon_y, n->text->data, icon_color, size, false);
-    }
+    // if (cogito_icon_load_texture(n->text->data, icon_size, &tex, &tw, &th_i)) {
+    //   cogito_backend->draw_texture(...);
+    // } else {
+    int size = cogito_node_font_size(n);
+    cogito_draw_text_size_node(n, icon_x, icon_y, n->text->data, icon_color, size, false);
+    // }
   }
 
   // Draw label if extended
   if (n->fab_extended && n->subtitle && n->subtitle->data[0]) {
-    Color text_color = s.has_text ? s.text : n->text_color;
+    CogitoColor text_color = s.has_text ? s.text : n->text_color;
     int size = cogito_node_font_size(n);
     int text_h = cogito_text_height_size(size);
     int label_x = n->x + 16 + 24 + 12;
@@ -69,4 +57,3 @@ case COGITO_FAB: {
   }
   break;
 }
-

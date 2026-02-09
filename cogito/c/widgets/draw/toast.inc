@@ -14,7 +14,7 @@ case COGITO_TOAST: {
         }
       }
       int size = cogito_node_font_size(n);
-      Color text = cogito_has_selection_text ? cogito_selection_text : (s.has_text ? s.text : n->text_color);
+      CogitoColor text = cogito_has_selection_text ? cogito_selection_text : (s.has_text ? s.text : n->text_color);
       const char* t = n->text ? n->text->data : "";
       int th = cogito_text_height_size(size);
       int ty = n->y + (n->h - th) / 2;
@@ -35,7 +35,7 @@ case COGITO_TOAST: {
       if (text_w < 0) text_w = 0;
       cogito_draw_text_ellipsis(n, n->x + pad_x, ty, text_w, t, text, size, cogito_node_bold(n), 0);
       if (action_w > 0) {
-        Color action_color = s.has_selection ? s.selection : (s.has_text ? s.text : n->selection_color);
+        CogitoColor action_color = s.has_selection ? s.selection : (s.has_text ? s.text : n->selection_color);
         int action_x = n->x + pad_x + text_w + 24;
         int action_y = ty;
         cogito_draw_text_size_node(n, action_x, action_y, n->action_text->data, action_color, size, false);
@@ -49,29 +49,18 @@ case COGITO_TOAST: {
         if (icon_size < 8) icon_size = 8;
         int ix = cx + (cw - icon_size) / 2;
         int iy = cy + (ch - icon_size) / 2;
-        Texture2D tex = {0};
-        int tw = 0;
-        int th_i = 0;
-        Color tint = s.has_icon_color ? s.icon_color : text;
-        if (cogito_icon_load_texture("x", icon_size, &tex, &tw, &th_i)) {
-          float dw = (float)icon_size;
-          float dh = (float)icon_size;
-          if (tw > 0 && th_i > 0) {
-            float sx = (float)icon_size / (float)tw;
-            float sy = (float)icon_size / (float)th_i;
-            float s = sx < sy ? sx : sy;
-            dw = (float)tw * s;
-            dh = (float)th_i * s;
-          }
-          float dx = ix + ((float)icon_size - dw) * 0.5f;
-          float dy = iy + ((float)icon_size - dh) * 0.5f;
-          DrawTexturePro(tex, (Rectangle){0, 0, (float)tw, (float)th_i},
-                         (Rectangle){dx, dy, dw, dh},
-                         (Vector2){0, 0}, 0.0f, tint);
-        } else {
-          DrawLine(ix, iy, ix + icon_size, iy + icon_size, tint);
-          DrawLine(ix + icon_size, iy, ix, iy + icon_size, tint);
-        }
+        // TODO: Replace with backend texture drawing
+        // Texture2D tex = {0};
+        // int tw = 0;
+        // int th_i = 0;
+        // CogitoColor tint = s.has_icon_color ? s.icon_color : text;
+        // if (cogito_icon_load_texture("x", icon_size, &tex, &tw, &th_i)) {
+        //   cogito_backend->draw_texture(...);
+        // } else {
+        // Draw X using lines
+        cogito_draw_line(ix, iy, ix + icon_size, iy + icon_size, text);
+        cogito_draw_line(ix + icon_size, iy, ix, iy + icon_size, text);
+        // }
       }
       break;
     }

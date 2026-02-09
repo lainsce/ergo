@@ -1,8 +1,16 @@
+static void cogito_draw_line(int x1, int y1, int x2, int y2, CogitoColor color) {
+  if (cogito_backend && cogito_backend->draw_line) {
+    cogito_backend->draw_line(x1, y1, x2, y2, color, 1);
+  }
+}
+
 static void cogito_draw_node(CogitoNode* n) {
   if (!n) return;
   if (n->tooltip && n->tooltip->data && n->tooltip->data[0] && !n->disabled) {
-    int mx = (int)GetMousePosition().x;
-    int my = (int)GetMousePosition().y;
+    int mx = 0, my = 0;
+    if (cogito_backend && cogito_backend->get_mouse_position) {
+      cogito_backend->get_mouse_position(&mx, &my);
+    }
     if (cogito_hit_node(n, mx, my)) {
       cogito_tooltip_hovered = n;
     }
@@ -96,10 +104,10 @@ static void cogito_draw_node(CogitoNode* n) {
 
 static void cogito_draw_menu(void) {
   if (!cogito_menu.open || !cogito_menu.owner) return;
-  Color bg = cogito_theme.menu.has_bg ? cogito_theme.menu.bg : cogito_rgba(250, 250, 250, 255);
-  Color border = cogito_theme.menu.has_border ? cogito_theme.menu.border : cogito_rgba(180, 180, 180, 255);
-  Color text_color = cogito_theme.menu.has_text ? cogito_theme.menu.text : cogito_rgba(30, 30, 30, 255);
-  Color sel = cogito_theme.menu.has_selection ? cogito_theme.menu.selection : cogito_rgba(220, 230, 250, 255);
+  CogitoColor bg = cogito_theme.menu.has_bg ? cogito_theme.menu.bg : cogito_rgba(250, 250, 250, 255);
+  CogitoColor border = cogito_theme.menu.has_border ? cogito_theme.menu.border : cogito_rgba(180, 180, 180, 255);
+  CogitoColor text_color = cogito_theme.menu.has_text ? cogito_theme.menu.text : cogito_rgba(30, 30, 30, 255);
+  CogitoColor sel = cogito_theme.menu.has_selection ? cogito_theme.menu.selection : cogito_rgba(220, 230, 250, 255);
   int radius = cogito_theme.menu.has_radius ? cogito_theme.menu.radius : 4;
   bool has_border = cogito_theme.menu.has_border || cogito_theme.menu.has_border_width;
   int border_w = cogito_theme.menu.has_border_width ? cogito_theme.menu.border_width : 1;
@@ -119,8 +127,10 @@ static void cogito_draw_menu(void) {
   if (has_border && border_w > 0) {
     cogito_draw_rect_lines(x, y, w, h, border, radius, border_w);
   }
-  int mx = (int)GetMousePosition().x;
-  int my = (int)GetMousePosition().y;
+  int mx = 0, my = 0;
+  if (cogito_backend && cogito_backend->get_mouse_position) {
+    cogito_backend->get_mouse_position(&mx, &my);
+  }
   int hover = cogito_menu_hit(&cogito_menu, mx, my);
   int item_radius = cogito_theme.menu_item.has_radius ? cogito_theme.menu_item.radius : 0;
   for (size_t i = 0; i < cogito_menu.owner->menu_len; i++) {
@@ -140,9 +150,9 @@ static void cogito_draw_menu(void) {
 static void cogito_draw_tooltip(CogitoNode* win, CogitoNode* target) {
   if (!win || !target || !target->tooltip || !target->tooltip->data) return;
   CogitoStyle s = cogito_theme_resolve(COGITO_TOOLTIP);
-  Color bg = s.has_bg ? s.bg : cogito_rgba(30, 30, 30, 240);
-  Color text = s.has_text ? s.text : cogito_rgba(255, 255, 255, 255);
-  Color border = s.has_border ? s.border : cogito_rgba(0, 0, 0, 0);
+  CogitoColor bg = s.has_bg ? s.bg : cogito_rgba(30, 30, 30, 240);
+  CogitoColor text = s.has_text ? s.text : cogito_rgba(255, 255, 255, 255);
+  CogitoColor border = s.has_border ? s.border : cogito_rgba(0, 0, 0, 0);
   int border_w = s.has_border_width ? s.border_width : 0;
   int radius = s.has_radius ? s.radius : 6;
   int font_size = s.has_font_size ? s.font_size : cogito_font_size();
@@ -155,9 +165,12 @@ static void cogito_draw_tooltip(CogitoNode* win, CogitoNode* target) {
   int w = tw + pad_x * 2;
   int h = th + pad_y * 2;
 
-  Vector2 mp = GetMousePosition();
-  int x = (int)mp.x + 12;
-  int y = (int)mp.y + 16;
+  int mx = 0, my = 0;
+  if (cogito_backend && cogito_backend->get_mouse_position) {
+    cogito_backend->get_mouse_position(&mx, &my);
+  }
+  int x = mx + 12;
+  int y = my + 16;
   if (x < 4) x = 4;
   if (x + w > win->w - 4) x = win->w - 4 - w;
   if (y + h > win->h - 4) y = win->h - 4 - h;

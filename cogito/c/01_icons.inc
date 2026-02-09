@@ -20,7 +20,7 @@ typedef struct {
   char name[128];
   char theme[64];
   int size;
-  Texture2D tex;
+  CogitoTexture* tex;
   int w;
   int h;
   bool used;
@@ -427,7 +427,7 @@ static bool cogito_icon_is_sf(const char* name) {
 }
 
 #if defined(__APPLE__)
-static bool cogito_sf_symbol_load(const char* symbol, int size, Texture2D* out, int* out_w, int* out_h) {
+static bool cogito_sf_symbol_load(const char* symbol, int size, CogitoTexture** out, int* out_w, int* out_h) {
   if (!symbol || !symbol[0] || size <= 0) return false;
   id nsimage = (id)objc_getClass("NSImage");
   if (!nsimage) return false;
@@ -456,26 +456,19 @@ static bool cogito_sf_symbol_load(const char* symbol, int size, Texture2D* out, 
   unsigned char* copy = (unsigned char*)malloc(len);
   if (!copy) { CGContextRelease(ctx); CGColorSpaceRelease(cs); return false; }
   memcpy(copy, data, len);
-  Image imgdata = {0};
-  imgdata.data = copy;
-  imgdata.width = (int)w;
-  imgdata.height = (int)h;
-  imgdata.mipmaps = 1;
-  imgdata.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
   // Convert to white mask so tinting works for icons.
-  unsigned char* px = (unsigned char*)imgdata.data;
-  size_t pxlen = (size_t)imgdata.width * (size_t)imgdata.height * 4;
+  unsigned char* px = (unsigned char*)copy;
+  size_t pxlen = w * h * 4;
   for (size_t i = 0; i + 3 < pxlen; i += 4) {
     px[i + 0] = 255;
     px[i + 1] = 255;
     px[i + 2] = 255;
   }
-  Texture2D tex = LoadTextureFromImage(imgdata);
-  UnloadImage(imgdata);
+  CogitoTexture* tex = cogito_backend->texture_create((int)w, (int)h, copy, 4);
+  free(copy);
   CGContextRelease(ctx);
   CGColorSpaceRelease(cs);
-  if (tex.id == 0) return false;
-  SetTextureFilter(tex, TEXTURE_FILTER_BILINEAR);
+  if (!tex) return false;
   if (out) *out = tex;
   if (out_w) *out_w = (int)w;
   if (out_h) *out_h = (int)h;
@@ -483,7 +476,7 @@ static bool cogito_sf_symbol_load(const char* symbol, int size, Texture2D* out, 
 }
 #endif
 
-static bool cogito_icon_load_texture(const char* name, int size, Texture2D* out, int* out_w, int* out_h) {
+static bool cogito_icon_load_texture(const char* name, int size, CogitoTexture** out, int* out_w, int* out_h) {
   if (!name || !name[0] || size <= 0) return false;
   const char* theme = cogito_icon_is_sf(name) ? "sf" : cogito_icon_theme_get();
   for (int i = 0; i < cogito_icon_cache_len; i++) {
@@ -497,11 +490,10 @@ static bool cogito_icon_load_texture(const char* name, int size, Texture2D* out,
   }
   if (cogito_icon_is_sf(name)) {
 #if defined(__APPLE__)
-    Texture2D tex = {0};
+    CogitoTexture* tex = NULL;
     int tw = 0;
     int th = 0;
     if (cogito_sf_symbol_load(name + 3, size, &tex, &tw, &th)) {
-      SetTextureFilter(tex, TEXTURE_FILTER_BILINEAR);
       if (cogito_icon_cache_len < (int)(sizeof(cogito_icon_cache) / sizeof(cogito_icon_cache[0]))) {
         CogitoIconCacheEntry* e = &cogito_icon_cache[cogito_icon_cache_len++];
         memset(e, 0, sizeof(*e));
@@ -524,35 +516,16 @@ static bool cogito_icon_load_texture(const char* name, int size, Texture2D* out,
   char path[PATH_MAX];
   bool is_svg = false;
   if (!cogito_icon_find_file(theme, name, size, path, sizeof(path), &is_svg)) return false;
-  Texture2D tex = {0};
+  CogitoTexture* tex = NULL;
   int tw = 0;
   int th = 0;
   (void)is_svg;
-  Image img = LoadImage(path);
-  if (img.data) {
-    ImageFormat(&img, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
-    unsigned char* px = (unsigned char*)img.data;
-    size_t pxlen = (size_t)img.width * (size_t)img.height * 4;
-    for (size_t i = 0; i + 3 < pxlen; i += 4) {
-      px[i + 0] = 255;
-      px[i + 1] = 255;
-      px[i + 2] = 255;
-    }
-    int maxdim = img.width > img.height ? img.width : img.height;
-    if (size > 0 && maxdim > 0 && maxdim != size) {
-      float scale = (float)size / (float)maxdim;
-      int nw = (int)lroundf((float)img.width * scale);
-      int nh = (int)lroundf((float)img.height * scale);
-      if (nw < 1) nw = 1;
-      if (nh < 1) nh = 1;
-      ImageResize(&img, nw, nh);
-    }
-    tw = img.width;
-    th = img.height;
-    tex = LoadTextureFromImage(img);
-    UnloadImage(img);
-  }
-  if (tex.id == 0) return false;
+  // For now, icons from files are not supported in SDL3 backend
+  // This would require an image loading library (stb_image, etc.)
+  // tex = cogito_backend->texture_load_from_file(path);
+  // if (!tex) return false;
+  // cogito_backend->texture_get_size(tex, &tw, &th);
+  return false; // TODO: Implement file-based icon loading
   if (cogito_icon_cache_len < (int)(sizeof(cogito_icon_cache) / sizeof(cogito_icon_cache[0]))) {
     CogitoIconCacheEntry* e = &cogito_icon_cache[cogito_icon_cache_len++];
     memset(e, 0, sizeof(*e));

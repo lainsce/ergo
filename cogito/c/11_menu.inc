@@ -34,8 +34,15 @@ static void cogito_menu_open_for(CogitoNode* n) {
   cogito_menu.h = h;
   int x = n->x;
   int y = n->y + n->h + 4;
-  int win_w = GetScreenWidth();
-  int win_h = GetScreenHeight();
+  
+  // Get window size from backend
+  int win_w = 800, win_h = 600;  // Default fallback
+  if (cogito_backend && cogito_backend_ready && cogito_active_window) {
+    // Use window size from active window
+    win_w = cogito_active_window->w;
+    win_h = cogito_active_window->h;
+  }
+  
   if (w > win_w - 8) w = win_w - 8;
   if (h > win_h - 8) h = win_h - 8;
   if (x + w > win_w - 4) x = win_w - 4 - w;
@@ -74,35 +81,33 @@ static float cogito_roundness_for(int w, int h, int radius) {
   return roundness;
 }
 
-static void cogito_draw_rect(int x, int y, int w, int h, Color bg, int radius) {
+// Stub: Drawing functions use backend
+static void cogito_draw_rect(int x, int y, int w, int h, CogitoColor bg, int radius) {
   if (w <= 0 || h <= 0) return;
-  Rectangle r = { (float)x, (float)y, (float)w, (float)h };
-  float roundness = cogito_roundness_for(w, h, radius);
-  if (roundness > 0.0f) DrawRectangleRounded(r, roundness, 8, bg);
-  else DrawRectangleRec(r, bg);
-}
-
-static void cogito_draw_rect_lines(int x, int y, int w, int h, Color border, int radius, int thickness) {
-  if (w <= 0 || h <= 0 || thickness <= 0) return;
-  Rectangle r = { (float)x, (float)y, (float)w, (float)h };
-  float roundness = cogito_roundness_for(w, h, radius);
-  if (roundness > 0.0f) {
-    DrawRectangleRoundedLines(r, roundness, 8, border);
-  } else {
-    DrawRectangleLinesEx(r, (float)thickness, border);
+  if (cogito_backend && cogito_backend->draw_rect_rounded) {
+    float roundness = cogito_roundness_for(w, h, radius);
+    if (roundness > 0.0f) {
+      cogito_backend->draw_rect_rounded(x, y, w, h, bg, roundness);
+    } else {
+      cogito_backend->draw_rect(x, y, w, h, bg);
+    }
   }
 }
 
-static Color cogito_blend(Color base, Color over) {
-  float a = over.a / 255.0f;
-  float ia = 1.0f - a;
-  Color out;
-  out.r = (unsigned char)(base.r * ia + over.r * a);
-  out.g = (unsigned char)(base.g * ia + over.g * a);
-  out.b = (unsigned char)(base.b * ia + over.b * a);
-  out.a = base.a;
-  return out;
+static void cogito_draw_rect_lines(int x, int y, int w, int h, CogitoColor border, int radius, int thickness) {
+  if (w <= 0 || h <= 0 || thickness <= 0) return;
+  if (cogito_backend && cogito_backend->draw_rect_rounded_lines) {
+    float roundness = cogito_roundness_for(w, h, radius);
+    if (roundness > 0.0f) {
+      cogito_backend->draw_rect_rounded_lines(x, y, w, h, border, roundness, thickness);
+    } else {
+      cogito_backend->draw_rect_lines(x, y, w, h, border, thickness);
+    }
+  }
 }
+
+// Use backend.h implementation
+#define cogito_blend cogito_color_blend
 
 static bool cogito_text_blend_premultiply(void) {
   static int cached = -1;
@@ -131,11 +136,11 @@ static int cogito_font_filter_override(void) {
   const char* env = getenv("COGITO_FONT_FILTER");
   if (env && env[0]) {
     if (strcmp(env, "point") == 0 || strcmp(env, "nearest") == 0) {
-      cached = TEXTURE_FILTER_POINT;
+      cached = 0;  // TEXTURE_FILTER_POINT equivalent
       return cached;
     }
     if (strcmp(env, "bilinear") == 0 || strcmp(env, "linear") == 0) {
-      cached = TEXTURE_FILTER_BILINEAR;
+      cached = 1;  // TEXTURE_FILTER_BILINEAR equivalent
       return cached;
     }
   }
@@ -143,22 +148,10 @@ static int cogito_font_filter_override(void) {
   return cached;
 }
 
-static void cogito_apply_font_filter(Font* f, int size) {
-  if (!f || f->texture.id == 0) return;
-  int override = cogito_font_filter_override();
-  int filter = TEXTURE_FILTER_BILINEAR;
-  if (override >= 0) {
-    filter = override;
-  } else {
-    if (size <= 0) size = f->baseSize;
-    filter = (size == f->baseSize) ? TEXTURE_FILTER_POINT : TEXTURE_FILTER_BILINEAR;
-  }
-  static unsigned int last_tex = 0;
-  static int last_filter = -1;
-  if (last_tex == f->texture.id && last_filter == filter) return;
-  SetTextureFilter(f->texture, filter);
-  last_tex = f->texture.id;
-  last_filter = filter;
+static void cogito_apply_font_filter(CogitoFont* f, int size) {
+  // Phase 2: Implement font filtering
+  (void)f;
+  (void)size;
 }
 
 static float cogito_letter_spacing(const CogitoNode* n) {
@@ -166,67 +159,46 @@ static float cogito_letter_spacing(const CogitoNode* n) {
 }
 
 __attribute__((unused))
-static void cogito_draw_text(int x, int y, const char* text, Color color, float spacing) {
+static void cogito_draw_text(int x, int y, const char* text, CogitoColor color, float spacing) {
+  (void)spacing;  // Phase 2: Implement letter spacing
   if (!text) return;
-  bool premultiply = cogito_text_blend_premultiply();
-  if (premultiply) BeginBlendMode(BLEND_ALPHA_PREMULTIPLY);
-  if (cogito_font_ready) {
-    cogito_apply_font_filter(&cogito_font, cogito_font_size());
-    DrawTextEx(cogito_font, text, (Vector2){(float)x, (float)y}, (float)cogito_font_size(), spacing, color);
-  } else {
-    DrawText(text, x, y, cogito_font_size(), color);
+  if (cogito_backend && cogito_backend->draw_text && cogito_font_ready) {
+    cogito_apply_font_filter(cogito_font, cogito_font_size());
+    cogito_backend->draw_text(cogito_font, text, x, y, cogito_font_size(), color);
   }
-  if (premultiply) EndBlendMode();
 }
 
-static void cogito_draw_text_size_font(Font* f, int x, int y, const char* text, Color color, int size, bool bold, float spacing) {
+static void cogito_draw_text_size_font(CogitoFont* f, int x, int y, const char* text, CogitoColor color, int size, bool bold, float spacing) {
+  (void)spacing;  // Phase 2: Implement letter spacing
+  (void)bold;     // Phase 2: Implement bold text
   if (!text) return;
   if (size <= 0) size = cogito_font_size();
-  bool premultiply = cogito_text_blend_premultiply();
-  if (premultiply) BeginBlendMode(BLEND_ALPHA_PREMULTIPLY);
-  if (cogito_font_ready && f) {
-    Font* use_font = f;
-    bool synth_bold = bold;
-    if (bold && f == &cogito_font && cogito_font_bold_ready) {
-      use_font = &cogito_font_bold;
-      synth_bold = false;
-    }
-    if (f && f != &cogito_font_mono && f != &cogito_font && f != &cogito_font_bold) {
-      // Custom font, use as-is.
-    }
-    Font* sized_font = cogito_font_for_size(use_font, size);
-    cogito_apply_font_filter(sized_font, size);
-    DrawTextEx(*sized_font, text, (Vector2){(float)x, (float)y}, (float)size, spacing, color);
-    if (synth_bold) {
-      DrawTextEx(*sized_font, text, (Vector2){(float)x + 1.0f, (float)y}, (float)size, spacing, color);
-    }
-  } else {
-    DrawText(text, x, y, size, color);
-    if (bold) DrawText(text, x + 1, y, size, color);
+  if (cogito_backend && cogito_backend->draw_text && cogito_font_ready && f) {
+    cogito_apply_font_filter(f, size);
+    cogito_backend->draw_text(f, text, x, y, size, color);
   }
-  if (premultiply) EndBlendMode();
 }
 
 __attribute__((unused))
-static void cogito_draw_text_size(int x, int y, const char* text, Color color, int size, bool bold, float spacing) {
-  cogito_draw_text_size_font(&cogito_font, x, y, text, color, size, bold, spacing);
+static void cogito_draw_text_size(int x, int y, const char* text, CogitoColor color, int size, bool bold, float spacing) {
+  cogito_draw_text_size_font(cogito_font, x, y, text, color, size, bold, spacing);
 }
 
-static void cogito_draw_text_node(const CogitoNode* n, int x, int y, const char* text, Color color) {
+static void cogito_draw_text_node(const CogitoNode* n, int x, int y, const char* text, CogitoColor color) {
   float spacing = cogito_letter_spacing(n);
-  Font* f = cogito_font_for_node(n);
+  CogitoFont* f = cogito_font_for_node(n);
   if (n && n->font_tabular) {
     f = cogito_font_tabular_for(f, cogito_font_size());
   }
   cogito_draw_text_size_font(f, x, y, text, color, cogito_font_size(), false, spacing);
 }
 
-static void cogito_draw_text_size_node(const CogitoNode* n, int x, int y, const char* text, Color color, int size, bool bold) {
+static void cogito_draw_text_size_node(const CogitoNode* n, int x, int y, const char* text, CogitoColor color, int size, bool bold) {
   float spacing = cogito_letter_spacing(n);
-  Font* f = cogito_font_for_node(n);
+  CogitoFont* f = cogito_font_for_node(n);
   bool synth_bold = bold;
-  if (bold && f == &cogito_font && cogito_font_bold_ready) {
-    f = &cogito_font_bold;
+  if (bold && f == cogito_font && cogito_font_bold_ready) {
+    f = cogito_font_bold;
     synth_bold = false;
   }
   if (n && n->font_tabular) {

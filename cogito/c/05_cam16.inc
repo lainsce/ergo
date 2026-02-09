@@ -36,7 +36,7 @@ static double cogito_linear_to_srgb(double c) {
   return 1.055 * pow(c, 1.0 / 2.4) - 0.055;
 }
 
-static void cogito_xyz_from_srgb(Color c, double* x, double* y, double* z) {
+static void cogito_xyz_from_srgb(CogitoColor c, double* x, double* y, double* z) {
   double r = cogito_srgb_to_linear((double)c.r / 255.0);
   double g = cogito_srgb_to_linear((double)c.g / 255.0);
   double b = cogito_srgb_to_linear((double)c.b / 255.0);
@@ -45,7 +45,7 @@ static void cogito_xyz_from_srgb(Color c, double* x, double* y, double* z) {
   *z = 100.0 * (0.01932141 * r + 0.11916382 * g + 0.95034478 * b);
 }
 
-static bool cogito_srgb_from_xyz(double x, double y, double z, Color* out) {
+static bool cogito_srgb_from_xyz(double x, double y, double z, CogitoColor* out) {
   double xr = x / 100.0;
   double yr = y / 100.0;
   double zr = z / 100.0;
@@ -187,10 +187,10 @@ static void cogito_cam16_to_xyz(double J, double C, double h, double* x, double*
   *z = -0.01584150 * r + -0.03412294 * g + 1.04996444 * b;
 }
 
-static bool cogito_find_hct_color(double h, double c, double t, Color* out) {
+static bool cogito_find_hct_color(double h, double c, double t, CogitoColor* out) {
   double low = 0.0;
   double high = 100.0;
-  Color best = {0, 0, 0, 255};
+  CogitoColor best = {0, 0, 0, 255};
   bool best_ok = false;
   double best_delta = 1e9;
   for (int i = 0; i < 24; i++) {
@@ -198,7 +198,7 @@ static bool cogito_find_hct_color(double h, double c, double t, Color* out) {
     double x = 0.0, y = 0.0, z = 0.0;
     cogito_cam16_to_xyz(mid, c, h, &x, &y, &z);
     double lstar = cogito_lstar_from_y(y);
-    Color rgb = {0, 0, 0, 255};
+    CogitoColor rgb = {0, 0, 0, 255};
     bool in_gamut = cogito_srgb_from_xyz(x, y, z, &rgb);
     if (in_gamut) {
       double delta = fabs(lstar - t);
@@ -216,12 +216,12 @@ static bool cogito_find_hct_color(double h, double c, double t, Color* out) {
   return true;
 }
 
-static Color cogito_hct_to_rgb(double h, double c, double t) {
+static CogitoColor cogito_hct_to_rgb(double h, double c, double t) {
   if (t <= 0.0) t = 0.0;
   if (t >= 100.0) t = 100.0;
   if (c < 1e-4) {
     double y = cogito_y_from_lstar(t);
-    Color gray = {0, 0, 0, 255};
+    CogitoColor gray = {0, 0, 0, 255};
     double x = y * 0.95047;
     double z = y * 1.08883;
     cogito_srgb_from_xyz(x, y, z, &gray);
@@ -229,11 +229,11 @@ static Color cogito_hct_to_rgb(double h, double c, double t) {
   }
   double max_c = c;
   double min_c = 0.0;
-  Color best = {0, 0, 0, 255};
+  CogitoColor best = {0, 0, 0, 255};
   bool found = false;
   for (int i = 0; i < 24; i++) {
     double mid = (min_c + max_c) * 0.5;
-    Color rgb = {0, 0, 0, 255};
+    CogitoColor rgb = {0, 0, 0, 255};
     if (cogito_find_hct_color(h, mid, t, &rgb)) {
       best = rgb;
       found = true;
@@ -244,7 +244,7 @@ static Color cogito_hct_to_rgb(double h, double c, double t) {
   }
   if (!found) {
     double y = cogito_y_from_lstar(t);
-    Color gray = {0, 0, 0, 255};
+    CogitoColor gray = {0, 0, 0, 255};
     double x = y * 0.95047;
     double z = y * 1.08883;
     cogito_srgb_from_xyz(x, y, z, &gray);
@@ -253,7 +253,7 @@ static Color cogito_hct_to_rgb(double h, double c, double t) {
   return best;
 }
 
-static void cogito_rgb_to_hct(Color c, double* out_h, double* out_c, double* out_t) {
+static void cogito_rgb_to_hct(CogitoColor c, double* out_h, double* out_c, double* out_t) {
   double x = 0.0, y = 0.0, z = 0.0;
   cogito_xyz_from_srgb(c, &x, &y, &z);
   CogitoCam16 cam = cogito_cam16_from_xyz(x, y, z);
@@ -263,17 +263,16 @@ static void cogito_rgb_to_hct(Color c, double* out_h, double* out_c, double* out
   if (out_t) *out_t = t;
 }
 
-static void cogito_color_to_hex(Color c, char out[8]) {
+static void cogito_color_to_hex(CogitoColor c, char out[8]) {
   snprintf(out, 8, "#%02X%02X%02X", c.r, c.g, c.b);
 }
 
-static bool cogito_hex_to_color(const char* s, Color* out) {
+static bool cogito_hex_to_color(const char* s, CogitoColor* out) {
   if (!s || !out) return false;
   if (s[0] == '#') s++;
   if (strlen(s) < 6) return false;
   unsigned int r = 0, g = 0, b = 0;
   if (sscanf(s, "%02x%02x%02x", &r, &g, &b) != 3) return false;
-  *out = (Color){(unsigned char)r, (unsigned char)g, (unsigned char)b, 255};
+  *out = (CogitoColor){(unsigned char)r, (unsigned char)g, (unsigned char)b, 255};
   return true;
 }
-

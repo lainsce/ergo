@@ -3,15 +3,15 @@ case COGITO_TABS: {
       bool active = false;
       cogito_node_hover_state(n, &hover, &active);
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
-      Color bg = n->bg;
+      CogitoColor bg = n->bg;
       if (s.has_bg) bg = s.bg;
       if (n->bg_set || s.has_bg) {
         cogito_draw_rect(n->x, n->y, n->w, n->h, bg, n->border_radius);
       }
-      Color text = n->text_color;
+      CogitoColor text = n->text_color;
       if (cogito_has_selection_text) text = cogito_selection_text;
       else if (s.has_text) text = s.text;
-      Color sel = s.has_selection ? s.selection : n->selection_color;
+      CogitoColor sel = s.has_selection ? s.selection : n->selection_color;
       int size = cogito_node_font_size(n);
       int th = cogito_text_height_size(size);
       int pad_x = 12;

@@ -4767,6 +4767,7 @@ static void codegen_free(Codegen *cg) {
 }
 
 static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
+    (void)uses_cogito;  // Parameter unused - Cogito integration handled at link time
     codegen_collect_lambdas(cg);
 
     const char *runtime_path = getenv("ERGO_RUNTIME");
