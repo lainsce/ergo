@@ -468,6 +468,10 @@ static void cogito_draw_traffic_lights_styled(const CogitoStyle* base_style,
     : (s->has_appbar_btn_min_color ? s->appbar_btn_min_color : fallback_btn);
   CogitoColor max_bg = max_s.has_bg ? max_s.bg
     : (s->has_appbar_btn_max_color ? s->appbar_btn_max_color : fallback_btn);
+  CogitoColor glyph_fallback = s->has_text ? s->text : cogito_rgba(28, 28, 28, 220);
+  CogitoColor close_glyph = close_s.has_text ? close_s.text : glyph_fallback;
+  CogitoColor min_glyph = min_s.has_text ? min_s.text : glyph_fallback;
+  CogitoColor max_glyph = max_s.has_text ? max_s.text : glyph_fallback;
 
   if (close_x >= 0) {
     cogito_draw_rect(st->close_lx, st->lights_y, st->light_d, st->light_d, close_bg, st->light_rad);
@@ -502,7 +506,6 @@ static void cogito_draw_traffic_lights_styled(const CogitoStyle* base_style,
   }
 
   if (!st->over_cluster) return;
-  CogitoColor glyph = cogito_rgba(28, 28, 28, 220);
   int inset = st->light_d / 3;
   if (inset < 2) inset = 2;
 
@@ -513,8 +516,8 @@ static void cogito_draw_traffic_lights_styled(const CogitoStyle* base_style,
     int y1 = st->lights_y + st->light_d - inset - 1;
     if (x1 < x0) x1 = x0;
     if (y1 < y0) y1 = y0;
-    cogito_draw_line(x0, y0, x1, y1, glyph);
-    cogito_draw_line(x1, y0, x0, y1, glyph);
+    cogito_draw_line(x0, y0, x1, y1, close_glyph);
+    cogito_draw_line(x1, y0, x0, y1, close_glyph);
   }
 
   if (min_x >= 0) {
@@ -522,7 +525,7 @@ static void cogito_draw_traffic_lights_styled(const CogitoStyle* base_style,
     int x1 = st->min_lx + st->light_d - inset - 1;
     int y = st->lights_y + st->light_d / 2;
     if (x1 < x0) x1 = x0;
-    cogito_draw_line(x0, y, x1, y, glyph);
+    cogito_draw_line(x0, y, x1, y, min_glyph);
   }
 
   if (max_x >= 0) {
@@ -534,8 +537,8 @@ static void cogito_draw_traffic_lights_styled(const CogitoStyle* base_style,
     int y1 = st->lights_y + st->light_d - inset - 1;
     if (x1 < x0) x1 = x0;
     if (y1 < y0) y1 = y0;
-    cogito_draw_line(x0, y, x1, y, glyph);
-    cogito_draw_line(x, y0, x, y1, glyph);
+    cogito_draw_line(x0, y, x1, y, max_glyph);
+    cogito_draw_line(x, y0, x, y1, max_glyph);
   }
 }
 

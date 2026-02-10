@@ -535,7 +535,7 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
 
   // === Hex conversions ===
   char p[8], op[8], pc[8], opc[8];
-  char sec_h[8], osec[8], secc[8], osecc[8];
+  char sec[8], osec[8], secc[8], osecc[8];
   char tert[8], otert[8], tertc[8], otertc[8];
   char err[8], oerr[8], errc[8], oerrc[8];
   char bg[8], surf[8], surft[8], ons[8], outl[8], outlv[8];
@@ -548,7 +548,7 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_color_to_hex(on_primary, op);
   cogito_color_to_hex(primary_container, pc);
   cogito_color_to_hex(on_primary_container, opc);
-  cogito_color_to_hex(secondary, sec_h);
+  cogito_color_to_hex(secondary, sec);
   cogito_color_to_hex(on_secondary, osec);
   cogito_color_to_hex(secondary_container, secc);
   cogito_color_to_hex(on_secondary_container, osecc);
@@ -581,90 +581,33 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_color_to_hex(shadow, shad);
   cogito_color_to_hex(scrim, scrm);
 
-  // === Component-specific derivations ===
-  CogitoColor p_hover = cogito_mix(primary, dark ? cogito_rgba(255, 255, 255, 255) : cogito_rgba(0, 0, 0, 255), 0.1f);
-  CogitoColor p_active = cogito_mix(primary, dark ? cogito_rgba(0, 0, 0, 255) : cogito_rgba(255, 255, 255, 255), 0.1f);
-  CogitoColor surft_hover = cogito_mix(surface_tint, dark ? cogito_rgba(255, 255, 255, 255) : cogito_rgba(0, 0, 0, 255), 0.05f);
-  char ph[8], pa[8], surfth[8];
-  cogito_color_to_hex(p_hover, ph);
-  cogito_color_to_hex(p_active, pa);
-  cogito_color_to_hex(surft_hover, surfth);
-
-  CogitoColor nav_bg = cogito_hct_to_rgb(h, 10.0, dark ? 25.0 : 96.0);
-  CogitoColor nav_sel = cogito_hct_to_rgb(h, 25.0, dark ? 40.0 : 88.0);
-  char navbg[8], navsel[8];
-  cogito_color_to_hex(nav_bg, navbg);
-  cogito_color_to_hex(nav_sel, navsel);
-
-  CogitoColor bottom_bg = cogito_hct_to_rgb(h, 8.0, dark ? 14.0 : 99.0);
-  CogitoColor bottom_sel = cogito_hct_to_rgb(h, 25.0, dark ? 40.0 : 88.0);
-  char bottombg[8], bottomsel[8];
-  cogito_color_to_hex(bottom_bg, bottombg);
-  cogito_color_to_hex(bottom_sel, bottomsel);
-
-  CogitoColor tabs_bg = cogito_hct_to_rgb(h, 4.0, dark ? 20.0 : 94.0);
-  CogitoColor tabs_sel = dark ? surface : cogito_hct_to_rgb(h, 2.0, 100.0);
-  char tabsbg[8], tabssel[8];
-  cogito_color_to_hex(tabs_bg, tabsbg);
-  cogito_color_to_hex(tabs_sel, tabssel);
-
-  CogitoColor progress_bg = cogito_hct_to_rgb(h, 3.0, dark ? 35.0 : 85.0);
-  char progbg[8];
-  cogito_color_to_hex(progress_bg, progbg);
-
-  CogitoColor toast_bg = cogito_hct_to_rgb(h, 4.0, 18.0);
-  CogitoColor toast_fg = cogito_on_color(toast_bg);
-  char toastbg[8], toastfg[8];
-  cogito_color_to_hex(toast_bg, toastbg);
-  cogito_color_to_hex(toast_fg, toastfg);
-
-  CogitoColor iconbtn_bg = cogito_mix(outline, surface, 0.9f);
-  char iconbg[8];
-  cogito_color_to_hex(iconbtn_bg, iconbg);
-
-  CogitoColor tooltip_bg = cogito_hct_to_rgb(h, 4.0, 16.0);
-  CogitoColor tooltip_fg = cogito_hct_to_rgb(0.0, 0.0, 100.0);
-  char tooltipbg[8], tooltipfg[8];
-  cogito_color_to_hex(tooltip_bg, tooltipbg);
-  cogito_color_to_hex(tooltip_fg, tooltipfg);
-
-  CogitoColor checkbox_bg = cogito_mix(outline, surface, 0.88f);
-  char checkbg[8];
-  cogito_color_to_hex(checkbox_bg, checkbg);
-
-  CogitoColor check_hover = cogito_hct_to_rgb(h, 2.0, dark ? 92.0 : 10.0);
-  CogitoColor check_active = cogito_hct_to_rgb(h, 2.0, dark ? 85.0 : 2.0);
-  char checkhov[8], checkact[8];
-  cogito_color_to_hex(check_hover, checkhov);
-  cogito_color_to_hex(check_active, checkact);
-
-  CogitoColor switch_track = cogito_hct_to_rgb(h, 2.0, 72.0);
-  CogitoColor switch_track_hover = cogito_hct_to_rgb(h, 2.0, 78.0);
-  char strack[8], strackh[8];
-  cogito_color_to_hex(switch_track, strack);
-  cogito_color_to_hex(switch_track_hover, strackh);
-
-  CogitoColor knob_color = cogito_hct_to_rgb(0.0, 0.0, 100.0);
-  CogitoColor knob_hover = cogito_hct_to_rgb(0.0, 0.0, 96.0);
-  CogitoColor knob_active = cogito_hct_to_rgb(0.0, 0.0, 91.0);
-  char knob[8], knobh[8], knoba[8];
-  cogito_color_to_hex(knob_color, knob);
-  cogito_color_to_hex(knob_hover, knobh);
-  cogito_color_to_hex(knob_active, knoba);
-
-  CogitoColor appbar_iconbtn_base = cogito_mix(on_surface, surface, 0.95f);
-  char appiconbg[8];
-  cogito_color_to_hex(appbar_iconbtn_base, appiconbg);
-
-  CogitoColor chip_bg = surface_tint;
-  CogitoColor chip_hover = cogito_mix(surface_tint, dark ? cogito_rgba(255, 255, 255, 255) : cogito_rgba(0, 0, 0, 255), 0.08f);
-  CogitoColor chip_active = cogito_mix(surface_tint, dark ? cogito_rgba(255, 255, 255, 255) : cogito_rgba(0, 0, 0, 255), 0.12f);
-  CogitoColor chip_sel = dark ? nav_sel : cogito_hct_to_rgb(h, 25.0, 88.0);
-  char chipbg[8], chiphov[8], chipact[8], chipsel[8];
-  cogito_color_to_hex(chip_bg, chipbg);
-  cogito_color_to_hex(chip_hover, chiphov);
-  cogito_color_to_hex(chip_active, chipact);
-  cogito_color_to_hex(chip_sel, chipsel);
+  // === Component aliases from color tokens only ===
+  const char* ph = pc;
+  const char* pa = p;
+  const char* surfth = surfvar;
+  const char* navbg = sc;
+  const char* navsel = secc;
+  const char* bottombg = sc;
+  const char* bottomsel = secc;
+  const char* tabsbg = sc;
+  const char* tabssel = pc;
+  const char* progbg = outlv;
+  const char* toastbg = invsrf;
+  const char* toastfg = invons;
+  const char* iconbg = sclo;
+  const char* tooltipbg = invsrf;
+  const char* tooltipfg = invons;
+  const char* checkhov = osurfvar;
+  const char* checkact = p;
+  const char* strack = outlv;
+  const char* strackh = outl;
+  const char* knob = surf;
+  const char* knobh = surfvar;
+  const char* knoba = ons;
+  const char* appiconbg = sc;
+  const char* chiphov = sclo;
+  const char* chipact = sc;
+  const char* chipsel = secc;
 
   // === SUM output ===
   cogito_sum_append(out, cap, &off, "*\n  color: %s\n  font-size: 13\n", ons);
@@ -787,38 +730,15 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "appbar.sidebar\n  background: %s\n  color: %s\n  transition: 220 standard\n", surf, ons);
   cogito_sum_append(out, cap, &off, "dialog\n  background: %s\n  color: %s\n  border-radius: 26\n  min-width: 280\n  min-height: 160\n  padding: 24\n", surf, ons);
   cogito_sum_append(out, cap, &off, "popover\n  background: %s\n  border-radius: 12\n  padding: 16\n  box-shadow: [ 0 2 8 0 #0000001f ]\n", surf);
-  // Window control buttons - HCT-based semantic colors
-  CogitoColor win_close = cogito_hct_to_rgb(15.0, 60.0, 65.0);   // Red
-  CogitoColor win_min = cogito_hct_to_rgb(85.0, 55.0, 75.0);     // Yellow
-  CogitoColor win_max = cogito_hct_to_rgb(130.0, 55.0, 65.0);    // Green
-  CogitoColor win_close_hov = cogito_hct_to_rgb(15.0, 55.0, 72.0);
-  CogitoColor win_close_act = cogito_hct_to_rgb(15.0, 50.0, 58.0);
-  CogitoColor win_min_hov = cogito_hct_to_rgb(85.0, 50.0, 82.0);
-  CogitoColor win_min_act = cogito_hct_to_rgb(85.0, 45.0, 68.0);
-  CogitoColor win_max_hov = cogito_hct_to_rgb(130.0, 50.0, 72.0);
-  CogitoColor win_max_act = cogito_hct_to_rgb(130.0, 45.0, 58.0);
-  char win_close_hex[8], win_min_hex[8], win_max_hex[8];
-  char win_close_hov_hex[8], win_close_act_hex[8];
-  char win_min_hov_hex[8], win_min_act_hex[8];
-  char win_max_hov_hex[8], win_max_act_hex[8];
-  cogito_color_to_hex(win_close, win_close_hex);
-  cogito_color_to_hex(win_min, win_min_hex);
-  cogito_color_to_hex(win_max, win_max_hex);
-  cogito_color_to_hex(win_close_hov, win_close_hov_hex);
-  cogito_color_to_hex(win_close_act, win_close_act_hex);
-  cogito_color_to_hex(win_min_hov, win_min_hov_hex);
-  cogito_color_to_hex(win_min_act, win_min_act_hex);
-  cogito_color_to_hex(win_max_hov, win_max_hov_hex);
-  cogito_color_to_hex(win_max_act, win_max_act_hex);
-  cogito_sum_append(out, cap, &off, "appbar .window-close\n  background: %s\n", win_close_hex);
-  cogito_sum_append(out, cap, &off, "appbar .window-min\n  background: %s\n", win_min_hex);
-  cogito_sum_append(out, cap, &off, "appbar .window-max\n  background: %s\n", win_max_hex);
-  cogito_sum_append(out, cap, &off, "appbar .window-close:hover\n  background: %s\n", win_close_hov_hex);
-  cogito_sum_append(out, cap, &off, "appbar .window-close:active\n  background: %s\n", win_close_act_hex);
-  cogito_sum_append(out, cap, &off, "appbar .window-min:hover\n  background: %s\n", win_min_hov_hex);
-  cogito_sum_append(out, cap, &off, "appbar .window-min:active\n  background: %s\n", win_min_act_hex);
-  cogito_sum_append(out, cap, &off, "appbar .window-max:hover\n  background: %s\n", win_max_hov_hex);
-  cogito_sum_append(out, cap, &off, "appbar .window-max:active\n  background: %s\n", win_max_act_hex);
+  cogito_sum_append(out, cap, &off, "appbar .window-close\n  background: %s\n", secc);
+  cogito_sum_append(out, cap, &off, "appbar .window-min\n  background: %s\n", secc);
+  cogito_sum_append(out, cap, &off, "appbar .window-max\n  background: %s\n", secc);
+  cogito_sum_append(out, cap, &off, "appbar .window-close:hover\n  background: %s\n", secc);
+  cogito_sum_append(out, cap, &off, "appbar .window-close:active\n  background: %s\n", secc);
+  cogito_sum_append(out, cap, &off, "appbar .window-min:hover\n  background: %s\n", secc);
+  cogito_sum_append(out, cap, &off, "appbar .window-min:active\n  background: %s\n", secc);
+  cogito_sum_append(out, cap, &off, "appbar .window-max:hover\n  background: %s\n", secc);
+  cogito_sum_append(out, cap, &off, "appbar .window-max:active\n  background: %s\n", secc);
   cogito_sum_append(out, cap, &off, "appbar .button:hover\n  background: %s\n", surf);
   cogito_sum_append(out, cap, &off, "appbar .button:active\n  background: %s\n", outl);
   cogito_sum_append(out, cap, &off, "appbar .iconbtn\n  background: %s\n", appiconbg);
@@ -829,7 +749,7 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "menu item\n  border-radius: 0\n  padding: 8 12\n  min-height: 42\n");
   // token utility classes
   cogito_sum_append(out, cap, &off, ".primary-container\n  background: %s\n  color: %s\n", pc, opc);
-  cogito_sum_append(out, cap, &off, ".secondary\n  background: %s\n  color: %s\n", sec_h, osec);
+  cogito_sum_append(out, cap, &off, ".secondary\n  background: %s\n  color: %s\n", sec, osec);
   cogito_sum_append(out, cap, &off, ".secondary-container\n  background: %s\n  color: %s\n", secc, osecc);
   cogito_sum_append(out, cap, &off, ".tertiary\n  background: %s\n  color: %s\n", tert, otert);
   cogito_sum_append(out, cap, &off, ".tertiary-container\n  background: %s\n  color: %s\n", tertc, otertc);
