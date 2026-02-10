@@ -50,6 +50,9 @@ static CogitoNode* cogito_find_list_grid_hit(CogitoNode* n, int x, int y, int* o
   return NULL;
 }
 static void cogito_handle_list_select(CogitoNode* list, int idx, bool activate) {
+  if (list->kind == COGITO_GRID && !list->on_select && !list->on_activate) {
+    return;
+  }
   list->selected = idx;
   cogito_invoke_select(list, idx, activate);
 }

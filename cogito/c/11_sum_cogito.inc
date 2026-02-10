@@ -1025,6 +1025,18 @@ static void cogito_load_sum(ErgoVal pathv) {
   if (ps) ergo_release_val(EV_STR(ps));
 }
 
+static void cogito_load_sum_source(const char* src) {
+  if (!src) return;
+  size_t len = strlen(src);
+  char* copy = (char*)malloc(len + 1);
+  if (!copy) return;
+  memcpy(copy, src, len);
+  copy[len] = '\0';
+  if (cogito_user_sum) free(cogito_user_sum);
+  cogito_user_sum = copy;
+  cogito_apply_theme(cogito_theme_dark, cogito_theme_accent);
+}
+
 static void cogito_apply_theme(bool dark, CogitoColor accent) {
   cogito_theme_initialized = true;
   cogito_sum_default_loaded = true;

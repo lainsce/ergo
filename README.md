@@ -1,74 +1,88 @@
-# Ergo Compiler
+# Ergo + Cogito
 
-Ergo is an experimental programming language and this repository contains its reference compiler, `ergo`, written in C.  
-The compiler performs lexing, parsing, type checking, and code generation for the Ergo language.
+This repository contains:
 
-## Installation
+- `ergo`: the Ergo language compiler (C11)
+- `cogito`: the GUI runtime used by Ergo GUI apps
 
-1. Clone the repository:
+## Requirements
 
-```sh
-git clone https://github.com/name/ergo.git
-cd ergo
-```
+- C compiler (`cc`) with C11 support
+- Meson
+- Ninja
 
-### Usage
+For Cogito GUI builds:
 
-Build the compiler:
+- SDL3
+- SDL3_ttf
+- freetype2
+- SDL3_image (optional, used for themed icon file loading)
 
-```sh
-meson setup _build
-meson compile -C _build
-cd _build
-sudo ninja install
-```
-
-Compile an Ergo source file:
+Example (macOS/Homebrew):
 
 ```sh
-ergo path/to/source.ergo
+brew install meson ninja sdl3 sdl3_ttf sdl3_image freetype
 ```
 
-Compile to native and run:
+## Build Ergo
 
 ```sh
-ergo run path/to/source.ergo
+meson setup build
+meson compile -C build
 ```
 
-### Example
-
-See `examples/hello.ergo` for a simple Ergo program.
-
-## Cogito GUI
-
-Cogito is a separate shared library inside this repository. Build it once, then
-you can run GUI examples without extra flags (assuming raylib is installed in a
-standard location).
-
-Build Cogito:
+Run the compiler from the build tree:
 
 ```sh
-meson setup cogito/_build cogito
-meson compile -C cogito/_build
-cd _build
-sudo ninja install
+./build/ergo --help
+./build/ergo examples/hello.ergo
+./build/ergo run examples/hello.ergo
 ```
 
-Run a GUI example:
+## Build Cogito
+
+Build the Cogito shared library in its own build directory:
 
 ```sh
-ergo run cogito/examples/gui_gallery.ergo
+meson setup cogito/build cogito
+meson compile -C cogito/build
 ```
 
-## Contributing
-
-Contributions are welcome! To contribute:
-
-- Fork the repository and create your branch:
+Then run GUI examples with Ergo:
 
 ```sh
-git checkout -b feature/your-feature
+./build/ergo run cogito/examples/gui_hello.ergo
+./build/ergo run cogito/examples/gui_gallery.ergo
 ```
 
-- Make your changes.
-- Commit and push your changes, then open a pull request.
+If your program uses Cogito, include:
+
+```ergo
+bring cogito
+```
+
+## Optional Install
+
+Install Ergo and stdlib:
+
+```sh
+meson install -C build
+```
+
+Install Cogito library and headers:
+
+```sh
+meson install -C cogito/build
+```
+
+## Useful Environment Variables
+
+- `ERGO_STDLIB`: override stdlib path
+- `ERGO_CACHE_DIR`: cache directory for compiled binaries
+- `ERGO_NO_CACHE=1`: disable binary cache
+- `ERGO_KEEP_C=1`: keep generated C files
+- `ERGO_CC_FLAGS`: extra C compiler flags
+- `ERGO_COGITO_CFLAGS`: extra C flags for Cogito
+- `ERGO_COGITO_FLAGS`: extra linker flags for Cogito
+- `ERGO_RAYLIB_CFLAGS` / `ERGO_RAYLIB_FLAGS`: optional extra raylib flags (legacy compatibility path)
+- `NO_COLOR=1`: disable colored compiler output

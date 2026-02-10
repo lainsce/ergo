@@ -714,8 +714,14 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         cogito_menu_close();
       } else {
         bool handled = false;
+        CogitoNode* slot = (win->dialog && win->dialog->kind == COGITO_DIALOG_SLOT && win->dialog->dialog_open && win->dialog->dialog)
+          ? win->dialog
+          : cogito_find_dialog_slot(win);
+        CogitoNode* active_dialog = (slot && slot->dialog)
+          ? slot->dialog
+          : ((win->dialog_open && win->dialog && win->dialog->kind == COGITO_DIALOG) ? win->dialog : NULL);
         // Check for traffic light clicks on the first appbar
-        if (appbar) {
+        if (!active_dialog && appbar) {
           if (appbar->appbar_btn_close_x >= 0 &&
               cogito_hit_rect(mx, my, appbar->appbar_btn_close_x, appbar->appbar_btn_y, appbar->appbar_btn_size, appbar->appbar_btn_size)) {
             cogito_appbar_window_action(win, 0);
@@ -731,7 +737,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           }
         }
         // Check if click is on ANY appbar for dragging (only if we didn't handle a button click)
-        if (!handled) {
+        if (!handled && !active_dialog) {
           CogitoNode* clicked_appbar = cogito_find_appbar_at_point(win, mx, my);
           if (clicked_appbar && !cogito_point_over_appbar_buttons(clicked_appbar, mx, my)) {
 #if defined(__APPLE__)
@@ -745,32 +751,30 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             handled = true;  // Mark as handled to skip clickable search
           }
         }
-        CogitoNode* slot = (win->dialog && win->dialog->kind == COGITO_DIALOG_SLOT && win->dialog->dialog_open && win->dialog->dialog)
-          ? win->dialog
-          : cogito_find_dialog_slot(win);
-        CogitoNode* active_dialog = (slot && slot->dialog)
-          ? slot->dialog
-          : ((win->dialog_open && win->dialog && win->dialog->kind == COGITO_DIALOG) ? win->dialog : NULL);
         if (!handled && active_dialog) {
           int dx = 0, dy = 0, dw = 0, dh = 0;
           cogito_dialog_close_rect(active_dialog, &dx, &dy, &dw, &dh);
           if (dw > 0 && dh > 0 && cogito_hit_rect(mx, my, dx, dy, dw, dh)) {
-            cogito_dialog_close(EV_OBJ(active_dialog));
+            if (slot && slot->kind == COGITO_DIALOG_SLOT) {
+              cogito_dialog_slot_clear(EV_OBJ(slot));
+            } else {
+              cogito_dialog_close(EV_OBJ(active_dialog));
+            }
             handled = true;
           }
         }
         CogitoNode* hit = NULL;
         if (!handled) {
-          CogitoNode* root = (slot && slot->dialog) ? slot->dialog : (win->dialog_open && win->dialog ? win->dialog : win);
+          CogitoNode* root = (slot && slot->dialog_open && slot->dialog) ? slot->dialog : (win->dialog_open && win->dialog ? win->dialog : win);
           hit = cogito_find_overlay_toast(root, mx, my);
           if (!hit) {
-            hit = (slot && slot->dialog) ? cogito_find_clickable(slot->dialog, mx, my)
+            hit = (slot && slot->dialog_open && slot->dialog) ? cogito_find_clickable(slot->dialog, mx, my)
                                          : (win->dialog_open && win->dialog ? cogito_find_clickable(win->dialog, mx, my)
                                                                            : cogito_find_clickable(win, mx, my));
           }
         }
         if (cogito_debug_hit) {
-          if (slot && slot->dialog) {
+          if (slot && slot->dialog_open && slot->dialog) {
             fprintf(stderr, "cogito: click (%d,%d) dialog rect (%d,%d %dx%d) hit=%p kind=%d\n",
                     mx, my, slot->dialog->x, slot->dialog->y, slot->dialog->w, slot->dialog->h,
                     (void*)hit, hit ? (int)hit->kind : -1);
@@ -790,7 +794,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           fflush(stderr);
         }
         if (hit && hit->disabled) hit = NULL;
-        CogitoNode* root = (slot && slot->dialog) ? slot->dialog : (win->dialog_open && win->dialog ? win->dialog : win);
+        CogitoNode* root = (slot && slot->dialog_open && slot->dialog) ? slot->dialog : (win->dialog_open && win->dialog ? win->dialog : win);
         CogitoNode* focus_hit = cogito_find_text_input(root, mx, my);
         if (focus_hit && focus_hit->disabled) focus_hit = NULL;
         if (focus_hit) {
@@ -964,7 +968,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             }
           }
         }
-        if (slot && slot->dialog) {
+        if (slot && slot->dialog_open && slot->dialog) {
           cogito_handle_click(slot->dialog, mx, my, true);
         } else if (win->dialog_open && win->dialog) {
           cogito_handle_click(win->dialog, mx, my, true);

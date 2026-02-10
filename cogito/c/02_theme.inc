@@ -398,52 +398,57 @@ static void cogito_toast_close_rect(CogitoNode* n, int* out_x, int* out_y, int* 
 static CogitoStyle cogito_theme_resolve_node_state(const CogitoNode* n, bool hover, bool active) {
   CogitoStyle s = cogito_theme_resolve_node(n);
   bool checked = false;
+  bool disabled = cogito_node_disabled(n);
   if (n && (n->kind == COGITO_CHECKBOX || n->kind == COGITO_SWITCH)) checked = n->checked;
   else if (n && n->kind == COGITO_CHIP) checked = n->chip_selected;
+  if (checked) s = cogito_style_merge(&s, &cogito_theme.per_kind_checked[n->kind]);
+  if (disabled) s = cogito_style_merge(&s, &cogito_theme.per_kind_disabled[n->kind]);
+  else if (active) s = cogito_style_merge(&s, &cogito_theme.per_kind_active[n->kind]);
+  else if (hover) s = cogito_style_merge(&s, &cogito_theme.per_kind_hover[n->kind]);
   if (n->kind == COGITO_LABEL && n->label_class > COGITO_LABEL_CLASS_NONE && n->label_class < 4) {
     if (checked) s = cogito_style_merge(&s, &cogito_theme.label_class_checked[n->label_class]);
-    if (cogito_node_disabled(n)) {
+    if (disabled) {
       s = cogito_style_merge(&s, &cogito_theme.label_class_disabled[n->label_class]);
     }
-    if (!cogito_node_disabled(n)) {
+    if (!disabled) {
       if (active) s = cogito_style_merge(&s, &cogito_theme.label_class_active[n->label_class]);
       else if (hover) s = cogito_style_merge(&s, &cogito_theme.label_class_hover[n->label_class]);
     }
   }
   if (n->font_mono) {
     if (checked) s = cogito_style_merge(&s, &cogito_theme.class_mono_checked);
-    if (cogito_node_disabled(n)) {
+    if (disabled) {
       s = cogito_style_merge(&s, &cogito_theme.class_mono_disabled);
     }
-    if (!cogito_node_disabled(n)) {
+    if (!disabled) {
       if (active) s = cogito_style_merge(&s, &cogito_theme.class_mono_active);
       else if (hover) s = cogito_style_merge(&s, &cogito_theme.class_mono_hover);
     }
   }
   if (n->font_tabular) {
     if (checked) s = cogito_style_merge(&s, &cogito_theme.class_tabular_checked);
-    if (cogito_node_disabled(n)) {
+    if (disabled) {
       s = cogito_style_merge(&s, &cogito_theme.class_tabular_disabled);
     }
-    if (!cogito_node_disabled(n)) {
+    if (!disabled) {
       if (active) s = cogito_style_merge(&s, &cogito_theme.class_tabular_active);
       else if (hover) s = cogito_style_merge(&s, &cogito_theme.class_tabular_hover);
     }
   }
   if (n->button_outlined) {
-    if (cogito_node_disabled(n)) {
+    if (disabled) {
       s = cogito_style_merge(&s, &cogito_theme.button_outlined_disabled);
     }
-    if (!cogito_node_disabled(n)) {
+    if (!disabled) {
       if (active) s = cogito_style_merge(&s, &cogito_theme.button_outlined_active);
       else if (hover) s = cogito_style_merge(&s, &cogito_theme.button_outlined_hover);
     }
   }
   if (n->button_text) {
-    if (cogito_node_disabled(n)) {
+    if (disabled) {
       s = cogito_style_merge(&s, &cogito_theme.button_text_disabled);
     }
-    if (!cogito_node_disabled(n)) {
+    if (!disabled) {
       if (active) s = cogito_style_merge(&s, &cogito_theme.button_text_active);
       else if (hover) s = cogito_style_merge(&s, &cogito_theme.button_text_hover);
     }
@@ -454,7 +459,7 @@ static CogitoStyle cogito_theme_resolve_node_state(const CogitoNode* n, bool hov
       if (strcmp(cogito_theme.custom_classes[i].name, n->class_name->data) == 0 &&
           cogito_theme.custom_classes[i].kind == n->kind) {
         if (checked) s = cogito_style_merge(&s, &cogito_theme.custom_classes[i].checked);
-        if (cogito_node_disabled(n)) {
+        if (disabled) {
           s = cogito_style_merge(&s, &cogito_theme.custom_classes[i].disabled);
         } else {
           if (active) s = cogito_style_merge(&s, &cogito_theme.custom_classes[i].active);
@@ -464,13 +469,6 @@ static CogitoStyle cogito_theme_resolve_node_state(const CogitoNode* n, bool hov
       }
     }
   }
-  if (checked) s = cogito_style_merge(&s, &cogito_theme.per_kind_checked[n->kind]);
-  if (cogito_node_disabled(n)) {
-    s = cogito_style_merge(&s, &cogito_theme.per_kind_disabled[n->kind]);
-    return s;
-  }
-  if (active) s = cogito_style_merge(&s, &cogito_theme.per_kind_active[n->kind]);
-  else if (hover) s = cogito_style_merge(&s, &cogito_theme.per_kind_hover[n->kind]);
   return s;
 }
 
@@ -478,7 +476,6 @@ static bool cogito_kind_fit_children_background(CogitoKind kind) {
   switch (kind) {
     case COGITO_DIALOG:
     case COGITO_FIXED:
-    case COGITO_GRID:
     case COGITO_LIST:
     case COGITO_POPOVER:
     case COGITO_SCROLLER:
@@ -942,6 +939,10 @@ static void cogito_style_dump_print_node(const CogitoNode* n, int depth) {
     cogito_node_hover_state((CogitoNode*)n, &hover, &active);
   }
 
+  if (checked) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.per_kind_checked[n->kind], state_checked);
+  if (disabled) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.per_kind_disabled[n->kind], state_disabled);
+  else if (active) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.per_kind_active[n->kind], state_active);
+  else if (hover) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.per_kind_hover[n->kind], state_hover);
   if (n->kind == COGITO_LABEL && n->label_class > COGITO_LABEL_CLASS_NONE && n->label_class < 4) {
     if (checked) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.label_class_checked[n->label_class], state_checked);
     if (disabled) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.label_class_disabled[n->label_class], state_disabled);
@@ -976,10 +977,6 @@ static void cogito_style_dump_print_node(const CogitoNode* n, int depth) {
     else if (active) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.custom_classes[custom_index].active, state_active);
     else if (hover) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.custom_classes[custom_index].hover, state_hover);
   }
-  if (checked) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.per_kind_checked[n->kind], state_checked);
-  if (disabled) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.per_kind_disabled[n->kind], state_disabled);
-  else if (active) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.per_kind_active[n->kind], state_active);
-  else if (hover) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.per_kind_hover[n->kind], state_hover);
 
   if (n->padding_set) {
     s.has_padding = true;

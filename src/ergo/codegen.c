@@ -255,6 +255,60 @@ static char *c_escape(Arena *arena, Str s) {
     return out;
 }
 
+static bool codegen_try_text_literal(Expr *e, Str *out) {
+    if (!e || !out || e->kind != EXPR_STR) {
+        return false;
+    }
+    StrParts *parts = e->as.str_lit.parts;
+    if (!parts || parts->len == 0) {
+        out->data = "";
+        out->len = 0;
+        return true;
+    }
+    if (parts->len != 1) {
+        return false;
+    }
+    if (parts->parts[0].kind != STR_PART_TEXT) {
+        return false;
+    }
+    *out = parts->parts[0].text;
+    return true;
+}
+
+static char *codegen_read_literal_file(Arena *arena, Str module_path, Str literal_path, size_t *out_len) {
+    if (!arena || !literal_path.data || literal_path.len == 0) {
+        return NULL;
+    }
+    char *literal = arena_strndup(arena, literal_path.data, literal_path.len);
+    if (!literal) {
+        return NULL;
+    }
+    Diag ferr = {0};
+    char *src = read_file_arena(literal, arena, out_len, &ferr);
+    if (src) {
+        return src;
+    }
+    if (!module_path.data || module_path.len == 0) {
+        return NULL;
+    }
+    char *module_path_c = arena_strndup(arena, module_path.data, module_path.len);
+    if (!module_path_c) {
+        return NULL;
+    }
+    char *dir = path_dirname(module_path_c);
+    if (!dir) {
+        return NULL;
+    }
+    char *joined = path_join(dir, literal);
+    free(dir);
+    if (!joined) {
+        return NULL;
+    }
+    src = read_file_arena(joined, arena, out_len, &ferr);
+    free(joined);
+    return src;
+}
+
 static char *mangle_mod(Arena *arena, Str name) {
     if (!arena) return NULL;
     char *buf = (char *)arena_alloc(arena, name.len + 1);
@@ -1833,6 +1887,23 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     if (!sig) {
                         return cg_set_errf(err, path, e->line, e->col, "unknown %.*s.%.*s", (int)mod.len, mod.data, (int)name.len, name.data);
                     }
+                    if (str_eq_c(mod, "cogito") && str_eq_c(name, "load_sum") && e->as.call.args_len == 1) {
+                        Str lit_path = {0};
+                        if (codegen_try_text_literal(e->as.call.args[0], &lit_path) && lit_path.len > 0) {
+                            size_t sum_len = 0;
+                            char *sum_src = codegen_read_literal_file(cg->arena, path, lit_path, &sum_len);
+                            if (sum_src) {
+                                char *esc = c_escape(cg->arena, (Str){sum_src, sum_len});
+                                if (!esc) return cg_set_err(err, path, "out of memory");
+                                w_line(&cg->w, "cogito_load_sum_inline(\"%s\");", esc);
+                                char *t = codegen_new_tmp(cg);
+                                w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                                gen_expr_add(out, t);
+                                out->tmp = t;
+                                return true;
+                            }
+                        }
+                    }
                     VEC(char *) arg_ts = VEC_INIT;
                     for (size_t i = 0; i < e->as.call.args_len; i++) {
                         GenExpr ge;
@@ -2772,6 +2843,23 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         gen_expr_release_except(cg, &classv, classv.tmp);
                         gen_expr_free(&label);
                         gen_expr_free(&classv);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_label_set_text")) {
+                        GenExpr label, textv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &label, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &textv, err)) { gen_expr_free(&label); return false; }
+                        w_line(&cg->w, "cogito_label_set_text(%s, %s);", label.tmp, textv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", label.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", textv.tmp);
+                        gen_expr_release_except(cg, &label, label.tmp);
+                        gen_expr_release_except(cg, &textv, textv.tmp);
+                        gen_expr_free(&label);
+                        gen_expr_free(&textv);
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
                         gen_expr_add(out, t);
@@ -3953,6 +4041,21 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         return true;
                     }
                     if (str_eq_c(fname, "__cogito_load_sum")) {
+                        Str lit_path = {0};
+                        if (codegen_try_text_literal(e->as.call.args[0], &lit_path) && lit_path.len > 0) {
+                            size_t sum_len = 0;
+                            char *sum_src = codegen_read_literal_file(cg->arena, path, lit_path, &sum_len);
+                            if (sum_src) {
+                                char *esc = c_escape(cg->arena, (Str){sum_src, sum_len});
+                                if (!esc) return cg_set_err(err, path, "out of memory");
+                                w_line(&cg->w, "cogito_load_sum_inline(\"%s\");", esc);
+                                char *t = codegen_new_tmp(cg);
+                                w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                                gen_expr_add(out, t);
+                                out->tmp = t;
+                                return true;
+                            }
+                        }
                         GenExpr pathv;
                         if (!gen_expr(cg, path, e->as.call.args[0], &pathv, err)) return false;
                         w_line(&cg->w, "cogito_load_sum(%s);", pathv.tmp);

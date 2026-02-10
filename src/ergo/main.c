@@ -661,8 +661,11 @@ int main(int argc, char **argv) {
             return rc == 0 ? 0 : 1;
         }
 
-        // When not using cache, check if binary is up-to-date
-        if (!cache_enabled && path_is_file(unique_bin_name)) {
+        // When not using cache, check if binary is up-to-date.
+        // For Cogito apps we skip this shortcut because SUM can be embedded
+        // from external files (e.g. cogito.load_sum("...")), and those files
+        // are not tracked by this single source mtime check.
+        if (!cache_enabled && !uses_cogito && path_is_file(unique_bin_name)) {
             long long bin_mtime = path_mtime(unique_bin_name);
             long long src_mtime = path_mtime(entry);
             if (bin_mtime >= 0 && src_mtime >= 0 && bin_mtime >= src_mtime) {

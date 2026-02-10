@@ -16,7 +16,8 @@ case COGITO_GRID: {
           cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, n->border_color, n->border_radius, n->border_width);
         }
       }
-      bool has_selection = n->selected >= 0 && (size_t)n->selected < n->len;
+      bool selectable = n->on_select || n->on_activate;
+      bool has_selection = selectable && n->selected >= 0 && (size_t)n->selected < n->len;
       CogitoColor sel_bg = s.has_selection ? s.selection : n->selection_color;
       if (has_selection) {
         CogitoNode* sel = n->children[n->selected];

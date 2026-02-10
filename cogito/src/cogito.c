@@ -50,6 +50,7 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_list_new cogito_list_new_ergo
 #define cogito_label_new cogito_label_new_ergo
 #define cogito_label_set_class cogito_label_set_class_ergo
+#define cogito_label_set_text cogito_label_set_text_ergo
 #define cogito_label_set_wrap cogito_label_set_wrap_ergo
 #define cogito_label_set_ellipsis cogito_label_set_ellipsis_ergo
 #define cogito_label_set_align cogito_label_set_align_ergo
@@ -215,6 +216,7 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_list_new
 #undef cogito_label_new
 #undef cogito_label_set_class
+#undef cogito_label_set_text
 #undef cogito_label_set_wrap
 #undef cogito_label_set_ellipsis
 #undef cogito_label_set_align
@@ -819,6 +821,13 @@ void cogito_label_set_class(cogito_node* label, const char* cls) {
   if (cv.tag == EVT_STR) ergo_release_val(cv);
 }
 
+void cogito_label_set_text(cogito_node* label, const char* text) {
+  if (!label) return;
+  ErgoVal tv = cogito_val_from_cstr(text);
+  cogito_label_set_text_ergo(EV_OBJ(label), tv);
+  if (tv.tag == EVT_STR) ergo_release_val(tv);
+}
+
 void cogito_load_sum(ErgoVal pathv) {
   cogito_load_sum_ergo(pathv);
 }
@@ -1099,6 +1108,11 @@ void cogito_segmented_on_select(cogito_node* seg, cogito_node_fn fn, void* user)
 void cogito_load_sum_file(const char* path) {
   if (!path) return;
   cogito_load_sum_file_ergo(path);
+}
+
+void cogito_load_sum_inline(const char* src) {
+  if (!src) return;
+  cogito_load_sum_source(src);
 }
 
 bool cogito_debug_style(void) {

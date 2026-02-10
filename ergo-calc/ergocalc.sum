@@ -1,0 +1,139 @@
+; ErgoCalc SUM theme
+; Soft neutral surfaces with a teal action accent.
+
+*
+  color: #2D2D2D
+  font-size: 14
+
+window
+  background: #ffffff
+
+vstack
+hstack
+zstack
+  background: transparent
+  color: #2D2D2D
+
+appbar
+  background: #f5f5f5
+  color: #2D2D2D
+  min-height: 46
+  padding: 6 10
+
+appbar .iconbtn
+  background: #D7C5E9
+  color: #8C56BF
+  border-radius: 10
+
+appbar .iconbtn:hover
+  background: #D7C5E9
+
+appbar .iconbtn:active
+  background: #D7C5E9
+
+vstack.calc-root
+  padding: 18 18 18 18
+
+vstack.calc-display
+  border-radius: 12
+  min-height: 92
+  padding: 10 14
+
+label.calc-display-working
+  color: #2D2D2D
+  background: transparent
+  font-size: 34
+  padding: 6 18
+  font-variant-numeric: tabular-nums
+
+label.calc-display-expression
+  color: #6A6A6A
+  background: transparent
+  font-size: 18
+  padding: 6 18
+  font-variant-numeric: tabular-nums
+
+grid.calc-keypad
+  background: #ffffff
+  border-radius: 16
+  padding: 12 18 18
+  gap: 12
+
+button
+  background: #D7C5E9
+  color: #8C56BF
+  border-radius: 10
+  min-height: 46
+  padding: 8 12
+
+label.calc-spacer
+  color: #00000000
+
+button:hover
+  background: #D7C5E9
+
+button:active
+  background: #D7C5E9
+  border-radius: 21
+
+button.outlined
+  background: transparent
+  color: #8C56BF
+  border-radius: 10
+  border: 1 solid #D7C5E9
+
+button.outlined:hover
+  background: #D7C5E9
+  border-color: #D7C5E9
+
+button.outlined:active
+  background: #D7C5E9
+  border-radius: 21
+
+button.text
+  background: #F1ACC1
+  color: #6A6A6A
+  border-radius: 10
+  padding: 8 12
+
+button.text:hover
+  background: #F1ACC1
+  color: #6A6A6A
+
+button.text:active
+  background: #F1ACC1
+  color: #6A6A6A
+  border-radius: 21
+
+button.calc-equals
+  background: #8C56BF
+  color: #ffffff
+  border: 0 none #000
+
+button.calc-equals:hover
+  background: #8C56BF
+
+button.calc-equals:active
+  background: #8C56BF
+
+dialog
+  background: #ffffff
+  color: #2D2D2D
+  border-radius: 18
+  padding: 20
+
+label.about-window-title
+  color: #2D2D2D
+
+label.about-window-license
+  color: #6A6A6A
+
+hstack.about-window-actions
+  background: transparent
+  gap: 10
+
+tooltip
+  background: #2D2D2D
+  color: #F5F5F5
+  border-radius: 8
+  padding: 6 8

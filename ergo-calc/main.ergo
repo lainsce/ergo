@@ -1,7 +1,8 @@
 bring stdr
 bring cogito
 
-def display = cogito.textfield(@"0")
+def display_expression = cogito.label(@"")
+def display_working = cogito.label(@"0")
 def ?current_value = 0.0
 def ?stored_value = 0.0
 def ?pending_op = @""
@@ -10,8 +11,28 @@ def ?has_error = false
 def ABOUT_MORE_INFO_URL = @"https://github.com/lainsce/ergo"
 def ABOUT_REPORT_BUG_URL = @"https://github.com/lainsce/ergo/issues"
 
-fun update_display(text = string) (( -- )) {
-    display.set_text(text)
+fun update_display_value(text = string) (( -- )) {
+    display_working.set_text(text)
+}
+
+fun clear_expression() (( -- )) {
+    display_expression.set_text(@"")
+}
+
+fun set_expression(lhs_text = string, op_text = string, rhs_text = string, show_equals = bool) (( -- )) {
+    if rhs_text == @"" {
+        if show_equals {
+            display_expression.set_text(@"$lhs_text $op_text =")
+        } else {
+            display_expression.set_text(@"$lhs_text $op_text")
+        }
+    } else {
+        if show_equals {
+            display_expression.set_text(@"$lhs_text $op_text $rhs_text =")
+        } else {
+            display_expression.set_text(@"$lhs_text $op_text $rhs_text")
+        }
+    }
 }
 
 fun clear_all() (( -- )) {
@@ -20,10 +41,11 @@ fun clear_all() (( -- )) {
     pending_op = @""
     reset_input = true
     has_error = false
-    update_display(@"0")
+    clear_expression()
+    update_display_value(@"0")
 }
 
-fun commit_pending() (( -- )) {
+fun commit_pending(show_equals = bool) (( -- )) {
     let op = pending_op
     if op == @"" {
         return
@@ -39,7 +61,8 @@ fun commit_pending() (( -- )) {
         has_error = true
         pending_op = @""
         reset_input = true
-        update_display(@"Error")
+        clear_expression()
+        update_display_value(@"Error")
         return
     }
 
@@ -56,7 +79,8 @@ fun commit_pending() (( -- )) {
 
     current_value = result
     stored_value = result
-    update_display(str(result))
+    set_expression(str(lhs), op, str(rhs), show_equals)
+    update_display_value(str(result))
 }
 
 fun input_digit(d = num) (( -- )) {
@@ -73,7 +97,12 @@ fun input_digit(d = num) (( -- )) {
     }
 
     current_value = next
-    update_display(str(next))
+    if pending_op != @"" {
+        set_expression(str(stored_value), pending_op, str(next), false)
+    } else {
+        clear_expression()
+    }
+    update_display_value(str(next))
 }
 
 fun choose_operator(op = string) (( -- )) {
@@ -82,7 +111,7 @@ fun choose_operator(op = string) (( -- )) {
     }
 
     if pending_op != @"" && !reset_input {
-        commit_pending()
+        commit_pending(false)
         if has_error {
             return
         }
@@ -92,6 +121,8 @@ fun choose_operator(op = string) (( -- )) {
 
     pending_op = op
     reset_input = true
+    set_expression(str(stored_value), pending_op, @"", false)
+    update_display_value(str(current_value))
 }
 
 fun evaluate() (( -- )) {
@@ -103,7 +134,7 @@ fun evaluate() (( -- )) {
         return
     }
 
-    commit_pending()
+    commit_pending(true)
     if has_error {
         return
     }
@@ -140,10 +171,17 @@ fun clear_button() (( cogito.Button )) {
 
 fun equals_button() (( cogito.Button )) {
     let btn = cogito.button(@"=")
+    cogito.set_class(btn, @"calc-equals")
     btn.on_click((b = cogito.Button) => {
         evaluate()
     })
     return btn
+}
+
+fun spacer() (( cogito.Label )) {
+    let s = cogito.label(@"")
+    cogito.set_class(s, @"calc-spacer")
+    return s
 }
 
 fun show_about_window(win = cogito.Window) (( -- )) {
@@ -175,6 +213,7 @@ fun show_about_window(win = cogito.Window) (( -- )) {
     cogito.set_class(more_btn, @"outlined")
     more_btn.on_click((b = cogito.Button) => {
         cogito.open_url(ABOUT_MORE_INFO_URL)
+        dlg.close()
     })
     links.add(more_btn)
 
@@ -182,6 +221,7 @@ fun show_about_window(win = cogito.Window) (( -- )) {
     cogito.set_class(bug_btn, @"outlined")
     bug_btn.on_click((b = cogito.Button) => {
         cogito.open_url(ABOUT_REPORT_BUG_URL)
+        dlg.close()
     })
     links.add(bug_btn)
 
@@ -193,7 +233,7 @@ fun show_about_window(win = cogito.Window) (( -- )) {
 
 fun build_ui(win = cogito.Window) (( -- )) {
     let root = cogito.vstack()
-    root.set_gap(6)
+    cogito.set_class(root, @"calc-root")
 
     let bar = cogito.appbar(@"", @"")
     bar.set_hexpand(true)
@@ -203,34 +243,53 @@ fun build_ui(win = cogito.Window) (( -- )) {
     cogito.set_tooltip(about_btn, @"About ErgoCalc")
     root.add(bar)
 
-    display.align_end()
-    display.set_hexpand(true)
-    display.set_editable(false)
-    root.add(display)
+    let display_box = cogito.vstack()
+    display_box.set_hexpand(true)
+    display_box.set_gap(4)
+    cogito.set_class(display_box, @"calc-display")
 
-    let keypad = cogito.grid(4)
-    keypad.set_gap(12, 12)
+    display_expression.set_hexpand(true)
+    display_expression.set_text_align(2)
+    cogito.set_class(display_expression, @"calc-display-expression")
+    display_box.add(display_expression)
+
+    display_working.set_hexpand(true)
+    display_working.set_text_align(2)
+    cogito.set_class(display_working, @"calc-display-working")
+    display_box.add(display_working)
+
+    root.add(display_box)
+
+    let keypad = cogito.grid(5)
     keypad.set_hexpand(true)
+    keypad.set_vexpand(true)
+    cogito.set_class(keypad, @"calc-keypad")
 
     keypad.add(digit_button(7))
     keypad.add(digit_button(8))
     keypad.add(digit_button(9))
-    keypad.add(operator_button(@"/", @"/"))
+    let c = clear_button()
+    keypad.add(c)
+    keypad.set_span(c, 2, 1)
 
     keypad.add(digit_button(4))
     keypad.add(digit_button(5))
     keypad.add(digit_button(6))
+    keypad.add(operator_button(@"/", @"/"))
     keypad.add(operator_button(@"*", @"*"))
 
     keypad.add(digit_button(1))
     keypad.add(digit_button(2))
     keypad.add(digit_button(3))
+    keypad.add(operator_button(@"+", @"+"))
     keypad.add(operator_button(@"-", @"-"))
 
-    keypad.add(digit_button(0))
-    keypad.add(clear_button())
-    keypad.add(equals_button())
-    keypad.add(operator_button(@"+", @"+"))
+    let zero = digit_button(0)
+    keypad.add(zero)
+    keypad.set_span(zero, 3, 1)
+    let eq = equals_button()
+    keypad.add(eq)
+    keypad.set_span(eq, 2, 1)
 
     root.add(keypad)
     win.add(root)
@@ -239,9 +298,10 @@ fun build_ui(win = cogito.Window) (( -- )) {
 }
 
 entry () (( -- )) {
+    cogito.load_sum(@"ergocalc.sum")
     let app = cogito.app()
     app.set_accent_color(@"#8C56BF", false)
-    let win = cogito.window_size(@"Ergo Calc", 300, 420)
+    let win = cogito.window_size(@"Ergo Calc", 360, 470)
     win.build(build_ui)
     win.set_resizable(false)
     app.set_appid(@"ergo.cogito.Calc")

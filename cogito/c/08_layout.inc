@@ -447,8 +447,6 @@ static void cogito_layout_grid(CogitoNode* n, int x, int y) {
   int cols = n->grid_cols > 0 ? n->grid_cols : 1;
   int gap_x = n->grid_gap_x;
   int gap_y = n->grid_gap_y;
-  int item_pad_x = 6;
-  int item_pad_y = 6;
   int inner_w = n->w - n->padding_left - n->padding_right;
   if (inner_w < 0) inner_w = 0;
   int cell_w = cols > 0 ? (inner_w - (cols - 1) * gap_x) / cols : 0;
@@ -472,11 +470,6 @@ static void cogito_layout_grid(CogitoNode* n, int x, int y) {
   }
   for (size_t i = 0; i < count; i++) {
     CogitoNode* c = n->children[i];
-    // Apply item padding to children that don't already have explicit padding
-    if (!c->padding_left) c->padding_left = item_pad_x;
-    if (!c->padding_right) c->padding_right = item_pad_x;
-    if (!c->padding_top) c->padding_top = item_pad_y;
-    if (!c->padding_bottom) c->padding_bottom = item_pad_y;
     int cs = c->grid_span_x > 0 ? c->grid_span_x : 1;
     int rs = c->grid_span_y > 0 ? c->grid_span_y : 1;
     if (cs > cols) cs = cols;
@@ -779,6 +772,8 @@ static void cogito_layout_window(CogitoNode* win) {
     int ch = 0;
     cogito_intrinsic_size(c, &cw, &ch);
     int ch_total = ch + c->margin_top + c->margin_bottom;
+    int slot_w = avail_w - c->margin_left - c->margin_right;
+    if (slot_w < 0) slot_w = 0;
 
     // Check if widget should expand (only if explicit hexpand/vexpand)
     bool should_hexpand = c->hexpand;
@@ -790,6 +785,7 @@ static void cogito_layout_window(CogitoNode* win) {
       cogito_layout_node(c, content_x, content_y, target_w, target_h);
       cy = content_y + target_h;
     } else {
+      if (cw > slot_w) cw = slot_w;
       cogito_layout_node(c, cx + c->margin_left, cy + c->margin_top, cw, ch);
       cy += ch_total;
     }

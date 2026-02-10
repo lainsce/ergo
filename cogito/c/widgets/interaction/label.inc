@@ -8,6 +8,13 @@ static ErgoVal cogito_label_new(ErgoVal text) {
   CogitoNode* lab = cogito_label_new_obj(ts);
   return EV_OBJ(lab);
 }
+static void cogito_label_set_text(ErgoVal labelv, ErgoVal textv) {
+  if (labelv.tag != EVT_OBJ) ergo_trap("cogito.label_set_text expects label");
+  CogitoNode* n = (CogitoNode*)labelv.as.p;
+  ErgoStr* ts = stdr_to_string(textv);
+  cogito_node_set_text(n, ts);
+  cogito_window_relayout(cogito_node_window(n));
+}
 static void cogito_label_set_wrap(ErgoVal labelv, ErgoVal onv) {
   if (labelv.tag != EVT_OBJ) ergo_trap("cogito.label_set_wrap expects label");
   CogitoNode* n = (CogitoNode*)labelv.as.p;

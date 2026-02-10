@@ -94,6 +94,7 @@
 #undef cogito_stepper_on_change
 #undef cogito_segmented_on_select
 #undef cogito_load_sum_file
+#undef cogito_label_set_text
 #undef cogito_label_set_wrap
 #undef cogito_label_set_ellipsis
 #undef cogito_label_set_align
@@ -668,6 +669,14 @@ static void __cogito_label_set_class(ErgoVal labelv, ErgoVal classv) {
   ErgoStr* tmp = NULL;
   const char* cls = cogito_optional_cstr(classv, &tmp);
   if (cls) cogito_node_set_class(n, cls);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
+static void __cogito_label_set_text(ErgoVal labelv, ErgoVal textv) {
+  cogito_node* n = cogito_node_from_val(labelv);
+  ErgoStr* tmp = NULL;
+  const char* text = cogito_optional_cstr(textv, &tmp);
+  if (text) cogito_node_set_text(n, text);
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
 
@@ -1641,6 +1650,7 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_grid_set_span __cogito_grid_set_span
 #define cogito_grid_set_align __cogito_grid_set_align
 #define cogito_label_set_class __cogito_label_set_class
+#define cogito_label_set_text __cogito_label_set_text
 #define cogito_label_set_wrap __cogito_label_set_wrap
 #define cogito_label_set_ellipsis __cogito_label_set_ellipsis
 #define cogito_label_set_align __cogito_label_set_align

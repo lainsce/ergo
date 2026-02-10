@@ -215,6 +215,7 @@ void cogito_segmented_on_select(cogito_node* seg, cogito_node_fn fn, void* user)
 
 // Theming
 void cogito_load_sum_file(const char* path);
+void cogito_load_sum_inline(const char* src);
 bool cogito_debug_style(void);
 void cogito_style_dump(cogito_node* node);
 void cogito_style_dump_tree(cogito_node* root, int depth);
@@ -224,6 +225,7 @@ void cogito_style_dump_button_demo(void);
 }
 #endif
 // Label helpers
+void cogito_label_set_text(cogito_node* label, const char* text);
 void cogito_label_set_wrap(cogito_node* label, bool on);
 void cogito_label_set_ellipsis(cogito_node* label, bool on);
 void cogito_label_set_align(cogito_node* label, int align);

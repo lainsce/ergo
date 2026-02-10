@@ -69,6 +69,19 @@ static void cogito_dialog_close(ErgoVal dialogv) {
       win->dialog_open = false;
     }
     cogito_window_relayout(cogito_node_window(dlg->parent));
+    return;
+  }
+  // Fallback for legacy direct-window dialogs or detached dialog objects.
+  CogitoNode* win = cogito_node_window(dlg);
+  if (win && win->dialog == dlg) {
+    win->dialog_open = false;
+    cogito_window_relayout(win);
+    return;
+  }
+  if (win && win->dialog && win->dialog->kind == COGITO_DIALOG_SLOT && win->dialog->dialog == dlg) {
+    win->dialog->dialog_open = false;
+    win->dialog_open = false;
+    cogito_window_relayout(win);
   }
 }
 static void cogito_dialog_remove(ErgoVal dialogv) {
