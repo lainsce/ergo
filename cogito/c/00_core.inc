@@ -106,6 +106,7 @@ typedef enum {
   COGITO_VSTACK,
   COGITO_WINDOW,
   COGITO_ZSTACK,
+  COGITO_DIVIDER,
   COGITO_KIND_COUNT
 } CogitoKind;
 
@@ -540,6 +541,8 @@ typedef struct CogitoNode {
   bool chip_selected;
   bool chip_has_close;
   bool fab_extended;
+  bool divider_vertical;
+  bool divider_inset;
   ErgoStr** nav_rail_labels;
   ErgoStr** nav_rail_icons;
   size_t nav_rail_len;

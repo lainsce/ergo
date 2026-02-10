@@ -70,7 +70,7 @@ case COGITO_SEARCHFIELD: {
     cogito_draw_text_ellipsis(n, text_x, ph_y, text_avail_w, placeholder, ph, size, false, 0);
   }
   int icon_y = text_y + (text_h - icon_size) / 2;
-  cogito_draw_icon_fallback(n, "sf:magnifyingglass", icon_x, icon_y, icon_size, icon_color);
+  cogito_draw_icon_fallback(n, "magnifyingglass", icon_x, icon_y, icon_size, icon_color);
 
   // Draw selection highlight
   if (focused && n->sel_start != n->sel_end) {

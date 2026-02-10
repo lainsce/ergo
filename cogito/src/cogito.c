@@ -97,6 +97,7 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_view_switcher_new cogito_view_switcher_new_ergo
 #define cogito_view_switcher_set_active cogito_view_switcher_set_active_ergo
 #define cogito_progress_new cogito_progress_new_ergo
+#define cogito_divider_new cogito_divider_new_ergo
 #define cogito_progress_set_value cogito_progress_set_value_ergo
 #define cogito_progress_get_value cogito_progress_get_value_ergo
 #define cogito_datepicker_new cogito_datepicker_new_ergo
@@ -241,6 +242,7 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_view_switcher_new
 #undef cogito_view_switcher_set_active
 #undef cogito_progress_new
+#undef cogito_divider_new
 #undef cogito_datepicker_new
 #undef cogito_datepicker_on_change
 #undef cogito_colorpicker_new
@@ -671,6 +673,12 @@ cogito_node* cogito_slider_new(double min, double max, double value) {
 cogito_node* cogito_tabs_new(void) { return cogito_from_val(cogito_tabs_new_ergo()); }
 cogito_node* cogito_view_switcher_new(void) { return cogito_from_val(cogito_view_switcher_new_ergo()); }
 cogito_node* cogito_progress_new(double value) { return cogito_from_val(cogito_progress_new_ergo(EV_FLOAT(value))); }
+cogito_node* cogito_divider_new(const char* orientation, bool is_inset) {
+  ErgoVal ov = orientation ? cogito_val_from_cstr(orientation) : EV_NULLV;
+  ErgoVal v = cogito_divider_new_ergo(ov, EV_BOOL(is_inset));
+  if (ov.tag == EVT_STR) ergo_release_val(ov);
+  return cogito_from_val(v);
+}
 cogito_node* cogito_datepicker_new(void) { return cogito_from_val(cogito_datepicker_new_ergo()); }
 cogito_node* cogito_colorpicker_new(void) { return cogito_from_val(cogito_colorpicker_new_ergo()); }
 cogito_node* cogito_stepper_new(double min, double max, double value, double step) {

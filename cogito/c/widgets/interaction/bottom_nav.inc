@@ -91,7 +91,18 @@ static int cogito_bottom_nav_hit_index(CogitoNode* n, int x, int y) {
   if (x < n->x || x >= n->x + n->w || y < n->y || y >= n->y + n->h) return -1;
 
   if (n->bottom_nav_len == 0) return -1;
-  int item_w = n->w / (int)n->bottom_nav_len;
+  int reserved_right = 0;
+  for (size_t i = 0; i < n->len; i++) {
+    CogitoNode* c = n->children[i];
+    if (!c || c->kind != COGITO_FAB || c->w <= 0) continue;
+    reserved_right = c->w + 18;
+    break;
+  }
+  int items_w = n->w - reserved_right;
+  if (items_w < 1) items_w = n->w;
+  if (x >= n->x + items_w) return -1;
+  int item_w = items_w / (int)n->bottom_nav_len;
+  if (item_w < 1) return -1;
   int rel_x = x - n->x;
   int idx = rel_x / item_w;
   if (idx >= (int)n->bottom_nav_len) idx = (int)n->bottom_nav_len - 1;

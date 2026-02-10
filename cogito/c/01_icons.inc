@@ -31,6 +31,12 @@ static int cogito_icon_cache_len = 0;
 static char cogito_icon_theme_name[64] = {0};
 static bool cogito_icon_theme_init = false;
 
+#if defined(COGITO_HAS_SDL3_IMAGE)
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
+#include <SDL3_image/SDL_image.h>
+#endif
+
 static bool cogito_file_exists(const char* path) {
   struct stat st;
   return path && stat(path, &st) == 0 && S_ISREG(st.st_mode);
@@ -240,6 +246,17 @@ static int cogito_parse_list(const char* src, char out[][96], int max) {
 
 static int cogito_icon_base_dirs(char out[][PATH_MAX], int max) {
   int count = 0;
+#if defined(_WIN32)
+  const char* localappdata = getenv("LOCALAPPDATA");
+  const char* programdata = getenv("ProgramData");
+  if (localappdata && count < max) {
+    snprintf(out[count++], PATH_MAX, "%s\\icons", localappdata);
+  }
+  if (programdata && count < max) {
+    snprintf(out[count++], PATH_MAX, "%s\\icons", programdata);
+  }
+  return count;
+#else
   const char* home = getenv("HOME");
   if (home && count < max) {
     snprintf(out[count++], PATH_MAX, "%s/.icons", home);
@@ -247,9 +264,11 @@ static int cogito_icon_base_dirs(char out[][PATH_MAX], int max) {
   if (home && count < max) {
     snprintf(out[count++], PATH_MAX, "%s/.local/share/icons", home);
   }
+#if defined(__APPLE__)
   if (count < max) {
     snprintf(out[count++], PATH_MAX, "/opt/homebrew/share/icons");
   }
+#endif
   const char* xdg = getenv("XDG_DATA_DIRS");
   if (!xdg || !*xdg) xdg = "/usr/local/share:/usr/share";
   const char* p = xdg;
@@ -265,6 +284,7 @@ static int cogito_icon_base_dirs(char out[][PATH_MAX], int max) {
     }
   }
   return count;
+#endif
 }
 
 static bool cogito_load_theme_file(const char* path, CogitoIconTheme* theme) {
@@ -396,13 +416,17 @@ static bool cogito_icon_find_in_theme(const char* theme_name, const char* icon, 
 }
 
 static bool cogito_icon_find_file(const char* theme_name, const char* icon, int size, char* out_path, size_t cap, bool* out_svg) {
-  if (cogito_icon_find_in_theme(theme_name, icon, size, out_path, cap, out_svg)) return true;
+  if (theme_name && theme_name[0] && cogito_icon_find_in_theme(theme_name, icon, size, out_path, cap, out_svg)) return true;
   CogitoIconTheme theme;
-  if (!cogito_icon_theme_load(theme_name, &theme)) return false;
-  for (int i = 0; i < theme.inherit_count; i++) {
-    if (cogito_icon_find_in_theme(theme.inherits[i], icon, size, out_path, cap, out_svg)) return true;
+  if (theme_name && theme_name[0] && cogito_icon_theme_load(theme_name, &theme)) {
+    for (int i = 0; i < theme.inherit_count; i++) {
+      if (cogito_icon_find_in_theme(theme.inherits[i], icon, size, out_path, cap, out_svg)) return true;
+    }
   }
-  if (strcmp(theme_name, "hicolor") != 0) {
+  if (!theme_name || strcmp(theme_name, "Adwaita") != 0) {
+    if (cogito_icon_find_in_theme("Adwaita", icon, size, out_path, cap, out_svg)) return true;
+  }
+  if (!theme_name || strcmp(theme_name, "hicolor") != 0) {
     if (cogito_icon_find_in_theme("hicolor", icon, size, out_path, cap, out_svg)) return true;
   }
   return false;
@@ -414,6 +438,25 @@ static const char* cogito_icon_theme_get(void) {
     if (env && *env) {
       strncpy(cogito_icon_theme_name, env, sizeof(cogito_icon_theme_name) - 1);
     } else {
+#if defined(__APPLE__)
+      strncpy(cogito_icon_theme_name, "sf", sizeof(cogito_icon_theme_name) - 1);
+#elif defined(_WIN32)
+      strncpy(cogito_icon_theme_name, "hicolor", sizeof(cogito_icon_theme_name) - 1);
+#else
+      const char* gtk = getenv("GTK_THEME");
+      if (gtk && *gtk) {
+        size_t n = 0;
+        while (gtk[n] && gtk[n] != ':' && n + 1 < sizeof(cogito_icon_theme_name)) {
+          cogito_icon_theme_name[n] = gtk[n];
+          n++;
+        }
+        cogito_icon_theme_name[n] = 0;
+      } else {
+        strncpy(cogito_icon_theme_name, "Adwaita", sizeof(cogito_icon_theme_name) - 1);
+      }
+#endif
+    }
+    if (!cogito_icon_theme_name[0]) {
       strncpy(cogito_icon_theme_name, "hicolor", sizeof(cogito_icon_theme_name) - 1);
     }
     cogito_icon_theme_name[sizeof(cogito_icon_theme_name) - 1] = 0;
@@ -424,6 +467,75 @@ static const char* cogito_icon_theme_get(void) {
 
 static bool cogito_icon_is_sf(const char* name) {
   return name && strncmp(name, "sf:", 3) == 0;
+}
+
+static void cogito_icon_add_candidate(char out[][128], int* count, int max, const char* name) {
+  if (!out || !count || !name || !name[0] || *count >= max) return;
+  for (int i = 0; i < *count; i++) {
+    if (strcmp(out[i], name) == 0) return;
+  }
+  strncpy(out[*count], name, 127);
+  out[*count][127] = 0;
+  (*count)++;
+}
+
+static const char* cogito_icon_alias_sf(const char* token) {
+  if (!token || !token[0]) return token;
+  if (strcmp(token, "x") == 0 || strcmp(token, "close") == 0 || strcmp(token, "window-close") == 0) return "xmark";
+  if (strcmp(token, "window-min") == 0 || strcmp(token, "minimize") == 0) return "minus";
+  if (strcmp(token, "window-max") == 0 || strcmp(token, "maximize") == 0) return "plus.square";
+  if (strcmp(token, "search") == 0 || strcmp(token, "system-search") == 0) return "magnifyingglass";
+  if (strcmp(token, "chevron-down") == 0 || strcmp(token, "pan-down") == 0) return "chevron.down";
+  if (strcmp(token, "chevron-up") == 0 || strcmp(token, "pan-up") == 0) return "chevron.up";
+  if (strcmp(token, "chevron-left") == 0 || strcmp(token, "pan-start") == 0) return "chevron.left";
+  if (strcmp(token, "chevron-right") == 0 || strcmp(token, "pan-end") == 0) return "chevron.right";
+  if (strcmp(token, "add") == 0) return "plus";
+  if (strcmp(token, "remove") == 0) return "minus";
+  if (strcmp(token, "question") == 0) return "questionmark";
+  if (strcmp(token, "check") == 0) return "checkmark";
+  return token;
+}
+
+#if !defined(__APPLE__)
+static const char* cogito_icon_alias_theme(const char* token) {
+  if (!token || !token[0]) return token;
+  if (strcmp(token, "x") == 0 || strcmp(token, "xmark") == 0 || strcmp(token, "close") == 0 || strcmp(token, "window-close") == 0) return "window-close-symbolic";
+  if (strcmp(token, "window-min") == 0 || strcmp(token, "minimize") == 0 || strcmp(token, "minus") == 0) return "window-minimize-symbolic";
+  if (strcmp(token, "window-max") == 0 || strcmp(token, "maximize") == 0) return "window-maximize-symbolic";
+  if (strcmp(token, "search") == 0 || strcmp(token, "magnifyingglass") == 0 || strcmp(token, "system-search") == 0) return "system-search-symbolic";
+  if (strcmp(token, "chevron.down") == 0 || strcmp(token, "chevron-down") == 0 || strcmp(token, "pan-down") == 0) return "pan-down-symbolic";
+  if (strcmp(token, "chevron.up") == 0 || strcmp(token, "chevron-up") == 0 || strcmp(token, "pan-up") == 0) return "pan-up-symbolic";
+  if (strcmp(token, "chevron.left") == 0 || strcmp(token, "chevron-left") == 0 || strcmp(token, "pan-start") == 0) return "pan-start-symbolic";
+  if (strcmp(token, "chevron.right") == 0 || strcmp(token, "chevron-right") == 0 || strcmp(token, "pan-end") == 0) return "pan-end-symbolic";
+  if (strcmp(token, "plus") == 0 || strcmp(token, "add") == 0 || strcmp(token, "list-add") == 0) return "list-add-symbolic";
+  if (strcmp(token, "minus") == 0 || strcmp(token, "remove") == 0 || strcmp(token, "list-remove") == 0) return "list-remove-symbolic";
+  if (strcmp(token, "check") == 0 || strcmp(token, "checkmark") == 0) return "object-select-symbolic";
+  if (strcmp(token, "photo") == 0 || strcmp(token, "image") == 0) return "image-x-generic-symbolic";
+  if (strcmp(token, "question") == 0 || strcmp(token, "questionmark") == 0 || strcmp(token, "help") == 0) return "help-browser-symbolic";
+  return token;
+}
+#endif
+
+static int cogito_icon_candidates(const char* name, char out[][128], int max) {
+  if (!name || !name[0] || !out || max <= 0) return 0;
+  int count = 0;
+  const char* token = name;
+  if (strncmp(name, "sf:", 3) == 0) token = name + 3;
+  else if (strncmp(name, "gtk:", 4) == 0) token = name + 4;
+  else if (strncmp(name, "win:", 4) == 0) token = name + 4;
+
+#if defined(__APPLE__)
+  char sf_name[128];
+  const char* sf = cogito_icon_alias_sf(token);
+  snprintf(sf_name, sizeof(sf_name), "sf:%s", sf);
+  cogito_icon_add_candidate(out, &count, max, sf_name);
+#else
+  const char* themed = cogito_icon_alias_theme(token);
+  cogito_icon_add_candidate(out, &count, max, themed);
+  cogito_icon_add_candidate(out, &count, max, token);
+  cogito_icon_add_candidate(out, &count, max, name);
+#endif
+  return count;
 }
 
 static int cogito_sf_optimized_size(int size) {
@@ -525,14 +637,59 @@ static bool cogito_sf_symbol_load(const char* symbol, int size, CogitoTexture** 
 }
 #endif
 
-static bool cogito_icon_load_texture(const char* name, int size, CogitoTexture** out, int* out_w, int* out_h) {
+static bool cogito_icon_load_file_texture(const char* path, CogitoTexture** out, int* out_w, int* out_h) {
+  if (!path || !path[0] || !cogito_backend || !cogito_backend->texture_create) return false;
+#if defined(COGITO_HAS_SDL3_IMAGE)
+  SDL_Surface* src = IMG_Load(path);
+  if (!src) return false;
+  SDL_Surface* rgba = SDL_ConvertSurface(src, SDL_PIXELFORMAT_RGBA32);
+  SDL_DestroySurface(src);
+  if (!rgba || rgba->w <= 0 || rgba->h <= 0 || !rgba->pixels) {
+    if (rgba) SDL_DestroySurface(rgba);
+    return false;
+  }
+  int w = rgba->w;
+  int h = rgba->h;
+  size_t row = (size_t)w * 4u;
+  size_t len = row * (size_t)h;
+  uint8_t* copy = (uint8_t*)malloc(len);
+  if (!copy) {
+    SDL_DestroySurface(rgba);
+    return false;
+  }
+  const uint8_t* src_px = (const uint8_t*)rgba->pixels;
+  for (int y = 0; y < h; y++) {
+    memcpy(copy + (size_t)y * row, src_px + (size_t)y * (size_t)rgba->pitch, row);
+  }
+  for (size_t i = 0; i + 3 < len; i += 4) {
+    copy[i + 0] = 255;
+    copy[i + 1] = 255;
+    copy[i + 2] = 255;
+  }
+  CogitoTexture* tex = cogito_backend->texture_create(w, h, copy, 4);
+  free(copy);
+  SDL_DestroySurface(rgba);
+  if (!tex) return false;
+  if (out) *out = tex;
+  if (out_w) *out_w = w;
+  if (out_h) *out_h = h;
+  return true;
+#else
+  (void)out;
+  (void)out_w;
+  (void)out_h;
+  return false;
+#endif
+}
+
+static bool cogito_icon_load_texture_one(const char* name, const char* theme, int size, CogitoTexture** out, int* out_w, int* out_h) {
   if (!name || !name[0] || size <= 0) return false;
   bool sf_icon = cogito_icon_is_sf(name);
   int cache_size = sf_icon ? cogito_sf_optimized_size(size) : size;
-  const char* theme = sf_icon ? "sf" : cogito_icon_theme_get();
+  const char* cache_theme = sf_icon ? "sf" : (theme && theme[0] ? theme : "hicolor");
   for (int i = 0; i < cogito_icon_cache_len; i++) {
     CogitoIconCacheEntry* e = &cogito_icon_cache[i];
-    if (e->used && e->size == cache_size && strcmp(e->name, name) == 0 && strcmp(e->theme, theme) == 0) {
+    if (e->used && e->size == cache_size && strcmp(e->name, name) == 0 && strcmp(e->theme, cache_theme) == 0) {
       if (out) *out = e->tex;
       if (out_w) *out_w = e->w;
       if (out_h) *out_h = e->h;
@@ -549,7 +706,7 @@ static bool cogito_icon_load_texture(const char* name, int size, CogitoTexture**
         CogitoIconCacheEntry* e = &cogito_icon_cache[cogito_icon_cache_len++];
         memset(e, 0, sizeof(*e));
         strncpy(e->name, name, sizeof(e->name) - 1);
-        strncpy(e->theme, theme, sizeof(e->theme) - 1);
+        strncpy(e->theme, cache_theme, sizeof(e->theme) - 1);
         e->size = cache_size;
         e->tex = tex;
         e->w = tw;
@@ -566,23 +723,18 @@ static bool cogito_icon_load_texture(const char* name, int size, CogitoTexture**
   }
   char path[PATH_MAX];
   bool is_svg = false;
-  if (!cogito_icon_find_file(theme, name, size, path, sizeof(path), &is_svg)) return false;
+  if (!cogito_icon_find_file(cache_theme, name, size, path, sizeof(path), &is_svg)) return false;
   CogitoTexture* tex = NULL;
   int tw = 0;
   int th = 0;
   (void)is_svg;
-  // For now, icons from files are not supported in SDL3 backend
-  // This would require an image loading library (stb_image, etc.)
-  // tex = cogito_backend->texture_load_from_file(path);
-  // if (!tex) return false;
-  // cogito_backend->texture_get_size(tex, &tw, &th);
-  return false; // TODO: Implement file-based icon loading
+  if (!cogito_icon_load_file_texture(path, &tex, &tw, &th)) return false;
   if (cogito_icon_cache_len < (int)(sizeof(cogito_icon_cache) / sizeof(cogito_icon_cache[0]))) {
     CogitoIconCacheEntry* e = &cogito_icon_cache[cogito_icon_cache_len++];
     memset(e, 0, sizeof(*e));
     strncpy(e->name, name, sizeof(e->name) - 1);
-    strncpy(e->theme, theme, sizeof(e->theme) - 1);
-    e->size = size;
+    strncpy(e->theme, cache_theme, sizeof(e->theme) - 1);
+    e->size = cache_size;
     e->tex = tex;
     e->w = tw;
     e->h = th;
@@ -592,6 +744,17 @@ static bool cogito_icon_load_texture(const char* name, int size, CogitoTexture**
   if (out_w) *out_w = tw;
   if (out_h) *out_h = th;
   return true;
+}
+
+static bool cogito_icon_load_texture(const char* name, int size, CogitoTexture** out, int* out_w, int* out_h) {
+  if (!name || !name[0] || size <= 0) return false;
+  char candidates[8][128];
+  int n = cogito_icon_candidates(name, candidates, (int)(sizeof(candidates) / sizeof(candidates[0])));
+  const char* theme = cogito_icon_theme_get();
+  for (int i = 0; i < n; i++) {
+    if (cogito_icon_load_texture_one(candidates[i], theme, size, out, out_w, out_h)) return true;
+  }
+  return false;
 }
 
 static void cogito_load_sum_file(const char* path);

@@ -157,6 +157,8 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->scroll_horz = false;
   n->scroll_vert = true;
   n->selected = -1;
+  n->divider_vertical = false;
+  n->divider_inset = false;
   n->should_close = false;
   n->menu_labels = NULL;
   n->menu_handlers = NULL;
@@ -438,6 +440,8 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
     #include "widgets/intrinsic/view_switcher.inc"
 
     #include "widgets/intrinsic/progress.inc"
+
+    #include "widgets/intrinsic/divider.inc"
 
     #include "widgets/intrinsic/treeview.inc"
 

@@ -683,6 +683,8 @@ static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h) {
 
     #include "widgets/layout/toast.inc"
 
+    #include "widgets/layout/divider.inc"
+
     case COGITO_KIND_COUNT:
       break;
   

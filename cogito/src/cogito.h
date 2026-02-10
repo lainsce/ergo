@@ -115,6 +115,7 @@ cogito_node* cogito_slider_new(double min, double max, double value);
 cogito_node* cogito_tabs_new(void);
 cogito_node* cogito_view_switcher_new(void);
 cogito_node* cogito_progress_new(double value);
+cogito_node* cogito_divider_new(const char* orientation, bool is_inset);
 cogito_node* cogito_datepicker_new(void);
 cogito_node* cogito_colorpicker_new(void);
 cogito_node* cogito_stepper_new(double min, double max, double value, double step);

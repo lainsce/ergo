@@ -1,8 +1,6 @@
 bring stdr
 bring cogito
 
-def views = cogito.view_switcher()
-
 fun build_buttons_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
     vstack.set_gap(8)
@@ -23,7 +21,7 @@ fun build_buttons_view() (( cogito.VStack )) {
     cogito.set_class(btn3, @"text")
     vstack.add(btn3)
 
-    let iconbtn = cogito.iconbtn(@"sf:star.fill")
+    let iconbtn = cogito.iconbtn(@"star")
     cogito.set_tooltip(iconbtn, @"Icon button")
     vstack.add(iconbtn)
 
@@ -40,12 +38,15 @@ fun build_textfields_view() (( cogito.VStack )) {
     vstack.add(subtitle)
 
     let tf = cogito.textfield(@"Text field")
+    tf.set_hexpand(true)
     vstack.add(tf)
 
     let sf = cogito.searchfield(@"Search…")
+    sf.set_hexpand(true)
     vstack.add(sf)
 
     let tv = cogito.textview(@"Multi-line text view")
+    tv.set_hexpand(true)
     vstack.add(tv)
 
     return vstack
@@ -152,6 +153,12 @@ fun build_controls_view() (( cogito.VStack )) {
     vstack.add(subtitle)
 
     let dd = cogito.dropdown()
+    dd.set_items([@"Low", @"Medium", @"High", @"Critical"])
+    dd.set_selected(1)
+    dd.on_change((idx) => {
+        writef(@"Dropdown selected: {idx}\n")
+    })
+    dd.set_hexpand(true)
     vstack.add(dd)
 
     let prog_label_container = cogito.hstack()
@@ -170,7 +177,7 @@ fun build_controls_view() (( cogito.VStack )) {
     img_label_container.add(img_label)
     vstack.add(img_label_container)
 
-    let img = cogito.image(@"sf:photo")
+    let img = cogito.image(@"photo")
     vstack.add(img)
 
     return vstack
@@ -186,14 +193,34 @@ fun build_tabs_view() (( cogito.VStack )) {
     vstack.add(subtitle)
 
     let tabs = cogito.tabs()
+    tabs.set_items([@"Overview", @"Details", @"History"])
+    tabs.set_ids([@"tab_overview", @"tab_details", @"tab_history"])
+    tabs.set_selected(0)
+    tabs.on_change((idx) => {
+        writef(@"Tabs selected: {idx}\n")
+    })
     tabs.set_hexpand(true)
     vstack.add(tabs)
 
+    let tab_views = cogito.view_switcher()
+    tab_views.set_hexpand(true)
+    let tv1 = cogito.label(@"Overview content")
+    cogito.set_id(tv1, @"tab_overview")
+    let tv2 = cogito.label(@"Details content")
+    cogito.set_id(tv2, @"tab_details")
+    let tv3 = cogito.label(@"History content")
+    cogito.set_id(tv3, @"tab_history")
+    tab_views.add(tv1)
+    tab_views.add(tv2)
+    tab_views.add(tv3)
+    tabs.bind(tab_views)
+    vstack.add(tab_views)
+
     let seg = cogito.segmented()
     seg.set_hexpand(true)
-    --seg.add(cogito.label(@"Day"))
-    --seg.add(cogito.label(@"Week"))
-    --seg.add(cogito.label(@"Month"))
+    seg.add(cogito.label(@"Day"))
+    seg.add(cogito.label(@"Week"))
+    seg.add(cogito.label(@"Month"))
     vstack.add(seg)
 
     return vstack
@@ -236,7 +263,7 @@ fun build_chips_view() (( cogito.VStack )) {
     fab_label_container.add(fab_label)
     vstack.add(fab_label_container)
 
-    let fab = cogito.fab(@"sf:plus")
+    let fab = cogito.fab(@"plus")
     fab.on_click((f = cogito.FAB) => {
         writef(@"FAB clicked\n")
     })
@@ -316,6 +343,10 @@ fun build_ui(win = cogito.Window) (( -- )) {
     hstack.set_vexpand(true)
     hstack.set_hexpand(true)
 
+    let views = cogito.view_switcher()
+    views.set_hexpand(true)
+    views.set_vexpand(true)
+
     -- Create all views
     let buttons_view = build_buttons_view()
     cogito.set_id(buttons_view, @"buttons")
@@ -369,7 +400,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
     let sidebar_list = cogito.list()
     sidebar_list.set_vexpand(true)
     let buttons_lbl = cogito.label(@"Buttons")
-    buttons_lbl.set_padding (18, 8, 18, 8)
+    buttons_lbl.set_padding(18, 8, 18, 8)
     sidebar_list.add(buttons_lbl)
     sidebar_list.add(cogito.label(@"Text Fields"))
     sidebar_list.add(cogito.label(@"Checkboxes"))

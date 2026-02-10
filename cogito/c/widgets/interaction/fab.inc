@@ -1,5 +1,6 @@
 static CogitoNode* cogito_fab_new_obj(ErgoStr* icon) {
   CogitoNode* n = cogito_node_new(COGITO_FAB);
+  n->align = 2;
   cogito_node_set_text(n, icon);  // Icon name
   return n;
 }

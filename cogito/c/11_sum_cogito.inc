@@ -606,6 +606,7 @@ static bool cogito_sum_selector_kind(const char* sel, CogitoKind* out_kind, bool
     if (out_kind) *out_kind = COGITO_DIALOG_SLOT;
     return true;
   }
+  if (strcmp(s, "divider") == 0) { if (out_kind) *out_kind = COGITO_DIVIDER; return true; }
   if (strcmp(s, "dropdown") == 0) { if (out_kind) *out_kind = COGITO_DROPDOWN; return true; }
   if (strcmp(s, "fab") == 0) { if (out_kind) *out_kind = COGITO_FAB; return true; }
   if (strcmp(s, "fixed") == 0) { if (out_kind) *out_kind = COGITO_FIXED; return true; }

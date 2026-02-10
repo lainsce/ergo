@@ -5,9 +5,25 @@ case COGITO_BOTTOM_NAV: {
   CogitoColor bg = s.has_bg ? s.bg : n->bg;
   cogito_draw_rect(n->x, n->y, n->w, n->h, bg, 0);
 
-  if (n->bottom_nav_len == 0) break;
+  CogitoNode* fab = NULL;
+  for (size_t i = 0; i < n->len; i++) {
+    if (n->children[i] && n->children[i]->kind == COGITO_FAB) {
+      fab = n->children[i];
+      break;
+    }
+  }
 
-  int item_w = n->w / (int)n->bottom_nav_len;
+  if (n->bottom_nav_len == 0) {
+    if (fab) cogito_draw_node(fab);
+    break;
+  }
+
+  int reserved_right = 0;
+  if (fab && fab->w > 0) reserved_right = fab->w + 18;
+  int items_w = n->w - reserved_right;
+  if (items_w < 1) items_w = n->w;
+  int item_w = items_w / (int)n->bottom_nav_len;
+  if (item_w < 1) item_w = 1;
   int icon_size = 24;
   int label_size = 12;
 
@@ -69,5 +85,6 @@ case COGITO_BOTTOM_NAV: {
       cogito_draw_text_size_node(n, label_x, label_y, n->bottom_nav_labels[i]->data, text_color, label_size, false);
     }
   }
+  if (fab) cogito_draw_node(fab);
   break;
 }

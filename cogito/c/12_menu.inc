@@ -27,6 +27,7 @@ static void cogito_menu_open_for(CogitoNode* n) {
     if (w > max_w) max_w = w;
   }
   int w = max_w + pad_x * 2;
+  if (n->w > w) w = n->w;
   int h = (int)n->menu_len * item_h + menu_pad_top + menu_pad_bottom;
   cogito_menu.open = true;
   cogito_menu.owner = n;
@@ -38,7 +39,7 @@ static void cogito_menu_open_for(CogitoNode* n) {
   cogito_menu.w = w;
   cogito_menu.h = h;
   int x = n->x;
-  int y = n->y + n->h + 4;
+  int y = n->y + n->h;
   
   // Get window size from backend
   int win_w = 800, win_h = 600;  // Default fallback
@@ -53,7 +54,7 @@ static void cogito_menu_open_for(CogitoNode* n) {
   if (x + w > win_w - 4) x = win_w - 4 - w;
   if (x < 4) x = 4;
   if (y + h > win_h - 4) {
-    int above = n->y - h - 4;
+    int above = n->y - h;
     if (above >= 4) y = above;
     else y = win_h - 4 - h;
   }

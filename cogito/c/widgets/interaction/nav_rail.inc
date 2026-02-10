@@ -92,6 +92,13 @@ static int cogito_nav_rail_hit_index(CogitoNode* n, int x, int y) {
 
   int item_h = 56;  // Standard item height
   int item_y = n->y + n->padding_top;
+  for (size_t i = 0; i < n->len; i++) {
+    CogitoNode* c = n->children[i];
+    if (!c || c->kind != COGITO_FAB || c->w <= 0 || c->h <= 0) continue;
+    int min_item_y = c->y + c->h + 12;
+    if (item_y < min_item_y) item_y = min_item_y;
+    break;
+  }
 
   for (size_t i = 0; i < n->nav_rail_len; i++) {
     if (y >= item_y && y < item_y + item_h) {

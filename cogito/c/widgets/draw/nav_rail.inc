@@ -5,11 +5,26 @@ case COGITO_NAV_RAIL: {
   CogitoColor bg = s.has_bg ? s.bg : n->bg;
   cogito_draw_rect(n->x, n->y, n->w, n->h, bg, 0);
 
-  if (n->nav_rail_len == 0) break;
+  CogitoNode* fab = NULL;
+  for (size_t i = 0; i < n->len; i++) {
+    if (n->children[i] && n->children[i]->kind == COGITO_FAB) {
+      fab = n->children[i];
+      break;
+    }
+  }
+
+  if (n->nav_rail_len == 0) {
+    if (fab) cogito_draw_node(fab);
+    break;
+  }
 
   int item_h = 56;  // Standard touch target
   int icon_size = 24;
   int item_y = n->y + n->padding_top;
+  if (fab && fab->w > 0 && fab->h > 0) {
+    int min_item_y = fab->y + fab->h + 12;
+    if (item_y < min_item_y) item_y = min_item_y;
+  }
 
   for (size_t i = 0; i < n->nav_rail_len; i++) {
     bool selected = (int)i == n->nav_rail_selected;
@@ -67,5 +82,6 @@ case COGITO_NAV_RAIL: {
 
     item_y += item_h;
   }
+  if (fab) cogito_draw_node(fab);
   break;
 }

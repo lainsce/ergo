@@ -95,6 +95,7 @@ static void cogito_container_remove_child(CogitoNode* parent, CogitoNode* child)
 #include "widgets/interaction/dialog.inc"
 #include "widgets/interaction/popover.inc"
 #include "widgets/interaction/dropdown.inc"
+#include "widgets/interaction/divider.inc"
 #include "widgets/interaction/fab.inc"
 #include "widgets/interaction/fixed.inc"
 #include "widgets/interaction/grid.inc"

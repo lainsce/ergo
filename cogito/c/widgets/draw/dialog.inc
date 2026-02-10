@@ -60,7 +60,7 @@ case COGITO_DIALOG: {
         int ix = cx + (cw - icon_size) / 2;
         int iy = cy + (ch - icon_size) / 2;
         CogitoColor icon_color = s.has_icon_color ? s.icon_color : title_color;
-        cogito_draw_icon_fallback(n, "sf:xmark", ix, iy, icon_size, icon_color);
+        cogito_draw_icon_fallback(n, "xmark", ix, iy, icon_size, icon_color);
       }
 
       // Draw children

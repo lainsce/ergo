@@ -746,6 +746,7 @@ static const char* cogito_kind_name(CogitoKind kind) {
     case COGITO_VSTACK: return "vstack";
     case COGITO_WINDOW: return "window";
     case COGITO_ZSTACK: return "zstack";
+    case COGITO_DIVIDER: return "divider";
     case COGITO_KIND_COUNT: return "unknown";
   }
   return "unknown";
