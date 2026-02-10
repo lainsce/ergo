@@ -1,0 +1,146 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "SUM",
+  "scopeName": "source.sum",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#declarations"
+    },
+    {
+      "include": "#selectorLines"
+    },
+    {
+      "include": "#arrayItems"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.semicolon.sum",
+          "match": ";.*$"
+        }
+      ]
+    },
+    "selectorLines": {
+      "patterns": [
+        {
+          "name": "meta.selector.sum",
+          "begin": "^([^\\s;][^\\n;]*)(?=\\s*(?:;.*)?$)",
+          "beginCaptures": {
+            "1": {
+              "name": "meta.selector.text.sum"
+            }
+          },
+          "end": "$",
+          "patterns": [
+            {
+              "name": "punctuation.separator.selector.sum",
+              "match": ","
+            },
+            {
+              "name": "entity.other.attribute-name.pseudo-class.sum",
+              "match": ":[A-Za-z_][A-Za-z0-9_-]*"
+            },
+            {
+              "name": "entity.name.class.sum",
+              "match": "\\.[A-Za-z_][A-Za-z0-9_-]*"
+            },
+            {
+              "name": "entity.name.tag.sum",
+              "match": "\\*|\\b[A-Za-z][A-Za-z0-9-]*\\b"
+            }
+          ]
+        }
+      ]
+    },
+    "declarations": {
+      "patterns": [
+        {
+          "name": "meta.declaration.sum",
+          "begin": "^(\\s+)([A-Za-z][A-Za-z0-9-]*)(\\s*:\\s*)",
+          "beginCaptures": {
+            "2": {
+              "name": "support.type.property-name.sum"
+            },
+            "3": {
+              "name": "punctuation.separator.key-value.sum"
+            }
+          },
+          "end": "(?=\\s*(?:;.*)?$)",
+          "patterns": [
+            {
+              "include": "#values"
+            }
+          ]
+        }
+      ]
+    },
+    "arrayItems": {
+      "patterns": [
+        {
+          "name": "meta.array.item.sum",
+          "match": "^(\\s+)(-?\\d+(?:\\.\\d+)?)(?:\\s+(-?\\d+(?:\\.\\d+)?))*\\s*(#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8}))?\\s*$",
+          "captures": {
+            "2": {
+              "name": "constant.numeric.sum"
+            },
+            "4": {
+              "name": "constant.other.color.rgb-value.sum"
+            }
+          }
+        }
+      ]
+    },
+    "values": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.sum",
+          "begin": "\"",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.begin.sum"
+            }
+          },
+          "end": "\"",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.end.sum"
+            }
+          }
+        },
+        {
+          "name": "constant.other.color.rgb-value.sum",
+          "match": "#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})\\b"
+        },
+        {
+          "name": "constant.numeric.sum",
+          "match": "\\b-?\\d+(?:\\.\\d+)?(?:sp)?\\b"
+        },
+        {
+          "name": "constant.language.sum",
+          "match": "\\b(?:transparent|none|solid|dashed|bold|normal|standard)\\b"
+        },
+        {
+          "name": "variable.other.state.sum",
+          "match": ":[A-Za-z_][A-Za-z0-9_-]*"
+        },
+        {
+          "name": "punctuation.definition.list.begin.sum",
+          "match": "\\["
+        },
+        {
+          "name": "punctuation.definition.list.end.sum",
+          "match": "\\]"
+        },
+        {
+          "name": "punctuation.separator.comma.sum",
+          "match": ","
+        }
+      ]
+    }
+  }
+}
