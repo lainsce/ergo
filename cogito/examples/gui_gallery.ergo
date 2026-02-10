@@ -6,7 +6,7 @@ fun build_buttons_view() (( cogito.VStack )) {
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
     vstack.set_gap(8)
-    vstack.set_padding(16, 16, 16, 16)
+    vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Button variants")
     subtitle.set_class(@"subtitle")
@@ -35,7 +35,7 @@ fun build_textfields_view() (( cogito.VStack )) {
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
     vstack.set_gap(8)
-    vstack.set_padding(16, 16, 16, 16)
+    vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Text input fields")
     subtitle.set_class(@"subtitle")
@@ -61,7 +61,7 @@ fun build_checkboxes_view() (( cogito.VStack )) {
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
     vstack.set_gap(8)
-    vstack.set_padding(16, 16, 16, 16)
+    vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Selection controls")
     subtitle.set_class(@"subtitle")
@@ -90,7 +90,7 @@ fun build_sliders_view() (( cogito.VStack )) {
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
     vstack.set_gap(8)
-    vstack.set_padding(16, 16, 16, 16)
+    vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Slider & Stepper")
     subtitle.set_class(@"subtitle")
@@ -102,7 +102,7 @@ fun build_sliders_view() (( cogito.VStack )) {
     })
     vstack.add(sld)
 
-    let step = cogito.stepper(0, 10, 5, 1)
+    let step = cogito.stepper(0, 100, 5, 1)
     vstack.add(step)
 
     return vstack
@@ -113,7 +113,7 @@ fun build_pickers_view() (( cogito.VStack )) {
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
     vstack.set_gap(8)
-    vstack.set_padding(16, 16, 16, 16)
+    vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Date & Color pickers")
     subtitle.set_class(@"subtitle")
@@ -133,7 +133,7 @@ fun build_lists_view() (( cogito.VStack )) {
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
     vstack.set_gap(8)
-    vstack.set_padding(16, 16, 16, 16)
+    vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Lists & Grids")
     subtitle.set_class(@"subtitle")
@@ -160,7 +160,7 @@ fun build_controls_view() (( cogito.VStack )) {
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
     vstack.set_gap(8)
-    vstack.set_padding(16, 16, 16, 16)
+    vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Dropdown & Progress")
     subtitle.set_class(@"subtitle")
@@ -176,7 +176,6 @@ fun build_controls_view() (( cogito.VStack )) {
     vstack.add(dd)
 
     let prog_label_container = cogito.hstack()
-    prog_label_container.set_padding(16, 16, 16, 16)
     let prog_label = cogito.label(@"Progress (65%)")
     prog_label_container.add(prog_label)
     vstack.add(prog_label_container)
@@ -186,7 +185,6 @@ fun build_controls_view() (( cogito.VStack )) {
     vstack.add(prog)
 
     let img_label_container = cogito.hstack()
-    img_label_container.set_padding(16, 16, 16, 16)
     let img_label = cogito.label(@"Image")
     img_label_container.add(img_label)
     vstack.add(img_label_container)
@@ -202,7 +200,7 @@ fun build_tabs_view() (( cogito.VStack )) {
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
     vstack.set_gap(8)
-    vstack.set_padding(16, 16, 16, 16)
+    vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Tabs & Segmented")
     subtitle.set_class(@"subtitle")
@@ -247,7 +245,7 @@ fun build_chips_view() (( cogito.VStack )) {
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
     vstack.set_gap(8)
-    vstack.set_padding(16, 16, 16, 16)
+    vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Chips & FAB")
     subtitle.set_class(@"subtitle")
@@ -276,7 +274,6 @@ fun build_chips_view() (( cogito.VStack )) {
     vstack.add(row)
 
     let fab_label_container = cogito.hstack()
-    fab_label_container.set_padding(16, 16, 16, 16)
     let fab_label = cogito.label(@"Floating Action Button")
     fab_label_container.add(fab_label)
     vstack.add(fab_label_container)
@@ -295,7 +292,7 @@ fun build_dialogs_view() (( cogito.VStack )) {
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
     vstack.set_gap(8)
-    vstack.set_padding(16, 16, 16, 16)
+    vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Dialogs & Toasts")
     subtitle.set_class(@"subtitle")
@@ -336,7 +333,7 @@ fun build_tree_view() (( cogito.VStack )) {
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
     vstack.set_gap(8)
-    vstack.set_padding(16, 16, 16, 16)
+    vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Tree View")
     subtitle.set_class(@"subtitle")
@@ -421,9 +418,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
 
     let sidebar_list = cogito.list()
     sidebar_list.set_vexpand(true)
-    let buttons_lbl = cogito.label(@"Buttons")
-    buttons_lbl.set_padding(18, 8, 18, 8)
-    sidebar_list.add(buttons_lbl)
+    sidebar_list.add(cogito.label(@"Buttons"))
     sidebar_list.add(cogito.label(@"Text Fields"))
     sidebar_list.add(cogito.label(@"Checkboxes"))
     sidebar_list.add(cogito.label(@"Sliders"))
