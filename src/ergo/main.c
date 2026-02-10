@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <errno.h>
+#include <ctype.h>
 
 #if defined(_WIN32)
 #include <direct.h>
@@ -94,6 +95,240 @@ static bool program_uses_cogito(Program *prog) {
         }
     }
     return false;
+}
+
+static bool sanitize_filename_component(const char *src, size_t src_len, char *out, size_t out_cap) {
+    if (!src || !out || out_cap == 0) return false;
+    size_t n = 0;
+    for (size_t i = 0; i < src_len; i++) {
+        unsigned char c = (unsigned char)src[i];
+        char mapped;
+        if (isalnum(c) || c == '.' || c == '_' || c == '-') {
+            mapped = (char)c;
+        } else if (c == ' ' || c == '\t') {
+            mapped = '-';
+        } else {
+            mapped = '_';
+        }
+        if (n + 1 < out_cap) {
+            out[n++] = mapped;
+        }
+    }
+    while (n > 0 && (out[n - 1] == '.' || out[n - 1] == ' ')) {
+        n--;
+    }
+    if (n == 0) {
+        out[0] = '\0';
+        return false;
+    }
+    out[n] = '\0';
+    return true;
+}
+
+static bool expr_string_literal_as_filename(Expr *e, char *out, size_t out_cap) {
+    if (!e || e->kind != EXPR_STR || !out || out_cap == 0) return false;
+    StrParts *parts = e->as.str_lit.parts;
+    if (!parts || parts->len == 0) return false;
+
+    size_t n = 0;
+    for (size_t i = 0; i < parts->len; i++) {
+        StrPart *part = &parts->parts[i];
+        if (part->kind != STR_PART_TEXT) return false;
+        for (size_t j = 0; j < part->text.len; j++) {
+            unsigned char c = (unsigned char)part->text.data[j];
+            char mapped;
+            if (isalnum(c) || c == '.' || c == '_' || c == '-') {
+                mapped = (char)c;
+            } else if (c == ' ' || c == '\t') {
+                mapped = '-';
+            } else {
+                mapped = '_';
+            }
+            if (n + 1 < out_cap) {
+                out[n++] = mapped;
+            }
+        }
+    }
+    while (n > 0 && (out[n - 1] == '.' || out[n - 1] == ' ')) {
+        n--;
+    }
+    if (n == 0) {
+        out[0] = '\0';
+        return false;
+    }
+    out[n] = '\0';
+    return true;
+}
+
+static void program_find_cogito_appid_stmt(Stmt *s, char *out, size_t out_cap, bool *found);
+
+static void program_find_cogito_appid_expr(Expr *e, char *out, size_t out_cap, bool *found) {
+    if (!e) return;
+    switch (e->kind) {
+        case EXPR_CALL: {
+            Expr *fn = e->as.call.fn;
+            bool matches_set_appid = false;
+            int arg_index = 0;
+            if (fn && fn->kind == EXPR_MEMBER && str_eq_c(fn->as.member.name, "set_appid")) {
+                matches_set_appid = true;
+                arg_index = 0;
+            } else if (fn && fn->kind == EXPR_IDENT && str_eq_c(fn->as.ident.name, "__cogito_app_set_appid")) {
+                matches_set_appid = true;
+                arg_index = 1;
+            }
+            if (matches_set_appid && e->as.call.args_len > (size_t)arg_index) {
+                char candidate[256];
+                if (expr_string_literal_as_filename(e->as.call.args[arg_index], candidate, sizeof(candidate))) {
+                    snprintf(out, out_cap, "%s", candidate);
+                    *found = true;
+                }
+            }
+            program_find_cogito_appid_expr(fn, out, out_cap, found);
+            for (size_t i = 0; i < e->as.call.args_len; i++) {
+                program_find_cogito_appid_expr(e->as.call.args[i], out, out_cap, found);
+            }
+            break;
+        }
+        case EXPR_UNARY:
+            program_find_cogito_appid_expr(e->as.unary.x, out, out_cap, found);
+            break;
+        case EXPR_BINARY:
+            program_find_cogito_appid_expr(e->as.binary.a, out, out_cap, found);
+            program_find_cogito_appid_expr(e->as.binary.b, out, out_cap, found);
+            break;
+        case EXPR_ASSIGN:
+            program_find_cogito_appid_expr(e->as.assign.target, out, out_cap, found);
+            program_find_cogito_appid_expr(e->as.assign.value, out, out_cap, found);
+            break;
+        case EXPR_INDEX:
+            program_find_cogito_appid_expr(e->as.index.a, out, out_cap, found);
+            program_find_cogito_appid_expr(e->as.index.i, out, out_cap, found);
+            break;
+        case EXPR_MEMBER:
+            program_find_cogito_appid_expr(e->as.member.a, out, out_cap, found);
+            break;
+        case EXPR_PAREN:
+            program_find_cogito_appid_expr(e->as.paren.x, out, out_cap, found);
+            break;
+        case EXPR_MATCH:
+            program_find_cogito_appid_expr(e->as.match_expr.scrut, out, out_cap, found);
+            for (size_t i = 0; i < e->as.match_expr.arms_len; i++) {
+                MatchArm *arm = e->as.match_expr.arms[i];
+                if (arm) program_find_cogito_appid_expr(arm->expr, out, out_cap, found);
+            }
+            break;
+        case EXPR_LAMBDA:
+            program_find_cogito_appid_expr(e->as.lambda.body, out, out_cap, found);
+            break;
+        case EXPR_BLOCK:
+            program_find_cogito_appid_stmt(e->as.block_expr.block, out, out_cap, found);
+            break;
+        case EXPR_NEW:
+            for (size_t i = 0; i < e->as.new_expr.args_len; i++) {
+                program_find_cogito_appid_expr(e->as.new_expr.args[i], out, out_cap, found);
+            }
+            break;
+        case EXPR_TERNARY:
+            program_find_cogito_appid_expr(e->as.ternary.cond, out, out_cap, found);
+            program_find_cogito_appid_expr(e->as.ternary.then_expr, out, out_cap, found);
+            program_find_cogito_appid_expr(e->as.ternary.else_expr, out, out_cap, found);
+            break;
+        case EXPR_MOVE:
+            program_find_cogito_appid_expr(e->as.move.x, out, out_cap, found);
+            break;
+        case EXPR_TUPLE:
+            for (size_t i = 0; i < e->as.tuple_lit.items_len; i++) {
+                program_find_cogito_appid_expr(e->as.tuple_lit.items[i], out, out_cap, found);
+            }
+            break;
+        case EXPR_ARRAY:
+            for (size_t i = 0; i < e->as.array_lit.items_len; i++) {
+                program_find_cogito_appid_expr(e->as.array_lit.items[i], out, out_cap, found);
+            }
+            break;
+        case EXPR_INT:
+        case EXPR_FLOAT:
+        case EXPR_STR:
+        case EXPR_IDENT:
+        case EXPR_NULL:
+        case EXPR_BOOL:
+            break;
+    }
+}
+
+static void program_find_cogito_appid_stmt(Stmt *s, char *out, size_t out_cap, bool *found) {
+    if (!s) return;
+    switch (s->kind) {
+        case STMT_LET:
+            program_find_cogito_appid_expr(s->as.let_s.expr, out, out_cap, found);
+            break;
+        case STMT_CONST:
+            program_find_cogito_appid_expr(s->as.const_s.expr, out, out_cap, found);
+            break;
+        case STMT_IF:
+            for (size_t i = 0; i < s->as.if_s.arms_len; i++) {
+                IfArm *arm = s->as.if_s.arms[i];
+                if (!arm) continue;
+                program_find_cogito_appid_expr(arm->cond, out, out_cap, found);
+                program_find_cogito_appid_stmt(arm->body, out, out_cap, found);
+            }
+            break;
+        case STMT_FOR:
+            program_find_cogito_appid_stmt(s->as.for_s.init, out, out_cap, found);
+            program_find_cogito_appid_expr(s->as.for_s.cond, out, out_cap, found);
+            program_find_cogito_appid_expr(s->as.for_s.step, out, out_cap, found);
+            program_find_cogito_appid_stmt(s->as.for_s.body, out, out_cap, found);
+            break;
+        case STMT_FOREACH:
+            program_find_cogito_appid_expr(s->as.foreach_s.expr, out, out_cap, found);
+            program_find_cogito_appid_stmt(s->as.foreach_s.body, out, out_cap, found);
+            break;
+        case STMT_RETURN:
+            program_find_cogito_appid_expr(s->as.ret_s.expr, out, out_cap, found);
+            break;
+        case STMT_EXPR:
+            program_find_cogito_appid_expr(s->as.expr_s.expr, out, out_cap, found);
+            break;
+        case STMT_BLOCK:
+            for (size_t i = 0; i < s->as.block_s.stmts_len; i++) {
+                program_find_cogito_appid_stmt(s->as.block_s.stmts[i], out, out_cap, found);
+            }
+            break;
+    }
+}
+
+static bool program_find_cogito_appid_name(Program *prog, char *out, size_t out_cap) {
+    if (!prog || !out || out_cap == 0) return false;
+    bool found = false;
+    for (size_t i = 0; i < prog->mods_len; i++) {
+        Module *m = prog->mods[i];
+        if (!m) continue;
+        for (size_t j = 0; j < m->decls_len; j++) {
+            Decl *d = m->decls[j];
+            if (!d) continue;
+            switch (d->kind) {
+                case DECL_ENTRY:
+                    program_find_cogito_appid_stmt(d->as.entry.body, out, out_cap, &found);
+                    break;
+                case DECL_FUN:
+                    program_find_cogito_appid_stmt(d->as.fun.body, out, out_cap, &found);
+                    break;
+                case DECL_CONST:
+                    program_find_cogito_appid_expr(d->as.const_decl.expr, out, out_cap, &found);
+                    break;
+                case DECL_DEF:
+                    program_find_cogito_appid_expr(d->as.def_decl.expr, out, out_cap, &found);
+                    break;
+                case DECL_CLASS:
+                    for (size_t k = 0; k < d->as.class_decl.methods_len; k++) {
+                        FunDecl *meth = d->as.class_decl.methods[k];
+                        if (meth) program_find_cogito_appid_stmt(meth->body, out, out_cap, &found);
+                    }
+                    break;
+            }
+        }
+    }
+    return found;
 }
 
 #define ERGO_VERSION "0.1.0"
@@ -339,10 +574,11 @@ int main(int argc, char **argv) {
             if (!(cogito_flags && cogito_flags[0])) {
                 cogito_flags = cogito_default_ldflags();
             }
-            extra_ldflags = join_flags(extra_ldflags_buf, sizeof(extra_ldflags_buf), ray_flags, cogito_flags);
+            // Keep Cogito search paths first so local cogito/build wins over system-installed libcogito.
+            extra_ldflags = join_flags(extra_ldflags_buf, sizeof(extra_ldflags_buf), cogito_flags, ray_flags);
         }
 
-        // Generate unique binary name from entry file
+        // Generate unique binary name from app id (if statically set) or entry file basename.
         char unique_bin_name[256];
         const char *entry_basename = strrchr(entry, '/');
         if (!entry_basename) {
@@ -351,11 +587,21 @@ int main(int argc, char **argv) {
         entry_basename = entry_basename ? entry_basename + 1 : entry;
 
         // Remove .ergo extension if present
-        char name_without_ext[256];
-        snprintf(name_without_ext, sizeof(name_without_ext), "%s", entry_basename);
-        char *dot = strrchr(name_without_ext, '.');
+        char name_source[256];
+        snprintf(name_source, sizeof(name_source), "%s", entry_basename);
+        char *dot = strrchr(name_source, '.');
         if (dot && strcmp(dot, ".ergo") == 0) {
             *dot = '\0';
+        }
+        char name_without_ext[256];
+        if (!sanitize_filename_component(name_source, strlen(name_source), name_without_ext, sizeof(name_without_ext))) {
+            snprintf(name_without_ext, sizeof(name_without_ext), "main");
+        }
+        if (uses_cogito) {
+            char appid_name[256];
+            if (program_find_cogito_appid_name(prog, appid_name, sizeof(appid_name))) {
+                snprintf(name_without_ext, sizeof(name_without_ext), "%s", appid_name);
+            }
         }
 
 #if defined(_WIN32)

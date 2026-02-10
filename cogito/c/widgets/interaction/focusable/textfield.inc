@@ -1,2 +1,2 @@
 case COGITO_TEXTFIELD:
-      return true;
+      return n->editable;

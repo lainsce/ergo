@@ -1,7 +1,7 @@
 case COGITO_SEARCHFIELD: {
   bool hover = false, active = false;
   cogito_node_hover_state(n, &hover, &active);
-  bool focused = (cogito_focused == n);
+  bool focused = (cogito_focused == n && !n->disabled && n->editable);
   CogitoStyle s = cogito_theme_resolve_node_state(n, hover || focused, active);
 
   // Draw rounded background

@@ -2846,6 +2846,35 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_node_set_editable")) {
+                        GenExpr node, onv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &onv, err)) { gen_expr_free(&node); return false; }
+                        w_line(&cg->w, "cogito_node_set_editable(%s, %s);", node.tmp, onv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", onv.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_release_except(cg, &onv, onv.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_free(&onv);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_node_get_editable")) {
+                        GenExpr node;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_node_get_editable(%s);", t, node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_node_set_id")) {
                         GenExpr node, idv;
                         if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
@@ -2942,6 +2971,23 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         gen_expr_release_except(cg, &idv, idv.tmp);
                         gen_expr_free(&app);
                         gen_expr_free(&idv);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_app_set_app_name")) {
+                        GenExpr app, namev;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &app, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &namev, err)) { gen_expr_free(&app); return false; }
+                        w_line(&cg->w, "cogito_app_set_app_name(%s, %s);", app.tmp, namev.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", app.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", namev.tmp);
+                        gen_expr_release_except(cg, &app, app.tmp);
+                        gen_expr_release_except(cg, &namev, namev.tmp);
+                        gen_expr_free(&app);
+                        gen_expr_free(&namev);
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
                         gen_expr_add(out, t);

@@ -21,7 +21,7 @@ case COGITO_TEXTFIELD: {
           cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border, radius, border_w);
         }
       }
-      if (cogito_focused == n && !n->disabled) {
+      if (cogito_focused == n && !n->disabled && n->editable) {
         CogitoColor focus = s.has_selection ? s.selection : n->selection_color;
         cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, focus, radius, border_w > 0 ? border_w : 2);
       }
@@ -33,7 +33,7 @@ case COGITO_TEXTFIELD: {
       const char* placeholder = (n->subtitle && n->subtitle->data && n->subtitle->data[0]) ? n->subtitle->data : NULL;
       bool has_placeholder = placeholder && placeholder[0];
       int ty = n->y + (n->h - th) / 2;
-      bool focused = (cogito_focused == n && !n->disabled);
+      bool focused = (cogito_focused == n && !n->disabled && n->editable);
       bool float_placeholder = has_placeholder && (focused || has_text);
       if (has_placeholder) {
         double now = 0.0;
@@ -92,7 +92,7 @@ case COGITO_TEXTFIELD: {
           cogito_draw_text_size_node(n, n->x + pad + sx2, ty, sbuf, sel_text, size, cogito_node_bold(n));
         }
       }
-      if (cogito_focused == n && !n->disabled) {
+      if (cogito_focused == n && !n->disabled && n->editable) {
         int caret = n->caret;
         if (caret < 0) caret = 0;
         int tw = cogito_text_width_size_n_node(n, t, caret, size);

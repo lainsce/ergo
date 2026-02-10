@@ -27,6 +27,9 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (winv.tag != EVT_OBJ) ergo_trap("cogito.run expects window");
   CogitoApp* app = (CogitoApp*)appv.as.p;
   CogitoNode* win = (CogitoNode*)winv.as.p;
+  const char* title = (win->text && win->text->data && win->text->data[0]) ? win->text->data : "Cogito";
+  const char* app_id = (app && app->app_id && app->app_id->data && app->app_id->data[0]) ? app->app_id->data : NULL;
+  const char* app_name = (app && app->app_name && app->app_name->data && app->app_name->data[0]) ? app->app_name->data : title;
   cogito_active_window = win;
   cogito_active_app = app;
   cogito_update_system_theme(app);
@@ -35,6 +38,14 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (cogito_debug_style_enabled_internal()) {
     cogito_style_dump_tree_internal(win, 0);
   }
+  (void)SDL_SetHint(SDL_HINT_APP_NAME, app_name);
+  if (app_id && app_id[0]) {
+    (void)SDL_SetHint(SDL_HINT_APP_ID, app_id);
+  }
+  (void)SDL_SetAppMetadata(app_name, NULL, app_id ? app_id : app_name);
+#if defined(__APPLE__)
+  cogito_macos_set_process_name(app_name);
+#endif
   
   // Initialize SDL3 backend
   if (!cogito_backend) {
@@ -54,7 +65,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
   }
   
-  const char* title = win->text ? win->text->data : "Cogito";
   CogitoNode* appbar = cogito_find_appbar(win);
   
   // Create window via backend
@@ -82,9 +92,12 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   
 #if defined(__APPLE__)
   cogito_configure_macos_window(appbar != NULL);
+  bool macos_app_name_pending = !cogito_macos_apply_app_name(app_name);
   if (win->a11y_label) {
     cogito_macos_set_window_a11y_label(win->a11y_label->data);
   }
+#else
+  bool macos_app_name_pending = false;
 #endif
 
   // Font loading (stubbed for Phase 2)
@@ -220,6 +233,11 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   while (!cogito_backend->window_should_close(window) && !win->should_close) {
     // Poll events
     cogito_backend->poll_events();
+#if defined(__APPLE__)
+    if (macos_app_name_pending) {
+      macos_app_name_pending = !cogito_macos_apply_app_name(app_name);
+    }
+#endif
     
     if (cogito_active_app) {
       cogito_update_system_theme(cogito_active_app);
@@ -290,7 +308,9 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
     
     float wheel = cogito_backend->get_mouse_wheel_move();
-    bool click = cogito_backend->is_mouse_button_pressed(0);  // Left button
+    bool left_down = cogito_backend->is_mouse_button_down(0);
+    bool left_pressed = cogito_backend->is_mouse_button_pressed(0);
+    bool click = left_pressed;  // Left button
     if (cogito_pointer_capture && cogito_backend->is_mouse_button_released(0)) {
       cogito_pointer_capture = NULL;
     }
@@ -321,6 +341,12 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       imx < inspector_frame_x + inspector_frame_w &&
       imy < inspector_frame_y + inspector_frame_h;
     bool route_main_pointer = main_mouse_inside && !inspector_mouse_in_frame;
+    cogito_main_pointer_x = mx;
+    cogito_main_pointer_y = my;
+    cogito_main_pointer_valid = main_mouse_inside;
+    cogito_main_pointer_routed = route_main_pointer;
+    cogito_main_pointer_down = left_down;
+    cogito_main_pointer_pressed = left_pressed;
 
     // Update stepper hit states for hover effects.
     if (route_main_pointer) {
@@ -342,7 +368,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       inspector_btn_close_x = inspector_frame_x + inspector_traffic_pad_x;
       inspector_btn_min_x = inspector_btn_close_x + inspector_traffic_btn + inspector_traffic_gap;
       inspector_btn_max_x = inspector_btn_min_x + inspector_traffic_btn + inspector_traffic_gap;
-      bool down = cogito_backend && cogito_backend->is_mouse_button_down && cogito_backend->is_mouse_button_down(0);
+      bool down = left_down;
       cogito_traffic_lights_compute(
         inspector_btn_close_x, inspector_btn_min_x, inspector_btn_max_x, inspector_btn_y, inspector_traffic_btn,
         imx, imy, down, &inspector_lights
@@ -447,10 +473,12 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
 
     // Text input handling
-    if (cogito_focused && !cogito_focused->disabled &&
-        (cogito_focused->kind == COGITO_TEXTFIELD || cogito_focused->kind == COGITO_TEXTVIEW ||
-         cogito_focused->kind == COGITO_SEARCHFIELD ||
-         (cogito_focused->kind == COGITO_COLORPICKER && cogito_focused->color_hex_editing))) {
+    bool focused_text_editable = cogito_focused &&
+      (cogito_focused->kind == COGITO_TEXTFIELD || cogito_focused->kind == COGITO_TEXTVIEW || cogito_focused->kind == COGITO_SEARCHFIELD) &&
+      cogito_focused->editable;
+    bool focused_color_hex_edit = cogito_focused &&
+      cogito_focused->kind == COGITO_COLORPICKER && cogito_focused->color_hex_editing;
+    if (cogito_focused && !cogito_focused->disabled && (focused_text_editable || focused_color_hex_edit)) {
       bool changed = false;
       int ch = cogito_backend->get_char_pressed();
       while (ch > 0) {
@@ -546,10 +574,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
 
     // Text selection handling
-    if (cogito_focused && !cogito_focused->disabled &&
-        (cogito_focused->kind == COGITO_TEXTFIELD || cogito_focused->kind == COGITO_TEXTVIEW ||
-         cogito_focused->kind == COGITO_SEARCHFIELD ||
-         (cogito_focused->kind == COGITO_COLORPICKER && cogito_focused->color_hex_editing))) {
+    if (cogito_focused && !cogito_focused->disabled && (focused_text_editable || focused_color_hex_edit)) {
       if (cogito_backend->is_mouse_button_down(0) && cogito_focused->selecting) {
         int pad = 8;
         int size = cogito_node_font_size(cogito_focused);

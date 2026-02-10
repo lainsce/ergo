@@ -57,6 +57,7 @@ typedef struct CogitoApp {
   ErgoObj base;
   void* native;
   ErgoStr* app_id;
+  ErgoStr* app_name;
   bool accent_override;
   CogitoColor accent_color;
   bool accent_set;
@@ -407,6 +408,7 @@ typedef struct CogitoNode {
   bool text_ellipsis;
   int text_align;
   bool disabled;
+  bool editable;
   double slider_min;
   double slider_max;
   double slider_value;
@@ -636,6 +638,12 @@ static int cogito_inspector_view_x = 0;
 static int cogito_inspector_view_y = 0;
 static int cogito_inspector_view_w = 0;
 static int cogito_inspector_view_h = 0;
+static int cogito_main_pointer_x = 0;
+static int cogito_main_pointer_y = 0;
+static bool cogito_main_pointer_valid = false;
+static bool cogito_main_pointer_routed = false;
+static bool cogito_main_pointer_down = false;
+static bool cogito_main_pointer_pressed = false;
 #define COGITO_INSPECTOR_MAX_NODES 2048
 static CogitoNode* cogito_inspector_nodes[COGITO_INSPECTOR_MAX_NODES];
 static int cogito_inspector_depths[COGITO_INSPECTOR_MAX_NODES];
@@ -646,12 +654,17 @@ static int cogito_inspector_collapsed_count = 0;
 
 static CogitoWindow* cogito_backend_window_for_node(CogitoNode* node) {
   if (!node || !cogito_active_window || !cogito_active_backend_window) return NULL;
-  if (node == cogito_active_window) return cogito_active_backend_window;
+  CogitoNode* root = node;
+  while (root->parent) {
+    root = root->parent;
+  }
+  if (root == cogito_active_window) return cogito_active_backend_window;
   return NULL;
 }
 
 #if defined(__APPLE__)
 typedef unsigned long CogitoNSUInteger;
+typedef long CogitoNSInteger;
 
 static id cogito_nsstring(const char* s) {
   id nsstring = (id)objc_getClass("NSString");
@@ -741,6 +754,42 @@ static void cogito_macos_set_window_shadow(CogitoWindow* backend_window, bool en
   SEL sel = sel_registerName("setHasShadow:");
   if (!sel) return;
   ((void (*)(id, SEL, BOOL))objc_msgSend)(nsw, sel, (BOOL)(enable ? 1 : 0));
+}
+
+static void cogito_macos_set_process_name(const char* name) {
+  const char* process_name = (name && name[0]) ? name : "Cogito";
+  setprogname(process_name);
+  Class nsprocess = (Class)objc_getClass("NSProcessInfo");
+  if (!nsprocess) return;
+  SEL sel_process_info = sel_registerName("processInfo");
+  id process_info = ((id (*)(id, SEL))objc_msgSend)((id)nsprocess, sel_process_info);
+  if (!process_info) return;
+  SEL sel_set_name = sel_registerName("setProcessName:");
+  if (!sel_set_name) return;
+  ((void (*)(id, SEL, id))objc_msgSend)(process_info, sel_set_name, cogito_nsstring(process_name));
+}
+
+static bool cogito_macos_apply_app_name(const char* name) {
+  const char* app_name = (name && name[0]) ? name : "Cogito";
+  cogito_macos_set_process_name(app_name);
+
+  Class nsapp = (Class)objc_getClass("NSApplication");
+  if (!nsapp) return false;
+  SEL sel_shared = sel_registerName("sharedApplication");
+  id app = ((id (*)(id, SEL))objc_msgSend)((id)nsapp, sel_shared);
+  if (!app) return false;
+
+  SEL sel_main_menu = sel_registerName("mainMenu");
+  id main_menu = ((id (*)(id, SEL))objc_msgSend)(app, sel_main_menu);
+  if (!main_menu) return false;
+
+  SEL sel_item_at_index = sel_registerName("itemAtIndex:");
+  id app_item = ((id (*)(id, SEL, CogitoNSInteger))objc_msgSend)(main_menu, sel_item_at_index, (CogitoNSInteger)0);
+  if (!app_item) return false;
+
+  SEL sel_set_title = sel_registerName("setTitle:");
+  ((void (*)(id, SEL, id))objc_msgSend)(app_item, sel_set_title, cogito_nsstring(app_name));
+  return true;
 }
 #endif
 

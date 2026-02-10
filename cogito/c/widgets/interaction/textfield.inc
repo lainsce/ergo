@@ -51,6 +51,7 @@ static CogitoNode* cogito_find_text_input(CogitoNode* n, int x, int y) {
     }
   }
   if ((n->kind == COGITO_TEXTFIELD || n->kind == COGITO_TEXTVIEW || n->kind == COGITO_SEARCHFIELD) &&
+      n->editable &&
       cogito_hit_node(n, x, y)) return n;
   if (n->kind == COGITO_COLORPICKER) {
     int hx = 0, hy = 0, hw = 0, hh = 0;

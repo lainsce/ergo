@@ -5,6 +5,7 @@
 #undef cogito_app_free
 #undef cogito_app_run
 #undef cogito_app_set_appid
+#undef cogito_app_set_app_name
 #undef cogito_app_set_accent_color
 #undef cogito_window_new
 #undef cogito_window_free
@@ -52,6 +53,8 @@
 #undef cogito_node_set_text
 #undef cogito_node_get_text
 #undef cogito_node_set_disabled
+#undef cogito_node_set_editable
+#undef cogito_node_get_editable
 #undef cogito_node_set_class
 #undef cogito_node_set_a11y_label
 #undef cogito_node_set_a11y_role
@@ -394,6 +397,14 @@ static void __cogito_app_set_appid(ErgoVal appv, ErgoVal idv) {
   ErgoStr* tmp = NULL;
   const char* id = cogito_optional_cstr(idv, &tmp);
   if (id) cogito_app_set_appid(app, id);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
+static void __cogito_app_set_app_name(ErgoVal appv, ErgoVal namev) {
+  cogito_app* app = cogito_app_from_val(appv);
+  ErgoStr* tmp = NULL;
+  const char* name = cogito_optional_cstr(namev, &tmp);
+  if (name) cogito_app_set_app_name(app, name);
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
 
@@ -993,6 +1004,16 @@ static void __cogito_node_set_disabled(ErgoVal nodev, ErgoVal onv) {
   cogito_node_set_disabled(node, onv.tag == EVT_BOOL ? onv.as.b : false);
 }
 
+static void __cogito_node_set_editable(ErgoVal nodev, ErgoVal onv) {
+  cogito_node* node = cogito_node_from_val(nodev);
+  cogito_node_set_editable(node, onv.tag == EVT_BOOL ? onv.as.b : false);
+}
+
+static ErgoVal __cogito_node_get_editable(ErgoVal nodev) {
+  cogito_node* node = cogito_node_from_val(nodev);
+  return EV_BOOL(cogito_node_get_editable(node));
+}
+
 static void __cogito_node_set_id(ErgoVal nodev, ErgoVal idv) {
   cogito_node* node = cogito_node_from_val(nodev);
   ErgoStr* tmp = NULL;
@@ -1550,6 +1571,7 @@ static void __cogito_load_sum(ErgoVal pathv) {
 // ---- Codegen aliases ----
 #define cogito_app_new __cogito_app
 #define cogito_app_set_appid __cogito_app_set_appid
+#define cogito_app_set_app_name __cogito_app_set_app_name
 #define cogito_app_set_accent_color __cogito_app_set_accent_color
 #define cogito_window_new __cogito_window
 #define cogito_window_set_resizable __cogito_window_set_resizable
@@ -1612,12 +1634,15 @@ static void __cogito_load_sum(ErgoVal pathv) {
 #define cogito_label_set_ellipsis __cogito_label_set_ellipsis
 #define cogito_label_set_align __cogito_label_set_align
 #define cogito_node_set_disabled __cogito_node_set_disabled
+#define cogito_node_set_editable __cogito_node_set_editable
+#define cogito_node_get_editable __cogito_node_get_editable
 #define cogito_node_set_id __cogito_node_set_id
 #define cogito_node_set_class __cogito_node_set_class
 #define cogito_node_set_a11y_label __cogito_node_set_a11y_label
 #define cogito_node_set_a11y_role __cogito_node_set_a11y_role
 #define cogito_node_set_tooltip_val __cogito_node_set_tooltip
 #define cogito_app_set_appid __cogito_app_set_appid
+#define cogito_app_set_app_name __cogito_app_set_app_name
 #define cogito_app_set_accent_color __cogito_app_set_accent_color
 #define cogito_pointer_capture_set __cogito_pointer_capture
 #define cogito_pointer_capture_clear __cogito_pointer_release

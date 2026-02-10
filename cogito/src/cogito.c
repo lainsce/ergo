@@ -34,6 +34,7 @@ static const char* cogito_font_bold_path_active = NULL;
 // Rename internal Ergo-facing symbols to avoid conflicts with public C API.
 #define cogito_app_new cogito_app_new_ergo
 #define cogito_app_set_appid cogito_app_set_appid_ergo
+#define cogito_app_set_app_name cogito_app_set_app_name_ergo
 #define cogito_app_set_accent_color cogito_app_set_accent_color_ergo
 #define cogito_window_new cogito_window_new_ergo
 #define cogito_window_set_resizable cogito_window_set_resizable_ergo
@@ -164,6 +165,8 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_node_window_val cogito_node_window_val_ergo
 #define cogito_node_set_text cogito_node_set_text_ergo
 #define cogito_node_set_disabled cogito_node_set_disabled_ergo
+#define cogito_node_set_editable cogito_node_set_editable_ergo
+#define cogito_node_get_editable cogito_node_get_editable_ergo
 #define cogito_node_set_class cogito_node_set_class_ergo
 #define cogito_node_set_a11y_label cogito_node_set_a11y_label_ergo
 #define cogito_node_set_a11y_role cogito_node_set_a11y_role_ergo
@@ -195,6 +198,7 @@ static const char* cogito_font_bold_path_active = NULL;
 // Restore public names.
 #undef cogito_app_new
 #undef cogito_app_set_appid
+#undef cogito_app_set_app_name
 #undef cogito_app_set_accent_color
 #undef cogito_window_new
 #undef cogito_window_set_resizable
@@ -263,6 +267,8 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_image_set_icon
 #undef cogito_node_set_text
 #undef cogito_node_set_disabled
+#undef cogito_node_set_editable
+#undef cogito_node_get_editable
 #undef cogito_node_set_class
 #undef cogito_node_set_a11y_label
 #undef cogito_node_set_a11y_role
@@ -438,6 +444,13 @@ void cogito_app_set_appid(cogito_app* app, const char* rdnn) {
   ErgoVal idv = cogito_val_from_cstr(rdnn);
   cogito_app_set_appid_ergo(EV_OBJ(app), idv);
   if (idv.tag == EVT_STR) ergo_release_val(idv);
+}
+
+void cogito_app_set_app_name(cogito_app* app, const char* name) {
+  if (!app) return;
+  ErgoVal nv = cogito_val_from_cstr(name);
+  cogito_app_set_app_name_ergo(EV_OBJ(app), nv);
+  if (nv.tag == EVT_STR) ergo_release_val(nv);
 }
 
 void cogito_app_set_accent_color(cogito_app* app, const char* hex, bool follow_system) {
@@ -799,6 +812,17 @@ void cogito_load_sum(ErgoVal pathv) {
 void cogito_node_set_disabled(cogito_node* node, bool on) {
   if (!node) return;
   cogito_node_set_disabled_ergo(EV_OBJ(node), EV_BOOL(on));
+}
+
+void cogito_node_set_editable(cogito_node* node, bool on) {
+  if (!node) return;
+  cogito_node_set_editable_ergo(EV_OBJ(node), EV_BOOL(on));
+}
+
+bool cogito_node_get_editable(cogito_node* node) {
+  if (!node) return false;
+  ErgoVal v = cogito_node_get_editable_ergo(EV_OBJ(node));
+  return ergo_as_bool(v);
 }
 
 void cogito_node_set_class(cogito_node* node, const char* cls) {

@@ -154,7 +154,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
 
     display.align_end()
     display.set_hexpand(true)
-    display.set_disabled(true)
+    display.set_editable(false)
     root.add(display)
 
     let keypad = cogito.grid(4)
@@ -194,5 +194,6 @@ entry () (( -- )) {
     win.build(build_ui)
     win.set_resizable(false)
     app.set_appid(@"ergo.cogito.Calc")
+    app.set_app_name(@"ErgoCalc")
     app.run(win)
 }

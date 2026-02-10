@@ -733,6 +733,9 @@ static void sdl3_get_mouse_position_in_window(CogitoWindow* window, int* x, int*
     int wx = 0;
     int wy = 0;
     SDL_GetWindowPosition(win->sdl_window, &wx, &wy);
+
+    // SDL documents these in the same desktop coordinate space; convert to
+    // window-local coordinates by subtracting the window origin.
     if (x) *x = (int)(gx - (float)wx);
     if (y) *y = (int)(gy - (float)wy);
 }

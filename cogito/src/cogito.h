@@ -79,6 +79,7 @@ void cogito_app_free(cogito_app* app);
 void cogito_app_run(cogito_app* app, cogito_window* window);
 
 void cogito_app_set_appid(cogito_app* app, const char* rdnn);
+void cogito_app_set_app_name(cogito_app* app, const char* name);
 void cogito_app_set_accent_color(cogito_app* app, const char* hex, bool follow_system);
 
 cogito_window* cogito_window_new(const char* title, int w, int h);
@@ -145,6 +146,8 @@ void cogito_node_set_id(cogito_node* node, const char* id);
 void cogito_node_set_text(cogito_node* node, const char* text);
 const char* cogito_node_get_text(cogito_node* node);
 void cogito_node_set_disabled(cogito_node* node, bool on);
+void cogito_node_set_editable(cogito_node* node, bool on);
+bool cogito_node_get_editable(cogito_node* node);
 void cogito_node_set_class(cogito_node* node, const char* cls);
 void cogito_node_set_a11y_label(cogito_node* node, const char* label);
 void cogito_node_set_a11y_role(cogito_node* node, const char* role);

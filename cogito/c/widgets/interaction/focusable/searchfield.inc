@@ -1,2 +1,2 @@
 case COGITO_SEARCHFIELD:
-      return true;
+      return n->editable;

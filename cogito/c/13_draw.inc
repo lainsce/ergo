@@ -555,6 +555,12 @@ static void cogito_inspector_panel_rect(CogitoNode* win, int* out_x, int* out_y,
   if (out_tree_w) *out_tree_w = tree_w;
 }
 
+static void cogito_inspector_tree_metrics(int* out_header_h, int* out_row_h, int* out_pad) {
+  if (out_header_h) *out_header_h = 32;
+  if (out_row_h) *out_row_h = 22;
+  if (out_pad) *out_pad = 6;
+}
+
 static bool cogito_inspector_is_collapsed(CogitoNode* n) {
   if (!n) return false;
   for (int i = 0; i < cogito_inspector_collapsed_count; i++) {
@@ -633,9 +639,10 @@ static bool cogito_inspector_handle_click(CogitoNode* win, int x, int y) {
   if (!cogito_hit_rect(x, y, px, py, pw, ph)) return false;
 
   cogito_inspector_rebuild_tree(win);
-  const int header_h = 28;
-  const int row_h = 18;
-  const int pad = 8;
+  int header_h = 0;
+  int row_h = 0;
+  int pad = 0;
+  cogito_inspector_tree_metrics(&header_h, &row_h, &pad);
   int list_y = py + header_h + 4;
   int list_h = ph - (header_h + 8);
   if (cogito_hit_rect(x, y, px, list_y, tree_w, list_h)) {
@@ -646,7 +653,7 @@ static bool cogito_inspector_handle_click(CogitoNode* win, int x, int y) {
       int row_y = list_y + row * row_h;
       int indent_x = px + pad + depth * 12;
       int chevron_x = indent_x;
-      int chevron_y = row_y + 3;
+      int chevron_y = row_y + (row_h - 12) / 2;
       int chevron_w = 10;
       int chevron_h = 12;
       if (n && n->len > 0 && cogito_hit_rect(x, y, chevron_x, chevron_y, chevron_w, chevron_h)) {
@@ -690,6 +697,85 @@ static int cogito_inspector_draw_prop_kv_row(CogitoNode* win, int x, int y, int 
   return y + row_h + 4;
 }
 
+static int cogito_inspector_draw_geometry_state_widget(CogitoNode* win, int x, int y, int w,
+                                                       int geom_w, int geom_h,
+                                                       bool hover, bool active, bool focused, bool disabled,
+                                                       CogitoColor text, CogitoColor muted) {
+  if (!win || w <= 0) return y;
+  const int label_size = 12;
+  const int label_h = cogito_text_height_size(label_size);
+  if (geom_w < 1) geom_w = 1;
+  if (geom_h < 1) geom_h = 1;
+
+  bool representation = (geom_w > 300 || geom_h > 300);
+  int box_w = geom_w;
+  int box_h = geom_h;
+  if (representation) {
+    float sx = 140.0f / (float)geom_w;
+    float sy = 140.0f / (float)geom_h;
+    float s = sx < sy ? sx : sy;
+    if (s > 1.0f) s = 1.0f;
+    box_w = (int)lroundf((float)geom_w * s);
+    box_h = (int)lroundf((float)geom_h * s);
+    if (box_w < 1) box_w = 1;
+    if (box_h < 1) box_h = 1;
+  }
+
+  int canvas_pad = 8;
+  int canvas_x = x + canvas_pad;
+  int canvas_w = w - canvas_pad * 2;
+  if (canvas_w < 16) canvas_w = 16;
+  int box_x = x + (w - box_w) / 2;
+  int top_y = y;
+  int box_y = top_y + label_h + 4;
+
+  char val[32];
+  snprintf(val, sizeof(val), "w: %d%s", geom_w, representation ? " (repr)" : "");
+  int tw = cogito_text_width_size_node(win, val, label_size);
+  int wx = box_x + (box_w - tw) / 2;
+  if (wx < canvas_x) wx = canvas_x;
+  if (wx + tw > canvas_x + canvas_w) wx = canvas_x + canvas_w - tw;
+  cogito_draw_text_size_node(win, wx, top_y, val, muted, label_size, false);
+
+  CogitoColor box_bg = cogito_rgba(46, 204, 113, 50);
+  CogitoColor box_border = cogito_rgba(22, 120, 66, 210);
+  if (cogito_backend && cogito_backend->begin_scissor && cogito_backend->end_scissor) {
+    cogito_backend->begin_scissor(canvas_x, box_y, canvas_w, box_h);
+    cogito_draw_rect(box_x, box_y, box_w, box_h, box_bg, 0);
+    cogito_draw_rect_lines(box_x, box_y, box_w, box_h, box_border, 0, 2);
+    cogito_backend->end_scissor();
+  } else {
+    cogito_draw_rect(box_x, box_y, box_w, box_h, box_bg, 0);
+    cogito_draw_rect_lines(box_x, box_y, box_w, box_h, box_border, 0, 2);
+  }
+
+  snprintf(val, sizeof(val), "h: %d", geom_h);
+  int vh = cogito_text_height_size(label_size);
+  int hw = cogito_text_width_size_node(win, val, label_size);
+  int hx = x + w - hw - 2;
+  int hy = box_y + (box_h - vh) / 2;
+  cogito_draw_text_size_node(win, hx, hy, val, muted, label_size, false);
+
+  int sy = box_y + box_h + 8;
+  bool any = false;
+  const char* states[4] = {"hover", "active", "focused", "disabled"};
+  bool flags[4] = {hover, active, focused, disabled};
+  for (int i = 0; i < 4; i++) {
+    if (!flags[i]) continue;
+    any = true;
+    int sw = cogito_text_width_size_node(win, states[i], label_size);
+    cogito_draw_text_size_node(win, x + (w - sw) / 2, sy, states[i], text, label_size, true);
+    sy += label_h + 2;
+  }
+  if (!any) {
+    const char* none = "no active state";
+    int sw = cogito_text_width_size_node(win, none, label_size);
+    cogito_draw_text_size_node(win, x + (w - sw) / 2, sy, none, muted, label_size, false);
+    sy += label_h + 2;
+  }
+  return sy + 2;
+}
+
 static void cogito_draw_inspector_panel(CogitoNode* win) {
   if (!cogito_inspector_open || !win) return;
   cogito_inspector_rebuild_tree(win);
@@ -697,29 +783,29 @@ static void cogito_draw_inspector_panel(CogitoNode* win) {
 
   int px = 0, py = 0, pw = 0, ph = 0, tree_w = 0;
   cogito_inspector_panel_rect(win, &px, &py, &pw, &ph, &tree_w);
-  const int header_h = 28;
-  const int row_h = 18;
-  const int text_size = 12;
-  const int pad = 8;
+  int header_h = 0;
+  int row_h = 0;
+  int pad = 0;
+  cogito_inspector_tree_metrics(&header_h, &row_h, &pad);
+  const int text_size = 13;
 
-  CogitoColor bg = cogito_rgba(18, 21, 26, 238);
-  CogitoColor panel = cogito_rgba(23, 26, 32, 245);
+  CogitoColor bg = cogito_rgba(18, 21, 26, 255);
+  CogitoColor panel = cogito_rgba(23, 26, 32, 255);
   CogitoColor border = cogito_rgba(75, 82, 95, 255);
   CogitoColor text = cogito_rgba(220, 226, 235, 255);
   CogitoColor muted = cogito_rgba(160, 170, 184, 255);
   CogitoColor selected_bg = cogito_rgba(45, 74, 124, 255);
-  CogitoColor prop_row_bg = cogito_rgba(28, 33, 40, 235);
-  CogitoColor prop_row_bg_alt = cogito_rgba(32, 37, 46, 235);
-  CogitoColor prop_row_border = cogito_rgba(75, 82, 95, 180);
+  CogitoColor prop_row_bg = cogito_rgba(28, 33, 40, 255);
+  CogitoColor prop_row_bg_alt = cogito_rgba(32, 37, 46, 255);
+  CogitoColor prop_row_border = cogito_rgba(75, 82, 95, 128);
 
   cogito_draw_rect(px, py, pw, ph, bg, 0);
   cogito_draw_rect(px, py, tree_w, ph, panel, 0);
   cogito_draw_line(px + tree_w, py, px + tree_w, py + ph, border);
   cogito_draw_line(px, py + header_h, px + pw, py + header_h, border);
 
-  cogito_draw_text_size_node(win, px + pad, py + 6, "Inspector", text, 13, true);
-  cogito_draw_text_size_node(win, px + pad, py + header_h - 16, "Widget Tree", muted, 11, false);
-  cogito_draw_text_size_node(win, px + tree_w + pad, py + header_h - 16, "Selected Node", muted, 11, false);
+  cogito_draw_text_size_node(win, px + pad, py + header_h - 16, "Widget Tree", muted, 13, false);
+  cogito_draw_text_size_node(win, px + tree_w + pad, py + header_h - 16, "Selected Node", muted, 13, false);
 
   int list_y = py + header_h + 4;
   int visible_rows = (ph - (header_h + 8)) / row_h;
@@ -772,24 +858,12 @@ static void cogito_draw_inspector_panel(CogitoNode* win) {
   );
   row_alt = !row_alt;
 
-  snprintf(value, sizeof(value), "x=%d y=%d w=%d h=%d", s->x, s->y, s->w, s->h);
-  ry = cogito_inspector_draw_prop_kv_row(
-    win, rx, ry, rw, "geometry", value, muted, text,
-    row_alt ? prop_row_bg_alt : prop_row_bg, prop_row_border, text_size, row_pad
-  );
-  row_alt = !row_alt;
-
   bool hover = false, active = false;
   if (!s->disabled && cogito_backend_ready && cogito_backend) {
     cogito_node_hover_state(s, &hover, &active);
   }
-  snprintf(value, sizeof(value), "hover=%d active=%d focused=%d disabled=%d",
-           hover ? 1 : 0, active ? 1 : 0, (s == cogito_focused) ? 1 : 0, s->disabled ? 1 : 0);
-  ry = cogito_inspector_draw_prop_kv_row(
-    win, rx, ry, rw, "state", value, muted, text,
-    row_alt ? prop_row_bg_alt : prop_row_bg, prop_row_border, text_size, row_pad
-  );
-  row_alt = !row_alt;
+  bool focused = (s == cogito_focused);
+  bool disabled = s->disabled;
 
   cogito_inspector_color_hex(s->bg, cbuf1, sizeof(cbuf1));
   cogito_inspector_color_hex(s->text_color, cbuf2, sizeof(cbuf2));
@@ -844,6 +918,14 @@ static void cogito_draw_inspector_panel(CogitoNode* win) {
   ry = cogito_inspector_draw_prop_kv_row(
     win, rx, ry, rw, "opacity", value, muted, text,
     row_alt ? prop_row_bg_alt : prop_row_bg, prop_row_border, text_size, row_pad
+  );
+
+  ry += 6;
+  (void)cogito_inspector_draw_geometry_state_widget(
+    win, rx, ry, rw,
+    s->w, s->h,
+    hover, active, focused, disabled,
+    text, muted
   );
 }
 

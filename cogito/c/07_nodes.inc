@@ -193,6 +193,7 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->text_ellipsis = false;
   n->text_align = 0;
   n->disabled = false;
+  n->editable = true;
   n->view_id = NULL;
   n->view_active_id = NULL;
   n->slider_min = 0.0;

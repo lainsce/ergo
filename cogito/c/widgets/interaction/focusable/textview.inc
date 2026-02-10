@@ -1,2 +1,2 @@
 case COGITO_TEXTVIEW:
-      return true;
+      return n->editable;

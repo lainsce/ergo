@@ -21,7 +21,7 @@ case COGITO_TEXTVIEW: {
           cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border, radius, border_w);
         }
       }
-      if (cogito_focused == n && !n->disabled) {
+      if (cogito_focused == n && !n->disabled && n->editable) {
         CogitoColor focus = s.has_selection ? s.selection : n->selection_color;
         cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, focus, radius, border_w > 0 ? border_w : 2);
       }
@@ -138,7 +138,7 @@ case COGITO_TEXTVIEW: {
           cy2 += line_h2;
         }
       }
-      if (cogito_focused == n && !n->disabled) {
+      if (cogito_focused == n && !n->disabled && n->editable) {
         int max_w = n->w - pad * 2;
         if (max_w < 1) max_w = 1;
         int len = (int)strlen(t);

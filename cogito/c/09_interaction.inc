@@ -320,12 +320,17 @@ static void cogito_app_drop(ErgoObj* o) {
     ergo_release_val(EV_STR(app->app_id));
     app->app_id = NULL;
   }
+  if (app->app_name) {
+    ergo_release_val(EV_STR(app->app_name));
+    app->app_name = NULL;
+  }
 }
 
 static CogitoApp* cogito_app_new_obj(void) {
   CogitoApp* app = (CogitoApp*)ergo_obj_new(sizeof(CogitoApp), cogito_app_drop);
   app->native = NULL;
   app->app_id = NULL;
+  app->app_name = NULL;
   app->accent_override = false;
   app->accent_color = cogito_rgba(114, 222, 194, 255);
   app->accent_set = false;
@@ -385,6 +390,25 @@ static void cogito_app_set_appid(ErgoVal appv, ErgoVal idv) {
   }
   if (app->app_id) ergo_release_val(EV_STR(app->app_id));
   app->app_id = s;
+  if (temp && s) {
+    // app now owns temp string (ref=1)
+  }
+}
+
+static void cogito_app_set_app_name(ErgoVal appv, ErgoVal namev) {
+  if (appv.tag != EVT_OBJ) ergo_trap("cogito.app_set_app_name expects app");
+  CogitoApp* app = (CogitoApp*)appv.as.p;
+  ErgoStr* s = NULL;
+  bool temp = false;
+  if (namev.tag == EVT_STR) {
+    s = (ErgoStr*)namev.as.p;
+    if (s) ergo_retain_val(EV_STR(s));
+  } else if (namev.tag != EVT_NULL) {
+    s = stdr_to_string(namev);
+    temp = true;
+  }
+  if (app->app_name) ergo_release_val(EV_STR(app->app_name));
+  app->app_name = s;
   if (temp && s) {
     // app now owns temp string (ref=1)
   }
@@ -511,6 +535,31 @@ static void cogito_node_set_disabled(ErgoVal nodev, ErgoVal onv) {
   n->disabled = ergo_as_bool(onv);
   if (n == cogito_focused && n->disabled) cogito_focused = NULL;
   cogito_window_relayout(cogito_node_window(n));
+}
+
+static bool cogito_node_supports_editable(const CogitoNode* n) {
+  if (!n) return false;
+  return n->kind == COGITO_TEXTFIELD || n->kind == COGITO_TEXTVIEW || n->kind == COGITO_SEARCHFIELD;
+}
+
+static void cogito_node_set_editable(ErgoVal nodev, ErgoVal onv) {
+  if (nodev.tag != EVT_OBJ) ergo_trap("cogito.node_set_editable expects object");
+  CogitoNode* n = (CogitoNode*)nodev.as.p;
+  bool on = ergo_as_bool(onv);
+  n->editable = on;
+  if (!on && cogito_node_supports_editable(n)) {
+    if (n == cogito_focused) cogito_focused = NULL;
+    n->selecting = false;
+    n->sel_end = n->sel_start;
+  }
+  cogito_window_relayout(cogito_node_window(n));
+}
+
+static ErgoVal cogito_node_get_editable(ErgoVal nodev) {
+  if (nodev.tag != EVT_OBJ) ergo_trap("cogito.node_get_editable expects object");
+  CogitoNode* n = (CogitoNode*)nodev.as.p;
+  if (!cogito_node_supports_editable(n)) return EV_BOOL(false);
+  return EV_BOOL(n->editable);
 }
 
 static void cogito_node_set_id(ErgoVal nodev, ErgoVal idv) {
