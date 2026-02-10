@@ -1,3 +1,65 @@
+static int cogito_sum_parse_transition_ease(const char* ease) {
+  if (!ease || !ease[0]) return -1;
+  if (strcmp(ease, "linear") == 0) return 0;
+  if (strcmp(ease, "standard") == 0) return 1;
+  if (strcmp(ease, "ease") == 0) return 1;
+  if (strcmp(ease, "ease-in") == 0) return 2;
+  if (strcmp(ease, "ease-out") == 0) return 3;
+  if (strcmp(ease, "ease-in-out") == 0) return 4;
+  if (strcmp(ease, "emphasized") == 0) return 5;
+  if (strcmp(ease, "emphasized-out") == 0) return 6;
+  return 0;
+}
+
+static bool cogito_sum_read_duration_ms(const char** p, int* out_ms) {
+  if (!p || !*p || !out_ms) return false;
+  const char* s = *p;
+  cogito_css_skip_ws(&s);
+  char* end = NULL;
+  double v = strtod(s, &end);
+  if (end == s) return false;
+  s = end;
+  cogito_css_skip_ws(&s);
+  bool seconds = false;
+  if (s[0] == 'm' && s[1] == 's') {
+    s += 2;
+  } else if (s[0] == 's' && !isalnum((unsigned char)s[1]) && s[1] != '_' && s[1] != '-') {
+    seconds = true;
+    s += 1;
+  }
+  int ms = (int)lround(seconds ? (v * 1000.0) : v);
+  if (ms < 0) ms = 0;
+  *out_ms = ms;
+  *p = s;
+  return true;
+}
+
+static bool cogito_sum_read_bool(const char** p, bool* out) {
+  if (!p || !*p || !out) return false;
+  const char* s = *p;
+  cogito_css_skip_ws(&s);
+  char ident[24] = {0};
+  if (cogito_css_read_ident(&s, ident, sizeof(ident))) {
+    if (strcmp(ident, "true") == 0 || strcmp(ident, "yes") == 0 || strcmp(ident, "on") == 0) {
+      *out = true;
+      *p = s;
+      return true;
+    }
+    if (strcmp(ident, "false") == 0 || strcmp(ident, "no") == 0 || strcmp(ident, "off") == 0) {
+      *out = false;
+      *p = s;
+      return true;
+    }
+  }
+  double v = 0.0;
+  if (cogito_css_read_number(&s, &v)) {
+    *out = v != 0.0;
+    *p = s;
+    return true;
+  }
+  return false;
+}
+
 void cogito_sum_apply_property(CogitoStyle* style, const char* prop, const char** p, bool selection_mode) {
   if (selection_mode) {
     if (strcmp(prop, "background") == 0 || strcmp(prop, "background-color") == 0 ||
@@ -26,55 +88,43 @@ void cogito_sum_apply_property(CogitoStyle* style, const char* prop, const char*
     return;
   }
   if (strcmp(prop, "transition") == 0) {
-    double v = 0.0;
-    if (cogito_css_read_number(p, &v)) {
-      int ms = (int)lround(v);
-      if (strstr(*p, "s")) {
-        ms = (int)lround(v * 1000.0);
+    const char* s = *p;
+    for (int i = 0; i < 2; i++) {
+      int ms = 0;
+      if (cogito_sum_read_duration_ms(&s, &ms)) {
+        style->has_transition_ms = true;
+        style->transition_ms = ms;
+        continue;
       }
-      style->has_transition_ms = true;
-      style->transition_ms = ms;
+      cogito_css_skip_ws(&s);
+      char ease[32] = {0};
+      if (cogito_css_read_ident(&s, ease, sizeof(ease))) {
+        style->has_transition_ease = true;
+        style->transition_ease = cogito_sum_parse_transition_ease(ease);
+        continue;
+      }
+      break;
     }
-    char ease[32] = {0};
-    cogito_css_read_ident(p, ease, sizeof(ease));
-    if (ease[0]) {
-      style->has_transition_ease = true;
-      if (strcmp(ease, "linear") == 0) style->transition_ease = 0;
-      else if (strcmp(ease, "standard") == 0) style->transition_ease = 1;
-      else if (strcmp(ease, "ease") == 0) style->transition_ease = 1;
-      else if (strcmp(ease, "ease-in") == 0) style->transition_ease = 2;
-      else if (strcmp(ease, "ease-out") == 0) style->transition_ease = 3;
-      else if (strcmp(ease, "ease-in-out") == 0) style->transition_ease = 4;
-      else if (strcmp(ease, "emphasized") == 0) style->transition_ease = 5;
-      else if (strcmp(ease, "emphasized-out") == 0) style->transition_ease = 6;
-      else style->transition_ease = 0;
-    }
+    *p = s;
     return;
   }
   if (strcmp(prop, "transition-duration") == 0) {
-    double v;
-    if (cogito_css_read_number(p, &v)) {
-      int ms = (int)lround(v);
-      if (strstr(*p, "s")) ms = (int)lround(v * 1000.0);
+    int ms = 0;
+    if (cogito_sum_read_duration_ms(p, &ms)) {
       style->has_transition_ms = true;
       style->transition_ms = ms;
     }
     return;
   }
   if (strcmp(prop, "transition-easing") == 0 || strcmp(prop, "transition-timing-function") == 0) {
+    const char* s = *p;
+    cogito_css_skip_ws(&s);
     char ease[32] = {0};
-    cogito_css_read_ident(p, ease, sizeof(ease));
+    cogito_css_read_ident(&s, ease, sizeof(ease));
+    *p = s;
     if (ease[0]) {
       style->has_transition_ease = true;
-      if (strcmp(ease, "linear") == 0) style->transition_ease = 0;
-      else if (strcmp(ease, "standard") == 0) style->transition_ease = 1;
-      else if (strcmp(ease, "ease") == 0) style->transition_ease = 1;
-      else if (strcmp(ease, "ease-in") == 0) style->transition_ease = 2;
-      else if (strcmp(ease, "ease-out") == 0) style->transition_ease = 3;
-      else if (strcmp(ease, "ease-in-out") == 0) style->transition_ease = 4;
-      else if (strcmp(ease, "emphasized") == 0) style->transition_ease = 5;
-      else if (strcmp(ease, "emphasized-out") == 0) style->transition_ease = 6;
-      else style->transition_ease = 0;
+      style->transition_ease = cogito_sum_parse_transition_ease(ease);
     }
     return;
   }
@@ -545,14 +595,17 @@ static bool cogito_sum_selector_kind(const char* sel, CogitoKind* out_kind, bool
     }
   }
   if (strcmp(s, "appbar") == 0) { if (out_kind) *out_kind = COGITO_APPBAR; return true; }
-  if (strcmp(s, "bottom-nav") == 0) { if (out_kind) *out_kind = COGITO_BOTTOM_NAV; return true; }
+  if (strcmp(s, "bottom-nav") == 0 || strcmp(s, "bottom_nav") == 0) { if (out_kind) *out_kind = COGITO_BOTTOM_NAV; return true; }
   if (strcmp(s, "button") == 0) { if (out_kind) *out_kind = COGITO_BUTTON; return true; }
   if (strcmp(s, "checkbox") == 0) { if (out_kind) *out_kind = COGITO_CHECKBOX; return true; }
   if (strcmp(s, "chip") == 0) { if (out_kind) *out_kind = COGITO_CHIP; return true; }
   if (strcmp(s, "colorpicker") == 0) { if (out_kind) *out_kind = COGITO_COLORPICKER; return true; }
   if (strcmp(s, "datepicker") == 0) { if (out_kind) *out_kind = COGITO_DATEPICKER; return true; }
   if (strcmp(s, "dialog") == 0) { if (out_kind) *out_kind = COGITO_DIALOG; return true; }
-  if (strcmp(s, "dialogslot") == 0) { if (out_kind) *out_kind = COGITO_DIALOG_SLOT; return true; }
+  if (strcmp(s, "dialogslot") == 0 || strcmp(s, "dialog-slot") == 0 || strcmp(s, "dialog_slot") == 0) {
+    if (out_kind) *out_kind = COGITO_DIALOG_SLOT;
+    return true;
+  }
   if (strcmp(s, "dropdown") == 0) { if (out_kind) *out_kind = COGITO_DROPDOWN; return true; }
   if (strcmp(s, "fab") == 0) { if (out_kind) *out_kind = COGITO_FAB; return true; }
   if (strcmp(s, "fixed") == 0) { if (out_kind) *out_kind = COGITO_FIXED; return true; }
@@ -577,6 +630,10 @@ static bool cogito_sum_selector_kind(const char* sel, CogitoKind* out_kind, bool
   if (strcmp(s, "textview") == 0) { if (out_kind) *out_kind = COGITO_TEXTVIEW; return true; }
   if (strcmp(s, "toast") == 0) { if (out_kind) *out_kind = COGITO_TOAST; return true; }
   if (strcmp(s, "toasts") == 0) { if (out_kind) *out_kind = COGITO_TOASTS; return true; }
+  if (strcmp(s, "toolbar") == 0 || strcmp(s, "bottom-toolbar") == 0 || strcmp(s, "bottom_toolbar") == 0) {
+    if (out_kind) *out_kind = COGITO_TOOLBAR;
+    return true;
+  }
   if (strcmp(s, "tooltip") == 0) { if (out_kind) *out_kind = COGITO_TOOLTIP; return true; }
   if (strcmp(s, "treeview") == 0) { if (out_kind) *out_kind = COGITO_TREEVIEW; return true; }
   if (strcmp(s, "viewswitcher") == 0) { if (out_kind) *out_kind = COGITO_VIEWSWITCHER; return true; }
@@ -944,8 +1001,8 @@ static void cogito_load_sum_file(const char* path) {
       if (dw > 0 && dh > 0) {
         cogito_active_window->w = dw;
         cogito_active_window->h = dh;
-        if (cogito_backend_ready && cogito_backend && cogito_active_window) {
-          cogito_backend->window_set_size((CogitoWindow*)cogito_active_window, dw, dh);
+        if (cogito_backend_ready && cogito_backend && cogito_active_backend_window) {
+          cogito_backend->window_set_size(cogito_active_backend_window, dw, dh);
         }
       }
     }

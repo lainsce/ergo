@@ -7,6 +7,30 @@
 window
   background: #111111
 
+vstack
+  background: #111111
+  color: #f2f2f7
+
+hstack
+  background: #111111
+  color: #f2f2f7
+
+zstack
+  background: #111111
+  color: #f2f2f7
+
+fixed
+  background: transparent
+  color: #f2f2f7
+
+scroller
+  background: transparent
+  color: #f2f2f7
+
+dialogslot
+  background: #00000066
+  color: #f2f2f7
+
 button
   background: #d0bcff
   color: #381e72
@@ -153,6 +177,7 @@ progress:selection
   background: #6b6b6f
 
 toasts
+  padding: 12
   color: #f2f2f7
 
 toast
@@ -172,17 +197,20 @@ colorpicker
   padding: 16
 
 colorpicker:selection
-.colorpicker:selection
   background: #3a3a3c
 
 toolbar
   background: #2c2c2e
-
-bottom-toolbar
-  background: #2c2c2e
+  color: #f2f2f7
+  min-height: 44
+  padding: 8 12
 
 iconbtn
   background: #2c2c2e
+  color: #f2f2f7
+  border-radius: 99
+  min-width: 42
+  min-height: 42
 
 image
   min-width: 20
@@ -270,6 +298,8 @@ switch track:active
 
 switch knob
   background: #ffffff
+  min-width: 32
+  min-height: 24
 
 switch knob:hover
   background: #f4f4f4
@@ -287,7 +317,6 @@ switch knob:active
 list
   background: #2c2c2e
   color: #f2f2f7
-  border-radius: 0
 
 list:selection
   background: #3a3a3c
@@ -385,3 +414,142 @@ bottom-nav
 bottom-nav:selection
   background: #4a4458
   color: #e8def8
+
+.datepicker
+  background: #2c2c2e
+  color: #f2f2f7
+  border-radius: 12
+  min-width: 320
+  min-height: 320
+  padding: 16
+
+.datepicker:selection
+  background: #3a3a3c
+
+.textfield:selection
+  background: #3a3a3c
+
+.textview:selection
+  background: #3a3a3c
+
+dropdown:hover
+  background: #3f3c42
+
+searchfield:hover
+  background: #3a3a3c
+
+searchfield:active
+  border-color: #d0bcff
+  border-width: 2
+
+searchfield:selection
+  background: #3a3a3c
+
+segmented:selection
+  background: #3a3a3c
+
+iconbtn:hover
+  background: #3a3a3c
+  color: #f2f2f7
+
+iconbtn:active
+  background: #4a4a4f
+  color: #f2f2f7
+
+appbar .iconbtn
+  background: #2c2c2e
+
+switch .track
+  background: #3a3a3c
+
+switch:checked .track
+  background: #5a5a5f
+
+switch .track:hover
+  background: #4a4a4f
+
+switch .track:active
+  background: #5a5a5f
+
+switch .knob
+  background: #ffffff
+  min-width: 32
+  min-height: 24
+
+switch .knob:hover
+  background: #f4f4f4
+
+switch .knob:active
+  background: #e8e8e8
+
+toast:selection
+  background: #6b6b6f
+
+.primary-container
+  background: #4f378b
+  color: #eaddff
+
+.secondary
+  background: #ccc2dc
+  color: #332d41
+
+.secondary-container
+  background: #4a4458
+  color: #e8def8
+
+.tertiary
+  background: #efb8c8
+  color: #492532
+
+.tertiary-container
+  background: #633b48
+  color: #ffd8e4
+
+.error
+  color: #f2b8b5
+
+.on-error
+  background: #f2b8b5
+  color: #601410
+
+.error-container
+  background: #8c1d18
+  color: #f9dedc
+
+.surface-variant
+  background: #49454f
+  color: #cac4d0
+
+.surface-dim
+  background: #141218
+
+.surface-bright
+  background: #3b383e
+
+.surface-container-lowest
+  background: #0f0d13
+
+.surface-container-low
+  background: #1d1b20
+
+.surface-container
+  background: #211f26
+
+.surface-container-high
+  background: #2b2930
+
+.surface-container-highest
+  background: #36343b
+
+.inverse-surface
+  background: #e6e1e5
+  color: #313033
+
+.inverse-primary
+  color: #6750a4
+
+.outline-variant
+  border-color: #49454f
+
+.scrim
+  background: #000000

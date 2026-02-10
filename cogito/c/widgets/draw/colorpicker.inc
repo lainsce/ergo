@@ -9,9 +9,9 @@ case COGITO_COLORPICKER: {
       int radius = s.has_radius ? s.radius : n->border_radius;
 
       // Draw background
-      cogito_draw_rect(n->x, n->y, n->w, n->h, bg, radius);
+      cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, radius);
       if (border_w > 0) {
-        cogito_draw_rect_lines(n->x, n->y, n->w, n->h, border, radius, border_w);
+        cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border, radius, border_w);
       }
 
       if (!n->text || !n->text->data || !n->text->data[0] || !n->color_hex_editing) {
@@ -88,7 +88,10 @@ case COGITO_COLORPICKER: {
       // Draw hex input field
       CogitoStyle hs = cogito_theme_resolve(COGITO_TEXTFIELD);
       CogitoColor hex_bg = hs.has_bg ? hs.bg : n->bg;
-      CogitoColor hex_border = hs.has_border ? hs.border : cogito_rgba(0, 0, 0, 0);
+      CogitoColor hex_border = hs.has_border ? hs.border : n->border_color;
+      if (!hs.has_border && !n->border_color_set) {
+        hex_border.a = 0;
+      }
       int hex_bw = hs.has_border_width ? hs.border_width : 0;
       int hex_radius = hs.has_radius ? hs.radius : 6;
 
@@ -98,7 +101,13 @@ case COGITO_COLORPICKER: {
       }
 
       int pad = 8;
-      const char* hex = n->text ? n->text->data : "#000000";
+      char hex_buf[8];
+      const char* hex = n->text ? n->text->data : NULL;
+      if (!hex || !hex[0]) {
+        CogitoColor cur = cogito_hct_to_rgb(n->color_h, n->color_c, n->color_t);
+        cogito_color_to_hex(cur, hex_buf);
+        hex = hex_buf;
+      }
       int th = cogito_text_height_size(size);
       int ty = hex_y + (hex_h - th) / 2;
 

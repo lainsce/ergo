@@ -15,6 +15,22 @@ typedef struct CogitoNode cogito_window;
 
 typedef void (*cogito_node_fn)(cogito_node* node, void* user);
 typedef void (*cogito_index_fn)(cogito_node* node, int index, void* user);
+typedef enum {
+  COGITO_WINDOW_HITTEST_NORMAL = 0,
+  COGITO_WINDOW_HITTEST_DRAGGABLE,
+  COGITO_WINDOW_HITTEST_RESIZE_TOPLEFT,
+  COGITO_WINDOW_HITTEST_RESIZE_TOP,
+  COGITO_WINDOW_HITTEST_RESIZE_TOPRIGHT,
+  COGITO_WINDOW_HITTEST_RESIZE_RIGHT,
+  COGITO_WINDOW_HITTEST_RESIZE_BOTTOMRIGHT,
+  COGITO_WINDOW_HITTEST_RESIZE_BOTTOM,
+  COGITO_WINDOW_HITTEST_RESIZE_BOTTOMLEFT,
+  COGITO_WINDOW_HITTEST_RESIZE_LEFT,
+  COGITO_WINDOW_HITTEST_BUTTON_CLOSE,
+  COGITO_WINDOW_HITTEST_BUTTON_MIN,
+  COGITO_WINDOW_HITTEST_BUTTON_MAX,
+} cogito_hit_test_result;
+typedef cogito_hit_test_result (*cogito_hit_test_fn)(cogito_window* window, int x, int y, void* user);
 
 typedef enum {
   COGITO_NODE_WINDOW = 1,
@@ -63,7 +79,7 @@ void cogito_app_free(cogito_app* app);
 void cogito_app_run(cogito_app* app, cogito_window* window);
 
 void cogito_app_set_appid(cogito_app* app, const char* rdnn);
-void cogito_app_set_accent_color(cogito_app* app, const char* hex, bool override_system);
+void cogito_app_set_accent_color(cogito_app* app, const char* hex, bool follow_system);
 
 cogito_window* cogito_window_new(const char* title, int w, int h);
 void cogito_window_free(cogito_window* window);
@@ -71,6 +87,10 @@ void cogito_window_set_resizable(cogito_window* window, bool on);
 void cogito_window_set_autosize(cogito_window* window, bool on);
 void cogito_window_set_a11y_label(cogito_window* window, const char* label);
 void cogito_window_set_builder(cogito_window* window, cogito_node_fn builder, void* user);
+void* cogito_window_get_native_handle(cogito_window* window);
+bool cogito_window_has_native_handle(cogito_window* window);
+void cogito_window_set_hit_test(cogito_window* window, cogito_hit_test_fn callback, void* user);
+void cogito_window_set_debug_overlay(cogito_window* window, bool enable);
 void cogito_rebuild_active_window(void);
 
 // Node creation
@@ -190,6 +210,10 @@ void cogito_segmented_on_select(cogito_node* seg, cogito_node_fn fn, void* user)
 
 // Theming
 void cogito_load_sum_file(const char* path);
+bool cogito_debug_style(void);
+void cogito_style_dump(cogito_node* node);
+void cogito_style_dump_tree(cogito_node* root, int depth);
+void cogito_style_dump_button_demo(void);
 
 #ifdef __cplusplus
 }

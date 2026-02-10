@@ -210,6 +210,26 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
   return NULL;
 }
 
+static CogitoNode* cogito_find_overlay_toast(CogitoNode* n, int x, int y) {
+  if (!n) return NULL;
+  if ((n->kind == COGITO_WINDOW || n->kind == COGITO_DIALOG_SLOT) &&
+      n->dialog && n->dialog_open) {
+    CogitoNode* d = cogito_find_overlay_toast(n->dialog, x, y);
+    if (d) return d;
+  }
+  if (n->kind == COGITO_VIEWSWITCHER) {
+    CogitoNode* active = cogito_view_switcher_active_child(n);
+    if (active) return cogito_find_overlay_toast(active, x, y);
+  } else {
+    for (size_t i = n->len; i > 0; i--) {
+      CogitoNode* child = cogito_find_overlay_toast(n->children[i - 1], x, y);
+      if (child) return child;
+    }
+  }
+  if (n->kind == COGITO_TOAST && cogito_hit_node(n, x, y)) return n;
+  return NULL;
+}
+
 static bool cogito_node_focusable(const CogitoNode* n) {
   if (!n || n->disabled) return false;
   switch (n->kind) {
@@ -370,11 +390,11 @@ static void cogito_app_set_appid(ErgoVal appv, ErgoVal idv) {
   }
 }
 
-static void cogito_app_set_accent_color(ErgoVal appv, ErgoVal colorv, ErgoVal overridev) {
+static void cogito_app_set_accent_color(ErgoVal appv, ErgoVal colorv, ErgoVal follow_systemv) {
   if (appv.tag != EVT_OBJ) ergo_trap("cogito.app_set_accent_color expects app");
   CogitoApp* app = (CogitoApp*)appv.as.p;
-  bool override = ergo_as_bool(overridev);
-  app->accent_override = override;
+  bool follow_system = ergo_as_bool(follow_systemv);
+  app->accent_override = !follow_system;
   if (colorv.tag != EVT_NULL) {
     ErgoStr* s = NULL;
     bool temp = false;
@@ -412,6 +432,11 @@ static void cogito_container_add(ErgoVal parentv, ErgoVal childv) {
   CogitoNode* parent = (CogitoNode*)parentv.as.p;
   CogitoNode* child = (CogitoNode*)childv.as.p;
   cogito_children_add(parent, child);
+  cogito_apply_style_tree(child);
+  if (cogito_backend_ready) {
+    CogitoNode* win = cogito_node_window(parent);
+    if (win) cogito_window_relayout(win);
+  }
 }
 
 static void cogito_container_set_margins(ErgoVal nodev, ErgoVal left, ErgoVal top, ErgoVal right, ErgoVal bottom) {

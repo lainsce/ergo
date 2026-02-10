@@ -6,7 +6,9 @@ case COGITO_WINDOW: {
       }
       if (n->kind == COGITO_WINDOW && n->dialog) {
         if (n->dialog->kind == COGITO_DIALOG_SLOT) {
+          cogito_dialog_slot_force_draw = true;
           cogito_draw_node(n->dialog);
+          cogito_dialog_slot_force_draw = false;
         } else if (n->dialog_open) {
           bool hover = false, active = false;
           cogito_node_hover_state(n, &hover, &active);
@@ -20,5 +22,7 @@ case COGITO_WINDOW: {
       if (n->kind == COGITO_WINDOW && n->popover_open && n->popover) {
         cogito_draw_node(n->popover);
       }
+      // Draw toasts in a final overlay pass so they are never clipped by containers.
+      cogito_draw_toasts_overlay(n);
       break;
 }

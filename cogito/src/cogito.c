@@ -364,6 +364,14 @@ typedef struct CogitoCbIndex {
   CogitoNode* node;
 } CogitoCbIndex;
 
+typedef struct CogitoHitTestAdapter {
+  cogito_window* window;
+  cogito_hit_test_fn fn;
+  void* user;
+} CogitoHitTestAdapter;
+
+static CogitoHitTestAdapter* cogito_hit_test_adapter = NULL;
+
 static ErgoFn* cogito_make_fn(ErgoFnImpl impl, void* env) {
   ErgoFn* fn = (ErgoFn*)malloc(sizeof(ErgoFn));
   if (!fn) return NULL;
@@ -390,6 +398,13 @@ static ErgoVal cogito_cb_index(void* env, int argc, ErgoVal* argv) {
   int idx = (argc > 0) ? (int)ergo_as_int(argv[0]) : -1;
   cb->fn((cogito_node*)cb->node, idx, cb->user);
   return EV_NULLV;
+}
+
+static int cogito_hit_test_bridge(CogitoWindow* window, int x, int y, void* user) {
+  (void)window;
+  CogitoHitTestAdapter* a = (CogitoHitTestAdapter*)user;
+  if (!a || !a->fn) return (int)COGITO_WINDOW_HITTEST_NORMAL;
+  return (int)a->fn(a->window, x, y, a->user);
 }
 
 static ErgoVal cogito_val_from_cstr(const char* s) {
@@ -425,10 +440,10 @@ void cogito_app_set_appid(cogito_app* app, const char* rdnn) {
   if (idv.tag == EVT_STR) ergo_release_val(idv);
 }
 
-void cogito_app_set_accent_color(cogito_app* app, const char* hex, bool override_system) {
+void cogito_app_set_accent_color(cogito_app* app, const char* hex, bool follow_system) {
   if (!app) return;
   ErgoVal hv = cogito_val_from_cstr(hex);
-  cogito_app_set_accent_color_ergo(EV_OBJ(app), hv, EV_BOOL(override_system));
+  cogito_app_set_accent_color_ergo(EV_OBJ(app), hv, EV_BOOL(follow_system));
   if (hv.tag == EVT_STR) ergo_release_val(hv);
 }
 
@@ -468,6 +483,46 @@ void cogito_window_set_builder(cogito_window* window, cogito_node_fn builder, vo
   ErgoFn* wrap = cogito_make_fn(cogito_cb_node, env);
   cogito_window_set_builder_ergo(EV_OBJ(window), EV_FN(wrap));
   ergo_release_val(EV_FN(wrap));
+}
+
+void* cogito_window_get_native_handle(cogito_window* window) {
+  if (!window || !cogito_backend || !cogito_backend->window_get_native_handle) return NULL;
+  CogitoWindow* backend_window = cogito_backend_window_for_node((CogitoNode*)window);
+  if (!backend_window) return NULL;
+  return cogito_backend->window_get_native_handle(backend_window);
+}
+
+bool cogito_window_has_native_handle(cogito_window* window) {
+  return cogito_window_get_native_handle(window) != NULL;
+}
+
+void cogito_window_set_hit_test(cogito_window* window, cogito_hit_test_fn callback, void* user) {
+  if (!window || !cogito_backend || !cogito_backend->window_set_hit_test_callback) return;
+  CogitoWindow* backend_window = cogito_backend_window_for_node((CogitoNode*)window);
+  if (!backend_window) return;
+  if (!callback) {
+    if (cogito_hit_test_adapter) {
+      free(cogito_hit_test_adapter);
+      cogito_hit_test_adapter = NULL;
+    }
+    cogito_backend->window_set_hit_test_callback(backend_window, NULL, NULL);
+    return;
+  }
+  if (!cogito_hit_test_adapter) {
+    cogito_hit_test_adapter = (CogitoHitTestAdapter*)calloc(1, sizeof(*cogito_hit_test_adapter));
+    if (!cogito_hit_test_adapter) return;
+  }
+  cogito_hit_test_adapter->window = window;
+  cogito_hit_test_adapter->fn = callback;
+  cogito_hit_test_adapter->user = user;
+  cogito_backend->window_set_hit_test_callback(backend_window, cogito_hit_test_bridge, cogito_hit_test_adapter);
+}
+
+void cogito_window_set_debug_overlay(cogito_window* window, bool enable) {
+  if (!window || !cogito_backend || !cogito_backend->set_debug_overlay) return;
+  CogitoWindow* backend_window = cogito_backend_window_for_node((CogitoNode*)window);
+  if (!backend_window) return;
+  cogito_backend->set_debug_overlay(backend_window, enable);
 }
 
 void cogito_rebuild_active_window(void) {
@@ -1006,6 +1061,28 @@ void cogito_segmented_on_select(cogito_node* seg, cogito_node_fn fn, void* user)
 void cogito_load_sum_file(const char* path) {
   if (!path) return;
   cogito_load_sum_file_ergo(path);
+}
+
+bool cogito_debug_style(void) {
+  return cogito_debug_style_enabled_internal();
+}
+
+void cogito_style_dump(cogito_node* node) {
+  if (!node) return;
+  cogito_style_dump_internal((CogitoNode*)node);
+}
+
+void cogito_style_dump_tree(cogito_node* root, int depth) {
+  if (!root) return;
+  if (depth < 0) depth = 0;
+  cogito_style_dump_tree_internal((CogitoNode*)root, depth);
+}
+
+void cogito_style_dump_button_demo(void) {
+  cogito_node* demo = cogito_button_new("Style Debug");
+  if (!demo) return;
+  cogito_style_dump(demo);
+  cogito_node_free(demo);
 }
 
 void cogito_node_build(cogito_node* node, cogito_node_fn builder, void* user) {

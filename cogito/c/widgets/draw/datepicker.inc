@@ -13,9 +13,9 @@ case COGITO_DATEPICKER: {
       if (s.has_border_width) border_w = s.border_width;
       if (s.has_radius) radius = s.radius;
       if (n->bg_set || border_w > 0) {
-        cogito_draw_rect(n->x, n->y, n->w, n->h, bg, radius);
+        cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, radius);
         if (border_w > 0) {
-          cogito_draw_rect_lines(n->x, n->y, n->w, n->h, border, radius, border_w);
+          cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border, radius, border_w);
         }
       }
       int pad_l = 0, pad_t = 0, pad_r = 0, pad_b = 0;
@@ -35,6 +35,30 @@ case COGITO_DATEPICKER: {
       int left_x = n->x + pad_l;
       int right_x = n->x + n->w - pad_r - header_h;
       int arrow_y = n->y + pad_t + (header_h - cogito_text_height_size(size)) / 2;
+      int btn_y = n->y + pad_t;
+      int mx = 0, my = 0;
+      bool down = false;
+      if (cogito_backend && cogito_backend->get_mouse_position) {
+        cogito_backend->get_mouse_position(&mx, &my);
+      }
+      if (cogito_backend && cogito_backend->is_mouse_button_down) {
+        down = cogito_backend->is_mouse_button_down(0);
+      }
+      bool over_left = cogito_hit_rect(mx, my, left_x, btn_y, header_h, header_h);
+      bool over_right = cogito_hit_rect(mx, my, right_x, btn_y, header_h, header_h);
+      CogitoColor btn_bg = text;
+      CogitoColor btn_border = text;
+      btn_border.a = 90;
+      CogitoColor btn_bg_left = btn_bg;
+      CogitoColor btn_bg_right = btn_bg;
+      btn_bg_left.a = over_left ? (down ? 96 : 68) : 42;
+      btn_bg_right.a = over_right ? (down ? 96 : 68) : 42;
+      int btn_r = header_h / 2;
+      if (btn_r < 4) btn_r = 4;
+      cogito_draw_rect(left_x, btn_y, header_h, header_h, btn_bg_left, btn_r);
+      cogito_draw_rect(right_x, btn_y, header_h, header_h, btn_bg_right, btn_r);
+      cogito_draw_rect_lines(left_x, btn_y, header_h, header_h, btn_border, btn_r, 1);
+      cogito_draw_rect_lines(right_x, btn_y, header_h, header_h, btn_border, btn_r, 1);
       cogito_draw_text_size_node(n, left_x + (header_h / 2) - 4, arrow_y, "<", text, size, false);
       cogito_draw_text_size_node(n, right_x + (header_h / 2) - 4, arrow_y, ">", text, size, false);
       int first = cogito_weekday(n->date_year, n->date_month, 1);

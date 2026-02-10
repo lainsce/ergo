@@ -1,6 +1,8 @@
 static CogitoNode* cogito_textfield_new_obj(ErgoStr* text) {
   CogitoNode* tf = cogito_node_new(COGITO_TEXTFIELD);
-  cogito_node_set_text(tf, text);
+  // Treat constructor text as placeholder; value starts empty.
+  cogito_node_set_subtitle(tf, text);
+  cogito_node_set_text(tf, NULL);
   return tf;
 }
 static ErgoVal cogito_textfield_new(ErgoVal text) {
@@ -48,7 +50,8 @@ static CogitoNode* cogito_find_text_input(CogitoNode* n, int x, int y) {
       if (hit) return hit;
     }
   }
-  if ((n->kind == COGITO_TEXTFIELD || n->kind == COGITO_TEXTVIEW) && cogito_hit_node(n, x, y)) return n;
+  if ((n->kind == COGITO_TEXTFIELD || n->kind == COGITO_TEXTVIEW || n->kind == COGITO_SEARCHFIELD) &&
+      cogito_hit_node(n, x, y)) return n;
   if (n->kind == COGITO_COLORPICKER) {
     int hx = 0, hy = 0, hw = 0, hh = 0;
     cogito_colorpicker_hex_rect(n, &hx, &hy, &hw, &hh);

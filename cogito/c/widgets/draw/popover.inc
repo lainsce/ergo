@@ -11,13 +11,13 @@ case COGITO_POPOVER: {
 
       // Elevation shadow for popovers
       if (n->shadow_set && n->shadow_level > 0) {
-        cogito_draw_shadow(n->x, n->y, n->w, n->h, n->border_radius, n->shadow_level);
+        cogito_draw_shadow_node_level(n, &s, n->x, n->y, n->w, n->h, n->border_radius, n->shadow_level);
       }
 
       if (n->bg_set || n->border_width > 0) {
-        cogito_draw_rect(n->x, n->y, n->w, n->h, n->bg, n->border_radius);
+        cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, n->bg, n->border_radius);
         if (n->border_width > 0) {
-          cogito_draw_rect_lines(n->x, n->y, n->w, n->h, n->border_color, n->border_radius, n->border_width);
+          cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, n->border_color, n->border_radius, n->border_width);
         }
       }
 
@@ -26,4 +26,3 @@ case COGITO_POPOVER: {
       }
       break;
     }
-

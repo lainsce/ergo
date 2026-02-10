@@ -5,26 +5,45 @@ case COGITO_SWITCH: {
       int text_w = 0;
       if (n->text) text_w = cogito_text_width(n->text->data);
       int intrinsic_w = text_w + 40;
-      int use_w = (n->hexpand && n->w > intrinsic_w) ? n->w : intrinsic_w;
+      int use_w = n->w > 0 ? n->w : intrinsic_w;
+      if (use_w < 24) use_w = 24;
+      int min_track = n->min_w_set ? n->min_w : 64;
+      if (min_track < 24) min_track = 24;
       int track_w = use_w - (n->text ? (text_w + 8) : 0);
-      if (track_w < 24) track_w = 24;
-      if (n->min_w_set && track_w < n->min_w) track_w = n->min_w;
-      if (n->max_w_set && n->max_w > 0 && track_w > n->max_w) track_w = n->max_w;
+      if (track_w < min_track) track_w = min_track;
+      if (track_w > use_w) track_w = use_w;
       int text_h = n->text ? cogito_text_height() : 0;
       int intrinsic_h = text_h + 4;
-      if (intrinsic_h < 18) intrinsic_h = 18;
-      int h = (n->vexpand && n->h > intrinsic_h) ? n->h : intrinsic_h;
-      if (n->min_h_set && h < n->min_h) h = n->min_h;
-      if (n->max_h_set && n->max_h > 0 && h > n->max_h) h = n->max_h;
+      if (intrinsic_h < 28) intrinsic_h = 28;
+      int draw_h = n->h > 0 ? n->h : intrinsic_h;
+      int h = (n->vexpand && draw_h > intrinsic_h) ? draw_h : intrinsic_h;
+      if (h > draw_h) h = draw_h;
       if (h > track_w / 2) h = track_w / 2;
-      if (h < 14) h = 14;
+      if (h < 4) h = 4;
       int w = track_w;
-      int cy = n->y + (n->h - h) / 2;
+      int cy = n->y + (draw_h - h) / 2;
       int cx = n->x;
       bool over = hover;
       bool down = active;
+      CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
       CogitoStyle track_s = cogito_switch_track_style(n->checked, over, down);
       CogitoStyle knob_s = cogito_switch_knob_style(n->checked, over, down);
+      if (!track_s.has_transition_ms && s.has_transition_ms) {
+        track_s.has_transition_ms = true;
+        track_s.transition_ms = s.transition_ms;
+      }
+      if (!track_s.has_transition_ease && s.has_transition_ease) {
+        track_s.has_transition_ease = true;
+        track_s.transition_ease = s.transition_ease;
+      }
+      if (!knob_s.has_transition_ms && s.has_transition_ms) {
+        knob_s.has_transition_ms = true;
+        knob_s.transition_ms = s.transition_ms;
+      }
+      if (!knob_s.has_transition_ease && s.has_transition_ease) {
+        knob_s.has_transition_ease = true;
+        knob_s.transition_ease = s.transition_ease;
+      }
       CogitoColor track_off = n->track_set ? n->track_color : (track_s.has_track ? track_s.track : n->bg);
       CogitoColor track_on = n->track_on_set ? n->track_on_color : (track_s.has_track ? track_s.track : n->bg);
       if (track_s.has_bg) {
@@ -33,41 +52,86 @@ case COGITO_SWITCH: {
       }
       if (track_s.has_track_on) track_on = track_s.track_on;
       CogitoColor track = n->checked ? track_on : track_off;
+      CogitoColor knob_col = n->knob_set ? n->knob_color : (knob_s.has_knob ? knob_s.knob : (knob_s.has_bg ? knob_s.bg : n->knob_color));
 
       // Animate track color
-      cogito_anim_apply(n, &track_s, &track, NULL, NULL, NULL);
+      cogito_anim_apply(n, &track_s, &track, &knob_col, NULL, NULL);
 
       cogito_draw_rect(cx, cy, w, h, track, h / 2);
-      int knob_w = h - 4;
-      int knob_h = h - 4;
-      if (knob_s.has_min_w && knob_w < knob_s.min_w) knob_w = knob_s.min_w;
-      if (knob_s.has_max_w && knob_s.max_w > 0 && knob_w > knob_s.max_w) knob_w = knob_s.max_w;
-      if (knob_s.has_min_h && knob_h < knob_s.min_h) knob_h = knob_s.min_h;
-      if (knob_s.has_max_h && knob_s.max_h > 0 && knob_h > knob_s.max_h) knob_h = knob_s.max_h;
-      if (knob_w < 4) knob_w = 4;
-      if (knob_h < 4) knob_h = 4;
-      if (knob_w > w - 4) knob_w = w - 4;
-      if (knob_h > h - 2) knob_h = h - 2;
-
-      // Animate knob position
-      int kx_target = n->checked ? (cx + w - knob_w - 2) : (cx + 2);
       double now = 0.0;
       if (cogito_backend && cogito_backend->get_time) {
         now = cogito_backend->get_time();
       }
-      int kx = cogito_anim_int(n, kx_target, &n->anim_x, &n->anim_x_from, &n->anim_x_target, now);
 
-      int ky = cy + (h - knob_h) / 2;
-      CogitoColor knob_col = n->knob_set ? n->knob_color : (knob_s.has_knob ? knob_s.knob : (knob_s.has_bg ? knob_s.bg : n->bg));
-      cogito_draw_rect(kx, ky, knob_w, knob_h, knob_col, knob_h / 2);
+      // Keep knob width fixed at 32px; only animate height and position.
+      int knob_w_target = 32;
+      int knob_h_rest = knob_s.has_min_h ? knob_s.min_h : 24;
+      int knob_h_hover = h;
+      if (knob_h_rest < 4) knob_h_rest = 4;
+      if (knob_h_hover < knob_h_rest) knob_h_hover = knob_h_rest;
+      int knob_h_target = (over || down) ? knob_h_hover : knob_h_rest;
+      if (knob_s.has_max_h && knob_s.max_h > 0 && knob_h_target > knob_s.max_h) knob_h_target = knob_s.max_h;
+      if (knob_w_target < 4) knob_w_target = 4;
+      if (knob_h_target < 4) knob_h_target = 4;
+      if (knob_w_target > w - 2) knob_w_target = w - 2;
+      if (knob_h_target > h) knob_h_target = h;
+
+      int track_cy = cy + h / 2;
+      int edge_inset_x = (over || down) ? 0 : 2;
+      if (knob_w_target + edge_inset_x * 2 > w) edge_inset_x = 0;
+      int off_x = cx + edge_inset_x;
+      int on_x = cx + w - knob_w_target - edge_inset_x;
+      if (on_x < off_x) on_x = off_x;
+      int center_target = (n->checked ? on_x : off_x) + knob_w_target / 2;
+      int ky_target = track_cy - knob_h_target / 2;
+
+      // Initialize switch-specific layout anim channels to avoid first-frame jumps.
+      if (!n->anim_layout_active) {
+        n->anim_layout_active = true;
+        n->anim_x = n->anim_x_from = n->anim_x_target = center_target;
+        n->anim_x_start = now;
+        n->anim_y = n->anim_y_from = n->anim_y_target = ky_target;
+        n->anim_y_start = now;
+        n->anim_w = n->anim_w_from = n->anim_w_target = knob_w_target;
+        n->anim_w_start = now;
+        n->anim_h = n->anim_h_from = n->anim_h_target = knob_h_target;
+        n->anim_h_start = now;
+      }
+
+      int knob_w = knob_w_target;
+      int knob_h = cogito_anim_int(n, knob_h_target, &n->anim_h, &n->anim_h_from, &n->anim_h_target, &n->anim_h_start, now);
+      if (knob_h < 4) knob_h = 4;
+      if (knob_h > h) knob_h = h;
+      int center_x = cogito_anim_int(n, center_target, &n->anim_x, &n->anim_x_from, &n->anim_x_target, &n->anim_x_start, now);
+      int kx = center_x - knob_w / 2;
+      int ky = track_cy - knob_h / 2;
+      if (kx < cx) kx = cx;
+      int max_kx = cx + w - knob_w;
+      if (max_kx < cx) max_kx = cx;
+      if (kx > max_kx) kx = max_kx;
+      if (ky < cy) ky = cy;
+      int max_ky = cy + h - knob_h;
+      if (max_ky < cy) max_ky = cy;
+      if (ky > max_ky) ky = max_ky;
+      // Keep a stable corner radius while height animates so width doesn't visually "shrink".
+      int knob_r = knob_h_rest / 2;
+      if (knob_r < 1) knob_r = 1;
+      int max_r_h = knob_h / 2;
+      if (knob_r > max_r_h) knob_r = max_r_h;
+      int max_r_w = knob_w / 2;
+      if (knob_r > max_r_w) knob_r = max_r_w;
+      cogito_draw_rect(kx, ky, knob_w, knob_h, knob_col, knob_r);
       if (n->text) {
-        CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
         int th = cogito_text_height();
-        int ty = n->y + (n->h - th) / 2;
+        int ty = n->y + (draw_h - th) / 2;
         CogitoColor label_text = n->text_color;
         if (cogito_has_selection_text) label_text = cogito_selection_text;
         else if (s.has_text) label_text = s.text;
-        cogito_draw_text_node(n, n->x + w + 8, ty, n->text->data, label_text);
+        int text_x = n->x + w + 8;
+        int text_avail = use_w - (text_x - n->x);
+        if (text_avail > 0) {
+          cogito_draw_text_ellipsis(n, text_x, ty, text_avail, n->text->data, label_text, cogito_node_font_size(n), false, 0);
+        }
       }
       break;
     }

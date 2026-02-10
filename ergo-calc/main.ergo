@@ -1,0 +1,201 @@
+bring stdr
+bring cogito
+
+def display = cogito.textfield(@"0")
+def ?current_value = 0.0
+def ?stored_value = 0.0
+def ?pending_op = @""
+def ?reset_input = true
+def ?has_error = false
+
+fun update_display(text = string) (( -- )) {
+    display.set_text(text)
+}
+
+fun clear_all() (( -- )) {
+    current_value = 0.0
+    stored_value = 0.0
+    pending_op = @""
+    reset_input = true
+    has_error = false
+    update_display(@"0")
+}
+
+fun commit_pending() (( -- )) {
+    let op = pending_op
+    if op == @"" {
+        return
+    }
+    if reset_input {
+        return
+    }
+
+    let lhs = stored_value
+    let rhs = current_value
+
+    if op == @"/" && rhs == 0 {
+        has_error = true
+        pending_op = @""
+        reset_input = true
+        update_display(@"Error")
+        return
+    }
+
+    let ?result = 0.0
+    if op == @"+" {
+        result = lhs + rhs
+    } elif op == @"-" {
+        result = lhs - rhs
+    } elif op == @"*" {
+        result = lhs * rhs
+    } else {
+        result = lhs / rhs
+    }
+
+    current_value = result
+    stored_value = result
+    update_display(str(result))
+}
+
+fun input_digit(d = num) (( -- )) {
+    if has_error {
+        clear_all()
+    }
+
+    let ?next = current_value
+    if reset_input {
+        next = d
+        reset_input = false
+    } else {
+        next = next * 10 + d
+    }
+
+    current_value = next
+    update_display(str(next))
+}
+
+fun choose_operator(op = string) (( -- )) {
+    if has_error {
+        clear_all()
+    }
+
+    if pending_op != @"" && !reset_input {
+        commit_pending()
+        if has_error {
+            return
+        }
+    } else {
+        stored_value = current_value
+    }
+
+    pending_op = op
+    reset_input = true
+}
+
+fun evaluate() (( -- )) {
+    if has_error {
+        clear_all()
+        return
+    }
+    if pending_op == @"" {
+        return
+    }
+
+    commit_pending()
+    if has_error {
+        return
+    }
+
+    pending_op = @""
+    reset_input = true
+}
+
+fun digit_button(d = num) (( cogito.Button )) {
+    let btn = cogito.button(str(d))
+    btn.set_hexpand(true)
+    btn.on_click((b = cogito.Button) => {
+        input_digit(d)
+    })
+    return btn
+}
+
+fun operator_button(text = string, op = string) (( cogito.Button )) {
+    let btn = cogito.button(text)
+    btn.set_hexpand(true)
+    cogito.set_class(btn, @"outlined")
+    btn.on_click((b = cogito.Button) => {
+        choose_operator(op)
+    })
+    return btn
+}
+
+fun clear_button() (( cogito.Button )) {
+    let btn = cogito.button(@"C")
+    btn.set_hexpand(true)
+    cogito.set_class(btn, @"text")
+    btn.on_click((b = cogito.Button) => {
+        clear_all()
+    })
+    return btn
+}
+
+fun equals_button() (( cogito.Button )) {
+    let btn = cogito.button(@"=")
+    btn.set_hexpand(true)
+    btn.on_click((b = cogito.Button) => {
+        evaluate()
+    })
+    return btn
+}
+
+fun build_ui(win = cogito.Window) (( -- )) {
+    let root = cogito.vstack()
+    root.set_gap(10)
+
+    let bar = cogito.appbar(@"Calculator", @"")
+    bar.set_hexpand(true)
+    root.add(bar)
+
+    display.align_end()
+    display.set_hexpand(true)
+    display.set_disabled(true)
+    root.add(display)
+
+    let keypad = cogito.grid(4)
+    keypad.set_gap(8, 8)
+    keypad.set_hexpand(true)
+
+    keypad.add(digit_button(7))
+    keypad.add(digit_button(8))
+    keypad.add(digit_button(9))
+    keypad.add(operator_button(@"/", @"/"))
+
+    keypad.add(digit_button(4))
+    keypad.add(digit_button(5))
+    keypad.add(digit_button(6))
+    keypad.add(operator_button(@"*", @"*"))
+
+    keypad.add(digit_button(1))
+    keypad.add(digit_button(2))
+    keypad.add(digit_button(3))
+    keypad.add(operator_button(@"-", @"-"))
+
+    keypad.add(digit_button(0))
+    keypad.add(clear_button())
+    keypad.add(equals_button())
+    keypad.add(operator_button(@"+", @"+"))
+
+    root.add(keypad)
+    win.add(root)
+
+    clear_all()
+}
+
+entry () (( -- )) {
+    let app = cogito.app()
+    let win = cogito.window_size(@"Ergo Calc", 320, 420)
+    win.build(build_ui)
+    win.set_resizable(false)
+    app.set_appid(@"ergo.cogito.Calc")
+    app.run(win)
+}

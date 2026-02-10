@@ -93,6 +93,41 @@ static bool cogito_load_font_file_tabular(CogitoFont** out, const char* path, in
   return cogito_load_font_file(out, path, size, weight);
 }
 
+static CogitoFont* cogito_font_cache_get(CogitoFontCacheEntry* cache, int cap, const char* path, int size, int weight);
+
+static CogitoFont* cogito_font_resolve_size(CogitoFont* f, int size) {
+  if (!f) return NULL;
+  if (size <= 0) size = cogito_font_size();
+
+  if (f == cogito_font) {
+    if (!cogito_font_from_env || !cogito_font_path_active || !cogito_font_path_active[0]) return f;
+    if (cogito_font_loaded_size == size) return f;
+    CogitoFont* cached = cogito_font_cache_get(
+      cogito_font_cache,
+      (int)(sizeof(cogito_font_cache) / sizeof(cogito_font_cache[0])),
+      cogito_font_path_active,
+      size,
+      cogito_font_weight_normal()
+    );
+    return cached ? cached : f;
+  }
+
+  if (f == cogito_font_bold) {
+    if (!cogito_font_bold_from_env || !cogito_font_bold_path_active || !cogito_font_bold_path_active[0]) return f;
+    if (cogito_font_bold_loaded_size == size) return f;
+    CogitoFont* cached = cogito_font_cache_get(
+      cogito_font_bold_cache,
+      (int)(sizeof(cogito_font_bold_cache) / sizeof(cogito_font_bold_cache[0])),
+      cogito_font_bold_path_active,
+      size,
+      cogito_font_weight_bold()
+    );
+    return cached ? cached : f;
+  }
+
+  return f;
+}
+
 // Stub: Font cache using backend fonts
 static CogitoFont* cogito_font_cache_get(CogitoFontCacheEntry* cache, int cap, const char* path, int size, int weight) {
   if (!cache || cap <= 0 || !path || !path[0] || size <= 0) return NULL;
@@ -219,7 +254,8 @@ static int cogito_text_width(const char* s) {
   if (!cogito_backend_ready || !cogito_font_ready) return (int)strlen(s) * 8;
   
   if (cogito_backend && cogito_backend->text_measure_width) {
-    return cogito_backend->text_measure_width(cogito_font, s, cogito_font_size());
+    CogitoFont* f = cogito_font_resolve_size(cogito_font, cogito_font_size());
+    return cogito_backend->text_measure_width(f ? f : cogito_font, s, cogito_font_size());
   }
   
   return (int)strlen(s) * 8;  // Fallback estimate
@@ -231,7 +267,8 @@ static int cogito_text_width_size(const char* s, int size) {
   if (!cogito_backend_ready || !cogito_font_ready) return (int)strlen(s) * (size / 2);
   
   if (cogito_backend && cogito_backend->text_measure_width) {
-    return cogito_backend->text_measure_width(cogito_font, s, size);
+    CogitoFont* f = cogito_font_resolve_size(cogito_font, size);
+    return cogito_backend->text_measure_width(f ? f : cogito_font, s, size);
   }
   
   return (int)strlen(s) * (size / 2);
@@ -241,7 +278,9 @@ static int cogito_text_height(void) {
   if (!cogito_backend_ready || !cogito_font_ready) return 18;
   
   if (cogito_backend && cogito_backend->text_measure_height) {
-    return cogito_backend->text_measure_height(cogito_font, cogito_font_size());
+    int size = cogito_font_size();
+    CogitoFont* f = cogito_font_resolve_size(cogito_font, size);
+    return cogito_backend->text_measure_height(f ? f : cogito_font, size);
   }
   
   return cogito_font_size() + 2;
@@ -252,7 +291,8 @@ static int cogito_text_height_size(int size) {
   if (!cogito_backend_ready || !cogito_font_ready) return size + 2;
   
   if (cogito_backend && cogito_backend->text_measure_height) {
-    return cogito_backend->text_measure_height(cogito_font, size);
+    CogitoFont* f = cogito_font_resolve_size(cogito_font, size);
+    return cogito_backend->text_measure_height(f ? f : cogito_font, size);
   }
   
   return size + 2;
@@ -266,6 +306,7 @@ static int cogito_text_width_size_font_spaced(CogitoFont* f, const char* s, int 
   (void)spacing;  // Phase 2: Implement letter spacing
   if (!s) return 0;
   if (size <= 0) size = cogito_font_size();
+  f = cogito_font_resolve_size(f, size);
   if (!cogito_backend_ready || !cogito_font_ready || !f) {
     return (int)strlen(s) * (size / 2);
   }

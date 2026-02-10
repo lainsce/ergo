@@ -3,18 +3,31 @@ case COGITO_TOAST: {
       bool active = false;
       cogito_node_hover_state(n, &hover, &active);
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
-      if (s.has_bg) { n->bg = s.bg; n->bg_set = true; }
-      if (s.has_border) { n->border_color = s.border; n->border_color_set = true; }
-      if (s.has_border_width) { n->border_width = s.border_width; n->border_width_set = true; }
-      if (s.has_radius) n->border_radius = s.radius;
-      if (n->bg_set) {
-        cogito_draw_rect(n->x, n->y, n->w, n->h, n->bg, n->border_radius);
-        if (n->border_width_set && n->border_width > 0) {
-          cogito_draw_rect_lines(n->x, n->y, n->w, n->h, n->border_color, n->border_radius, n->border_width);
+      CogitoColor bg = n->bg;
+      CogitoColor border = n->border_color;
+      CogitoColor text = s.has_text ? s.text : n->text_color;
+      CogitoColor sel = s.has_selection ? s.selection : n->selection_color;
+      int border_w = n->border_width;
+      int radius = n->border_radius;
+      if (s.has_bg) bg = s.bg;
+      if (s.has_border) border = s.border;
+      if (s.has_border_width) border_w = s.border_width;
+      if (s.has_radius) radius = s.radius;
+      cogito_anim_apply(n, &s, &bg, &text, &border, &sel);
+      if (n->bg_set || s.has_bg) {
+        cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, radius);
+        if (border_w > 0) {
+          cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border, radius, border_w);
         }
       }
       int size = cogito_node_font_size(n);
-      CogitoColor text = cogito_has_selection_text ? cogito_selection_text : (s.has_text ? s.text : n->text_color);
+      CogitoColor text_bg = bg;
+      text = s.has_text ? text : cogito_on_color(text_bg);
+      int text_l = cogito_luma(text);
+      int bg_l = cogito_luma(text_bg);
+      if (abs(text_l - bg_l) < 80) {
+        text = cogito_on_color(text_bg);
+      }
       const char* t = n->text ? n->text->data : "";
       int th = cogito_text_height_size(size);
       int ty = n->y + (n->h - th) / 2;
@@ -35,7 +48,7 @@ case COGITO_TOAST: {
       if (text_w < 0) text_w = 0;
       cogito_draw_text_ellipsis(n, n->x + pad_x, ty, text_w, t, text, size, cogito_node_bold(n), 0);
       if (action_w > 0) {
-        CogitoColor action_color = s.has_selection ? s.selection : (s.has_text ? s.text : n->selection_color);
+        CogitoColor action_color = sel;
         int action_x = n->x + pad_x + text_w + 24;
         int action_y = ty;
         cogito_draw_text_size_node(n, action_x, action_y, n->action_text->data, action_color, size, false);
@@ -49,18 +62,23 @@ case COGITO_TOAST: {
         if (icon_size < 8) icon_size = 8;
         int ix = cx + (cw - icon_size) / 2;
         int iy = cy + (ch - icon_size) / 2;
-        // TODO: Replace with backend texture drawing
-        // Texture2D tex = {0};
-        // int tw = 0;
-        // int th_i = 0;
-        // CogitoColor tint = s.has_icon_color ? s.icon_color : text;
-        // if (cogito_icon_load_texture("x", icon_size, &tex, &tw, &th_i)) {
-        //   cogito_backend->draw_texture(...);
-        // } else {
-        // Draw X using lines
-        cogito_draw_line(ix, iy, ix + icon_size, iy + icon_size, text);
-        cogito_draw_line(ix + icon_size, iy, ix, iy + icon_size, text);
-        // }
+        CogitoColor tint = s.has_icon_color ? s.icon_color : text;
+        if (cogito_backend && cogito_backend->draw_texture) {
+          CogitoTexture* tex = NULL;
+          int tw = 0;
+          int th_i = 0;
+          if (cogito_icon_load_texture("x", icon_size, &tex, &tw, &th_i) && tex) {
+            CogitoRect src = (CogitoRect){0, 0, tw, th_i};
+            CogitoRect dst = (CogitoRect){ix, iy, icon_size, icon_size};
+            cogito_backend->draw_texture(tex, src, dst, tint);
+          } else {
+            cogito_draw_line(ix, iy, ix + icon_size, iy + icon_size, tint);
+            cogito_draw_line(ix + icon_size, iy, ix, iy + icon_size, tint);
+          }
+        } else {
+          cogito_draw_line(ix, iy, ix + icon_size, iy + icon_size, tint);
+          cogito_draw_line(ix + icon_size, iy, ix, iy + icon_size, tint);
+        }
       }
       break;
     }

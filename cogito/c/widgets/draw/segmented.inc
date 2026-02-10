@@ -15,10 +15,10 @@ case COGITO_SEGMENTED: {
 
       // Draw outer capsule border
       if (bg.a > 0) {
-        cogito_draw_rect(n->x, n->y, n->w, n->h, bg, radius);
+        cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, radius);
       }
       if (border_w > 0) {
-        cogito_draw_rect_lines(n->x, n->y, n->w, n->h, border_col, radius, border_w);
+        cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border_col, radius, border_w);
       }
 
       if (n->len == 0) break;

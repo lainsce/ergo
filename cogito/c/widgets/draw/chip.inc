@@ -5,17 +5,19 @@ case COGITO_CHIP: {
 
   CogitoColor bg = s.has_bg ? s.bg : n->bg;
   CogitoColor text_color = s.has_text ? s.text : n->text_color;
+  CogitoColor border_color = s.has_border ? s.border : n->border_color;
+  int border_w = s.has_border_width ? s.border_width : 0;
   int radius = n->h / 2;
 
   // Animate colors
-  //cogito_anim_apply(n, &s, &bg, &text_color, NULL, NULL);
+  cogito_anim_apply(n, &s, &bg, &text_color, &border_color, NULL);
 
   // Draw pill-shaped background
-  cogito_draw_rect(n->x, n->y, n->w, n->h, bg, radius);
+  cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, radius);
 
   // Draw border (outline for unselected chips)
-  if (s.has_border && s.has_border_width && s.border_width > 0) {
-    cogito_draw_rect_lines(n->x, n->y, n->w, n->h, s.border, radius, s.border_width);
+  if (border_w > 0) {
+    cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border_color, radius, border_w);
   }
 
   // Draw checkmark for selected chips

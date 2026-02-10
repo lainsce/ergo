@@ -7,6 +7,30 @@
 window
   background: #ffffff
 
+vstack
+  background: #ffffff
+  color: #222222
+
+hstack
+  background: #ffffff
+  color: #222222
+
+zstack
+  background: #ffffff
+  color: #222222
+
+fixed
+  background: transparent
+  color: #222222
+
+scroller
+  background: transparent
+  color: #222222
+
+dialogslot
+  background: #00000066
+  color: #222222
+
 button
   background: #6750a4
   color: #ffffff
@@ -62,6 +86,26 @@ fab:hover
 
 fab:active
   background: #5a3f8e
+
+chip
+  background: transparent
+  color: #222222
+  border-radius: 100
+  min-height: 32
+  padding: 0 16
+  border: 1 solid #79747e
+
+chip:hover
+  background: #0000000d
+  border-color: #222222
+
+chip:active
+  background: #00000014
+
+chip:checked
+  background: #e8def8
+  color: #1d1b20
+  border: 0 none #e8def8
 
 nav-rail
   background: #f7f2fa
@@ -199,16 +243,13 @@ colorpicker
 
 toolbar
   background: #f6f6f6
-  min-height: 44
-  padding: 8 12
-
-bottom-toolbar
-  background: #f6f6f6
+  color: #222222
   min-height: 44
   padding: 8 12
 
 iconbtn
   background: #0000000d
+  color: #222222
   border-radius: 99
   min-width: 42
   min-height: 42
@@ -280,14 +321,11 @@ switch track
   background: #b4b4b4
 
 switch:checked track
-switch:checked track
   background: #72dec2
 
 switch track:hover
-switch track:hover
   background: #c4c4c4
 
-switch track:active
 switch track:active
   background: #72dec2
 
@@ -324,7 +362,6 @@ switch knob:active
 
 list
   background: #ffffff
-  border-radius: 0
 
 list:selection
   background: #72dec2
@@ -422,9 +459,151 @@ menu item
 
 bottom-nav
   background: #fffbfe
+  color: #222222
   min-height: 80
   padding: 0 8
 
 bottom-nav:selection
   background: #e8def8
   color: #1d1b20
+
+.datepicker
+  background: #ffffff
+  color: #222222
+  border-radius: 18
+  min-width: 300
+  padding: 16
+
+.datepicker:selection
+  background: #72dec2
+
+.textfield:selection
+  background: #72dec2
+
+.textview:selection
+  background: #72dec2
+
+datepicker:selection
+  background: #72dec2
+
+colorpicker:selection
+  background: #72dec2
+
+searchfield:hover
+  background: #ece6f0
+
+searchfield:active
+  border-color: #6750a4
+  border-width: 2
+
+searchfield:selection
+  background: #72dec2
+
+segmented:selection
+  background: #72dec2
+
+iconbtn:hover
+  background: #00000014
+  color: #222222
+
+iconbtn:active
+  background: #00000024
+  color: #222222
+
+appbar .iconbtn
+  background: #0000000d
+
+switch .track
+  background: #b4b4b4
+
+switch:checked .track
+  background: #72dec2
+
+switch .track:hover
+  background: #c4c4c4
+
+switch .track:active
+  background: #72dec2
+
+switch .knob
+  background: #ffffff
+  min-width: 32
+  min-height: 24
+
+switch .knob:hover
+  background: #f4f4f4
+
+switch .knob:active
+  background: #e8e8e8
+
+toast:selection
+  background: #72dec2
+
+.primary-container
+  background: #e8def8
+  color: #1d1b20
+
+.secondary
+  background: #625b71
+  color: #ffffff
+
+.secondary-container
+  background: #e8def8
+  color: #1d1b20
+
+.tertiary
+  background: #7d5260
+  color: #ffffff
+
+.tertiary-container
+  background: #ffd8e4
+  color: #31111d
+
+.error
+  color: #b3261e
+
+.on-error
+  background: #b3261e
+  color: #ffffff
+
+.error-container
+  background: #f9dedc
+  color: #410e0b
+
+.surface-variant
+  background: #e7e0ec
+  color: #49454f
+
+.surface-dim
+  background: #ded8e1
+
+.surface-bright
+  background: #fffbfe
+
+.surface-container-lowest
+  background: #ffffff
+
+.surface-container-low
+  background: #f7f2fa
+
+.surface-container
+  background: #f3edf7
+
+.surface-container-high
+  background: #ece6f0
+
+.surface-container-highest
+  background: #e6e0e9
+
+.inverse-surface
+  background: #313033
+  color: #f4eff4
+
+.inverse-primary
+  color: #d0bcff
+
+.outline-variant
+  border-color: #cac4d0
+
+.scrim
+  background: #000000

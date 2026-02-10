@@ -11,12 +11,12 @@ case COGITO_STEPPER: {
       int size = cogito_node_font_size(n);
 
       // Animated colors
-      // cogito_anim_apply(n, &s, &bg, &text_col, &border_col, NULL);
+      cogito_anim_apply(n, &s, &bg, &text_col, &border_col, NULL);
 
       // Draw outer capsule
-      cogito_draw_rect(n->x, n->y, n->w, n->h, bg, radius);
+      cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, radius);
       if (border_w > 0) {
-        cogito_draw_rect_lines(n->x, n->y, n->w, n->h, border_col, radius, border_w);
+        cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border_col, radius, border_w);
       }
 
       // Layout: [ - | value | + ]

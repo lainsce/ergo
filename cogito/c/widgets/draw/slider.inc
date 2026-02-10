@@ -6,6 +6,7 @@ case COGITO_SLIDER: {
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
       CogitoColor inactive_track = s.has_bg ? s.bg : (s.has_track ? s.track : n->bg);
       CogitoColor active_track = s.has_text ? s.text : (s.has_knob ? s.knob : n->text_color);
+      cogito_anim_apply(n, &s, &inactive_track, &active_track, NULL, NULL);
 
       int track_h = n->track_height_set ? n->track_height : (s.has_track_height ? s.track_height : 4);
       int thumb_w = 8;

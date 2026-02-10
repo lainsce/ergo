@@ -5,30 +5,57 @@ case COGITO_TEXTFIELD: {
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
       CogitoColor bg = n->bg;
       CogitoColor border = n->border_color;
+      CogitoColor text = n->text_color;
       int border_w = n->border_width;
       int radius = n->border_radius;
       if (s.has_bg) bg = s.bg;
       if (s.has_border) border = s.border;
       if (s.has_border_width) border_w = s.border_width;
       if (s.has_radius) radius = s.radius;
+      if (cogito_has_selection_text) text = cogito_selection_text;
+      else if (s.has_text) text = s.text;
+      cogito_anim_apply(n, &s, &bg, &text, &border, NULL);
       if (n->bg_set || border_w > 0) {
-        cogito_draw_rect(n->x, n->y, n->w, n->h, bg, radius);
+        cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, radius);
         if (border_w > 0) {
-          cogito_draw_rect_lines(n->x, n->y, n->w, n->h, border, radius, border_w);
+          cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border, radius, border_w);
         }
       }
       if (cogito_focused == n && !n->disabled) {
         CogitoColor focus = s.has_selection ? s.selection : n->selection_color;
-        cogito_draw_rect_lines(n->x, n->y, n->w, n->h, focus, radius, border_w > 0 ? border_w : 2);
+        cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, focus, radius, border_w > 0 ? border_w : 2);
       }
       int pad = 8;
       int size = cogito_node_font_size(n);
-      CogitoColor text = n->text_color;
-      if (cogito_has_selection_text) text = cogito_selection_text;
-      else if (s.has_text) text = s.text;
       const char* t = n->text ? n->text->data : "";
+      bool has_text = (t[0] != '\0');
       int th = cogito_text_height_size(size);
+      const char* placeholder = (n->subtitle && n->subtitle->data && n->subtitle->data[0]) ? n->subtitle->data : NULL;
+      bool has_placeholder = placeholder && placeholder[0];
       int ty = n->y + (n->h - th) / 2;
+      bool focused = (cogito_focused == n && !n->disabled);
+      bool float_placeholder = has_placeholder && (focused || has_text);
+      if (has_placeholder) {
+        double now = 0.0;
+        if (cogito_backend && cogito_backend->get_time) {
+          now = cogito_backend->get_time();
+        }
+        CogitoColor ph = text;
+        ph.a = 140;
+        int py_target = ty;
+        if (float_placeholder) {
+          py_target = ty - th - 4;
+          int min_py = n->y + 2;
+          if (py_target < min_py) py_target = min_py;
+        }
+        if (!n->anim_layout_active) {
+          n->anim_layout_active = true;
+          n->anim_y = n->anim_y_from = n->anim_y_target = py_target;
+          n->anim_y_start = now;
+        }
+        int py = cogito_anim_int(n, py_target, &n->anim_y, &n->anim_y_from, &n->anim_y_target, &n->anim_y_start, now);
+        cogito_draw_text_ellipsis(n, n->x + pad, py, n->w - pad * 2, placeholder, ph, size, false, 0);
+      }
       if (n->sel_start != n->sel_end) {
         int a = n->sel_start;
         int b = n->sel_end;

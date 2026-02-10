@@ -26,9 +26,10 @@ case COGITO_NAV_RAIL: {
 
     // Draw selection/hover background
     if (selected || hover) {
+      CogitoColor hover_tint = s.has_text ? s.text : n->text_color;
       CogitoColor item_bg = selected
         ? (s.has_selection ? s.selection : n->selection_color)
-        : (s.has_bg ? cogito_mix(s.bg, cogito_rgba(128, 128, 128, 255), 0.1f) : n->bg);
+        : (s.has_bg ? cogito_mix(s.bg, hover_tint, 0.1f) : n->bg);
       int indicator_w = selected ? 16 : 0;
       int radius = 16;  // Fully rounded indicator
       int bg_x = n->x + (n->w - indicator_w) / 2 - 32;
@@ -45,14 +46,9 @@ case COGITO_NAV_RAIL: {
       } else if (hover) {
         icon_color = s.has_text ? s.text : n->text_color;
       }
-      // TODO: Replace with backend texture drawing
-      // Texture2D tex;
-      // int tw = 0, th = 0;
-      // if (cogito_icon_load_texture(n->nav_rail_icons[i]->data, icon_size, &tex, &tw, &th)) {
-      //   int icon_x = n->x + (n->w - icon_size) / 2;
-      //   int icon_y = item_y + 8;
-      //   cogito_backend->draw_texture(...);
-      // }
+      int icon_x = n->x + (n->w - icon_size) / 2;
+      int icon_y = item_y + 8;
+      cogito_draw_icon_fallback(n, n->nav_rail_icons[i]->data, icon_x, icon_y, icon_size, icon_color);
     }
 
     // Draw label below icon

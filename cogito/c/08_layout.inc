@@ -1,5 +1,75 @@
 static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h);
 static void cogito_window_relayout(CogitoNode* win);
+static void cogito_dialog_close_rect(CogitoNode* n, int* out_x, int* out_y, int* out_w, int* out_h);
+
+static void cogito_distribute_axis_sizes(size_t count, const int* min_sizes, const bool* expand_flags, int available, int* out_sizes) {
+  if (!out_sizes || !min_sizes || count == 0) return;
+  if (available < 0) available = 0;
+
+  int sum = 0;
+  for (size_t i = 0; i < count; i++) {
+    int v = min_sizes[i];
+    if (v < 0) v = 0;
+    out_sizes[i] = v;
+    sum += v;
+  }
+
+  if (sum == available) return;
+
+  if (sum < available) {
+    int extra = available - sum;
+    size_t expand_count = 0;
+    for (size_t i = 0; i < count; i++) {
+      if (expand_flags && expand_flags[i]) expand_count++;
+    }
+    if (expand_count == 0) return;
+    while (extra > 0) {
+      bool changed = false;
+      for (size_t i = 0; i < count && extra > 0; i++) {
+        if (expand_flags && expand_flags[i]) {
+          out_sizes[i]++;
+          extra--;
+          changed = true;
+        }
+      }
+      if (!changed) break;
+    }
+    return;
+  }
+
+  int overflow = sum - available;
+  bool has_expand = false;
+  for (size_t i = 0; i < count; i++) {
+    if (expand_flags && expand_flags[i]) {
+      has_expand = true;
+      break;
+    }
+  }
+  if (has_expand) {
+    while (overflow > 0) {
+      bool changed = false;
+      for (size_t i = 0; i < count && overflow > 0; i++) {
+        if (expand_flags && expand_flags[i] && out_sizes[i] > 0) {
+          out_sizes[i]--;
+          overflow--;
+          changed = true;
+        }
+      }
+      if (!changed) break;
+    }
+  }
+  while (overflow > 0) {
+    bool changed = false;
+    for (size_t i = 0; i < count && overflow > 0; i++) {
+      if (out_sizes[i] > 0) {
+        out_sizes[i]--;
+        overflow--;
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+}
 
 static void cogito_layout_vstack(CogitoNode* n, int x, int y) {
   int pad = n->gap;
@@ -7,102 +77,76 @@ static void cogito_layout_vstack(CogitoNode* n, int x, int y) {
   int avail_h = n->h - n->padding_top - n->padding_bottom;
   if (avail_w < 0) avail_w = 0;
   if (avail_h < 0) avail_h = 0;
-
-  // Try both locations
-  FILE* dbg = fopen("/tmp/cogito_vstack_debug.log", "a");
-  if (!dbg) dbg = fopen("cogito_vstack_debug.log", "a");
-  if (dbg) {
-    fprintf(dbg, "\n[DEBUG VSTACK] Container: w=%d h=%d, avail_h=%d, children=%zu\n", n->w, n->h, avail_h, n->len);
-    fflush(dbg);
+  size_t count = n->len;
+  if (count == 0) return;
+  int* intrinsic_w = (int*)calloc(count, sizeof(int));
+  int* intrinsic_h = (int*)calloc(count, sizeof(int));
+  int* assigned_h = (int*)calloc(count, sizeof(int));
+  bool* expand = (bool*)calloc(count, sizeof(bool));
+  if (!intrinsic_w || !intrinsic_h || !assigned_h || !expand) {
+    free(intrinsic_w);
+    free(intrinsic_h);
+    free(assigned_h);
+    free(expand);
+    return;
   }
-
-  // First pass: calculate total height of non-expanding children and count expanding ones
-  int total_intrinsic = 0;
-  int expand_count = 0;
-  for (size_t i = 0; i < n->len; i++) {
-    CogitoNode* c = n->children[i];
-    if (dbg) { fprintf(dbg, "  Child %zu: vexpand=%d\n", i, c->vexpand); fflush(dbg); }
-    if (c->vexpand) {
-      expand_count++;
-    } else {
-      int ch = 0;
-      cogito_intrinsic_size(c, NULL, &ch);
-      if (dbg) { fprintf(dbg, "  Child %zu intrinsic height: %d\n", i, ch); fflush(dbg); }
-      total_intrinsic += ch + c->margin_top + c->margin_bottom;
-    }
-  }
-
-  // Calculate gaps
-  int total_gaps = (n->len > 0) ? (int)(n->len - 1) * pad : 0;
-  int remaining_h = avail_h - total_intrinsic - total_gaps;
-  if (remaining_h < 0) remaining_h = 0;
-
-  // Height for each expanding child
-  int expand_h = expand_count > 0 ? remaining_h / expand_count : 0;
-  if (dbg) {
-    fprintf(dbg, "  total_intrinsic=%d, gaps=%d, remaining=%d, expand_count=%d, expand_h=%d\n",
-           total_intrinsic, total_gaps, remaining_h, expand_count, expand_h);
-    fflush(dbg);
-  }
-
-  // Second pass: layout children
-  int cy = y + n->padding_top;
-  for (size_t i = 0; i < n->len; i++) {
+  int total_margins = 0;
+  for (size_t i = 0; i < count; i++) {
     CogitoNode* c = n->children[i];
     int cw = 0;
     int ch = 0;
     cogito_intrinsic_size(c, &cw, &ch);
+    if (cw < 0) cw = 0;
+    if (ch < 0) ch = 0;
+    intrinsic_w[i] = cw;
+    intrinsic_h[i] = ch;
+    assigned_h[i] = ch;
+    expand[i] = c->vexpand;
+    total_margins += c->margin_top + c->margin_bottom;
+  }
+  int total_gaps = (count > 0) ? (int)(count - 1) * pad : 0;
+  int avail_content_h = avail_h - total_margins - total_gaps;
+  if (avail_content_h < 0) avail_content_h = 0;
+  cogito_distribute_axis_sizes(count, intrinsic_h, expand, avail_content_h, assigned_h);
 
-    // Check if child wants to expand vertically
-    if (c->vexpand) {
-      ch = expand_h - c->margin_top - c->margin_bottom;
-      if (ch < 0) ch = 0;
-      if (dbg) {
-        fprintf(dbg, "  Child %zu EXPANDING: expand_h=%d, margins=%d/%d, final ch=%d\n",
-               i, expand_h, c->margin_top, c->margin_bottom, ch);
-        fflush(dbg);
-      }
-    } else {
-      if (dbg) { fprintf(dbg, "  Child %zu NOT expanding: ch=%d\n", i, ch); fflush(dbg); }
-    }
+  int cy = y + n->padding_top;
+  for (size_t i = 0; i < count; i++) {
+    CogitoNode* c = n->children[i];
+    int cw = intrinsic_w[i];
+    int ch = assigned_h[i];
+    int slot_w = avail_w - c->margin_left - c->margin_right;
+    if (slot_w < 0) slot_w = 0;
 
-    // Horizontal expansion: if hexpand is set, or if it's a chrome widget (appbar, toolbar, etc.)
     bool is_chrome = (c->kind == COGITO_APPBAR || c->kind == COGITO_TOOLBAR ||
                       c->kind == COGITO_NAV_RAIL || c->kind == COGITO_BOTTOM_NAV);
     if (c->hexpand || is_chrome) {
-      int target_w = avail_w - c->margin_left - c->margin_right;
-      if (target_w < 0) target_w = 0;
-      cw = target_w;
-
-      // Recalculate height for text wrap (but not if vexpand is set)
+      cw = slot_w;
       if (c->kind == COGITO_LABEL && c->text_wrap && !c->vexpand) {
-        ch = cogito_text_wrap_height(c, c->text ? c->text->data : "", cogito_node_font_size(c), target_w);
+        ch = cogito_text_wrap_height(c, c->text ? c->text->data : "", cogito_node_font_size(c), slot_w);
         if (ch <= 0) ch = cogito_text_height_size(cogito_node_font_size(c));
       }
+    } else if (cw > slot_w) {
+      cw = slot_w;
     }
 
-    // Determine child's horizontal alignment for positioning (0=left, 1=center, 2=right)
     int child_col = c->align % 3;
+    if (child_col < 0 || child_col > 2) child_col = 0;
     int cx = x + n->padding_left;
     int ox = 0;
     if (child_col == 1) {
-      ox = (avail_w - cw) / 2;
+      ox = (slot_w - cw) / 2;
     } else if (child_col == 2) {
-      ox = avail_w - cw;
+      ox = slot_w - cw;
     }
     if (ox < 0) ox = 0;
     cogito_layout_node(c, cx + ox + c->margin_left, cy + c->margin_top, cw, ch);
-    if (dbg) {
-      fprintf(dbg, "  Child %zu final layout: x=%d y=%d w=%d h=%d\n",
-             i, cx + ox + c->margin_left, cy + c->margin_top, cw, ch);
-      fflush(dbg);
-    }
     cy += ch + c->margin_top + c->margin_bottom;
-    // Add gap only between children, not after the last one
-    if (i < n->len - 1) cy += pad;
+    if (i < count - 1) cy += pad;
   }
-
-  if (dbg) { fclose(dbg); }
+  free(intrinsic_w);
+  free(intrinsic_h);
+  free(assigned_h);
+  free(expand);
 }
 
 static void cogito_layout_zstack(CogitoNode* n, int x, int y) {
@@ -197,24 +241,42 @@ static void cogito_layout_view_switcher(CogitoNode* n, int x, int y) {
 }
 
 static void cogito_layout_toasts(CogitoNode* n, int x, int y) {
-  int inner_x = x + n->padding_left;
-  int inner_y = y + n->padding_top;
-  int inner_w = n->w - n->padding_left - n->padding_right;
-  int inner_h = n->h - n->padding_top - n->padding_bottom;
+  CogitoNode* win = cogito_node_window(n);
+  int base_x = win ? 0 : x;
+  int base_y = win ? 0 : y;
+  int base_w = win ? win->w : n->w;
+  int base_h = win ? win->h : n->h;
+  if (base_w < 0) base_w = 0;
+  if (base_h < 0) base_h = 0;
+  if (win) {
+    n->x = base_x;
+    n->y = base_y;
+    n->w = base_w;
+    n->h = base_h;
+  }
+  int inner_x = base_x + n->padding_left;
+  int inner_y = base_y + n->padding_top;
+  int inner_w = base_w - n->padding_left - n->padding_right;
+  int inner_h = base_h - n->padding_top - n->padding_bottom;
   if (inner_w < 0) inner_w = 0;
   if (inner_h < 0) inner_h = 0;
-  int gap = n->gap;
+  int gap = n->gap > 0 ? n->gap : 6;
   int cy = inner_y + inner_h;
   for (size_t idx = n->len; idx-- > 0;) {
     CogitoNode* c = n->children[idx];
     int cw = 0;
     int ch = 0;
     cogito_intrinsic_size(c, &cw, &ch);
-    int cx = inner_x + inner_w - cw - c->margin_right;
-    int cy_child = cy - ch - c->margin_bottom;
-    if (cx < inner_x) cx = inner_x;
-    if (cy_child < inner_y) cy_child = inner_y;
-    cogito_layout_node(c, cx + c->margin_left, cy_child + c->margin_top, cw, ch);
+    int slot_w = inner_w - c->margin_left - c->margin_right;
+    if (slot_w < 0) slot_w = 0;
+    if (cw > slot_w) cw = slot_w;
+    cy -= c->margin_bottom + ch;
+    int cy_child = cy;
+    int min_y = inner_y + c->margin_top;
+    if (cy_child < min_y) cy_child = min_y;
+    int cx = inner_x + c->margin_left + (slot_w - cw) / 2;
+    if (cx < inner_x + c->margin_left) cx = inner_x + c->margin_left;
+    cogito_layout_node(c, cx, cy_child, cw, ch);
     cy = cy_child - c->margin_top;
     // Add gap only between items, not before the first one (we're iterating backwards)
     if (idx > 0) cy -= gap;
@@ -279,75 +341,80 @@ static void cogito_layout_hstack(CogitoNode* n, int x, int y) {
   int avail_h = n->h - n->padding_top - n->padding_bottom;
   if (avail_w < 0) avail_w = 0;
   if (avail_h < 0) avail_h = 0;
-
-  // First pass: calculate total width of non-expanding children and count expanding ones
-  int total_intrinsic = 0;
-  int expand_count = 0;
-  for (size_t i = 0; i < n->len; i++) {
-    CogitoNode* c = n->children[i];
-    if (c->hexpand) {
-      expand_count++;
-    } else {
-      int cw = 0;
-      cogito_intrinsic_size(c, &cw, NULL);
-      total_intrinsic += cw + c->margin_left + c->margin_right;
-    }
+  size_t count = n->len;
+  if (count == 0) return;
+  int* intrinsic_w = (int*)calloc(count, sizeof(int));
+  int* intrinsic_h = (int*)calloc(count, sizeof(int));
+  int* assigned_w = (int*)calloc(count, sizeof(int));
+  bool* expand = (bool*)calloc(count, sizeof(bool));
+  if (!intrinsic_w || !intrinsic_h || !assigned_w || !expand) {
+    free(intrinsic_w);
+    free(intrinsic_h);
+    free(assigned_w);
+    free(expand);
+    return;
   }
-
-  // Calculate gaps
-  int total_gaps = (n->len > 0) ? (int)(n->len - 1) * pad : 0;
-  int remaining_w = avail_w - total_intrinsic - total_gaps;
-  if (remaining_w < 0) remaining_w = 0;
-
-  // Width for each expanding child
-  int expand_w = expand_count > 0 ? remaining_w / expand_count : 0;
-
-  // Second pass: layout children
-  int cx = x + n->padding_left;
-  for (size_t i = 0; i < n->len; i++) {
+  int total_margins = 0;
+  for (size_t i = 0; i < count; i++) {
     CogitoNode* c = n->children[i];
     int cw = 0;
     int ch = 0;
     cogito_intrinsic_size(c, &cw, &ch);
+    if (cw < 0) cw = 0;
+    if (ch < 0) ch = 0;
+    intrinsic_w[i] = cw;
+    intrinsic_h[i] = ch;
+    assigned_w[i] = cw;
+    expand[i] = c->hexpand;
+    total_margins += c->margin_left + c->margin_right;
+  }
+  int total_gaps = (count > 0) ? (int)(count - 1) * pad : 0;
+  int avail_content_w = avail_w - total_margins - total_gaps;
+  if (avail_content_w < 0) avail_content_w = 0;
+  cogito_distribute_axis_sizes(count, intrinsic_w, expand, avail_content_w, assigned_w);
 
-    // Check if child wants to expand horizontally
-    if (c->hexpand) {
-      cw = expand_w - c->margin_left - c->margin_right;
-      if (cw < 0) cw = 0;
-    }
+  int cx = x + n->padding_left;
+  for (size_t i = 0; i < count; i++) {
+    CogitoNode* c = n->children[i];
+    int cw = assigned_w[i];
+    int ch = intrinsic_h[i];
+    int slot_h = avail_h - c->margin_top - c->margin_bottom;
+    if (slot_h < 0) slot_h = 0;
 
-    // Determine child's vertical alignment (0=top, 1=middle, 2=bottom)
     int child_row = c->align / 3;
+    if (child_row < 0 || child_row > 2) child_row = 0;
 
-    // Expand to fill available height if vexpand is set, or if it's a chrome widget
     bool is_chrome = (c->kind == COGITO_APPBAR || c->kind == COGITO_TOOLBAR ||
                       c->kind == COGITO_NAV_RAIL || c->kind == COGITO_BOTTOM_NAV);
     if (c->vexpand || is_chrome) {
-      int target_h = avail_h - c->margin_top - c->margin_bottom;
-      if (target_h < 0) target_h = 0;
-      ch = target_h;
+      ch = slot_h;
+    } else if (ch > slot_h) {
+      ch = slot_h;
     }
 
     int cy = y + n->padding_top;
     int oy = 0;
     if (child_row == 1) {
-      oy = (avail_h - ch) / 2;
+      oy = (slot_h - ch) / 2;
     } else if (child_row == 2) {
-      oy = avail_h - ch;
+      oy = slot_h - ch;
     }
     if (oy < 0) oy = 0;
     cogito_layout_node(c, cx + c->margin_left, cy + oy + c->margin_top, cw, ch);
     cx += cw + c->margin_left + c->margin_right;
-    // Add gap only between children, not after the last one
-    if (i < n->len - 1) cx += pad;
+    if (i < count - 1) cx += pad;
   }
+  free(intrinsic_w);
+  free(intrinsic_h);
+  free(assigned_w);
+  free(expand);
 }
 
 static void cogito_layout_list(CogitoNode* n, int x, int y) {
   int pad = n->gap;
   int cy = y + n->padding_top;
-  int item_pad_x = 16;
-  int item_pad_y = 12;
+  int item_pad_x = 6;
+  int item_pad_y = 6;
   int avail_w = n->w - n->padding_left - n->padding_right;
   for (size_t i = 0; i < n->len; i++) {
     CogitoNode* c = n->children[i];
@@ -359,19 +426,19 @@ static void cogito_layout_list(CogitoNode* n, int x, int y) {
     int cw = 0;
     int ch = 0;
     cogito_intrinsic_size(c, &cw, &ch);
+    int slot_w = avail_w - c->margin_left - c->margin_right;
+    if (slot_w < 0) slot_w = 0;
     // List items always fill the available width
-    if (cw < avail_w) cw = avail_w;
+    cw = slot_w;
     if (c->kind == COGITO_LABEL && c->text_wrap) {
-      int target_w = cw - c->margin_left - c->margin_right;
-      if (target_w < 0) target_w = 0;
-      cw = target_w;
-      ch = cogito_text_wrap_height(c, c->text ? c->text->data : "", cogito_node_font_size(c), target_w);
+      ch = cogito_text_wrap_height(c, c->text ? c->text->data : "", cogito_node_font_size(c), slot_w);
       if (ch <= 0) ch = cogito_text_height_size(cogito_node_font_size(c));
     }
     // Enforce 42px minimum height for list items
     if (ch < 42) ch = 42;
-    cogito_layout_node(c, x + n->padding_left, cy, cw, ch);
-    cy += ch;
+    cy += c->margin_top;
+    cogito_layout_node(c, x + n->padding_left + c->margin_left, cy, cw, ch);
+    cy += ch + c->margin_bottom;
     if (i < n->len - 1) cy += pad;
   }
 }
@@ -380,6 +447,8 @@ static void cogito_layout_grid(CogitoNode* n, int x, int y) {
   int cols = n->grid_cols > 0 ? n->grid_cols : 1;
   int gap_x = n->grid_gap_x;
   int gap_y = n->grid_gap_y;
+  int item_pad_x = 6;
+  int item_pad_y = 6;
   int inner_w = n->w - n->padding_left - n->padding_right;
   if (inner_w < 0) inner_w = 0;
   int cell_w = cols > 0 ? (inner_w - (cols - 1) * gap_x) / cols : 0;
@@ -403,6 +472,11 @@ static void cogito_layout_grid(CogitoNode* n, int x, int y) {
   }
   for (size_t i = 0; i < count; i++) {
     CogitoNode* c = n->children[i];
+    // Apply item padding to children that don't already have explicit padding
+    if (!c->padding_left) c->padding_left = item_pad_x;
+    if (!c->padding_right) c->padding_right = item_pad_x;
+    if (!c->padding_top) c->padding_top = item_pad_y;
+    if (!c->padding_bottom) c->padding_bottom = item_pad_y;
     int cs = c->grid_span_x > 0 ? c->grid_span_x : 1;
     int rs = c->grid_span_y > 0 ? c->grid_span_y : 1;
     if (cs > cols) cs = cols;
@@ -448,8 +522,10 @@ static void cogito_layout_grid(CogitoNode* n, int x, int y) {
     span_y[i] = rs;
   }
   int *row_heights = (int*)calloc((size_t)row_count, sizeof(int));
+  bool *row_expand = (bool*)calloc((size_t)row_count, sizeof(bool));
   if (!row_heights) {
     free(rows); free(cols_out); free(span_x); free(span_y); free(occ);
+    free(row_expand);
     return;
   }
   for (size_t i = 0; i < count; i++) {
@@ -464,9 +540,23 @@ static void cogito_layout_grid(CogitoNode* n, int x, int y) {
       if (per_row > row_heights[row_idx]) row_heights[row_idx] = per_row;
     }
   }
+  if (row_expand) {
+    for (int r = 0; r < row_count; r++) row_expand[r] = true;
+    int avail_h = n->h - n->padding_top - n->padding_bottom;
+    if (avail_h < 0) avail_h = 0;
+    int total_gap_h = row_count > 0 ? (row_count - 1) * gap_y : 0;
+    int avail_row_h = avail_h - total_gap_h;
+    if (avail_row_h < 0) avail_row_h = 0;
+    int* row_out = (int*)calloc((size_t)row_count, sizeof(int));
+    if (row_out) {
+      cogito_distribute_axis_sizes((size_t)row_count, row_heights, row_expand, avail_row_h, row_out);
+      for (int r = 0; r < row_count; r++) row_heights[r] = row_out[r];
+      free(row_out);
+    }
+  }
   int *row_y = (int*)calloc((size_t)row_count, sizeof(int));
   if (!row_y) {
-    free(rows); free(cols_out); free(span_x); free(span_y); free(occ); free(row_heights);
+    free(rows); free(cols_out); free(span_x); free(span_y); free(occ); free(row_heights); free(row_expand);
     return;
   }
   int cy = y + n->padding_top;
@@ -491,22 +581,11 @@ static void cogito_layout_grid(CogitoNode* n, int x, int y) {
       cell_h_span += row_heights[row_idx];
       if (rr + 1 < rs) cell_h_span += gap_y;
     }
-    int cw = 0;
-    int ch = 0;
-    cogito_intrinsic_size(c, &cw, &ch);
-    if (cw > cell_w_span) cw = cell_w_span;
-    if (ch > cell_h_span) ch = cell_h_span;
-    int ax = c->grid_align_x >= 0 ? c->grid_align_x : n->grid_align_x;
-    int ay = c->grid_align_y >= 0 ? c->grid_align_y : n->grid_align_y;
-    int ox = 0;
-    int oy = 0;
-    if (ax == 1) ox = (cell_w_span - cw) / 2;
-    else if (ax == 2) ox = cell_w_span - cw;
-    if (ay == 1) oy = (cell_h_span - ch) / 2;
-    else if (ay == 2) oy = cell_h_span - ch;
-    if (ox < 0) ox = 0;
-    if (oy < 0) oy = 0;
-    cogito_layout_node(c, cell_x + ox, cell_y + oy, cw, ch);
+    int cw = cell_w_span - c->margin_left - c->margin_right;
+    int ch = cell_h_span - c->margin_top - c->margin_bottom;
+    if (cw < 0) cw = 0;
+    if (ch < 0) ch = 0;
+    cogito_layout_node(c, cell_x + c->margin_left, cell_y + c->margin_top, cw, ch);
   }
   free(rows);
   free(cols_out);
@@ -515,6 +594,7 @@ static void cogito_layout_grid(CogitoNode* n, int x, int y) {
   free(occ);
   free(row_heights);
   free(row_y);
+  free(row_expand);
 }
 
 static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h) {
@@ -611,14 +691,6 @@ static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h) {
 }
 
 static void cogito_layout_window(CogitoNode* win) {
-  FILE* wdbg = fopen("/tmp/cogito_window_debug.log", "a");
-  if (!wdbg) wdbg = fopen("cogito_window_debug.log", "a");
-  if (wdbg) {
-    fprintf(wdbg, "\n[WINDOW LAYOUT] w=%d h=%d\n", win->w, win->h);
-    fflush(wdbg);
-    fclose(wdbg);
-  }
-
   win->x = 0;
   win->y = 0;
   int cx = win->padding_left;
@@ -722,7 +794,9 @@ static void cogito_layout_window(CogitoNode* win) {
   }
   if (win->dialog) {
     if (win->dialog->kind == COGITO_DIALOG_SLOT) {
-      cogito_layout_node(win->dialog, 0, 0, win->w, win->h);
+      if (win->dialog->dialog_open && win->dialog->dialog) {
+        cogito_layout_node(win->dialog, 0, 0, win->w, win->h);
+      }
     } else if (win->dialog_open) {
       int dw = 0;
       int dh = 0;

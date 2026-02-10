@@ -6,14 +6,16 @@ case COGITO_TREEVIEW: {
   // Draw background
   CogitoColor bg = s.has_bg ? s.bg : n->bg;
   int radius = s.has_radius ? s.radius : 8;
-  cogito_draw_rect(n->x, n->y, n->w, n->h, bg, radius);
+  cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, radius);
 
   // Draw border if set
   if (s.has_border && s.has_border_width && s.border_width > 0) {
-    cogito_draw_rect_lines(n->x, n->y, n->w, n->h, s.border, radius, s.border_width);
+    cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, s.border, radius, s.border_width);
   }
 
-  // TreeView renders its children (tree items)
-  // Children are drawn recursively by the main draw loop
+  // Draw tree rows.
+  for (size_t i = 0; i < n->len; i++) {
+    cogito_draw_node(n->children[i]);
+  }
   break;
 }

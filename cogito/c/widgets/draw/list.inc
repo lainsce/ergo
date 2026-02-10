@@ -3,24 +3,29 @@ case COGITO_LIST: {
       bool active = false;
       cogito_node_hover_state(n, &hover, &active);
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
-      if (s.has_bg) { n->bg = s.bg; n->bg_set = true; }
-      if (s.has_border) { n->border_color = s.border; n->border_color_set = true; }
-      if (s.has_border_width) { n->border_width = s.border_width; n->border_width_set = true; }
-      if (s.has_radius) n->border_radius = s.radius;
-      if (n->bg_set || n->border_width > 0) {
+      CogitoColor bg = n->bg;
+      CogitoColor border = n->border_color;
+      int border_w = n->border_width;
+      int radius = 0;
+      if (s.has_bg) bg = s.bg;
+      if (s.has_border) border = s.border;
+      if (s.has_border_width) border_w = s.border_width;
+      if (s.has_radius) radius = s.radius;
+      CogitoColor sel_bg = s.has_selection ? s.selection : n->selection_color;
+      cogito_anim_apply(n, &s, &bg, NULL, &border, &sel_bg);
+      if (n->bg_set || s.has_bg || border_w > 0) {
         if (n->shadow_set && n->shadow_level > 0) {
-          cogito_draw_shadow(n->x, n->y, n->w, n->h, n->border_radius, n->shadow_level);
+          cogito_draw_shadow_node_level(n, &s, n->x, n->y, n->w, n->h, radius, n->shadow_level);
         }
-        cogito_draw_rect(n->x, n->y, n->w, n->h, n->bg, n->border_radius);
-        if (n->border_width > 0) {
-          cogito_draw_rect_lines(n->x, n->y, n->w, n->h, n->border_color, n->border_radius, n->border_width);
+        cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, radius);
+        if (border_w > 0) {
+          cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border, radius, border_w);
         }
       }
       bool has_selection = n->selected >= 0 && (size_t)n->selected < n->len;
-      CogitoColor sel_bg = s.has_selection ? s.selection : n->selection_color;
       if (has_selection) {
         CogitoNode* sel = n->children[n->selected];
-        cogito_draw_rect(sel->x, sel->y, sel->w, sel->h, sel_bg, 0);
+        cogito_draw_rect(sel->x, sel->y, sel->w, sel->h, sel_bg, radius);
       }
       for (size_t i = 0; i < n->len; i++) {
         CogitoNode* c = n->children[i];

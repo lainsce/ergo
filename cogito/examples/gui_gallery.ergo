@@ -277,23 +277,6 @@ fun build_dialogs_view() (( cogito.VStack )) {
         let content = cogito.vstack()
         content.add(cogito.label(@"This is a dialog."))
         
-        -- Close button: navigate up to find the slot and clear it
-        let close_btn = cogito.button(@"Close")
-        close_btn.on_click((btn = cogito.Button) => {
-            -- Navigate: btn -> content -> dlg -> slot
-            let parent = cogito.find_parent(btn)
-            if parent != null {
-                let dialog = cogito.find_parent(parent)
-                if dialog != null {
-                    let dialog_slot = cogito.find_parent(dialog)
-                    if dialog_slot != null {
-                        cogito.dialog_slot_clear(dialog_slot)
-                    }
-                }
-            }
-        })
-        content.add(close_btn)
-        
         dlg.add(content)
         slot.show(dlg)
     })

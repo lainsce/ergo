@@ -12,6 +12,9 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   cogito_update_system_theme(app);
   cogito_app_update_theme(app);
   cogito_apply_style_tree(win);
+  if (cogito_debug_style_enabled_internal()) {
+    cogito_style_dump_tree_internal(win, 0);
+  }
   
   // Initialize SDL3 backend
   if (!cogito_backend) {
@@ -43,8 +46,15 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (!window) {
     ergo_trap("Failed to create window");
   }
+  cogito_active_backend_window = window;
   
   cogito_backend_ready = true;
+  {
+    const char* env_inspector = getenv("COGITO_INSPECTOR");
+    cogito_inspector_enabled = env_inspector && env_inspector[0] && env_inspector[0] != '0';
+    cogito_inspector_open = false;
+    cogito_inspector_selected = win;
+  }
   
 #if defined(__APPLE__)
   cogito_configure_macos_window(appbar != NULL);
@@ -142,6 +152,14 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     if (cogito_active_app) {
       cogito_update_system_theme(cogito_active_app);
     }
+    if (cogito_inspector_enabled) {
+      bool ctrl = cogito_backend->is_key_down(SDL_SCANCODE_LCTRL) || cogito_backend->is_key_down(SDL_SCANCODE_RCTRL);
+      bool shift = cogito_backend->is_key_down(SDL_SCANCODE_LSHIFT) || cogito_backend->is_key_down(SDL_SCANCODE_RSHIFT);
+      if (ctrl && shift && cogito_backend->is_key_pressed(SDL_SCANCODE_I)) {
+        cogito_inspector_open = !cogito_inspector_open;
+        if (cogito_inspector_open && !cogito_inspector_selected) cogito_inspector_selected = win;
+      }
+    }
     
     // Get window size
     int sw, sh;
@@ -151,7 +169,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       win->h = sh;
       cogito_window_relayout(win);
     }
-    
+
     // Get mouse position
     int mx, my;
     cogito_backend->get_mouse_position(&mx, &my);
@@ -380,6 +398,16 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
 
     // Click handling
     if (click) {
+      if (cogito_inspector_open) {
+        if (cogito_inspector_handle_click(win, mx, my)) {
+          click = false;
+        } else {
+          CogitoNode* picked = cogito_inspector_pick_node_recursive(win, mx, my);
+          if (picked) cogito_inspector_selected = picked;
+        }
+      }
+    }
+    if (click) {
       static int cogito_debug_hit = -1;
       if (cogito_debug_hit < 0) {
         const char* env = getenv("COGITO_DEBUG_HIT");
@@ -427,11 +455,26 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         CogitoNode* slot = (win->dialog && win->dialog->kind == COGITO_DIALOG_SLOT && win->dialog->dialog_open && win->dialog->dialog)
           ? win->dialog
           : cogito_find_dialog_slot(win);
+        CogitoNode* active_dialog = (slot && slot->dialog)
+          ? slot->dialog
+          : ((win->dialog_open && win->dialog && win->dialog->kind == COGITO_DIALOG) ? win->dialog : NULL);
+        if (!handled && active_dialog) {
+          int dx = 0, dy = 0, dw = 0, dh = 0;
+          cogito_dialog_close_rect(active_dialog, &dx, &dy, &dw, &dh);
+          if (dw > 0 && dh > 0 && cogito_hit_rect(mx, my, dx, dy, dw, dh)) {
+            cogito_dialog_close(EV_OBJ(active_dialog));
+            handled = true;
+          }
+        }
         CogitoNode* hit = NULL;
         if (!handled) {
-          hit = (slot && slot->dialog) ? cogito_find_clickable(slot->dialog, mx, my)
-                                       : (win->dialog_open && win->dialog ? cogito_find_clickable(win->dialog, mx, my)
-                                                                         : cogito_find_clickable(win, mx, my));
+          CogitoNode* root = (slot && slot->dialog) ? slot->dialog : (win->dialog_open && win->dialog ? win->dialog : win);
+          hit = cogito_find_overlay_toast(root, mx, my);
+          if (!hit) {
+            hit = (slot && slot->dialog) ? cogito_find_clickable(slot->dialog, mx, my)
+                                         : (win->dialog_open && win->dialog ? cogito_find_clickable(win->dialog, mx, my)
+                                                                           : cogito_find_clickable(win, mx, my));
+          }
         }
         if (cogito_debug_hit) {
           if (slot && slot->dialog) {
@@ -654,6 +697,10 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     cogito_tooltip_hovered = NULL;
     cogito_draw_node(win);
     if (cogito_menu.open) cogito_draw_menu();
+    if (cogito_inspector_open) {
+      cogito_draw_inspector_highlight();
+      cogito_draw_inspector_panel(win);
+    }
     if (!cogito_menu.open) {
       CogitoNode* slot = (win->dialog && win->dialog->kind == COGITO_DIALOG_SLOT && win->dialog->dialog_open && win->dialog->dialog)
         ? win->dialog
@@ -690,6 +737,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   }
   
   cogito_backend->window_destroy(window);
+  cogito_active_backend_window = NULL;
   cogito_backend_ready = false;
   cogito_menu_close();
 }

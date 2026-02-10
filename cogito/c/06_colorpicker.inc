@@ -140,8 +140,18 @@ static void cogito_draw_text_size_node(const CogitoNode* n, int x, int y, const 
   if (n && n->font_tabular) {
     f = cogito_font_tabular_for(f, size);
   }
+  f = cogito_font_resolve_size(f, size);
+  bool faux_bold = bold && (
+    (f == cogito_font && !cogito_font_bold_ready) ||
+    (f == cogito_font_bold && cogito_font_bold_variable)
+  );
   if (cogito_backend && cogito_backend->draw_text) {
     cogito_backend->draw_text(f, text, x, y, size, color);
+    if (faux_bold) {
+      CogitoColor c2 = color;
+      c2.a = (unsigned char)((float)c2.a * 0.72f);
+      cogito_backend->draw_text(f, text, x + 1, y, size, c2);
+    }
   }
 }
 

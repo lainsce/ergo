@@ -11,30 +11,57 @@ case COGITO_DIALOG: {
 
       // Draw box-shadow from SUM
       if (s.has_box_shadow && s.box_shadow.blur > 0) {
-        int shadow_level = (int)(s.box_shadow.blur / 3);
-        if (shadow_level < 1) shadow_level = 1;
-        if (shadow_level > 5) shadow_level = 5;
-        cogito_draw_shadow(n->x, n->y, n->w, n->h, n->border_radius, shadow_level);
+        cogito_draw_shadow_node_box(n, &s, n->x, n->y, n->w, n->h, n->border_radius, &s.box_shadow);
       } else if (n->shadow_set && n->shadow_level > 0) {
-        cogito_draw_shadow(n->x, n->y, n->w, n->h, n->border_radius, n->shadow_level);
+        cogito_draw_shadow_node_level(n, &s, n->x, n->y, n->w, n->h, n->border_radius, n->shadow_level);
       }
 
       if (n->bg_set) {
-        cogito_draw_rect(n->x, n->y, n->w, n->h, n->bg, n->border_radius);
+        cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, n->bg, n->border_radius);
       }
       if (n->border_width > 0) {
-        cogito_draw_rect_lines(n->x, n->y, n->w, n->h, n->border_color, n->border_radius, n->border_width);
+        cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, n->border_color, n->border_radius, n->border_width);
       }
 
-      // Draw title if set
+      int pad_l = n->padding_left > 0 ? n->padding_left : (s.has_padding_left ? s.padding_left : 24);
+      int pad_t = n->padding_top > 0 ? n->padding_top : (s.has_padding_top ? s.padding_top : 24);
+      int title_size = 20;
+      int title_h = cogito_text_height_size(title_size);
+      int cx = 0, cy = 0, cw = 0, ch = 0;
+      cogito_dialog_close_rect(n, &cx, &cy, &cw, &ch);
+      int header_h = title_h > ch ? title_h : ch;
+      CogitoColor title_color = s.has_text ? s.text : n->text_color;
+
+      // Draw title in header row.
       if (n->text && n->text->data[0]) {
-        CogitoColor title_color = s.has_text ? s.text : n->text_color;
-        int title_size = 20;
-        int title_h = cogito_text_height_size(title_size);
-        int pad_l = s.has_padding_left ? s.padding_left : 24;
-        int pad_t = s.has_padding_top ? s.padding_top : 24;
-        cogito_draw_text_size_node(n, n->x + pad_l, n->y + pad_t, n->text->data, title_color, title_size, false);
-        (void)title_h;
+        int ty = n->y + pad_t + (header_h - title_h) / 2;
+        cogito_draw_text_size_node(n, n->x + pad_l, ty, n->text->data, title_color, title_size, false);
+      }
+
+      // Draw close button in top-right.
+      if (cw > 0 && ch > 0) {
+        int mx = 0, my = 0;
+        bool down = false;
+        if (cogito_backend && cogito_backend->get_mouse_position) {
+          cogito_backend->get_mouse_position(&mx, &my);
+        }
+        if (cogito_backend && cogito_backend->is_mouse_button_down) {
+          down = cogito_backend->is_mouse_button_down(0);
+        }
+        bool over = cogito_hit_rect(mx, my, cx, cy, cw, ch);
+        if (over) {
+          CogitoColor cbg = title_color;
+          cbg.a = down ? 72 : 48;
+          int cr = cw / 2;
+          if (cr < 4) cr = 4;
+          cogito_draw_rect(cx, cy, cw, ch, cbg, cr);
+        }
+        int icon_size = cw - 10;
+        if (icon_size < 10) icon_size = 10;
+        int ix = cx + (cw - icon_size) / 2;
+        int iy = cy + (ch - icon_size) / 2;
+        CogitoColor icon_color = s.has_icon_color ? s.icon_color : title_color;
+        cogito_draw_icon_fallback(n, "sf:xmark", ix, iy, icon_size, icon_color);
       }
 
       // Draw children

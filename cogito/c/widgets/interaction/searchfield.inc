@@ -1,6 +1,8 @@
 static CogitoNode* cogito_searchfield_new_obj(ErgoStr* text) {
   CogitoNode* sf = cogito_node_new(COGITO_SEARCHFIELD);
-  cogito_node_set_text(sf, text);
+  // Treat constructor text as placeholder; value starts empty.
+  cogito_node_set_subtitle(sf, text);
+  cogito_node_set_text(sf, NULL);
   return sf;
 }
 static ErgoVal cogito_searchfield_new(ErgoVal text) {

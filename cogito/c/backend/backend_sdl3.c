@@ -22,6 +22,8 @@
 
 static void* sdl3_window_get_native_handle(CogitoWindow* window);
 static SDL_HitTestResult sdl3_csd_hit_test_callback(SDL_Window* sdl_win, const SDL_Point* point, void* data);
+static SDL_Renderer* sdl3_active_renderer(void);
+static SDL_Renderer* sdl3_create_renderer_for_window(SDL_Window* window);
 
 // ============================================================================
 // Internal Types
@@ -29,6 +31,7 @@ static SDL_HitTestResult sdl3_csd_hit_test_callback(SDL_Window* sdl_win, const S
 
 typedef struct CogitoSDL3Texture {
     SDL_GPUTexture* gpu_texture;
+    SDL_Texture* sdl_texture;
     int width;
     int height;
     int channels;
@@ -36,11 +39,14 @@ typedef struct CogitoSDL3Texture {
 
 typedef struct CogitoSDL3Window {
     SDL_Window* sdl_window;
+    SDL_Renderer* renderer;
     int width, height;
     bool should_close;
     bool borderless;
     uint32_t window_id;
     CogitoCSDState csd_state;
+    int (*hit_test_callback)(CogitoWindow* win, int x, int y, void* user);
+    void* hit_test_userdata;
     SDL_GPUSwapchainComposition swapchain_composition;
     SDL_GPUPresentMode present_mode;
 } CogitoSDL3Window;
@@ -73,6 +79,7 @@ static CogitoSDL3RenderState g_render_state = {0};
 static bool sdl3_initialized = false;
 static bool ttf_initialized = false;
 static SDL_GPUDevice* global_gpu_device = NULL;
+static SDL_Renderer* g_current_renderer = NULL;
 static CogitoWindowRegistry window_registry = {0};
 static CogitoDebugFlags debug_flags = {0};
 
@@ -155,20 +162,6 @@ CogitoColor cogito_color_on_color(CogitoColor bg) {
 // Lifecycle
 // ============================================================================
 
-// Simple vertex shader (colored primitives) - TODO: implement shader system
-// static const char* color_vertex_shader = 
-//     "@vertex\n"
-//     "fn main(@location(0) position: vec2<f32>, @location(1) color: vec4<f32>) -> @builtin(position) vec4<f32> {\n"
-//     "    return vec4<f32>(position, 0.0, 1.0);\n"
-//     "}\n";
-
-// Simple fragment shader (colored primitives) - TODO: implement shader system
-// static const char* color_fragment_shader = 
-//     "@fragment\n"
-//     "fn main() -> @location(0) vec4<f32> {\n"
-//     "    return vec4<f32>(1.0, 1.0, 1.0, 1.0);\n"
-//     "}\n";
-
 // Helper: Create GPU buffer
 static SDL_GPUBuffer* create_buffer(SDL_GPUDevice* device, uint32_t size, SDL_GPUBufferUsageFlags usage) {
     SDL_GPUBufferCreateInfo info = {
@@ -214,50 +207,23 @@ static bool sdl3_init(void) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_Init failed: %s", SDL_GetError());
         return false;
     }
-    
-    SDL_GPUShaderFormat formats = SDL_GPU_SHADERFORMAT_SPIRV | 
-                                  SDL_GPU_SHADERFORMAT_DXIL | 
-                                  SDL_GPU_SHADERFORMAT_MSL;
-    
-    global_gpu_device = SDL_CreateGPUDevice(formats, true, NULL);
-    if (!global_gpu_device) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_CreateGPUDevice failed: %s", SDL_GetError());
-        SDL_Quit();
-        return false;
-    }
-    
-    SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "SDL3 GPU driver: %s", 
-                SDL_GetGPUDeviceDriver(global_gpu_device));
+
+    // Prefer geometry-based line rendering and vsync for smoother output.
+    SDL_SetHint(SDL_HINT_RENDER_LINE_METHOD, "3");
+    SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
+
+    // Best-effort multisampling request for GL-backed renderers.
+    // SDL_Renderer does not expose a generic MSAA sample-count property.
+    (void)SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+    (void)SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
     
     // Initialize TTF
     if (!TTF_Init()) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "TTF_Init failed: %s", SDL_GetError());
-        SDL_DestroyGPUDevice(global_gpu_device);
         SDL_Quit();
         return false;
     }
     ttf_initialized = true;
-    
-    // Create vertex buffer
-    vertex_buffer = create_buffer(global_gpu_device, MAX_VERTICES * 6 * sizeof(float) * 2, 
-                                   SDL_GPU_BUFFERUSAGE_VERTEX);
-    if (!vertex_buffer) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create vertex buffer");
-        TTF_Quit();
-        SDL_DestroyGPUDevice(global_gpu_device);
-        SDL_Quit();
-        return false;
-    }
-    
-    vertex_data = (float*)malloc(MAX_VERTICES * 6 * sizeof(float) * 2);
-    if (!vertex_data) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to allocate vertex data");
-        SDL_ReleaseGPUBuffer(global_gpu_device, vertex_buffer);
-        TTF_Quit();
-        SDL_DestroyGPUDevice(global_gpu_device);
-        SDL_Quit();
-        return false;
-    }
     
     // Parse debug flags
     cogito_debug_flags_parse(&debug_flags);
@@ -276,16 +242,6 @@ static bool sdl3_init(void) {
 static void sdl3_shutdown(void) {
     if (!sdl3_initialized) return;
     
-    if (vertex_data) {
-        free(vertex_data);
-        vertex_data = NULL;
-    }
-    
-    if (vertex_buffer && global_gpu_device) {
-        SDL_ReleaseGPUBuffer(global_gpu_device, vertex_buffer);
-        vertex_buffer = NULL;
-    }
-    
     if (global_gpu_device) {
         SDL_DestroyGPUDevice(global_gpu_device);
         global_gpu_device = NULL;
@@ -298,6 +254,58 @@ static void sdl3_shutdown(void) {
     
     SDL_Quit();
     sdl3_initialized = false;
+}
+
+static SDL_Renderer* sdl3_create_renderer_for_window(SDL_Window* window) {
+    if (!window) return NULL;
+
+    SDL_Renderer* renderer = NULL;
+
+    const char* preferred[3] = { NULL, NULL, NULL };
+    int preferred_count = 0;
+#ifdef __APPLE__
+    preferred[preferred_count++] = "opengl";
+    preferred[preferred_count++] = "gpu";
+#else
+    preferred[preferred_count++] = "gpu";
+#endif
+
+    for (int i = 0; i < preferred_count && !renderer; i++) {
+        SDL_PropertiesID props = SDL_CreateProperties();
+        if (!props) continue;
+        SDL_SetPointerProperty(props, SDL_PROP_RENDERER_CREATE_WINDOW_POINTER, window);
+        SDL_SetStringProperty(props, SDL_PROP_RENDERER_CREATE_NAME_STRING, preferred[i]);
+        SDL_SetNumberProperty(props, SDL_PROP_RENDERER_CREATE_PRESENT_VSYNC_NUMBER, 1);
+        renderer = SDL_CreateRendererWithProperties(props);
+        SDL_DestroyProperties(props);
+    }
+
+    if (!renderer) {
+        renderer = SDL_CreateRenderer(window, NULL);
+    }
+
+    if (renderer) {
+        const char* renderer_name = SDL_GetRendererName(renderer);
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Renderer backend: %s",
+                    renderer_name ? renderer_name : "unknown");
+#ifdef __APPLE__
+        if (renderer_name && strcmp(renderer_name, "opengl") == 0) {
+            int msaa_buffers = 0;
+            int msaa_samples = 0;
+            if (SDL_GL_GetAttribute(SDL_GL_MULTISAMPLEBUFFERS, &msaa_buffers) &&
+                SDL_GL_GetAttribute(SDL_GL_MULTISAMPLESAMPLES, &msaa_samples)) {
+                SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                            "OpenGL MSAA: buffers=%d samples=%d",
+                            msaa_buffers, msaa_samples);
+            } else {
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                            "OpenGL MSAA query failed: %s", SDL_GetError());
+            }
+        }
+#endif
+    }
+
+    return renderer;
 }
 
 // ============================================================================
@@ -313,6 +321,10 @@ static CogitoWindow* sdl3_window_create(const char* title, int w, int h, bool re
     SDL_WindowFlags flags = SDL_WINDOW_HIGH_PIXEL_DENSITY;
     if (resizable) flags |= SDL_WINDOW_RESIZABLE;
     if (borderless) flags |= SDL_WINDOW_BORDERLESS;
+#ifdef __APPLE__
+    // Required for OpenGL renderer path where MSAA attributes are honored.
+    flags |= SDL_WINDOW_OPENGL;
+#endif
     
     win->sdl_window = SDL_CreateWindow(title, w, h, flags);
     if (!win->sdl_window) {
@@ -325,14 +337,24 @@ static CogitoWindow* sdl3_window_create(const char* title, int w, int h, bool re
     win->borderless = borderless;
     win->window_id = SDL_GetWindowID(win->sdl_window);
     
-    if (!SDL_ClaimWindowForGPUDevice(global_gpu_device, win->sdl_window)) {
+    win->renderer = sdl3_create_renderer_for_window(win->sdl_window);
+    if (!win->renderer) {
         SDL_DestroyWindow(win->sdl_window);
         free(win);
         return NULL;
     }
+    SDL_SetRenderDrawBlendMode(win->renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetDefaultTextureScaleMode(win->renderer, SDL_SCALEMODE_LINEAR);
+    SDL_StartTextInput(win->sdl_window);
     
     // Initialize CSD for borderless windows with appbar
     cogito_csd_init(&win->csd_state, borderless);
+    if (debug_flags.debug_csd) {
+        win->csd_state.debug_overlay = true;
+    }
+    if (borderless) {
+        SDL_SetWindowHitTest(win->sdl_window, sdl3_csd_hit_test_callback, win);
+    }
     
     // Register in window registry
     cogito_window_registry_add(&window_registry, (CogitoWindow*)win);
@@ -352,8 +374,12 @@ static void sdl3_window_destroy(CogitoWindow* window) {
     
     cogito_window_registry_remove(&window_registry, window);
     
+    if (win->renderer) {
+        SDL_DestroyRenderer(win->renderer);
+        win->renderer = NULL;
+    }
     if (win->sdl_window) {
-        SDL_ReleaseWindowFromGPUDevice(global_gpu_device, win->sdl_window);
+        SDL_StopTextInput(win->sdl_window);
         SDL_DestroyWindow(win->sdl_window);
     }
     
@@ -449,7 +475,7 @@ static uint32_t sdl3_window_get_id(CogitoWindow* window) {
 
 static void sdl3_begin_frame(CogitoWindow* window) {
     CogitoSDL3Window* win = (CogitoSDL3Window*)window;
-    if (!win) return;
+    if (!win || !win->renderer) return;
     
     int w, h;
     SDL_GetWindowSize(win->sdl_window, &w, &h);
@@ -458,67 +484,27 @@ static void sdl3_begin_frame(CogitoWindow* window) {
         win->height = h;
     }
     
-    // Acquire command buffer and swapchain texture
-    g_render_state.cmd_buf = SDL_AcquireGPUCommandBuffer(global_gpu_device);
-    if (!g_render_state.cmd_buf) return;
-    
-    if (!SDL_WaitAndAcquireGPUSwapchainTexture(g_render_state.cmd_buf, win->sdl_window, 
-                                                &g_render_state.swapchain_texture, 
-                                                NULL, NULL)) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to acquire swapchain texture: %s", 
-                     SDL_GetError());
-        SDL_CancelGPUCommandBuffer(g_render_state.cmd_buf);
-        g_render_state.cmd_buf = NULL;
-        return;
-    }
-    
+    g_current_renderer = win->renderer;
     g_render_state.window_width = w;
     g_render_state.window_height = h;
-    vertex_count = 0;
+    SDL_SetRenderClipRect(g_current_renderer, NULL);
 }
 
 static void sdl3_end_frame(CogitoWindow* window) {
     (void)window;
-    
-    if (!g_render_state.render_pass) return;
-    
-    // End render pass if active
-    SDL_EndGPURenderPass(g_render_state.render_pass);
-    g_render_state.render_pass = NULL;
 }
 
 static void sdl3_present(CogitoWindow* window) {
     CogitoSDL3Window* win = (CogitoSDL3Window*)window;
-    if (!win || !g_render_state.cmd_buf) return;
-    
-    // Submit command buffer
-    SDL_SubmitGPUCommandBuffer(g_render_state.cmd_buf);
-    g_render_state.cmd_buf = NULL;
-    g_render_state.swapchain_texture = NULL;
+    if (!win || !win->renderer) return;
+    SDL_RenderPresent(win->renderer);
+    g_current_renderer = NULL;
 }
 
 static void sdl3_clear(CogitoColor color) {
-    if (!g_render_state.swapchain_texture) return;
-    
-    // End any existing render pass
-    if (g_render_state.render_pass) {
-        SDL_EndGPURenderPass(g_render_state.render_pass);
-        g_render_state.render_pass = NULL;
-    }
-    
-    // Begin new render pass with clear
-    SDL_GPUColorTargetInfo color_target = {
-        .texture = g_render_state.swapchain_texture,
-        .mip_level = 0,
-        .layer_or_depth_plane = 0,
-        .clear_color = { color.r / 255.0f, color.g / 255.0f, color.b / 255.0f, color.a / 255.0f },
-        .load_op = SDL_GPU_LOADOP_CLEAR,
-        .store_op = SDL_GPU_STOREOP_STORE,
-        .cycle = false
-    };
-    
-    SDL_GPUColorTargetInfo targets[1] = { color_target };
-    g_render_state.render_pass = SDL_BeginGPURenderPass(g_render_state.cmd_buf, targets, 1, NULL);
+    if (!g_current_renderer) return;
+    SDL_SetRenderDrawColor(g_current_renderer, color.r, color.g, color.b, color.a);
+    SDL_RenderClear(g_current_renderer);
 }
 
 // ============================================================================
@@ -560,6 +546,10 @@ static void process_events(void) {
                 CogitoWindow* win = cogito_window_registry_get(&window_registry, event.window.windowID);
                 if (win) {
                     cogito_window_registry_set_focused(&window_registry, win);
+                    CogitoSDL3Window* sdl_win = (CogitoSDL3Window*)win;
+                    if (sdl_win->sdl_window) {
+                        SDL_StartTextInput(sdl_win->sdl_window);
+                    }
                 }
                 break;
             }
@@ -595,12 +585,12 @@ static void process_events(void) {
                     keys_pressed[event.key.scancode] = true;
                 }
                 
-                // Inspector toggle: Ctrl+Shift+I
-                if (debug_flags.inspector || debug_flags.debug_csd) {
+                // CSD debug overlay toggle: Ctrl+Shift+I (when inspector is not active)
+                if (debug_flags.debug_csd && !debug_flags.inspector) {
                     bool ctrl = keys_down[SDL_SCANCODE_LCTRL] || keys_down[SDL_SCANCODE_RCTRL];
                     bool shift = keys_down[SDL_SCANCODE_LSHIFT] || keys_down[SDL_SCANCODE_RSHIFT];
                     if (ctrl && shift && event.key.scancode == SDL_SCANCODE_I) {
-                        // Toggle inspector for focused window
+                        // Toggle CSD overlay for focused window
                         CogitoWindow* win = cogito_window_registry_get_focused(&window_registry);
                         if (win) {
                             CogitoSDL3Window* sdl_win = (CogitoSDL3Window*)win;
@@ -741,6 +731,20 @@ static void sdl3_sleep(uint32_t ms) {
     SDL_Delay(ms);
 }
 
+static SDL_Renderer* sdl3_active_renderer(void) {
+    if (g_current_renderer) return g_current_renderer;
+    CogitoWindow* focused = cogito_window_registry_get_focused(&window_registry);
+    if (focused) {
+        CogitoSDL3Window* win = (CogitoSDL3Window*)focused;
+        if (win->renderer) return win->renderer;
+    }
+    if (window_registry.count > 0 && window_registry.windows[0]) {
+        CogitoSDL3Window* win = (CogitoSDL3Window*)window_registry.windows[0];
+        if (win->renderer) return win->renderer;
+    }
+    return NULL;
+}
+
 // ============================================================================
 // Drawing (GPU Implementation)
 // ============================================================================
@@ -765,39 +769,6 @@ static void add_quad(float x1, float y1, float x2, float y2, float x3, float y3,
     vertex_count += 6;
 }
 
-// Helper: Flush vertex buffer to GPU - TODO: implement when shader pipeline ready
-// static void flush_vertices(void) {
-//     if (vertex_count == 0 || !g_render_state.cmd_buf) return;
-//     
-//     // Upload vertex data
-//     upload_buffer_data(global_gpu_device, vertex_buffer, vertex_data, 
-//                        vertex_count * 8 * sizeof(float));
-//     
-//     // TODO: Set up pipeline and draw
-//     // For now, just clear the buffer
-//     vertex_count = 0;
-// }
-
-// Helper: Ensure render pass is active - TODO: implement when shader pipeline ready
-// static void ensure_render_pass(void) {
-//     if (g_render_state.render_pass) return;
-//     if (!g_render_state.swapchain_texture) return;
-//     
-//     SDL_GPUColorTargetInfo color_target = {
-//         .texture = g_render_state.swapchain_texture,
-//         .mip_level = 0,
-//         .layer_or_depth_plane = 0,
-//         .clear_color = { 0, 0, 0, 0 },
-//         .load_op = SDL_GPU_LOADOP_LOAD,
-//         .store_op = SDL_GPU_STOREOP_STORE,
-//         .cycle = false
-//     };
-//     
-//     SDL_GPUColorTargetInfo targets[1] = { color_target };
-//     g_render_state.render_pass = SDL_BeginGPURenderPass(g_render_state.cmd_buf, targets, 1, NULL);
-// }
-
-// Helper: Convert pixel coordinates to normalized device coordinates
 static float px_to_ndc_x(int x, int width) {
     return (2.0f * x / width) - 1.0f;
 }
@@ -807,135 +778,419 @@ static float px_to_ndc_y(int y, int height) {
 }
 
 static void sdl3_draw_rect(int x, int y, int w, int h, CogitoColor color) {
-    if (!g_render_state.swapchain_texture) return;
-    
-    float r = color.r / 255.0f;
-    float g = color.g / 255.0f;
-    float b = color.b / 255.0f;
-    float a = color.a / 255.0f;
-    
-    float x1 = px_to_ndc_x(x, g_render_state.window_width);
-    float y1 = px_to_ndc_y(y, g_render_state.window_height);
-    float x2 = px_to_ndc_x(x + w, g_render_state.window_width);
-    float y2 = px_to_ndc_y(y + h, g_render_state.window_height);
-    
-    add_quad(x1, y1, x2, y1, x2, y2, x1, y2, r, g, b, a);
+    if (!g_current_renderer || w <= 0 || h <= 0) return;
+    SDL_SetRenderDrawColor(g_current_renderer, color.r, color.g, color.b, color.a);
+    SDL_FRect rect = { (float)x, (float)y, (float)w, (float)h };
+    SDL_RenderFillRect(g_current_renderer, &rect);
+}
+
+static void sdl3_draw_point_alpha(int x, int y, CogitoColor color, float coverage) {
+    if (!g_current_renderer || color.a == 0) return;
+    if (coverage <= 0.0f) return;
+    if (coverage > 1.0f) coverage = 1.0f;
+    uint8_t a = (uint8_t)lroundf((float)color.a * coverage);
+    if (a == 0) return;
+    SDL_SetRenderDrawColor(g_current_renderer, color.r, color.g, color.b, a);
+    SDL_RenderPoint(g_current_renderer, (float)x, (float)y);
+}
+
+static void sdl3_draw_hspan_aa(int y, float left, float right, CogitoColor color) {
+    if (!g_current_renderer || color.a == 0) return;
+    if (right < left) return;
+    int full_l = (int)ceilf(left);
+    int full_r = (int)floorf(right);
+
+    if (full_l > full_r) {
+        return;
+    }
+
+    SDL_SetRenderDrawColor(g_current_renderer, color.r, color.g, color.b, color.a);
+    SDL_RenderLine(g_current_renderer, (float)full_l, (float)y, (float)full_r, (float)y);
+}
+
+static void sdl3_draw_hspan_mixed(int y, float left, float right, CogitoColor color, bool aa_left, bool aa_right) {
+    (void)aa_left;
+    (void)aa_right;
+    if (!g_current_renderer || color.a == 0) return;
+    if (right < left) return;
+    int full_l = (int)ceilf(left);
+    int full_r = (int)floorf(right);
+
+    if (full_l > full_r) return;
+    SDL_SetRenderDrawColor(g_current_renderer, color.r, color.g, color.b, color.a);
+    SDL_RenderLine(g_current_renderer, (float)full_l, (float)y, (float)full_r, (float)y);
+}
+
+static float sdl3_aa_coverage_curve(float cov) {
+    if (cov <= 0.05f) return 0.0f;
+    if (cov >= 1.0f) return 1.0f;
+    // Sharper falloff so AA is present but less visually soft.
+    return powf(cov, 0.7f);
+}
+
+static float sdl3_round_inset_for_row(int row, int h, float r) {
+    if (r <= 0.0f || row < 0 || row >= h) return 0.0f;
+    float y_center = (float)row + 0.5f;
+    float dy = 0.0f;
+    float bottom_start = (float)h - r;
+    if (y_center < r) {
+        dy = r - y_center;
+    } else if (y_center > bottom_start) {
+        dy = y_center - bottom_start;
+    } else {
+        return 0.0f;
+    }
+    float inside = r * r - dy * dy;
+    if (inside < 0.0f) inside = 0.0f;
+    float dx = sqrtf(inside);
+    float inset = r - dx;
+    if (inset < 0.0f) inset = 0.0f;
+    return inset;
+}
+
+static int sdl3_round_segments_for_radius(float radius) {
+    int segments = (int)ceilf(radius * 0.9f);
+    if (segments < 6) segments = 6;
+    if (segments > 48) segments = 48;
+    return segments;
+}
+
+static float sdl3_clampf(float x, float a, float b) {
+    return (x < a) ? a : ((x > b) ? b : x);
+}
+
+static int sdl3_build_rounded_rect_perimeter(float x, float y, float w, float h,
+                                             float radius, int segments,
+                                             SDL_FPoint** out_pts, int* out_count) {
+    if (!out_pts || !out_count) return -1;
+    if (segments < 1) segments = 1;
+
+    float max_r = 0.5f * ((w < h) ? w : h);
+    float r = sdl3_clampf(radius, 0.0f, max_r);
+
+    const int count = 4 * segments + 4;
+    SDL_FPoint* pts = (SDL_FPoint*)malloc((size_t)count * sizeof(SDL_FPoint));
+    if (!pts) return -1;
+
+    float left = x + r;
+    float right = x + w - r;
+    float top = y + r;
+    float bottom = y + h - r;
+
+    struct Arc { float cx, cy, a0, a1; } arcs[4] = {
+        { right, top,    (float)(-0.5 * M_PI), (float)(0.0 * M_PI) },
+        { right, bottom, (float)(0.0  * M_PI), (float)(0.5 * M_PI) },
+        { left,  bottom, (float)(0.5  * M_PI), (float)(1.0 * M_PI) },
+        { left,  top,    (float)(1.0  * M_PI), (float)(1.5 * M_PI) },
+    };
+
+    int out = 0;
+    for (int corner = 0; corner < 4; corner++) {
+        float cx = arcs[corner].cx;
+        float cy = arcs[corner].cy;
+        float a0 = arcs[corner].a0;
+        float a1 = arcs[corner].a1;
+
+        for (int i = 0; i <= segments; i++) {
+            if (corner > 0 && i == 0) continue;
+            float t = (float)i / (float)segments;
+            float a = a0 + (a1 - a0) * t;
+            float px = cx + cosf(a) * r;
+            float py = cy + sinf(a) * r;
+            pts[out++] = (SDL_FPoint){ px, py };
+        }
+    }
+
+    *out_pts = pts;
+    *out_count = out;
+    return 0;
+}
+
+static SDL_FColor sdl3_fcolor(CogitoColor c) {
+    return (SDL_FColor){
+        (float)c.r / 255.0f,
+        (float)c.g / 255.0f,
+        (float)c.b / 255.0f,
+        (float)c.a / 255.0f
+    };
+}
+
+static bool sdl3_draw_filled_rounded_rect_fan(int x, int y, int w, int h,
+                                              float radius, int segments,
+                                              CogitoColor color) {
+    SDL_FPoint* perim = NULL;
+    int perim_count = 0;
+    if (sdl3_build_rounded_rect_perimeter((float)x, (float)y, (float)w, (float)h,
+                                          radius, segments, &perim, &perim_count) != 0) {
+        return false;
+    }
+
+    SDL_FColor c = sdl3_fcolor(color);
+    const int vert_count = 1 + perim_count;
+    const int index_count = 3 * perim_count;
+
+    SDL_Vertex* verts = (SDL_Vertex*)malloc((size_t)vert_count * sizeof(SDL_Vertex));
+    int* indices = (int*)malloc((size_t)index_count * sizeof(int));
+    if (!verts || !indices) {
+        free(verts);
+        free(indices);
+        free(perim);
+        return false;
+    }
+
+    float cx = (float)x + (float)w * 0.5f;
+    float cy = (float)y + (float)h * 0.5f;
+    verts[0] = (SDL_Vertex){ .position = { cx, cy }, .color = c, .tex_coord = { 0.0f, 0.0f } };
+
+    for (int i = 0; i < perim_count; i++) {
+        verts[1 + i] = (SDL_Vertex){ .position = perim[i], .color = c, .tex_coord = { 0.0f, 0.0f } };
+    }
+
+    int ii = 0;
+    for (int i = 0; i < perim_count; i++) {
+        int b = 1 + i;
+        int cidx = 1 + ((i + 1) % perim_count);
+        indices[ii++] = 0;
+        indices[ii++] = b;
+        indices[ii++] = cidx;
+    }
+
+    bool ok = SDL_RenderGeometry(g_current_renderer, NULL, verts, vert_count, indices, index_count);
+    free(verts);
+    free(indices);
+    free(perim);
+    return ok;
+}
+
+static bool sdl3_draw_rounded_rect_outline(int x, int y, int w, int h,
+                                           float radius, float thickness, int segments,
+                                           CogitoColor color) {
+    if (!g_current_renderer || w <= 0 || h <= 0) return true;
+    if (segments < 1) segments = 1;
+
+    float half_min = 0.5f * (float)((w < h) ? w : h);
+    float t = sdl3_clampf(thickness, 0.0f, half_min);
+    float r_outer = sdl3_clampf(radius, 0.0f, half_min);
+    if (t <= 0.0001f) return true;
+
+    float xi = (float)x + t;
+    float yi = (float)y + t;
+    float wi = (float)w - 2.0f * t;
+    float hi = (float)h - 2.0f * t;
+
+    if (wi <= 0.0001f || hi <= 0.0001f) {
+        return sdl3_draw_filled_rounded_rect_fan(x, y, w, h, r_outer, segments, color);
+    }
+
+    float r_inner = r_outer - t;
+    if (r_inner < 0.0f) r_inner = 0.0f;
+
+    SDL_FPoint* outer_pts = NULL;
+    SDL_FPoint* inner_pts = NULL;
+    int outer_count = 0;
+    int inner_count = 0;
+
+    if (sdl3_build_rounded_rect_perimeter((float)x, (float)y, (float)w, (float)h,
+                                          r_outer, segments, &outer_pts, &outer_count) != 0) {
+        return false;
+    }
+    if (sdl3_build_rounded_rect_perimeter(xi, yi, wi, hi,
+                                          r_inner, segments, &inner_pts, &inner_count) != 0) {
+        free(outer_pts);
+        return false;
+    }
+
+    int n = (outer_count < inner_count) ? outer_count : inner_count;
+    if (n < 3) {
+        free(outer_pts);
+        free(inner_pts);
+        return false;
+    }
+
+    SDL_FColor c = sdl3_fcolor(color);
+    const int vert_count = 2 * n;
+    const int index_count = 6 * n;
+
+    SDL_Vertex* verts = (SDL_Vertex*)malloc((size_t)vert_count * sizeof(SDL_Vertex));
+    int* indices = (int*)malloc((size_t)index_count * sizeof(int));
+    if (!verts || !indices) {
+        free(verts);
+        free(indices);
+        free(outer_pts);
+        free(inner_pts);
+        return false;
+    }
+
+    for (int i = 0; i < n; i++) {
+        verts[i] = (SDL_Vertex){ .position = outer_pts[i], .color = c, .tex_coord = { 0.0f, 0.0f } };
+        verts[n + i] = (SDL_Vertex){ .position = inner_pts[i], .color = c, .tex_coord = { 0.0f, 0.0f } };
+    }
+
+    int ii = 0;
+    for (int i = 0; i < n; i++) {
+        int next = (i + 1) % n;
+        int o0 = i;
+        int o1 = next;
+        int i0 = n + i;
+        int i1 = n + next;
+        indices[ii++] = o0;
+        indices[ii++] = o1;
+        indices[ii++] = i1;
+        indices[ii++] = o0;
+        indices[ii++] = i1;
+        indices[ii++] = i0;
+    }
+
+    bool ok = SDL_RenderGeometry(g_current_renderer, NULL, verts, vert_count, indices, index_count);
+    free(verts);
+    free(indices);
+    free(outer_pts);
+    free(inner_pts);
+    return ok;
 }
 
 static void sdl3_draw_rect_rounded(int x, int y, int w, int h, CogitoColor color, float roundness) {
-    // For now, fall back to regular rect (TODO: implement proper rounded corners)
-    (void)roundness;
-    sdl3_draw_rect(x, y, w, h, color);
+    if (!g_current_renderer || w <= 0 || h <= 0) return;
+    int min_dim = w < h ? w : h;
+    float r = roundness * (float)min_dim * 0.5f;
+    if (r < 0.5f) {
+        sdl3_draw_rect(x, y, w, h, color);
+        return;
+    }
+    float max_r = (float)min_dim * 0.5f;
+    if (r > max_r) r = max_r;
+    int segments = sdl3_round_segments_for_radius(r);
+    if (!sdl3_draw_filled_rounded_rect_fan(x, y, w, h, r, segments, color)) {
+        // Fallback if geometry allocation fails.
+        for (int iy = 0; iy < h; iy++) {
+            float inset = sdl3_round_inset_for_row(iy, h, r);
+            float left = (float)x + inset;
+            float right = (float)(x + w - 1) - inset;
+            sdl3_draw_hspan_aa(y + iy, left, right, color);
+        }
+    }
 }
 
 static void sdl3_draw_line(int x1, int y1, int x2, int y2, CogitoColor color, int thickness) {
-    (void)thickness;
-    if (!g_render_state.swapchain_texture) return;
-    
-    float r = color.r / 255.0f;
-    float g = color.g / 255.0f;
-    float b = color.b / 255.0f;
-    float a = color.a / 255.0f;
-    
-    // Simple line as thin quad
-    float dx = x2 - x1;
-    float dy = y2 - y1;
+    if (!g_current_renderer) return;
+    if (thickness < 1) thickness = 1;
+    SDL_SetRenderDrawColor(g_current_renderer, color.r, color.g, color.b, color.a);
+    if (thickness == 1) {
+        SDL_RenderLine(g_current_renderer, (float)x1, (float)y1, (float)x2, (float)y2);
+        return;
+    }
+    float dx = (float)(x2 - x1);
+    float dy = (float)(y2 - y1);
     float len = sqrtf(dx * dx + dy * dy);
-    if (len < 0.001f) return;
-    
-    float nx = -dy / len * 0.5f;
-    float ny = dx / len * 0.5f;
-    
-    float x1_ndc = px_to_ndc_x(x1 + nx, g_render_state.window_width);
-    float y1_ndc = px_to_ndc_y(y1 + ny, g_render_state.window_height);
-    float x2_ndc = px_to_ndc_x(x2 + nx, g_render_state.window_width);
-    float y2_ndc = px_to_ndc_y(y2 + ny, g_render_state.window_height);
-    float x3_ndc = px_to_ndc_x(x2 - nx, g_render_state.window_width);
-    float y3_ndc = px_to_ndc_y(y2 - ny, g_render_state.window_height);
-    float x4_ndc = px_to_ndc_x(x1 - nx, g_render_state.window_width);
-    float y4_ndc = px_to_ndc_y(y1 - ny, g_render_state.window_height);
-    
-    add_quad(x1_ndc, y1_ndc, x2_ndc, y2_ndc, x3_ndc, y3_ndc, x4_ndc, y4_ndc, r, g, b, a);
+    if (len < 0.0001f) {
+        SDL_RenderPoint(g_current_renderer, (float)x1, (float)y1);
+        return;
+    }
+    float nx = -dy / len;
+    float ny = dx / len;
+    for (int i = 0; i < thickness; i++) {
+        float off = (float)i - ((float)thickness - 1.0f) * 0.5f;
+        SDL_RenderLine(
+            g_current_renderer,
+            (float)x1 + nx * off, (float)y1 + ny * off,
+            (float)x2 + nx * off, (float)y2 + ny * off
+        );
+    }
 }
 
 static void sdl3_draw_rect_lines(int x, int y, int w, int h, CogitoColor color, int thickness) {
-    (void)thickness;
-    // Draw 4 lines for the rectangle border
-    sdl3_draw_line(x, y, x + w, y, color, 1);
-    sdl3_draw_line(x + w, y, x + w, y + h, color, 1);
-    sdl3_draw_line(x + w, y + h, x, y + h, color, 1);
-    sdl3_draw_line(x, y + h, x, y, color, 1);
+    if (!g_current_renderer || w <= 0 || h <= 0 || thickness <= 0) return;
+    for (int t = 0; t < thickness; t++) {
+        int ox = x + t;
+        int oy = y + t;
+        int ow = w - 2 * t;
+        int oh = h - 2 * t;
+        if (ow <= 0 || oh <= 0) break;
+        int right = ox + ow - 1;
+        int bottom = oy + oh - 1;
+        sdl3_draw_line(ox, oy, right, oy, color, 1);
+        sdl3_draw_line(right, oy, right, bottom, color, 1);
+        sdl3_draw_line(right, bottom, ox, bottom, color, 1);
+        sdl3_draw_line(ox, bottom, ox, oy, color, 1);
+    }
+}
+
+static void sdl3_draw_circle_outline_aa(int cx, int cy, float radius, CogitoColor color) {
+    if (!g_current_renderer || color.a == 0) return;
+    if (radius <= 0.0f) {
+        sdl3_draw_point_alpha(cx, cy, color, 1.0f);
+        return;
+    }
+    int ir = (int)ceilf(radius);
+    float r2 = radius * radius;
+    for (int oy = -ir; oy <= ir; oy++) {
+        float dy = fabsf((float)oy) + 0.5f;
+        float rem = r2 - dy * dy;
+        if (rem < 0.0f) continue;
+        float fx = sqrtf(rem);
+        int ix = (int)floorf(fx);
+        float frac = fx - (float)ix;
+        float cov0 = sdl3_aa_coverage_curve(1.0f - frac);
+        float cov1 = sdl3_aa_coverage_curve(frac);
+        int py = cy + oy;
+
+        int pxr0 = cx + ix;
+        int pxr1 = cx + ix + 1;
+        int pxl0 = cx - ix;
+        int pxl1 = cx - ix - 1;
+
+        if (cov0 > 0.001f) {
+            sdl3_draw_point_alpha(pxr0, py, color, cov0);
+            if (ix != 0) sdl3_draw_point_alpha(pxl0, py, color, cov0);
+        }
+        if (cov1 > 0.001f) {
+            sdl3_draw_point_alpha(pxr1, py, color, cov1);
+            sdl3_draw_point_alpha(pxl1, py, color, cov1);
+        }
+    }
 }
 
 static void sdl3_draw_rect_rounded_lines(int x, int y, int w, int h, CogitoColor color, float roundness, int thickness) {
-    (void)roundness; (void)thickness;
-    // For now, fall back to regular rect lines
-    sdl3_draw_rect_lines(x, y, w, h, color, 1);
+    if (!g_current_renderer || w <= 0 || h <= 0 || thickness <= 0) return;
+    int min_dim = w < h ? w : h;
+    float r = roundness * (float)min_dim * 0.5f;
+    if (r < 0.5f) {
+        sdl3_draw_rect_lines(x, y, w, h, color, thickness);
+        return;
+    }
+    int segments = sdl3_round_segments_for_radius(r);
+    if (!sdl3_draw_rounded_rect_outline(x, y, w, h, r, (float)thickness, segments, color)) {
+        sdl3_draw_rect_lines(x, y, w, h, color, thickness);
+    }
 }
 
 static void sdl3_draw_circle(int x, int y, float radius, CogitoColor color) {
-    if (!g_render_state.swapchain_texture) return;
-    
-    float r = color.r / 255.0f;
-    float g = color.g / 255.0f;
-    float b = color.b / 255.0f;
-    float a = color.a / 255.0f;
-    
-    // Approximate circle with 16 triangles
-    float cx = px_to_ndc_x(x, g_render_state.window_width);
-    float cy = px_to_ndc_y(y, g_render_state.window_height);
-    float rx = 2.0f * radius / g_render_state.window_width;
-    float ry = 2.0f * radius / g_render_state.window_height;
-    
-    for (int i = 0; i < 16; i++) {
-        float a1 = (float)i * 2.0f * M_PI / 16.0f;
-        float a2 = (float)(i + 1) * 2.0f * M_PI / 16.0f;
-        
-        float x1 = cx + cosf(a1) * rx;
-        float y1 = cy + sinf(a1) * ry;
-        float x2 = cx + cosf(a2) * rx;
-        float y2 = cy + sinf(a2) * ry;
-        
-        add_quad(cx, cy, x1, y1, x2, y2, cx, cy, r, g, b, a);
+    if (!g_current_renderer || radius <= 0.0f) return;
+    float r = radius;
+    if (r < 0.5f) r = 0.5f;
+    int y0 = (int)floorf((float)y - r - 1.0f);
+    int y1 = (int)ceilf((float)y + r + 1.0f);
+    for (int py = y0; py <= y1; py++) {
+        float dy = fabsf(((float)py + 0.5f) - (float)y);
+        if (dy > r + 1.0f) continue;
+        float inside = r * r - dy * dy;
+        if (inside < 0.0f) {
+            if (dy > r) continue;
+            inside = 0.0f;
+        }
+        float span = sqrtf(inside);
+        sdl3_draw_hspan_aa(py, (float)x - span, (float)x + span, color);
     }
 }
 
 static void sdl3_draw_circle_lines(int x, int y, float radius, CogitoColor color, int thickness) {
-    (void)thickness;
-    if (!g_render_state.swapchain_texture) return;
-    
-    float r = color.r / 255.0f;
-    float g = color.g / 255.0f;
-    float b = color.b / 255.0f;
-    float a = color.a / 255.0f;
-    
-    // Draw circle outline with line segments
-    float cx = px_to_ndc_x(x, g_render_state.window_width);
-    float cy = px_to_ndc_y(y, g_render_state.window_height);
-    float rx = 2.0f * radius / g_render_state.window_width;
-    float ry = 2.0f * radius / g_render_state.window_height;
-    
-    float prev_x = cx + cosf(0) * rx;
-    float prev_y = cy + sinf(0) * ry;
-    
-    for (int i = 1; i <= 32; i++) {
-        float angle = (float)i * 2.0f * M_PI / 32.0f;
-        float x2 = cx + cosf(angle) * rx;
-        float y2 = cy + sinf(angle) * ry;
-        
-        // Draw line from prev to current
-        float dx = x2 - prev_x;
-        float dy = y2 - prev_y;
-        float len = sqrtf(dx * dx + dy * dy);
-        if (len > 0.001f) {
-            float nx = -dy / len * 0.005f;
-            float ny = dx / len * 0.005f;
-            add_quad(prev_x + nx, prev_y + ny, x2 + nx, y2 + ny, 
-                     x2 - nx, y2 - ny, prev_x - nx, prev_y - ny, r, g, b, a);
-        }
-        
-        prev_x = x2;
-        prev_y = y2;
+    if (!g_current_renderer || radius <= 0.0f) return;
+    if (thickness < 1) thickness = 1;
+    int base_r = (int)lroundf(radius);
+    for (int t = 0; t < thickness; t++) {
+        int rr = base_r - t;
+        if (rr < 0) break;
+        sdl3_draw_circle_outline_aa(x, y, (float)rr, color);
     }
 }
 
@@ -961,6 +1216,8 @@ static CogitoFont* sdl3_font_load(const char* path, int size) {
     font->path = strdup(path);
     font->size = size;
     font->ttf_font = ttf;
+    TTF_SetFontKerning(ttf, true);
+    TTF_SetFontHinting(ttf, TTF_HINTING_LIGHT_SUBPIXEL);
     font->ascent = TTF_GetFontAscent(ttf);
     font->descent = TTF_GetFontDescent(ttf);
     font->height = TTF_GetFontHeight(ttf);
@@ -1008,7 +1265,7 @@ static int sdl3_text_measure_height(CogitoFont* font, int size) {
 
 static void sdl3_draw_text(CogitoFont* font, const char* text, int x, int y, int size, CogitoColor color) {
     CogitoSDL3Font* f = (CogitoSDL3Font*)font;
-    if (!f || !f->ttf_font || !text || !text[0]) return;
+    if (!g_current_renderer || !f || !f->ttf_font || !text || !text[0]) return;
     (void)size;
     
     // Render text to surface using SDL_ttf
@@ -1016,79 +1273,18 @@ static void sdl3_draw_text(CogitoFont* font, const char* text, int x, int y, int
     SDL_Surface* surface = TTF_RenderText_Blended(f->ttf_font, text, 0, sdl_color);
     if (!surface) return;
     
-    // Create texture from surface
-    int tex_w = surface->w;
-    int tex_h = surface->h;
-    
-    // Upload pixel data to GPU texture
-    SDL_GPUTextureCreateInfo tex_info = {
-        .type = SDL_GPU_TEXTURETYPE_2D,
-        .format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
-        .width = (Uint32)tex_w,
-        .height = (Uint32)tex_h,
-        .layer_count_or_depth = 1,
-        .num_levels = 1,
-        .usage = SDL_GPU_TEXTUREUSAGE_SAMPLER,
-        .props = 0
-    };
-    
-    SDL_GPUTexture* gpu_tex = SDL_CreateGPUTexture(global_gpu_device, &tex_info);
-    if (!gpu_tex) {
+    SDL_Texture* tex = SDL_CreateTextureFromSurface(g_current_renderer, surface);
+    if (!tex) {
         SDL_DestroySurface(surface);
         return;
     }
-    
-    // Upload surface data to texture
-    SDL_GPUTransferBufferCreateInfo transfer_info = {
-        .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-        .size = (Uint32)(tex_w * tex_h * 4),
-        .props = 0
-    };
-    SDL_GPUTransferBuffer* transfer = SDL_CreateGPUTransferBuffer(global_gpu_device, &transfer_info);
-    if (!transfer) {
-        SDL_ReleaseGPUTexture(global_gpu_device, gpu_tex);
-        SDL_DestroySurface(surface);
-        return;
-    }
-    
-    void* map = SDL_MapGPUTransferBuffer(global_gpu_device, transfer, false);
-    if (map) {
-        memcpy(map, surface->pixels, tex_w * tex_h * 4);
-        SDL_UnmapGPUTransferBuffer(global_gpu_device, transfer);
-    }
-    
-    SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(global_gpu_device);
-    SDL_GPUCopyPass* pass = SDL_BeginGPUCopyPass(cmd);
-    
-    SDL_GPUTextureTransferInfo src = {
-        .transfer_buffer = transfer,
-        .offset = 0,
-        .pixels_per_row = (Uint32)tex_w,
-        .rows_per_layer = (Uint32)tex_h
-    };
-    SDL_GPUTextureRegion dst = {
-        .texture = gpu_tex,
-        .mip_level = 0,
-        .layer = 0,
-        .x = 0,
-        .y = 0,
-        .z = 0,
-        .w = (Uint32)tex_w,
-        .h = (Uint32)tex_h,
-        .d = 1
-    };
-    SDL_UploadToGPUTexture(pass, &src, &dst, false);
-    
-    SDL_EndGPUCopyPass(pass);
-    SDL_SubmitGPUCommandBuffer(cmd);
-    SDL_ReleaseGPUTransferBuffer(global_gpu_device, transfer);
-    
-    // Draw textured quad (simplified - just draw a colored rect for now)
-    // TODO: Implement proper texture sampling in shader
-    sdl3_draw_rect(x, y, tex_w, tex_h, color);
-    
-    // Cleanup
-    SDL_ReleaseGPUTexture(global_gpu_device, gpu_tex);
+    SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureScaleMode(tex, SDL_SCALEMODE_LINEAR);
+
+    SDL_FRect dst = { (float)x, (float)y, (float)surface->w, (float)surface->h };
+    SDL_RenderTexture(g_current_renderer, tex, NULL, &dst);
+
+    SDL_DestroyTexture(tex);
     SDL_DestroySurface(surface);
 }
 
@@ -1097,7 +1293,8 @@ static void sdl3_draw_text(CogitoFont* font, const char* text, int x, int y, int
 // ============================================================================
 
 static CogitoTexture* sdl3_texture_create(int w, int h, const uint8_t* data, int channels) {
-    if (!global_gpu_device || w <= 0 || h <= 0 || !data) return NULL;
+    SDL_Renderer* renderer = sdl3_active_renderer();
+    if (!renderer || w <= 0 || h <= 0 || !data) return NULL;
     
     CogitoSDL3Texture* tex = calloc(1, sizeof(CogitoSDL3Texture));
     if (!tex) return NULL;
@@ -1106,31 +1303,8 @@ static CogitoTexture* sdl3_texture_create(int w, int h, const uint8_t* data, int
     tex->height = h;
     tex->channels = channels;
     
-    // Determine format based on channels
-    SDL_GPUTextureFormat format;
-    switch (channels) {
-        case 1: format = SDL_GPU_TEXTUREFORMAT_R8_UNORM; break;
-        case 3: format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM; break; // Pad to RGBA
-        case 4: format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM; break;
-        default: format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM; break;
-    }
-    
-    SDL_GPUTextureCreateInfo tex_info = {
-        .type = SDL_GPU_TEXTURETYPE_2D,
-        .format = format,
-        .width = (Uint32)w,
-        .height = (Uint32)h,
-        .layer_count_or_depth = 1,
-        .num_levels = 1,
-        .usage = SDL_GPU_TEXTUREUSAGE_SAMPLER,
-        .props = 0
-    };
-    
-    tex->gpu_texture = SDL_CreateGPUTexture(global_gpu_device, &tex_info);
-    if (!tex->gpu_texture) {
-        free(tex);
-        return NULL;
-    }
+    tex->gpu_texture = NULL;
+    tex->sdl_texture = NULL;
     
     // Upload data
     int src_channels = channels;
@@ -1140,7 +1314,6 @@ static CogitoTexture* sdl3_texture_create(int w, int h, const uint8_t* data, int
     
     uint8_t* upload_data = (uint8_t*)malloc(w * h * dst_channels);
     if (!upload_data) {
-        SDL_ReleaseGPUTexture(global_gpu_device, tex->gpu_texture);
         free(tex);
         return NULL;
     }
@@ -1170,59 +1343,31 @@ static CogitoTexture* sdl3_texture_create(int w, int h, const uint8_t* data, int
         }
     }
     
-    // Upload to GPU
-    SDL_GPUTransferBufferCreateInfo transfer_info = {
-        .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-        .size = (Uint32)(w * h * dst_channels),
-        .props = 0
-    };
-    SDL_GPUTransferBuffer* transfer = SDL_CreateGPUTransferBuffer(global_gpu_device, &transfer_info);
-    if (!transfer) {
+    SDL_Surface* surface = SDL_CreateSurfaceFrom(w, h, SDL_PIXELFORMAT_RGBA32, upload_data, w * 4);
+    if (!surface) {
         free(upload_data);
-        SDL_ReleaseGPUTexture(global_gpu_device, tex->gpu_texture);
         free(tex);
         return NULL;
     }
-    
-    void* map = SDL_MapGPUTransferBuffer(global_gpu_device, transfer, false);
-    if (map) {
-        memcpy(map, upload_data, w * h * dst_channels);
-        SDL_UnmapGPUTransferBuffer(global_gpu_device, transfer);
-    }
+    tex->sdl_texture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_DestroySurface(surface);
     free(upload_data);
-    
-    SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(global_gpu_device);
-    SDL_GPUCopyPass* pass = SDL_BeginGPUCopyPass(cmd);
-    
-    SDL_GPUTextureTransferInfo src_info = {
-        .transfer_buffer = transfer,
-        .offset = 0,
-        .pixels_per_row = (Uint32)w,
-        .rows_per_layer = (Uint32)h
-    };
-    SDL_GPUTextureRegion dst_region = {
-        .texture = tex->gpu_texture,
-        .mip_level = 0,
-        .layer = 0,
-        .x = 0,
-        .y = 0,
-        .z = 0,
-        .w = (Uint32)w,
-        .h = (Uint32)h,
-        .d = 1
-    };
-    SDL_UploadToGPUTexture(pass, &src_info, &dst_region, false);
-    
-    SDL_EndGPUCopyPass(pass);
-    SDL_SubmitGPUCommandBuffer(cmd);
-    SDL_ReleaseGPUTransferBuffer(global_gpu_device, transfer);
-    
+    if (!tex->sdl_texture) {
+        free(tex);
+        return NULL;
+    }
+    SDL_SetTextureBlendMode(tex->sdl_texture, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureScaleMode(tex->sdl_texture, SDL_SCALEMODE_LINEAR);
     return (CogitoTexture*)tex;
 }
 
 static void sdl3_texture_destroy(CogitoTexture* tex) {
     CogitoSDL3Texture* t = (CogitoSDL3Texture*)tex;
     if (!t) return;
+    if (t->sdl_texture) {
+        SDL_DestroyTexture(t->sdl_texture);
+        t->sdl_texture = NULL;
+    }
     if (t->gpu_texture && global_gpu_device) {
         SDL_ReleaseGPUTexture(global_gpu_device, t->gpu_texture);
     }
@@ -1241,13 +1386,36 @@ static void sdl3_texture_get_size(CogitoTexture* tex, int* w, int* h) {
 }
 
 static void sdl3_draw_texture(CogitoTexture* tex, CogitoRect src, CogitoRect dst, CogitoColor tint) {
-    (void)tex; (void)src; (void)dst; (void)tint;
-    // TODO: Implement texture drawing with proper shader
+    SDL_Renderer* renderer = sdl3_active_renderer();
+    CogitoSDL3Texture* t = (CogitoSDL3Texture*)tex;
+    if (!renderer || !t || !t->sdl_texture || dst.w <= 0 || dst.h <= 0) return;
+    SDL_SetTextureColorMod(t->sdl_texture, tint.r, tint.g, tint.b);
+    SDL_SetTextureAlphaMod(t->sdl_texture, tint.a);
+    SDL_SetTextureBlendMode(t->sdl_texture, SDL_BLENDMODE_BLEND);
+    SDL_FRect d = { (float)dst.x, (float)dst.y, (float)dst.w, (float)dst.h };
+    if (src.w > 0 && src.h > 0) {
+        SDL_FRect s = { (float)src.x, (float)src.y, (float)src.w, (float)src.h };
+        SDL_RenderTexture(renderer, t->sdl_texture, &s, &d);
+    } else {
+        SDL_RenderTexture(renderer, t->sdl_texture, NULL, &d);
+    }
 }
 
 static void sdl3_draw_texture_pro(CogitoTexture* tex, CogitoRect src, CogitoRect dst, CogitoVec2 origin, float rotation, CogitoColor tint) {
-    (void)tex; (void)src; (void)dst; (void)origin; (void)rotation; (void)tint;
-    // TODO: Implement rotated texture drawing
+    SDL_Renderer* renderer = sdl3_active_renderer();
+    CogitoSDL3Texture* t = (CogitoSDL3Texture*)tex;
+    if (!renderer || !t || !t->sdl_texture || dst.w <= 0 || dst.h <= 0) return;
+    SDL_SetTextureColorMod(t->sdl_texture, tint.r, tint.g, tint.b);
+    SDL_SetTextureAlphaMod(t->sdl_texture, tint.a);
+    SDL_SetTextureBlendMode(t->sdl_texture, SDL_BLENDMODE_BLEND);
+    SDL_FRect d = { (float)dst.x, (float)dst.y, (float)dst.w, (float)dst.h };
+    SDL_FPoint c = { origin.x, origin.y };
+    if (src.w > 0 && src.h > 0) {
+        SDL_FRect s = { (float)src.x, (float)src.y, (float)src.w, (float)src.h };
+        SDL_RenderTextureRotated(renderer, t->sdl_texture, &s, &d, (double)rotation, &c, SDL_FLIP_NONE);
+    } else {
+        SDL_RenderTextureRotated(renderer, t->sdl_texture, NULL, &d, (double)rotation, &c, SDL_FLIP_NONE);
+    }
 }
 
 // ============================================================================
@@ -1255,14 +1423,23 @@ static void sdl3_draw_texture_pro(CogitoTexture* tex, CogitoRect src, CogitoRect
 // ============================================================================
 
 static void sdl3_begin_scissor(int x, int y, int w, int h) {
-    (void)x; (void)y; (void)w; (void)h;
+    if (!g_current_renderer) return;
+    SDL_Rect r = { x, y, w, h };
+    SDL_SetRenderClipRect(g_current_renderer, &r);
 }
 
 static void sdl3_end_scissor(void) {
+    if (!g_current_renderer) return;
+    SDL_SetRenderClipRect(g_current_renderer, NULL);
 }
 
 static void sdl3_set_blend_mode(int mode) {
-    (void)mode;
+    if (!g_current_renderer) return;
+    SDL_BlendMode bm = SDL_BLENDMODE_BLEND;
+    if (mode == 0) bm = SDL_BLENDMODE_NONE;
+    else if (mode == 2) bm = SDL_BLENDMODE_ADD;
+    else if (mode == 3) bm = SDL_BLENDMODE_MOD;
+    SDL_SetRenderDrawBlendMode(g_current_renderer, bm);
 }
 
 // ============================================================================
@@ -1273,7 +1450,12 @@ static SDL_HitTestResult sdl3_csd_hit_test_callback(SDL_Window* sdl_win, const S
     (void)sdl_win;
     CogitoSDL3Window* win = (CogitoSDL3Window*)data;
     if (!win || !point) return SDL_HITTEST_NORMAL;
-    
+    if (win->hit_test_callback) {
+        int custom = win->hit_test_callback((CogitoWindow*)win, point->x, point->y, win->hit_test_userdata);
+        return cogito_csd_to_sdl_hit_test((CogitoHitTestResult)custom);
+    }
+    if (!win->csd_state.enabled) return SDL_HITTEST_NORMAL;
+
     CogitoHitTestResult result = cogito_csd_hit_test(&win->csd_state, point->x, point->y, 
                                                       win->width, win->height);
     return cogito_csd_to_sdl_hit_test(result);
@@ -1282,12 +1464,17 @@ static SDL_HitTestResult sdl3_csd_hit_test_callback(SDL_Window* sdl_win, const S
 static void sdl3_window_set_hit_test_callback(CogitoWindow* window, 
                                               int (*callback)(CogitoWindow* win, int x, int y, void* user),
                                               void* user) {
-    (void)callback; (void)user;
     CogitoSDL3Window* win = (CogitoSDL3Window*)window;
     if (!win || !win->sdl_window) return;
-    
-    // Use our internal CSD hit test
-    SDL_SetWindowHitTest(win->sdl_window, sdl3_csd_hit_test_callback, win);
+
+    win->hit_test_callback = callback;
+    win->hit_test_userdata = user;
+
+    if (callback || win->csd_state.enabled) {
+        SDL_SetWindowHitTest(win->sdl_window, sdl3_csd_hit_test_callback, win);
+    } else {
+        SDL_SetWindowHitTest(win->sdl_window, NULL, NULL);
+    }
 }
 
 static void sdl3_window_set_borderless(CogitoWindow* window, bool borderless) {
@@ -1412,6 +1599,13 @@ void cogito_debug_flags_parse(CogitoDebugFlags* flags) {
     if (env_inspector && env_inspector[0] && env_inspector[0] != '0') {
         flags->inspector = true;
     }
+}
+
+bool cogito_debug_inspector_toggle_pressed(CogitoBackend* backend) {
+    (void)backend;
+    bool ctrl = keys_down[SDL_SCANCODE_LCTRL] || keys_down[SDL_SCANCODE_RCTRL];
+    bool shift = keys_down[SDL_SCANCODE_LSHIFT] || keys_down[SDL_SCANCODE_RSHIFT];
+    return ctrl && shift && keys_pressed[SDL_SCANCODE_I];
 }
 
 // ============================================================================

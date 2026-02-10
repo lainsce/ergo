@@ -18,6 +18,7 @@ case COGITO_BUTTON: {
       }
       CogitoColor bg = n->bg;
       CogitoColor border = n->border_color;
+      CogitoColor text = n->text_color;
       int border_w = n->border_width;
       int radius = n->border_radius;
       if (s.has_bg) bg = s.bg;
@@ -25,14 +26,16 @@ case COGITO_BUTTON: {
       if (s.has_border_width) border_w = s.border_width;
       if (s.has_radius) radius = s.radius;
       // Animate colors
-      //cogito_anim_apply(n, &s, &bg, NULL, &border, NULL);
+      if (cogito_has_selection_text) text = cogito_selection_text;
+      else if (s.has_text) text = s.text;
+      cogito_anim_apply(n, &s, &bg, &text, &border, NULL);
       if (n->bg_set || border_w > 0) {
         if (n->shadow_set && n->shadow_level > 0) {
-          cogito_draw_shadow(n->x, n->y, n->w, n->h, radius, n->shadow_level);
+          cogito_draw_shadow_node_level(n, &s, n->x, n->y, n->w, n->h, radius, n->shadow_level);
         }
-        cogito_draw_rect(n->x, n->y, n->w, n->h, bg, radius);
+        cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, radius);
         if (border_w > 0) {
-          cogito_draw_rect_lines(n->x, n->y, n->w, n->h, border, radius, border_w);
+          cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border, radius, border_w);
         }
       }
       if (n->text) {
@@ -41,9 +44,6 @@ case COGITO_BUTTON: {
         int th = cogito_text_height_size(size);
         int tx = n->x + (n->w - tw) / 2;
         int ty = n->y + (n->h - th) / 2;
-        CogitoColor text = n->text_color;
-        if (cogito_has_selection_text) text = cogito_selection_text;
-        else if (s.has_text) text = s.text;
         cogito_draw_text_size_node(n, tx, ty, n->text->data, text, size, cogito_node_bold(n));
       }
       break;

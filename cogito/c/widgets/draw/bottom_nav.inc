@@ -28,9 +28,10 @@ case COGITO_BOTTOM_NAV: {
 
     // Draw selection/hover background
     if (selected || hover) {
+      CogitoColor hover_tint = s.has_text ? s.text : n->text_color;
       CogitoColor item_bg = selected
         ? (s.has_selection ? s.selection : n->selection_color)
-        : (s.has_bg ? cogito_mix(s.bg, cogito_rgba(128, 128, 128, 255), 0.1f) : n->bg);
+        : (s.has_bg ? cogito_mix(s.bg, hover_tint, 0.1f) : n->bg);
       // Bottom nav uses indicator pill above selected item
       if (selected) {
         int indicator_w = 64;
@@ -50,12 +51,9 @@ case COGITO_BOTTOM_NAV: {
       } else if (hover) {
         icon_color = s.has_text ? s.text : n->text_color;
       }
-      // TODO: Replace with backend texture drawing
-      // Texture2D tex;
-      // int tw = 0, th = 0;
-      // if (cogito_icon_load_texture(n->bottom_nav_icons[i]->data, icon_size, &tex, &tw, &th)) {
-      //   cogito_backend->draw_texture(...);
-      // }
+      int icon_x = item_x + (item_w - icon_size) / 2;
+      int icon_y = n->y + 12;
+      cogito_draw_icon_fallback(n, n->bottom_nav_icons[i]->data, icon_x, icon_y, icon_size, icon_color);
     }
 
     // Draw label below icon
