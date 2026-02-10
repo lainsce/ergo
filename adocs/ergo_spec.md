@@ -367,7 +367,7 @@ entry () (( -- )) {
 
 ---
 
-For more details and examples, see the `examples/` directory and the quickstart guide in `docs/learn-ergo-in-10-minutes.md`.
+For more details and examples, see the `ergo/examples/` directory and the quickstart guide in `docs/learn-ergo-in-10-minutes.md`.
 
 ---
 

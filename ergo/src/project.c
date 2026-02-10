@@ -104,13 +104,24 @@ static const char *stdlib_dir_default(void) {
     if (env && env[0]) {
         return env;
     }
-    // Check development locations
-    if (path_is_file("src/ergo/stdlib/stdr.ergo")) {
-        return "src/ergo/stdlib";
+
+    // Check development locations across repo-root and subdir invocations.
+    const struct {
+        const char *dir;
+        const char *marker;
+    } dev_locations[] = {
+        {"src/stdlib", "src/stdlib/stdr.ergo"},
+        {"ergo/src/stdlib", "ergo/src/stdlib/stdr.ergo"},
+        {"../src/stdlib", "../src/stdlib/stdr.ergo"},
+        {"../ergo/src/stdlib", "../ergo/src/stdlib/stdr.ergo"},
+        {"../../ergo/src/stdlib", "../../ergo/src/stdlib/stdr.ergo"},
+    };
+    for (size_t i = 0; i < sizeof(dev_locations) / sizeof(dev_locations[0]); i++) {
+        if (path_is_file(dev_locations[i].marker)) {
+            return dev_locations[i].dir;
+        }
     }
-    if (path_is_file("../src/ergo/stdlib/stdr.ergo")) {
-        return "../src/ergo/stdlib";
-    }
+
     // Check installed locations
     if (path_is_file("/usr/local/share/ergo/stdlib/stdr.ergo")) {
         return "/usr/local/share/ergo/stdlib";
@@ -121,7 +132,7 @@ static const char *stdlib_dir_default(void) {
     if (path_is_file("/usr/share/ergo/stdlib/stdr.ergo")) {
         return "/usr/share/ergo/stdlib";
     }
-    return "src/ergo/stdlib";
+    return "ergo/src/stdlib";
 }
 
 static Module *load_file(const char *path,
@@ -233,6 +244,12 @@ static Module *load_file(const char *path,
                 "cogito/cogito.ergo",
                 "cogito/_build/cogito.ergo",
                 "cogito/build/cogito.ergo",
+                "../cogito/cogito.ergo",
+                "../cogito/_build/cogito.ergo",
+                "../cogito/build/cogito.ergo",
+                "../../cogito/cogito.ergo",
+                "../../cogito/_build/cogito.ergo",
+                "../../cogito/build/cogito.ergo",
                 NULL  // Will try stdlib_dir as fallback
             };
             char *p = NULL;

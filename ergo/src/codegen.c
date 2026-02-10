@@ -4933,12 +4933,19 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
 
     const char *runtime_path = getenv("ERGO_RUNTIME");
     if (!runtime_path || !runtime_path[0]) {
-        if (path_is_file("src/ergo/runtime.inc")) {
-            runtime_path = "src/ergo/runtime.inc";
-        } else if (path_is_file("../src/ergo/runtime.inc")) {
-            runtime_path = "../src/ergo/runtime.inc";
-        } else {
-            runtime_path = "src/ergo/runtime.inc";
+        const char *runtime_candidates[] = {
+            "src/runtime.inc",
+            "ergo/src/runtime.inc",
+            "../src/runtime.inc",
+            "../ergo/src/runtime.inc",
+            "../../ergo/src/runtime.inc",
+        };
+        runtime_path = "ergo/src/runtime.inc";
+        for (size_t i = 0; i < sizeof(runtime_candidates) / sizeof(runtime_candidates[0]); i++) {
+            if (path_is_file(runtime_candidates[i])) {
+                runtime_path = runtime_candidates[i];
+                break;
+            }
         }
     }
     Arena tmp_arena;

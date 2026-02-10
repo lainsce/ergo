@@ -350,7 +350,7 @@ static void print_usage(FILE *out) {
     fprintf(out, "  ergo --help                 # Show this help\n");
     fprintf(out, "\n");
     fprintf(out, "Environment Variables:\n");
-    fprintf(out, "  ERGO_STDLIB      Path to standard library (default: src/ergo/stdlib)\n");
+    fprintf(out, "  ERGO_STDLIB      Path to standard library (default: auto-detected, fallback: ergo/src/stdlib)\n");
     fprintf(out, "  ERGO_CACHE_DIR   Cache directory for compiled binaries\n");
     fprintf(out, "  ERGO_NO_CACHE    Set to 1 to disable caching\n");
     fprintf(out, "  ERGO_KEEP_C      Set to 1 to keep generated C files\n");
@@ -452,8 +452,20 @@ static const char *cogito_default_cflags(void) {
     if (path_is_file("cogito/src/cogito.h")) {
         return "-Icogito/src";
     }
+    if (path_is_file("../cogito/src/cogito.h")) {
+        return "-I../cogito/src";
+    }
+    if (path_is_file("../../cogito/src/cogito.h")) {
+        return "-I../../cogito/src";
+    }
     if (path_is_file("cogito/include/cogito.h")) {
         return "-Icogito/include";
+    }
+    if (path_is_file("../cogito/include/cogito.h")) {
+        return "-I../cogito/include";
+    }
+    if (path_is_file("../../cogito/include/cogito.h")) {
+        return "-I../../cogito/include";
     }
     return "";
 }
@@ -467,7 +479,14 @@ static const char *cogito_default_ldflags(void) {
     const char *libname = "libcogito.so";
 #endif
     static char buf[512];
-    const char *dirs[] = {"cogito/_build", "cogito/build"};
+    const char *dirs[] = {
+        "cogito/_build",
+        "cogito/build",
+        "../cogito/_build",
+        "../cogito/build",
+        "../../cogito/_build",
+        "../../cogito/build",
+    };
     for (size_t i = 0; i < sizeof(dirs) / sizeof(dirs[0]); i++) {
         char path[512];
         snprintf(path, sizeof(path), "%s/%s", dirs[i], libname);

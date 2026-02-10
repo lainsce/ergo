@@ -27,16 +27,16 @@ brew install meson ninja sdl3 sdl3_ttf sdl3_image freetype
 ## Build Ergo
 
 ```sh
-meson setup build
-meson compile -C build
+meson setup ergo/build ergo
+meson compile -C ergo/build
 ```
 
 Run the compiler from the build tree:
 
 ```sh
-./build/ergo --help
-./build/ergo examples/hello.ergo
-./build/ergo run examples/hello.ergo
+./ergo/build/ergo --help
+./ergo/build/ergo ergo/examples/hello.ergo
+./ergo/build/ergo run ergo/examples/hello.ergo
 ```
 
 ## Build Cogito
@@ -51,8 +51,8 @@ meson compile -C cogito/build
 Then run GUI examples with Ergo:
 
 ```sh
-./build/ergo run cogito/examples/gui_hello.ergo
-./build/ergo run cogito/examples/gui_gallery.ergo
+./ergo/build/ergo run cogito/examples/gui_hello.ergo
+./ergo/build/ergo run cogito/examples/gui_gallery.ergo
 ```
 
 If your program uses Cogito, include:
@@ -66,7 +66,7 @@ bring cogito
 Install Ergo and stdlib:
 
 ```sh
-meson install -C build
+meson install -C ergo/build
 ```
 
 Install Cogito library and headers:
