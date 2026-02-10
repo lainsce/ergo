@@ -8,7 +8,7 @@ fun on_btn(btn = cogito.Button) (( -- )) {
 fun build_ui(win = cogito.Window) (( -- )) {
     let vstack = cogito.vstack()
     vstack.set_gap(8)
-    vstack.set_padding(16, 16, 16, 16)
+    vstack.set_padding(0, 18, 0, 18)
     vstack.set_hexpand(true)
     vstack.set_vexpand(true)
 
