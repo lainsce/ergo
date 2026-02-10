@@ -426,6 +426,15 @@ static bool cogito_icon_is_sf(const char* name) {
   return name && strncmp(name, "sf:", 3) == 0;
 }
 
+static int cogito_sf_optimized_size(int size) {
+  static const int optimized[] = {16, 24, 32, 48, 64, 128};
+  if (size <= 0) return size;
+  for (size_t i = 0; i < sizeof(optimized) / sizeof(optimized[0]); i++) {
+    if (size <= optimized[i]) return optimized[i];
+  }
+  return size;
+}
+
 #if defined(__APPLE__)
 static bool cogito_sf_symbol_load(const char* symbol, int size, CogitoTexture** out, int* out_w, int* out_h) {
   if (!symbol || !symbol[0] || size <= 0) return false;
@@ -435,14 +444,54 @@ static bool cogito_sf_symbol_load(const char* symbol, int size, CogitoTexture** 
   id name = cogito_nsstring(symbol);
   id img = ((id (*)(id, SEL, id, id))objc_msgSend)(nsimage, sel_image, name, (id)0);
   if (!img) return false;
-  // Avoid configuration calls that can abort for invalid weights/scales.
+  int raster_size = size * 2;
+  if (raster_size < size) raster_size = size;
+  if (raster_size > 1024) raster_size = 1024;
+  // Configure SF symbol at the requested size so we do not upscale tiny rasters.
+  id cfg_cls = (id)objc_getClass("NSImageSymbolConfiguration");
+  if (cfg_cls) {
+    SEL sel_apply = sel_registerName("imageWithSymbolConfiguration:");
+    SEL sel_responds = sel_registerName("respondsToSelector:");
+    BOOL can_apply = ((BOOL (*)(id, SEL, SEL))objc_msgSend)(img, sel_responds, sel_apply);
+    if (can_apply) {
+      id cfg = (id)0;
+      SEL sel_cfg3 = sel_registerName("configurationWithPointSize:weight:scale:");
+      BOOL can_cfg3 = ((BOOL (*)(id, SEL, SEL))objc_msgSend)(cfg_cls, sel_responds, sel_cfg3);
+      if (can_cfg3) {
+        // 0.0 = regular weight, 2 = medium symbol scale.
+        cfg = ((id (*)(id, SEL, CGFloat, CGFloat, CogitoNSInteger))objc_msgSend)(cfg_cls, sel_cfg3, (CGFloat)raster_size, (CGFloat)0.0, (CogitoNSInteger)2);
+      }
+      if (!cfg) {
+        SEL sel_cfg2 = sel_registerName("configurationWithPointSize:weight:");
+        BOOL can_cfg2 = ((BOOL (*)(id, SEL, SEL))objc_msgSend)(cfg_cls, sel_responds, sel_cfg2);
+        if (can_cfg2) {
+          cfg = ((id (*)(id, SEL, CGFloat, CGFloat))objc_msgSend)(cfg_cls, sel_cfg2, (CGFloat)raster_size, (CGFloat)0.0);
+        }
+      }
+      if (!cfg) {
+        SEL sel_cfg1 = sel_registerName("configurationWithPointSize:");
+        BOOL can_cfg1 = ((BOOL (*)(id, SEL, SEL))objc_msgSend)(cfg_cls, sel_responds, sel_cfg1);
+        if (can_cfg1) {
+          cfg = ((id (*)(id, SEL, CGFloat))objc_msgSend)(cfg_cls, sel_cfg1, (CGFloat)raster_size);
+        }
+      }
+      if (cfg) {
+        id cfg_img = ((id (*)(id, SEL, id))objc_msgSend)(img, sel_apply, cfg);
+        if (cfg_img) img = cfg_img;
+      }
+    }
+  }
   SEL sel_cg = sel_registerName("CGImageForProposedRect:context:hints:");
-  CGRect rect = CGRectMake(0, 0, (CGFloat)size, (CGFloat)size);
-  CGImageRef cg = (CGImageRef)((void* (*)(id, SEL, CGRect*, id, id))objc_msgSend)(img, sel_cg, &rect, (id)0, (id)0);
+  CGImageRef cg = (CGImageRef)((void* (*)(id, SEL, CGRect*, id, id))objc_msgSend)(img, sel_cg, (CGRect*)0, (id)0, (id)0);
   if (!cg) return false;
-  size_t w = (size_t)CGRectGetWidth(rect);
-  size_t h = (size_t)CGRectGetHeight(rect);
-  if (w == 0 || h == 0) { w = (size_t)size; h = (size_t)size; }
+  size_t src_w = (size_t)CGImageGetWidth(cg);
+  size_t src_h = (size_t)CGImageGetHeight(cg);
+  size_t w = src_w;
+  size_t h = src_h;
+  if (w == 0 || h == 0) {
+    w = (size_t)raster_size;
+    h = (size_t)raster_size;
+  }
   CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
   if (!cs) return false;
   size_t bpr = w * 4;
@@ -478,28 +527,30 @@ static bool cogito_sf_symbol_load(const char* symbol, int size, CogitoTexture** 
 
 static bool cogito_icon_load_texture(const char* name, int size, CogitoTexture** out, int* out_w, int* out_h) {
   if (!name || !name[0] || size <= 0) return false;
-  const char* theme = cogito_icon_is_sf(name) ? "sf" : cogito_icon_theme_get();
+  bool sf_icon = cogito_icon_is_sf(name);
+  int cache_size = sf_icon ? cogito_sf_optimized_size(size) : size;
+  const char* theme = sf_icon ? "sf" : cogito_icon_theme_get();
   for (int i = 0; i < cogito_icon_cache_len; i++) {
     CogitoIconCacheEntry* e = &cogito_icon_cache[i];
-    if (e->used && e->size == size && strcmp(e->name, name) == 0 && strcmp(e->theme, theme) == 0) {
+    if (e->used && e->size == cache_size && strcmp(e->name, name) == 0 && strcmp(e->theme, theme) == 0) {
       if (out) *out = e->tex;
       if (out_w) *out_w = e->w;
       if (out_h) *out_h = e->h;
       return true;
     }
   }
-  if (cogito_icon_is_sf(name)) {
+  if (sf_icon) {
 #if defined(__APPLE__)
     CogitoTexture* tex = NULL;
     int tw = 0;
     int th = 0;
-    if (cogito_sf_symbol_load(name + 3, size, &tex, &tw, &th)) {
+    if (cogito_sf_symbol_load(name + 3, cache_size, &tex, &tw, &th)) {
       if (cogito_icon_cache_len < (int)(sizeof(cogito_icon_cache) / sizeof(cogito_icon_cache[0]))) {
         CogitoIconCacheEntry* e = &cogito_icon_cache[cogito_icon_cache_len++];
         memset(e, 0, sizeof(*e));
         strncpy(e->name, name, sizeof(e->name) - 1);
         strncpy(e->theme, theme, sizeof(e->theme) - 1);
-        e->size = size;
+        e->size = cache_size;
         e->tex = tex;
         e->w = tw;
         e->h = th;

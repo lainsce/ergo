@@ -21,8 +21,10 @@ case COGITO_IMAGE: {
       }
       CogitoColor icon_color = cogito_has_selection_text ? cogito_selection_text : (s.has_text ? s.text : cogito_on_color(n->selection_color));
       if (n->icon && n->icon->data) {
-        int target = n->w < n->h ? n->w : n->h;
+        int target = s.has_icon_size ? s.icon_size : (n->w < n->h ? n->w : n->h);
         if (target <= 0) target = 16;
+        int min_dim = n->w < n->h ? n->w : n->h;
+        if (min_dim > 0 && target > min_dim) target = min_dim;
         int ix = n->x + (n->w - target) / 2;
         int iy = n->y + (n->h - target) / 2;
         cogito_draw_icon_fallback(n, n->icon->data, ix, iy, target, icon_color);

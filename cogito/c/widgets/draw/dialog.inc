@@ -23,8 +23,8 @@ case COGITO_DIALOG: {
         cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, n->border_color, n->border_radius, n->border_width);
       }
 
-      int pad_l = n->padding_left > 0 ? n->padding_left : (s.has_padding_left ? s.padding_left : 24);
-      int pad_t = n->padding_top > 0 ? n->padding_top : (s.has_padding_top ? s.padding_top : 24);
+      int pad_l = COGITO_DIALOG_HEADER_INSET;
+      int pad_t = COGITO_DIALOG_HEADER_INSET;
       int title_size = 20;
       int title_h = cogito_text_height_size(title_size);
       int cx = 0, cy = 0, cw = 0, ch = 0;
@@ -49,13 +49,12 @@ case COGITO_DIALOG: {
           down = cogito_backend->is_mouse_button_down(0);
         }
         bool over = cogito_hit_rect(mx, my, cx, cy, cw, ch);
-        if (over) {
-          CogitoColor cbg = title_color;
-          cbg.a = down ? 72 : 48;
-          int cr = cw / 2;
-          if (cr < 4) cr = 4;
-          cogito_draw_rect(cx, cy, cw, ch, cbg, cr);
-        }
+        CogitoColor cbg = title_color;
+        cbg.a = 36;
+        if (over) cbg.a = down ? 72 : 48;
+        int cr = cw / 2;
+        if (cr < 4) cr = 4;
+        cogito_draw_rect(cx, cy, cw, ch, cbg, cr);
         int icon_size = cw - 10;
         if (icon_size < 10) icon_size = 10;
         int ix = cx + (cw - icon_size) / 2;

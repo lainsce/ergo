@@ -7,6 +7,8 @@ def ?stored_value = 0.0
 def ?pending_op = @""
 def ?reset_input = true
 def ?has_error = false
+def ABOUT_MORE_INFO_URL = @"https://github.com/lainsce/ergo"
+def ABOUT_REPORT_BUG_URL = @"https://github.com/lainsce/ergo/issues"
 
 fun update_display(text = string) (( -- )) {
     display.set_text(text)
@@ -144,12 +146,61 @@ fun equals_button() (( cogito.Button )) {
     return btn
 }
 
+fun show_about_window(win = cogito.Window) (( -- )) {
+    let dlg = cogito.dialog(@"")
+    let root = cogito.vstack()
+    root.set_gap(12)
+    root.align_center()
+
+    let icon = cogito.image(@"sf:equal")
+    cogito.set_class(icon, @"about-window-icon")
+    root.add(icon)
+
+    let title = cogito.label(@"ErgoCalc")
+    cogito.set_class(title, @"about-window-title")
+    title.set_text_align(1)
+    root.add(title)
+
+    let license = cogito.label(@"MIT License")
+    cogito.set_class(license, @"about-window-license")
+    license.set_text_align(1)
+    root.add(license)
+
+    let links = cogito.hstack()
+    links.set_gap(12)
+    links.align_center()
+    cogito.set_class(links, @"about-window-actions")
+
+    let more_btn = cogito.button(@"More info")
+    cogito.set_class(more_btn, @"outlined")
+    more_btn.on_click((b = cogito.Button) => {
+        cogito.open_url(ABOUT_MORE_INFO_URL)
+    })
+    links.add(more_btn)
+
+    let bug_btn = cogito.button(@"Report a Bug")
+    cogito.set_class(bug_btn, @"outlined")
+    bug_btn.on_click((b = cogito.Button) => {
+        cogito.open_url(ABOUT_REPORT_BUG_URL)
+    })
+    links.add(bug_btn)
+
+    root.add(links)
+
+    dlg.add(root)
+    win.set_dialog(dlg)
+}
+
 fun build_ui(win = cogito.Window) (( -- )) {
     let root = cogito.vstack()
     root.set_gap(6)
 
     let bar = cogito.appbar(@"", @"")
     bar.set_hexpand(true)
+    let about_btn = bar.add_button(@"sf:questionmark", (b = cogito.Button) => {
+        show_about_window(win)
+    })
+    cogito.set_tooltip(about_btn, @"About ErgoCalc")
     root.add(bar)
 
     display.align_end()

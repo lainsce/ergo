@@ -460,6 +460,12 @@ void cogito_app_set_accent_color(cogito_app* app, const char* hex, bool follow_s
   if (hv.tag == EVT_STR) ergo_release_val(hv);
 }
 
+bool cogito_open_url(const char* url) {
+  if (!url || !url[0]) return false;
+  if (!cogito_backend || !cogito_backend->open_url) return false;
+  return cogito_backend->open_url(url);
+}
+
 cogito_window* cogito_window_new(const char* title, int w, int h) {
   ErgoVal tv = cogito_val_from_cstr(title);
   ErgoVal v = cogito_window_new_ergo(tv, EV_INT(w), EV_INT(h));

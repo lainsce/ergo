@@ -219,6 +219,27 @@ image
 label
   color: #f2f2f7
 
+.about-window
+  background: #111111
+  color: #f2f2f7
+
+image.about-window-icon
+  min-width: 128
+  min-height: 128
+
+label.about-window-title
+  color: #f2f2f7
+  font-size: 28
+  font-weight: bold
+
+label.about-window-license
+  color: #a0a0a6
+  font-size: 14
+
+hstack.about-window-actions
+  background: transparent
+  padding: 4 0 0 0
+
 tooltip
   background: #3a3a3c
   color: #f2f2f7

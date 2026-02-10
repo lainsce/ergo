@@ -7,9 +7,11 @@ static int cogito_inspector_hit_test(CogitoWindow* win, int x, int y, void* user
   int appbar_h = (params && params[0] > 0) ? params[0] : 52;
   int margin = (params && params[1] > 0) ? params[1] : 0;
   int btn = (params && params[2] > 0) ? params[2] : 14;
-  int gap = (params && params[3] > 0) ? params[3] : 8;
-  int pad_x = (params && params[4] > 0) ? params[4] : 12;
-  int by = margin + (appbar_h - btn) / 2;
+  int gap = (params && params[3] > 0) ? params[3] : 9;
+  int pad_x = (params && params[4] > 0) ? params[4] : 9;
+  int pad_top = (params && params[5] >= 0) ? params[5] : 9;
+  int by = margin + pad_top;
+  if (by + btn > margin + appbar_h) by = margin + (appbar_h - btn) / 2;
   int close_x = margin + pad_x;
   int min_x = close_x + btn + gap;
   int max_x = min_x + btn + gap;
@@ -190,15 +192,22 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
 #else
   const int inspector_shadow_margin = 18;
 #endif
-  const int inspector_traffic_btn = 14;
-  const int inspector_traffic_gap = 8;
-  const int inspector_traffic_pad_x = 12;
-  int inspector_hit_test_params[5] = {
-    52,
+  int inspector_traffic_btn = 14;
+  int inspector_traffic_gap = 9;
+  int inspector_traffic_pad_top = 9;
+  int inspector_traffic_pad_x = 9;
+  cogito_appbar_button_metrics(&inspector_traffic_btn, &inspector_traffic_gap, &inspector_traffic_pad_top, &inspector_traffic_pad_x);
+  if (inspector_traffic_btn < 2) inspector_traffic_btn = 2;
+  if (inspector_traffic_gap < 0) inspector_traffic_gap = 0;
+  if (inspector_traffic_pad_top < 0) inspector_traffic_pad_top = 0;
+  if (inspector_traffic_pad_x < 0) inspector_traffic_pad_x = 0;
+  int inspector_hit_test_params[6] = {
+    inspector_appbar_h,
     inspector_shadow_margin,
     inspector_traffic_btn,
     inspector_traffic_gap,
-    inspector_traffic_pad_x
+    inspector_traffic_pad_x,
+    inspector_traffic_pad_top
   };
   bool inspector_native_drag = false;
   bool inspector_drag_pending = false;
@@ -242,6 +251,15 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     if (cogito_active_app) {
       cogito_update_system_theme(cogito_active_app);
     }
+    cogito_appbar_button_metrics(&inspector_traffic_btn, &inspector_traffic_gap, &inspector_traffic_pad_top, &inspector_traffic_pad_x);
+    if (inspector_traffic_btn < 2) inspector_traffic_btn = 2;
+    if (inspector_traffic_gap < 0) inspector_traffic_gap = 0;
+    if (inspector_traffic_pad_top < 0) inspector_traffic_pad_top = 0;
+    if (inspector_traffic_pad_x < 0) inspector_traffic_pad_x = 0;
+    inspector_hit_test_params[2] = inspector_traffic_btn;
+    inspector_hit_test_params[3] = inspector_traffic_gap;
+    inspector_hit_test_params[4] = inspector_traffic_pad_x;
+    inspector_hit_test_params[5] = inspector_traffic_pad_top;
     if (inspector_window && cogito_backend->window_should_close(inspector_window)) {
       cogito_backend->window_destroy(inspector_window);
       inspector_window = NULL;
@@ -364,7 +382,10 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     if (inspector_window) {
       int appbar_h = inspector_appbar_h;
       if (appbar_h > inspector_frame_h) appbar_h = inspector_frame_h;
-      inspector_btn_y = inspector_frame_y + (appbar_h - inspector_traffic_btn) / 2;
+      inspector_btn_y = inspector_frame_y + inspector_traffic_pad_top;
+      if (inspector_btn_y + inspector_traffic_btn > inspector_frame_y + appbar_h) {
+        inspector_btn_y = inspector_frame_y + (appbar_h - inspector_traffic_btn) / 2;
+      }
       inspector_btn_close_x = inspector_frame_x + inspector_traffic_pad_x;
       inspector_btn_min_x = inspector_btn_close_x + inspector_traffic_btn + inspector_traffic_gap;
       inspector_btn_max_x = inspector_btn_min_x + inspector_traffic_btn + inspector_traffic_gap;

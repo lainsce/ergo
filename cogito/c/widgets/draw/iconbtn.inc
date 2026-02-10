@@ -56,9 +56,9 @@ case COGITO_ICONBTN: {
       }
       if (n->text) {
         int btn_min = n->w < n->h ? n->w : n->h;
-        int target = 24;
-        if (btn_min > 0 && btn_min < target) target = btn_min;
+        int target = s.has_icon_size ? s.icon_size : 24;
         if (target < 8) target = 8;
+        if (btn_min > 0 && target > btn_min) target = btn_min;
         int ix = n->x + (n->w - target) / 2;
         int iy = n->y + (n->h - target) / 2;
         cogito_draw_icon_fallback(n, n->text->data, ix, iy, target, icon_color);

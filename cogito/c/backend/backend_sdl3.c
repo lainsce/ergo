@@ -505,6 +505,11 @@ static uint32_t sdl3_window_get_id(CogitoWindow* window) {
     return win->window_id;
 }
 
+static bool sdl3_open_url(const char* url) {
+    if (!url || !url[0]) return false;
+    return SDL_OpenURL(url);
+}
+
 // ============================================================================
 // Frame Rendering
 // ============================================================================
@@ -1694,6 +1699,7 @@ static CogitoBackend sdl3_backend = {
     .window_is_maximized = sdl3_window_is_maximized,
     .window_get_native_handle = sdl3_window_get_native_handle,
     .window_get_id = sdl3_window_get_id,
+    .open_url = sdl3_open_url,
     .begin_frame = sdl3_begin_frame,
     .end_frame = sdl3_end_frame,
     .present = sdl3_present,

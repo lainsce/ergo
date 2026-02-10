@@ -7,6 +7,7 @@
 #undef cogito_app_set_appid
 #undef cogito_app_set_app_name
 #undef cogito_app_set_accent_color
+#undef cogito_open_url
 #undef cogito_window_new
 #undef cogito_window_free
 #undef cogito_window_set_resizable
@@ -1568,11 +1569,21 @@ static void __cogito_load_sum(ErgoVal pathv) {
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
 
+static ErgoVal __cogito_open_url(ErgoVal urlv) {
+  ErgoStr* tmp = NULL;
+  const char* url = cogito_optional_cstr(urlv, &tmp);
+  bool ok = false;
+  if (url && url[0]) ok = cogito_open_url(url);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return EV_BOOL(ok);
+}
+
 // ---- Codegen aliases ----
 #define cogito_app_new __cogito_app
 #define cogito_app_set_appid __cogito_app_set_appid
 #define cogito_app_set_app_name __cogito_app_set_app_name
 #define cogito_app_set_accent_color __cogito_app_set_accent_color
+#define cogito_open_url __cogito_open_url
 #define cogito_window_new __cogito_window
 #define cogito_window_set_resizable __cogito_window_set_resizable
 #define cogito_window_set_autosize __cogito_window_set_autosize

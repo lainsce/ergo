@@ -3965,6 +3965,18 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_open_url")) {
+                        GenExpr urlv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &urlv, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_open_url(%s);", t, urlv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", urlv.tmp);
+                        gen_expr_release_except(cg, &urlv, urlv.tmp);
+                        gen_expr_free(&urlv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     // Chip
                     if (str_eq_c(fname, "__cogito_chip")) {
                         GenExpr text;

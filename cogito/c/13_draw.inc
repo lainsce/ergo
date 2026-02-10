@@ -293,7 +293,22 @@ static void cogito_draw_icon_fallback(CogitoNode* n, const char* icon, int x, in
     int th = 0;
     if (cogito_icon_load_texture(icon, size, &tex, &tw, &th) && tex) {
       CogitoRect src = {0, 0, tw, th};
-      CogitoRect dst = {x, y, size, size};
+      int dx = x;
+      int dy = y;
+      int dw = size;
+      int dh = size;
+      if (tw > 0 && th > 0) {
+        if (tw > th) {
+          dh = (size * th + tw / 2) / tw;
+          if (dh < 1) dh = 1;
+          dy = y + (size - dh) / 2;
+        } else if (th > tw) {
+          dw = (size * tw + th / 2) / th;
+          if (dw < 1) dw = 1;
+          dx = x + (size - dw) / 2;
+        }
+      }
+      CogitoRect dst = {dx, dy, dw, dh};
       cogito_backend->draw_texture(tex, src, dst, color);
       return;
     }

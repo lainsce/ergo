@@ -72,6 +72,7 @@ typedef struct CogitoBackend {
     bool (*window_is_maximized)(CogitoWindow* window);
     void* (*window_get_native_handle)(CogitoWindow* window);
     uint32_t (*window_get_id)(CogitoWindow* window);
+    bool (*open_url)(const char* url);
     
     // Frame rendering
     void (*begin_frame)(CogitoWindow* window);
