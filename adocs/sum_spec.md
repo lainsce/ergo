@@ -1,280 +1,317 @@
-# Sum (Style Unified Model) Styling Language — Minimal Spec v1
+# Sum (Style Unified Model) Styling Language — Working Spec
 
-Sum is a minimal, script-friendly styling language for applying visual properties to a tree of UI nodes.
+This document defines the current SUM behavior used by Ergo/Cogito in this repository.
+It supersedes the old "minimal v1" draft for implementation work.
 
-## 1. Units
+## 0. Status
 
-### 1.1 `sp`
+- This is a practical implementation spec for current tooling.
+- It describes what the runtime parser accepts today.
+- Compiler work should target this profile first.
 
-`sp` is the primary length unit.
+## 1. Source Format
 
-- Definition: `1sp = 254/3 µm`
-- Rendering model: device DPI is fixed at **300 DPI**
-- Therefore: **`px = sp`**
-
-Implementations MUST keep length values as floating-point pixels internally.
-
-## 2. Source file format
-
-- Text is UTF-8.
-- Newlines separate logical lines.
-- Indentation defines blocks. Indentation is either:
-  - spaces only, or
-  - tabs only,
-  but MUST NOT be mixed within a file.
+- Encoding: UTF-8 text.
+- Extension: `.sum`.
+- Comments: `;` starts a comment and runs to end of line.
 - Empty lines are allowed.
-- Comments start with `;` and continue to end of line.
-- File extension is .sum
+- Files are indentation-based.
 
-## 3. Grammar (informal)
+### 1.1 Indentation Rules (Current Runtime)
 
-A file is a sequence of **rules**.
+- Selector lines are unindented (column 0).
+- Declaration lines are indented.
+- In practice, use **2 spaces** for declaration indentation.
+- Tabs should be avoided for now.
 
-A **rule** is:
+## 2. Rule Structure
 
-```c
-<selector-line>
-  <declaration-line>
-  <declaration-line>
-  ...
+A SUM file is a sequence of rule groups.
+
+Each rule group is:
+
+```txt
+selector-line+
+  declaration-line+
 ```
 
-A **selector-line** is a selector (see §4).
+Notes:
 
-A **declaration-line** is:
+- Multiple selector lines can appear back-to-back before declarations.
+- A selector line can also contain comma-separated selectors.
+- A declaration line is `property: value`.
 
-```c
-<property-name> ":" <value>
-```
+## 3. Selectors
 
-Property names are lowercase ASCII words with `-` allowed.
+SUM selectors are intentionally limited.
 
-## 4. Selectors
-
-Sum supports a small subset of CSS-like selectors.
-
-### 4.1 Supported selectors
+### 3.1 Simple Selectors
 
 - Universal: `*`
 - Type: `button`
 - Class: `.fancy`
 - Type + class: `button.fancy`
 
-### 4.2 Matching rules
+### 3.2 State Selectors
 
-A selector matches a node if:
+States use `:state` suffixes:
 
-- `*` always matches
-- `type` matches node type name exactly
-- `.class` matches if node has that class
-- `type.class` matches if both match
+- `:hover`
+- `:active`
+- `:checked`
+- `:disabled`
+- `:selection`
 
-### 4.3 Specificity
+Examples:
 
-Specificity determines tie-breaking:
+- `button:hover`
+- `.outlined:active`
+- `textfield:selection`
 
-- `*` → (0)
-- `type` → (1)
-- `.class` → (10)
-- `type.class` → (11)
+### 3.3 Descendant Selectors (Single Hop)
 
-Higher number wins. If equal specificity, the later rule in the file wins.
+Two-token selectors are supported as `parent child`.
 
-## 5. Cascade & inheritance
+Examples:
 
-### 5.1 Cascade order (highest priority last)
+- `appbar iconbtn`
+- `checkbox .check`
+- `switch .track`
 
-1. Earlier rules
-2. Later rules (same specificity)
-3. Higher specificity
+Current parser behavior supports one parent token + one child token.
 
-### 5.2 Inheritance
+### 3.4 Selector Lists
 
-Only these properties inherit by default:
+Comma-separated selectors are supported:
 
-- `font`
-- `color`
-- `background`
-- `border`
-- `radius`
-- `margin`
-- `padding`
-- `box-shadow`
+```sum
+textfield:selection, .textfield:selection
+  background: #6750A4
+```
+
+### 3.5 Supported Type Names (Current)
+
+Current runtime recognizes these type selectors:
+
+- `appbar`
+- `bottom-nav`
+- `button`
+- `checkbox`
+- `chip`
+- `colorpicker`
+- `datepicker`
+- `dialog`
+- `dialogslot`
+- `divider`
+- `dropdown`
+- `fab`
+- `fixed`
+- `grid`
+- `hstack`
+- `iconbtn`
+- `image`
+- `label`
+- `list`
+- `menu`
+- `nav-rail`
+- `popover`
+- `progress`
+- `scroller`
+- `searchfield`
+- `segmented`
+- `slider`
+- `stepper`
+- `switch`
+- `tabs`
+- `textfield`
+- `textview`
+- `toast`
+- `toasts`
+- `toolbar`
+- `tooltip`
+- `treeview`
+- `viewswitcher`
+
+Aliases currently accepted include:
+
+- `bottom_nav`
+- `dialog-slot`
+- `dialog_slot`
+- `bottom-toolbar`
+- `bottom_toolbar`
+
+Unknown selectors are ignored.
+
+## 4. Cascade Semantics (Current)
+
+- Rules are applied in source order.
+- For the same target/style bucket/property, later assignments overwrite earlier ones.
+- Unknown properties are ignored.
+- Invalid values for a known property are ignored for that declaration only.
+
+## 5. Value Types
+
+### 5.1 Numbers and Units
+
+- Integer and float numbers are supported.
+- `sp` suffix is accepted and treated as a styling length unit.
+- `px` suffix is accepted by the numeric parser.
+- Runtime stores numeric style values as numbers; unit conversion is currently 1:1 in practice.
+
+Examples:
+
+- `14`
+- `14sp`
+- `14px`
+- `0.75`
+
+### 5.2 Colors
+
+Supported color forms:
+
+- `#RGB`
+- `#RGBA`
+- `#RRGGBB`
+- `#RRGGBBAA`
+- `rgb(r, g, b)`
+- `rgba(r, g, b, a)`
+- named colors: `transparent`, `white`, `black`
+
+### 5.3 Strings and Idents
+
+- Double-quoted strings are supported (for example font family in `font`).
+- Bare identifiers are supported where relevant.
+
+### 5.4 Durations
+
+For transition-related properties:
+
+- Bare number means milliseconds.
+- `ms` suffix means milliseconds.
+- `s` suffix means seconds.
+
+Examples:
+
+- `transition-duration: 180`
+- `transition-duration: 180ms`
+- `transition-duration: 0.18s`
 
 ## 6. Properties
 
-This minimal spec defines these properties:
+### 6.1 Core Visual
+
+- `background`, `background-color`
+- `color`, `text-color`
+- `opacity`
+- `border`
+- `border-color`
+- `border-width`
+- `border-radius`, `radius`
+- `box-shadow`
+- `elevation`
+
+### 6.2 Typography
 
 - `font`
-- `color`
-- `background`
-- `border`
-- `radius`
-- `margin`
+- `font-family`
+- `font-size`
+- `font-weight`
+- `font-variant-numeric`
+- `letter-spacing`
+
+### 6.3 Spacing and Size
+
 - `padding`
-- `box-shadow`
+- `padding-left`, `padding-top`, `padding-right`, `padding-bottom`
+- `margin`
+- `margin-left`, `margin-top`, `margin-right`, `margin-bottom`
+- `min-width`, `min-height`
+- `max-width`, `max-height`
 
-Unknown properties MUST be ignored.
+### 6.4 Interaction/State Colors
 
-## 7. Value types
+- `selection-color`
+- `selection-background`
+- `highlight-color`
+- `transition`
+- `transition-duration`
+- `transition-easing`
+- `transition-timing-function`
 
-### 7.1 Colors
+### 6.5 Control-Specific
 
-A color is:
+- `icon-size`
+- `icon-color`, `icon-tint`
+- `track-height`
+- `track-color`, `track`
+- `knob-color`, `knob`
+- `knob-width`, `knob-w`
+- `knob-height`, `knob-h`
+- `check-color`, `check`
 
-- `#RGB`
-- `#RRGGBB`
-- `#RRGGBBAA`
+### 6.6 Menu/Appbar-Specific
 
-Channels are hex. For `#RRGGBBAA`, `AA` is alpha (00–FF).
+- `item-padding`, `menu-item-padding`
+- `item-height`, `menu-item-height`
+- `appbar-btn-size`
+- `appbar-btn-gap`
+- `appbar-btn-top`
+- `appbar-btn-right`
+- `appbar-btn-close-color`
+- `appbar-btn-min-color`
+- `appbar-btn-max-color`
+- `appbar-btn-border-color`
+- `appbar-btn-border-width`
 
-### 7.2 Lengths
+## 7. Shorthand Behavior
 
-A length is:
+### 7.1 `padding`, `margin`, `radius`
 
-- `<number>sp` (preferred)
+1 to 4 values are supported with CSS-style mapping:
 
-### 7.3 Identifiers
+- 1 value: all sides/corners.
+- 2 values: vertical/horizontal or paired corners.
+- 3 values: top, horizontal, bottom.
+- 4 values: top, right, bottom, left.
 
-Keywords are lowercase ASCII identifiers (e.g., `solid`).
-
-### 7.4 Strings
-
-A string is double-quoted. Backslash escapes are implementation-defined (may be omitted in v0.1).
-
-## 8. Property definitions
-
-### 8.1 `font`
-
-Groups: family, size, weight — in this order.
-
-Syntax:
-
-```c
-font: <family> <size> <weight>
-```
-
-- `<family>` is either:
-  - a string: `"Inter"`
-  - or an identifier without spaces: `Inter`
-- `<size>` is a length
-- `<weight>` is either:
-  - integer 1–1000, or
-  - `normal` (=400), `bold` (=700)
-
-Example:
-
-```sum
-font: "Inter" 14sp 600
-```
-
-### 8.2 `color`
+### 7.2 `border`
 
 Syntax:
 
-```sum
-color: <color>
-```
-
-### 8.3 `background`
-
-No images in v0.1.
-
-Syntax:
-
-```sum
-background: <color>
-```
-
-### 8.4 `border`
-
-Syntax:
-
-```sum
+```txt
 border: <width> <style> <color>
 ```
 
-- `<width>` is a length
-- `<style>` is one of: `none`, `solid`, `dashed`, `dotted`
-- `<color>` is a color
+- Width is numeric.
+- Style: `none | solid | dashed | dotted`.
+- Color uses standard color parsing.
 
-Border width rendering rule:
+### 7.3 `font`
 
-- If width is `0`, border is off.
+Current shorthand form:
 
-### 8.5 `radius`
-
-Controls corner radii.
-
-Syntax:
-
-```sum
-radius: <r1>
-radius: <r1> <r2>
-radius: <r1> <r2> <r3>
-radius: <r1> <r2> <r3> <r4>
+```txt
+font: <family> <size> <weight>
 ```
 
-Each `<rN>` is a length. Corner mapping (CSS-like):
+- Family: quoted string or identifier.
+- Size: numeric.
+- Weight: numeric or `normal`/`bold`.
 
-- 1 value: all corners
-- 2 values: TL/BR = r1, TR/BL = r2
-- 3 values: TL = r1, TR/BL = r2, BR = r3
-- 4 values: TL TR BR BL
+### 7.4 `box-shadow`
 
-### 8.6 `margin`
+Current parser supports a single shadow value (optional `[...]` wrapper):
 
-Syntax:
-
-```sum
-margin: <m1>
-margin: <m1> <m2>
-margin: <m1> <m2> <m3>
-margin: <m1> <m2> <m3> <m4>
+```txt
+box-shadow: [ <dx> <dy> [<blur>] [<spread>] <color> [inset] ]
 ```
 
-Mapping (CSS-like):
+## 8. Error Handling
 
-- 1: all
-- 2: vertical = m1, horizontal = m2
-- 3: top = m1, horizontal = m2, bottom = m3
-- 4: top right bottom left
-
-### 8.7 `padding`
-
-Same syntax and mapping as `margin`.
-
-### 8.8 `box-shadow`
-
-A list of one or more shadow entries.
-
-Syntax:
-
-```sum
-box-shadow: [ <shadow> ; <shadow> ; ... ]
-```
-
-Semicolons inside the bracket are optional line separators; newlines are allowed.
-
-Each `<shadow>` is:
-
-```sum
-<dx> <dy> [<blur>] [<spread>] <color> [inset]
-```
-
-- `<dx>`, `<dy>`, `<blur>`, `<spread>` are lengths
-- `<color>` is a color
-- `inset` is an optional keyword
-- Missing `<blur>` defaults to `0`
-- Missing `<spread>` defaults to `0`
-
-Example:
-
-```sum
-box-shadow: [
-  0 0 0 1sp #0000002d
-]
-```
+- Unknown selectors are ignored.
+- Unknown properties are ignored.
+- Invalid declarations do not abort parsing of other declarations.
+- Blank/comment lines are skipped.
 
 ## 9. Example
 
@@ -282,22 +319,24 @@ box-shadow: [
 ; Base
 *
   color: #222
-  background: #fafafa
   font: "Inter" 14sp 400
 
-button.fancy
-  color: #fff
-  background: #007AFF
-  border: 1sp solid #0047cc
-  radius: 99sp 0 99sp 0
-  box-shadow: [
-    0 0 0 1sp #0000002d
-  ]
+window
+  background: #fafafa
+
+button.outlined
+  background: transparent
+  color: #6750A4
+  border: 1sp solid #6750A4
+  border-radius: 20sp
+  transition: 180 standard
+
+button.outlined:hover
+  background: #6750A41f
+
+button.outlined:active
+  background: #6750A433
+
+textfield:selection, .textfield:selection
+  background: #6750A4
 ```
-
-## 10. Error handling
-
-- A rule with an invalid selector line MUST be ignored.
-- A declaration with an invalid value MUST be ignored (other declarations in the same rule still apply).
-- Unknown properties MUST be ignored.
-- If a file mixes tabs and spaces for indentation, the implementation MAY reject the file or treat it as invalid.
