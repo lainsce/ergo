@@ -1,382 +1,341 @@
-# Ergo Language Reference
+# Ergo Language Reference (Working Spec)
 
-This document provides a comprehensive reference for the Ergo programming language, covering its syntax, types, semantics, and standard features.
+This document describes the language behavior currently implemented in this repository.
+It is intended as an implementation-facing reference, not a future design document.
 
----
+## 1. Status and Scope
 
-## Table of Contents
+- Covers lexer/parser/typechecker/codegen behavior currently shipped.
+- Prioritizes what compiles and runs today.
+- Notes implementation constraints where behavior is incomplete or transitional.
 
-1. [Lexical Structure](#lexical-structure)
-2. [Types](#types)
-3. [Variables and Constants](#variables-and-constants)
-4. [Functions](#functions)
-5. [Control Flow](#control-flow)
-6. [Expressions](#expressions)
-7. [Statements](#statements)
-8. [Modules and Imports](#modules-and-imports)
-9. [Entry Point](#entry-point)
-10. [Standard Library](#standard-library)
-11. [Comments](#comments)
-12. [Errors and Diagnostics](#errors-and-diagnostics)
+## 2. Lexical Structure
 
----
+### 2.1 Identifiers
 
-## Lexical Structure
-
-### Identifiers
-
-- Start with a letter or underscore, followed by letters, digits, or underscores.
+- Start: letter or `_`
+- Continue: letter, digit, or `_`
 - Case-sensitive.
 
-Examples:
+### 2.2 Keywords
 
-```c
-foo
-_bar
-x1
+Current reserved words:
+
+`module`, `bring`, `fun`, `entry`, `class`, `pub`, `lock`, `seal`, `def`, `let`, `const`, `if`, `elif`, `else`, `for`, `match`, `return`, `true`, `false`, `null`, `new`, `in`
+
+Note: `module` is currently reserved but not used as a top-level declaration.
+
+### 2.3 Comments
+
+- Line comments use `--` and continue to end of line.
+
+### 2.4 Statement Terminators
+
+- `;` is supported explicitly.
+- Newlines also insert statement terminators automatically in statement-ending contexts.
+
+## 3. Literals and Strings
+
+### 3.1 Numeric Literals
+
+- Integer: `42`
+- Float: `3.14`
+- Unary `-` is an operator, not part of the numeric token.
+
+### 3.2 Other Literals
+
+- `true`, `false`
+- `null`
+
+### 3.3 String Forms
+
+1. Plain string: `"text"`
+   - No interpolation.
+   - Escapes are not processed in this form.
+2. Interpolated string: `@"text $name"`
+   - Supports `$ident` interpolation.
+   - Supports escapes like `\n`, `\t`, `\r`, `\\`, `\"`, `\$`, and `\u{...}`.
+
+## 4. Modules and Imports
+
+### 4.1 Imports
+
+Use `bring` at module top level:
+
+```ergo
+bring stdr
+bring math
+bring utils
+bring utils.ergo
 ```
 
-### Keywords
+Current behavior:
 
-Reserved words include:
+- Imports are namespaced (`math.sin(...)`, `utils.fn(...)`).
+- `bring name` resolves to `name.ergo` for user modules.
+- `bring name.ergo` is accepted.
+- `stdr` is required in non-stdlib modules.
 
-```c
-module, bring, fun, entry, class, pub, lock, seal, def, let, const, if, elif, else, for, match, return, true, false, null, new, in
-```
+### 4.2 Module Naming
 
-### Literals
+- Module names are derived from file basename (without `.ergo`).
+- There is no explicit `module ...` declaration syntax in current parsing.
 
-- **Integer:** `42`, `-7`
-- **Float:** `1.23`
-- **Boolean:** `true`, `false`
-- **String:** `"hello"`, `"foo\nbar"`
-- **Interpolated string:** `@"Hello, $name!"` (identifier interpolation only)
+### 4.3 Entry Constraints
 
-### Operators
+- Exactly one `entry()` is required in the entry module.
+- Imported modules cannot declare `entry()`.
+- Current diagnostics refer to `init.ergo`; this is a toolchain convention reflected in error text.
 
-- Arithmetic: `+`, `-`, `*`, `/`, `%`
-- Comparison: `==`, `!=`, `<`, `>`, `<=`, `>=`
-- Logical: `&&`, `||`, `!`
-- Assignment: `=`
-- Indexing: `[expr]`
-- Function call: `name(args...)`
+## 5. Top-Level Declarations
 
----
+Allowed top-level declarations:
 
-## Types
+- `fun`
+- `entry`
+- `class` (with optional `pub` / `lock` / `seal` prefixes)
+- `def` (module global)
+- `const` (currently enforced only for `stdr` / `math` modules)
 
-### Primitive Types
+## 6. Types
 
-- `bool` — Boolean value (`true` or `false`)
-- `num` — numeric type (integer or float values)
-- `string` — Unicode string
-- `any` — dynamic type; can hold any value and is assignable to/from any type
+### 6.1 Primitive Types
 
-### Numeric Semantics (`num`)
+- `num`
+- `bool`
+- `string`
+- `any`
+- `null` (literal/null type, participates in nullable unification)
 
-- `num` is the only numeric type. Integer and float literals both have type `num`.
-- Use a decimal point to force floating arithmetic (e.g. `1.0`, `3.14`).
-- `+`, `-`, `*` operate on `num` and preserve integer or float behavior based on operands.
-- `/` performs integer division when both operands are integer literals/values; otherwise it performs floating division.
-- `%` is only valid for integer numeric values. Using a floating operand (including literals like `5.0`) is a runtime error.
-- Comparisons (`<`, `<=`, `>`, `>=`) compare numeric values.
-- `len(...)` returns `num` but is always integer‑valued.
+### 6.2 Composite Types
 
-### Composite Types
+- Arrays: `[T]`
+- Tuples: expression tuples `(a, b, c)` and multi-return tuples
+- Classes: `ClassName` or `mod.ClassName`
 
-- **Arrays:** `[T]` — array of type `T`
-  - Example: `[num]` is an array of numbers.
-- **Qualified types:** `mod.Type` — type defined in another module.
+### 6.3 Function Signatures
 
-### Function Types
+Function return syntax:
 
-- Functions are declared with parameter and return types using a return spec.
-  - Example: `fun add(a = num, b = num) (( num )) { ... }`
-- Multiple return types are separated by `;` in the return spec:
-  - Example: `(( num; string ))`
+- Void: `(( -- ))`
+- Single return: `(( num ))`
+- Multi return tuple: `(( num, string ))` or `(( num; string ))`
 
----
+### 6.4 Generic Type Variables
 
-## Variables and Constants
+- Unknown identifier-like type names in signatures are treated as generic placeholders and unified at call sites.
 
-### Local bindings
+### 6.5 Nullability
 
-```c
-let x = 5;
-let ?count = 0;
-const greeting = @"Ergo";
-```
+- Unifying a type with `null` produces a nullable form internally.
+- Nullable values are restricted in many operations (member/index/call/logical/arithmetic).
 
-- Types are inferred from the initializer.
-- `let` is immutable by default; use `let ?name = ...` for mutability.
-- `const` declares an immutable local binding.
+## 7. Variables and Mutability
 
-### Module globals
+- `let x = expr` creates immutable local bindings.
+- `let ?x = expr` creates mutable local bindings.
+- `const x = expr` creates immutable local constant bindings.
+- `def x = expr` creates module global bindings.
+- `def ?x = expr` creates mutable module globals.
 
-Use `def` for module-level (global) bindings:
+Assignment requires mutable targets.
 
-```c
-def version = @"1.0.0";
-def ?counter = 0;
-const BUILD = @"dev";
-```
+## 8. Functions, Methods, and Classes
 
-- `def` is only allowed at module scope.
-- `def ?name = ...` declares a mutable global.
-- Globals must be defined before they are used.
+### 8.1 Functions
 
----
-
-## Functions
-
-### Declaration
-
-```c
-fun name(param1 = Type1, param2 = Type2) (( ReturnType )) {
-    -- function body
-}
-```
-
-Example:
-
-```c
+```ergo
 fun add(a = num, b = num) (( num )) {
-    a + b
+    return a + b
 }
 ```
 
-### Calling Functions
+### 8.2 Methods
 
-```c
-let result = add(2, 3);
-```
+- Methods are declared inside classes with `fun`.
+- First parameter must be `this` or `?this`.
+- `this`/`?this` is implicit receiver syntax and does not use `= Type`.
 
----
+### 8.3 Class Syntax
 
-## Control Flow
+```ergo
+class Point {
+    x = num
+    y = num
 
-### If/Else
-
-```c
-if condition {
-    -- statements
-} else {
-    -- statements
-}
-```
-
-### For Loop
-
-```c
-for (init; cond; step) {
-    -- statements
-}
-```
-
-`for` can be used as a `while` by omitting init/step:
-
-```c
-for (; cond; ) {
-    -- statements
-}
-```
-
-Foreach form:
-
-```c
-for (item in collection) {
-    -- statements
-}
-```
-
----
-
-## Expressions
-
-- Literals: `42`, `"foo"`, `true`
-- Arithmetic: `a + b * 2`
-- Logical: `x && y`, `!flag`
-- Function call: `foo(1, 2)`
-- Array indexing: `arr[0]`
-- String interpolation: `@"Hello, $name!"`
-- Match expression:
-
-```c
-match x: 0 => @"zero", _ => @"other"
-```
-
-- Lambda expressions:
-  - Bar form: `|x = num| x + 1`
-  - Arrow form: `(x = num, y = num) => x + y`
-  - Block form: `(x) => { x + 1 }`
-- Lambdas are non-capturing (they can only use parameters and globals).
-- Class construction: `new Foo()`
-
----
-
-## Semantics
-
-### Truthiness
-
-Values used in conditionals (`if`, `for`, `&&`, `||`, `!`) are coerced to boolean:
-
-- `null` is false
-- `bool` is itself
-- `num` is false when zero, true otherwise
-- `string` is false when empty, true otherwise
-- arrays are false when empty, true otherwise
-- objects/functions are always true
-
-### Nullability
-
-- `null` can unify with any type and produces a nullable type.
-- Accessing members, indexing, calling, or using logical ops on a nullable value is a type error.
-- Simple null checks (`x == null` / `x != null`) narrow the type inside an `if`/`else`.
-
-### Short‑Circuit Logic
-
-`&&` and `||` are short‑circuiting:
-
-- `a && b` evaluates `b` only if `a` is truthy.
-- `a || b` evaluates `b` only if `a` is falsy.
-
-### Indexing and Bounds
-
-- Arrays: `arr[i]` returns `null` when `i` is out of bounds.
-- Arrays: `arr[i] = v` ignores writes when `i` is out of bounds.
-- Arrays: `arr.remove(i)` returns `null` when `i` is out of bounds.
-- Strings: `s[i]` returns a one‑character string, or `""` if out of bounds.
-- Tuples: `t[i]` requires `i` to be an integer literal and must be in range.
-
-### Move and Sealed Classes
-
-- A class declared `seal` can be used as a parameter type only with `move(x)` or `null`.
-- `move(x)` requires `x` to be a mutable binding (`let ?x = ...`) and transfers ownership.
-
----
-
-## Statements
-
-- Variable declaration: `let x = 1;`, `const x = 1;`
-- Assignment: `x = x + 1;`
-- Function call: `writef("hi");`
-- Control flow: `if`, `for`, `match`
-- Return: `return expr;` (optional, can omit for last expression in function)
-
----
-
-## Modules and Imports
-
-### Bringing Modules
-
-Use `bring` to import modules:
-
-```c
-bring stdr;
-bring math;
-```
-
-- Standard library modules: `stdr`, `math`, etc.
-- User modules: You can bring another Ergo source file (e.g., `utils.ergo`) with `bring utils;` (omit the `.ergo` extension).
-- `bring utils.ergo;` is also allowed; module names are derived from the file name (no aliasing in v1).
-- Imported modules are **namespaced only**. Use `module.member` to access their members.
-- Access module constants: `math.PI`, `utils.MY_CONST`
-- Access module functions: `math.funcname(args)`, `utils.helper(x)`
-- `stdr` is a special case: its core functions are available unqualified when brought *and* via `stdr.*`.
-
-Name resolution notes:
-
-- `bring` only introduces a module namespace. It does **not** import members into the local scope.
-- Local bindings can shadow module names. If you write `let math = ...`, you can no longer access `math.*` from the imported module in that scope. Rename the local to use the module.
-
----
-
-## Entry Point
-
-Every program must define an entry point:
-
-```c
-entry () (( -- )) {
-    -- program body
-}
-```
-
-- The entry function takes no arguments and returns nothing.
-- Only one `entry` per program.
-
----
-
-## Standard Library
-
-### `stdr`
-
-- `writef(fmt: string, ...): void` — Print formatted output.
-- `readf(fmt: string, ...): (string, any)` — Print a prompt, read a line, and return `(line, parsed)` where `parsed` is a tuple of values parsed from `{}` placeholders (types inferred from the provided argument values, e.g. `0` or `0.0` for num, `@""` for string).
-- `write(x: any): void` — Print a value.
-- `len(x: any): num` — Length of array or string.
-- `is_null(x: any): bool` — True if value is null.
-- `str(x: any): string` — Convert a value to a string.
-
-### `math`
-
-- `math.PI: num` — The constant π.
-- `math.sin(x: num): num` — Sine function.
-- (Expand as needed.)
-
----
-
-## Comments
-
-- Single-line comments start with `--` and continue to the end of the line.
-
-Example:
-
-```c
--- This is a comment
-let x = 5; -- Inline comment
-```
-
----
-
-## Errors and Diagnostics
-
-- Syntax errors, type errors, and undefined variables/functions are reported at compile time.
-- Parse errors include file, line, and column. Type errors currently include the file path (line/column tracking for type errors is not yet implemented).
-
----
-
-## Example Program
-
-```c
-bring stdr;
-
-fun fib(n = num) (( num )) {
-    if n <= 1 {
-        n
-    } else {
-        fib(n - 1) + fib(n - 2)
-    }
-}
-
-entry () (( -- )) {
-    for (let ?i = 0; i < 10; i = i + 1) {
-        writef(@"fib({}): {}\n", i, fib(i));
+    fun init(?this, x = num, y = num) (( -- )) {
+        this.x = x
+        this.y = y
     }
 }
 ```
 
----
+### 8.4 Class Modifiers
 
-For more details and examples, see the `ergo/examples/` directory and the quickstart guide in `docs/learn-ergo-in-10-minutes.md`.
+- `pub class ...` is parsed.
+- `lock class ...` enforces restricted field access (same file or own methods).
+- `seal class ...` is parsed and stored; extra semantic restrictions are currently limited.
 
----
+## 9. Statements and Control Flow
 
-## Note on Library Usage
+### 9.1 Blocks
 
-When using standard library modules, you must bring them explicitly with `bring modulename;`. Constants are accessed as `module.CONSTANT`, and functions as `module.function(args)`. For example:
+- `{ ... }` creates statement blocks and local scopes.
 
-```c
-bring math;
-let circumference = 2 * math.PI * r;
-let s = math.sin(angle);
+### 9.2 If / Elif / Else
+
+Supported forms:
+
+- Block form: `if cond { ... }`
+- Paren condition: `if (cond) { ... }`
+- Colon single-statement form: `if cond: stmt`
+
+### 9.3 For
+
+1. C-style loop:
+
+```ergo
+for (init; cond; step) { ... }
 ```
+
+2. Foreach:
+
+```ergo
+for (item in expr) { ... }
+```
+
+Foreach currently supports iterating arrays and strings.
+
+### 9.4 Return
+
+- `return` or `return expr`.
+- For non-void functions, explicit `return expr` is the reliable way to set return values.
+- Without explicit return, generated code defaults return storage to `null`.
+
+## 10. Expressions
+
+### 10.1 Core Forms
+
+- Literals and identifiers
+- Unary: `!x`, `-x`, `#x`
+- Binary: `+ - * / % == != < <= > >= && ||`
+- Assignment: `=`
+- Call: `fn(args...)`
+- Member: `a.b`
+- Index: `a[i]`
+- Object construction: `new Class(...)`
+- Match: `match x: pat => expr, ...` or block-arm form
+- Lambda:
+  - `|x = num| x + 1`
+  - `(x = num) => x + 1`
+  - `(x) => { ... }`
+- Array literal: `[a, b, c]`
+- Tuple literal: `(a, b, c)`
+- Paren grouping: `(expr)`
+
+Notes:
+
+- `+=`, `-=`, `*=`, `/=` are tokenized but not currently parsed as assignment expressions.
+- `if` is a statement form in current grammar (not an expression form).
+
+### 10.2 Match Patterns
+
+Supported pattern kinds:
+
+- `_` wildcard
+- identifier bind
+- int literal
+- string literal
+- bool literal
+- `null`
+
+### 10.3 Unary `#`
+
+- `#x` is lowered to `stdr.len(x)`.
+- Valid for arrays and strings.
+
+### 10.4 Lambda Capture
+
+- Lambdas capture referenced local bindings.
+- Captures are materialized in closure environment at lambda creation time.
+
+### 10.5 `move(x)`
+
+- `move(x)` is lowered into a move expression form.
+- Current backend behavior expects mutable local bindings for move targets.
+
+## 11. Runtime/Type Semantics
+
+### 11.1 Condition Evaluation
+
+- `if`/`for` conditions are accepted if non-void.
+- Runtime boolean conversion uses truthiness:
+  - `null` false
+  - `false` false
+  - numeric zero false
+  - empty string false
+  - empty array false
+  - others true
+
+### 11.2 Logical Operators
+
+- `&&` and `||` are short-circuiting.
+- Typechecking currently expects boolean-typed operands for these operators.
+
+### 11.3 Indexing Behavior
+
+- Arrays:
+  - read out-of-bounds -> `null`
+  - write out-of-bounds -> ignored
+  - `remove(i)` out-of-bounds -> `null`
+- Strings:
+  - `s[i]` out-of-bounds -> `""`
+- Tuples:
+  - index must be integer literal and in range (compile-time checked)
+
+### 11.4 Empty Array Literals
+
+- `[]` is rejected because element type cannot be inferred.
+
+## 12. Standard Library Modules
+
+### 12.1 `stdr`
+
+Current core functions:
+
+- `writef(fmt, ...)`
+- `readf(fmt, ...hints)` -> `(string, any)`
+- `write(x)`
+- `len(x)` -> `num`
+- `is_null(x)` -> `bool`
+- `str(x)` -> `string`
+
+When `stdr` is brought, core prelude helpers are available unqualified and via `stdr.*`.
+
+### 12.2 `math`
+
+Includes constants and numeric helpers such as:
+
+- constants: `PI`, `TAU`, `E`, ...
+- functions: `sin`, `cos`, `tan`, `sqrt`, `abs`, `min`, `max`
+
+## 13. Build-Time Include Directive
+
+The loader supports source inclusion via comment directive:
+
+```ergo
+-- @include "relative/path.ergo"
+```
+
+This is processed before lexing/parsing.
+
+## 14. Diagnostics
+
+- Lexer/parser diagnostics include path/line/column.
+- Typecheck diagnostics include module path and location for most semantic errors.
+- Common enforced checks include:
+  - unknown names/types/members
+  - assignment mutability violations
+  - arity mismatches
+  - nullable misuse in restricted contexts
+  - invalid `entry()` placement/count
