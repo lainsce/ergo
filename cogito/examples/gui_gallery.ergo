@@ -12,19 +12,37 @@ fun build_buttons_view() (( cogito.VStack )) {
     subtitle.set_class(@"subtitle")
     vstack.add(subtitle)
 
+    let status = cogito.label(@"Try each button.")
+    status.set_class(@"body")
+    status.set_wrap(true)
+    vstack.add(status)
+
     let btn1 = cogito.button(@"Filled Button")
+    btn1.on_click((b = cogito.Button) => {
+        b.set_text(@"Clicked!")
+        status.set_text(@"Filled button clicked.")
+    })
     vstack.add(btn1)
 
     let btn2 = cogito.button(@"Outlined Button")
     cogito.set_class(btn2, @"outlined")
+    btn2.on_click((b = cogito.Button) => {
+        status.set_text(@"Outlined button activated.")
+    })
     vstack.add(btn2)
 
     let btn3 = cogito.button(@"Text Button")
     cogito.set_class(btn3, @"text")
+    btn3.on_click((b = cogito.Button) => {
+        status.set_text(@"Text button pressed.")
+    })
     vstack.add(btn3)
 
     let iconbtn = cogito.iconbtn(@"star")
     cogito.set_tooltip(iconbtn, @"Icon button")
+    iconbtn.on_click((b = cogito.Button) => {
+        status.set_text(@"Icon button pressed.")
+    })
     vstack.add(iconbtn)
 
     return vstack
@@ -41,17 +59,42 @@ fun build_textfields_view() (( cogito.VStack )) {
     subtitle.set_class(@"subtitle")
     vstack.add(subtitle)
 
+    let preview = cogito.label(@"Type in any field to update this preview.")
+    preview.set_class(@"body")
+    preview.set_wrap(true)
+    vstack.add(preview)
+
     let tf = cogito.textfield(@"Text field")
     tf.set_hexpand(true)
+    tf.on_change((field = cogito.TextField) => {
+        let text = field.text()
+        preview.set_text(@"TextField: $text")
+    })
     vstack.add(tf)
 
     let sf = cogito.searchfield(@"Search…")
     sf.set_hexpand(true)
+    sf.on_change((field = cogito.SearchField) => {
+        let text = field.text()
+        preview.set_text(@"SearchField: $text")
+    })
     vstack.add(sf)
 
     let tv = cogito.textview(@"Multi-line text view")
     tv.set_hexpand(true)
+    tv.on_change((field = cogito.TextView) => {
+        preview.set_text(@"TextView changed.")
+    })
     vstack.add(tv)
+
+    let clear_btn = cogito.button(@"Clear Fields")
+    clear_btn.on_click((b = cogito.Button) => {
+        tf.set_text(@"")
+        sf.set_text(@"")
+        tv.set_text(@"")
+        preview.set_text(@"All text fields cleared.")
+    })
+    vstack.add(clear_btn)
 
     return vstack
 }
@@ -67,20 +110,57 @@ fun build_checkboxes_view() (( cogito.VStack )) {
     subtitle.set_class(@"subtitle")
     vstack.add(subtitle)
 
+    let status = cogito.label(@"Toggle controls to see state changes.")
+    status.set_class(@"body")
+    status.set_wrap(true)
+    vstack.add(status)
+
     let cb1 = cogito.checkbox(@"Checkbox 1", null)
+    cb1.on_change((c = cogito.Checkbox) => {
+        let checked = c.checked()
+        status.set_text(@"Checkbox 1: $checked")
+    })
     vstack.add(cb1)
 
     let cb2 = cogito.checkbox(@"Checkbox 2", null)
+    cb2.on_change((c = cogito.Checkbox) => {
+        let checked = c.checked()
+        status.set_text(@"Checkbox 2: $checked")
+    })
     vstack.add(cb2)
 
     let r1 = cogito.checkbox(@"Radio A", @"group1")
+    r1.on_change((c = cogito.Checkbox) => {
+        if c.checked() {
+            status.set_text(@"Radio selected: A")
+        }
+    })
     vstack.add(r1)
 
     let r2 = cogito.checkbox(@"Radio B", @"group1")
+    r2.on_change((c = cogito.Checkbox) => {
+        if c.checked() {
+            status.set_text(@"Radio selected: B")
+        }
+    })
     vstack.add(r2)
 
     let sw = cogito.switch(@"Toggle Switch")
+    sw.on_change((s = cogito.Switch) => {
+        let checked = s.checked()
+        status.set_text(@"Switch: $checked")
+    })
     vstack.add(sw)
+
+    let set_btn = cogito.button(@"Set Defaults")
+    set_btn.on_click((b = cogito.Button) => {
+        cb1.set_checked(true)
+        cb2.set_checked(false)
+        r1.set_checked(true)
+        sw.set_checked(true)
+        status.set_text(@"Defaults applied.")
+    })
+    vstack.add(set_btn)
 
     return vstack
 }
@@ -96,14 +176,27 @@ fun build_sliders_view() (( cogito.VStack )) {
     subtitle.set_class(@"subtitle")
     vstack.add(subtitle)
 
+    let value_label = cogito.label(@"Slider: 50")
+    value_label.set_class(@"body")
+    vstack.add(value_label)
+
     let sld = cogito.slider(0, 100, 50)
+    sld.set_hexpand(true)
     sld.on_change((s = cogito.Slider) => {
-        writef(@"Slider: {s.value()}\n")
+        let value = s.value()
+        value_label.set_text(@"Slider: $value")
     })
     vstack.add(sld)
 
     let step = cogito.stepper(0, 100, 5, 1)
     vstack.add(step)
+
+    let reset_btn = cogito.button(@"Reset Slider")
+    reset_btn.on_click((b = cogito.Button) => {
+        sld.set_value(50)
+        value_label.set_text(@"Slider: 50")
+    })
+    vstack.add(reset_btn)
 
     return vstack
 }
@@ -119,10 +212,21 @@ fun build_pickers_view() (( cogito.VStack )) {
     subtitle.set_class(@"subtitle")
     vstack.add(subtitle)
 
+    let status = cogito.label(@"Pick a date or color.")
+    status.set_class(@"body")
+    status.set_wrap(true)
+    vstack.add(status)
+
     let dp = cogito.datepicker()
+    dp.on_change((d = cogito.DatePicker) => {
+        status.set_text(@"Date picker changed.")
+    })
     vstack.add(dp)
 
     let cp = cogito.colorpicker()
+    cp.on_change((c = cogito.ColorPicker) => {
+        status.set_text(@"Color picker changed.")
+    })
     vstack.add(cp)
 
     return vstack
@@ -139,17 +243,37 @@ fun build_lists_view() (( cogito.VStack )) {
     subtitle.set_class(@"subtitle")
     vstack.add(subtitle)
 
+    let list_status = cogito.label(@"Select a list row.")
+    list_status.set_class(@"body")
+    vstack.add(list_status)
+
     let list = cogito.list()
+    list.set_hexpand(true)
     list.add(cogito.label(@"List Item 1"))
     list.add(cogito.label(@"List Item 2"))
     list.add(cogito.label(@"List Item 3"))
+    list.on_select((idx) => {
+        list_status.set_text(@"List selected index: $idx")
+    })
+    list.on_activate((idx) => {
+        list_status.set_text(@"List activated index: $idx")
+    })
     vstack.add(list)
 
+    let grid_status = cogito.label(@"Select a grid cell.")
+    grid_status.set_class(@"body")
+    vstack.add(grid_status)
+
     let grid = cogito.grid(2)
+    grid.set_hexpand(true)
+    grid.set_gap(8, 8)
     grid.add(cogito.label(@"A1"))
     grid.add(cogito.label(@"A2"))
     grid.add(cogito.label(@"B1"))
     grid.add(cogito.label(@"B2"))
+    grid.on_select((idx) => {
+        grid_status.set_text(@"Grid selected index: $idx")
+    })
     vstack.add(grid)
 
     return vstack
@@ -166,12 +290,13 @@ fun build_controls_view() (( cogito.VStack )) {
     subtitle.set_class(@"subtitle")
     vstack.add(subtitle)
 
+    let status = cogito.label(@"Select a severity level.")
+    status.set_class(@"body")
+    vstack.add(status)
+
     let dd = cogito.dropdown()
     dd.set_items([@"Low", @"Medium", @"High", @"Critical"])
     dd.set_selected(1)
-    dd.on_change((idx) => {
-        writef(@"Dropdown selected: {idx}\n")
-    })
     dd.set_hexpand(true)
     vstack.add(dd)
 
@@ -183,6 +308,50 @@ fun build_controls_view() (( cogito.VStack )) {
     let prog = cogito.progress(0.65)
     prog.set_hexpand(true)
     vstack.add(prog)
+
+    dd.on_change((idx) => {
+        if idx == 0 {
+            prog.set_value(0.25)
+            prog_label.set_text(@"Progress (25%)")
+            status.set_text(@"Low severity selected.")
+        } elif idx == 1 {
+            prog.set_value(0.50)
+            prog_label.set_text(@"Progress (50%)")
+            status.set_text(@"Medium severity selected.")
+        } elif idx == 2 {
+            prog.set_value(0.75)
+            prog_label.set_text(@"Progress (75%)")
+            status.set_text(@"High severity selected.")
+        } else {
+            prog.set_value(1.0)
+            prog_label.set_text(@"Progress (100%)")
+            status.set_text(@"Critical severity selected.")
+        }
+    })
+
+    let row = cogito.hstack()
+    row.set_gap(8)
+    let inc_btn = cogito.button(@"Increase")
+    inc_btn.on_click((b = cogito.Button) => {
+        let proposed = prog.value() + 0.1
+        if proposed > 1.0 {
+            prog.set_value(1.0)
+            prog_label.set_text(@"Progress (100%)")
+        } else {
+            prog.set_value(proposed)
+            prog_label.set_text(@"Progress increased")
+        }
+    })
+    row.add(inc_btn)
+    let reset_btn = cogito.button(@"Reset")
+    reset_btn.on_click((b = cogito.Button) => {
+        dd.set_selected(1)
+        prog.set_value(0.5)
+        prog_label.set_text(@"Progress (50%)")
+        status.set_text(@"Reset to Medium.")
+    })
+    row.add(reset_btn)
+    vstack.add(row)
 
     let img_label_container = cogito.hstack()
     let img_label = cogito.label(@"Image")
@@ -206,12 +375,16 @@ fun build_tabs_view() (( cogito.VStack )) {
     subtitle.set_class(@"subtitle")
     vstack.add(subtitle)
 
+    let status = cogito.label(@"Select a tab to switch content.")
+    status.set_class(@"body")
+    vstack.add(status)
+
     let tabs = cogito.tabs()
     tabs.set_items([@"Overview", @"Details", @"History"])
     tabs.set_ids([@"tab_overview", @"tab_details", @"tab_history"])
     tabs.set_selected(0)
     tabs.on_change((idx) => {
-        writef(@"Tabs selected: {idx}\n")
+        status.set_text(@"Tab selected index: $idx")
     })
     tabs.set_hexpand(true)
     vstack.add(tabs)
@@ -229,6 +402,14 @@ fun build_tabs_view() (( cogito.VStack )) {
     tab_views.add(tv3)
     tabs.bind(tab_views)
     vstack.add(tab_views)
+
+    let goto_history = cogito.button(@"Go To History Tab")
+    goto_history.on_click((b = cogito.Button) => {
+        tabs.set_selected(2)
+        tab_views.set_active(@"tab_history")
+        status.set_text(@"Switched to History tab.")
+    })
+    vstack.add(goto_history)
 
     let seg = cogito.segmented()
     seg.set_hexpand(true)
@@ -251,23 +432,31 @@ fun build_chips_view() (( cogito.VStack )) {
     subtitle.set_class(@"subtitle")
     vstack.add(subtitle)
 
+    let status = cogito.label(@"Interact with chips or the FAB.")
+    status.set_class(@"body")
+    vstack.add(status)
+
     let row = cogito.hstack()
     row.set_gap(8)
 
     let c1 = cogito.chip(@"Filter")
     c1.on_click((c = cogito.Chip) => {
-        writef(@"Chip clicked\n")
+        status.set_text(@"Filter chip clicked.")
     })
     row.add(c1)
 
     let c2 = cogito.chip(@"Selected")
     c2.set_selected(true)
+    c2.on_click((c = cogito.Chip) => {
+        let selected = c.selected()
+        status.set_text(@"Selected chip toggled: $selected")
+    })
     row.add(c2)
 
     let c3 = cogito.chip(@"Closable")
     c3.set_closable(true)
     c3.on_close((c = cogito.Chip) => {
-        writef(@"Chip closed\n")
+        status.set_text(@"Closable chip close action triggered.")
     })
     row.add(c3)
 
@@ -280,7 +469,7 @@ fun build_chips_view() (( cogito.VStack )) {
 
     let fab = cogito.fab(@"plus")
     fab.on_click((f = cogito.FAB) => {
-        writef(@"FAB clicked\n")
+        status.set_text(@"FAB clicked.")
     })
     vstack.add(fab)
 
@@ -298,6 +487,11 @@ fun build_dialogs_view() (( cogito.VStack )) {
     subtitle.set_class(@"subtitle")
     vstack.add(subtitle)
 
+    let status = cogito.label(@"Open a dialog or show toast notifications.")
+    status.set_class(@"body")
+    status.set_wrap(true)
+    vstack.add(status)
+
     let show_btn = cogito.button(@"Show Dialog")
     vstack.add(show_btn)
 
@@ -311,24 +505,36 @@ fun build_dialogs_view() (( cogito.VStack )) {
     vstack.add(toast_container)
 
     toast_btn.on_click((b = cogito.Button) => {
-        let t = cogito.toast(@"Hello from toast!")
+        let t = cogito.toast(@"Hello from toast! Click to update status.")
+        t.on_click((tt = cogito.Toast) => {
+            status.set_text(@"Toast clicked.")
+        })
         toast_container.add(t)
+        status.set_text(@"Toast shown.")
     })
 
     show_btn.on_click((b = cogito.Button) => {
         let dlg = cogito.dialog(@"Example Dialog")
-        
+
         let content = cogito.vstack()
+        content.set_gap(8)
         content.add(cogito.label(@"This is a dialog."))
-        
+        let close_btn = cogito.button(@"Close")
+        close_btn.on_click((cb = cogito.Button) => {
+            dlg.close()
+            status.set_text(@"Dialog closed.")
+        })
+        content.add(close_btn)
+
         dlg.add(content)
         slot.show(dlg)
+        status.set_text(@"Dialog opened.")
     })
 
     return vstack
 }
 
-fun build_tree_view() (( cogito.VStack )) {
+fun build_tree_view(views = cogito.ViewSwitcher) (( cogito.VStack )) {
     let vstack = cogito.vstack()
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
@@ -339,13 +545,61 @@ fun build_tree_view() (( cogito.VStack )) {
     subtitle.set_class(@"subtitle")
     vstack.add(subtitle)
 
+    let info = cogito.label(@"Use chevrons to collapse branches. Click leaf rows to navigate.")
+    info.set_class(@"body")
+    info.set_wrap(true)
+    vstack.add(info)
+
     let tree = cogito.treeview()
-    tree.add(cogito.label(@"Root"))
-    tree.add(cogito.label(@"  Branch 1"))
-    tree.add(cogito.label(@"    Leaf 1a"))
-    tree.add(cogito.label(@"    Leaf 1b"))
-    tree.add(cogito.label(@"  Branch 2"))
-    tree.add(cogito.label(@"    Leaf 2a"))
+
+    let branch_inputs = cogito.vstack()
+    branch_inputs.set_class(@"inputs")
+    let text_leaf = cogito.button(@"Text Fields")
+    text_leaf.on_click((b = cogito.Button) => {
+        views.set_active(@"textfields")
+        info.set_text(@"Opened Text Fields view.")
+    })
+    branch_inputs.add(text_leaf)
+    let picker_leaf = cogito.button(@"Pickers")
+    picker_leaf.on_click((b = cogito.Button) => {
+        views.set_active(@"pickers")
+        info.set_text(@"Opened Pickers view.")
+    })
+    branch_inputs.add(picker_leaf)
+
+    let branch_collections = cogito.vstack()
+    branch_collections.set_class(@"collections")
+    let list_leaf = cogito.button(@"Lists")
+    list_leaf.on_click((b = cogito.Button) => {
+        views.set_active(@"lists")
+        info.set_text(@"Opened Lists view.")
+    })
+    branch_collections.add(list_leaf)
+    let tree_leaf = cogito.button(@"Tree View")
+    tree_leaf.on_click((b = cogito.Button) => {
+        views.set_active(@"tree")
+        info.set_text(@"Already on Tree View.")
+    })
+    branch_collections.add(tree_leaf)
+
+    let branch_actions = cogito.vstack()
+    branch_actions.set_class(@"actions")
+    let dialog_leaf = cogito.button(@"Dialogs")
+    dialog_leaf.on_click((b = cogito.Button) => {
+        views.set_active(@"dialogs")
+        info.set_text(@"Opened Dialogs view.")
+    })
+    branch_actions.add(dialog_leaf)
+    let controls_leaf = cogito.button(@"Controls")
+    controls_leaf.on_click((b = cogito.Button) => {
+        views.set_active(@"controls")
+        info.set_text(@"Opened Controls view.")
+    })
+    branch_actions.add(controls_leaf)
+
+    tree.add(branch_inputs)
+    tree.add(branch_collections)
+    tree.add(branch_actions)
     tree.set_hexpand(true)
     tree.set_vexpand(true)
     vstack.add(tree)
@@ -407,7 +661,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
     cogito.set_id(dialogs_view, @"dialogs")
     views.add(dialogs_view)
 
-    let tree_view = build_tree_view()
+    let tree_view = build_tree_view(views)
     cogito.set_id(tree_view, @"tree")
     views.add(tree_view)
 

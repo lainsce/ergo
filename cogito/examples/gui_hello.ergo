@@ -36,7 +36,8 @@ fun build_ui(win = cogito.Window) (( -- )) {
     let search = cogito.searchfield(@"Find widgets")
     search.set_hexpand(true)
     search.on_change((s = cogito.SearchField) => {
-        writef(@"Search: {s.text()}\n")
+        let text = s.text()
+        writef(@"Search: $text\n")
     })
     vstack.add(search)
 
@@ -44,14 +45,15 @@ fun build_ui(win = cogito.Window) (( -- )) {
     dd.set_items([@"One", @"Two", @"Three"])
     dd.set_selected(0)
     dd.on_change((idx) => {
-        writef(@"Dropdown: {idx}\n")
+        writef(@"Dropdown: $idx\n")
     })
     dd.set_hexpand(true)
     vstack.add(dd)
 
     let slider = cogito.slider(0, 100, 50)
     slider.on_change((s = cogito.Slider) => {
-        writef(@"Slider: {s.value()}\n")
+        let value = s.value()
+        writef(@"Slider: $value\n")
     })
     cogito.set_tooltip(slider, @"Slider")
     slider.set_hexpand(true)
