@@ -1,0 +1,35 @@
+{
+  "name": "ergo-syntax",
+  "displayName": "Ergo Language Support",
+  "description": "Syntax highlighting and basic editor support for Ergo.",
+  "version": "0.0.1",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "ergo",
+        "aliases": [
+          "Ergo",
+          "ergo"
+        ],
+        "extensions": [
+          ".ergo"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "ergo",
+        "scopeName": "source.ergo",
+        "path": "./syntaxes/ergo.tmLanguage.json"
+      }
+    ]
+  }
+}
