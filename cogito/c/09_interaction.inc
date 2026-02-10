@@ -185,6 +185,10 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
   }
   if (n->kind == COGITO_DIALOG && !cogito_hit_node(n, x, y)) return NULL;
   if (n->kind == COGITO_SCROLLER && !cogito_hit_rect(x, y, n->x, n->y, n->w, n->h)) return NULL;
+  if (n->kind == COGITO_TREEVIEW) {
+    if (cogito_hit_node(n, x, y)) return n;
+    return NULL;
+  }
   if (n->kind == COGITO_VIEWSWITCHER) {
     CogitoNode* active = cogito_view_switcher_active_child(n);
     if (active) {
@@ -199,6 +203,7 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
   }
   if (n->kind == COGITO_BUTTON || n->kind == COGITO_ICONBTN || n->kind == COGITO_CHECKBOX ||
       n->kind == COGITO_SWITCH || n->kind == COGITO_LIST || n->kind == COGITO_GRID ||
+      n->kind == COGITO_TREEVIEW ||
       n->kind == COGITO_TEXTFIELD || n->kind == COGITO_TEXTVIEW ||
       n->kind == COGITO_DROPDOWN || n->kind == COGITO_SLIDER ||
       n->kind == COGITO_TABS || n->kind == COGITO_TOAST ||

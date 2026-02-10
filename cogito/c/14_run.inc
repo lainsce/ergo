@@ -954,6 +954,10 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           } else if (hit->kind == COGITO_SEGMENTED) {
             cogito_segmented_click(hit, mx, my);
             cogito_window_relayout(win);
+          } else if (hit->kind == COGITO_TREEVIEW) {
+            if (cogito_treeview_click(hit, mx, my)) {
+              cogito_window_relayout(win);
+            }
           } else if (hit->kind == COGITO_NAV_RAIL) {
             int idx = cogito_nav_rail_hit_index(hit, mx, my);
             if (idx >= 0) {

@@ -157,6 +157,7 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->scroll_horz = false;
   n->scroll_vert = true;
   n->selected = -1;
+  n->tree_collapsed = false;
   n->divider_vertical = false;
   n->divider_inset = false;
   n->should_close = false;

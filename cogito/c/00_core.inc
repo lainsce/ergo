@@ -371,6 +371,7 @@ typedef struct CogitoNode {
   bool scroll_horz;
   bool scroll_vert;
   int selected;
+  bool tree_collapsed;
   int margin_left;
   int margin_top;
   int margin_right;

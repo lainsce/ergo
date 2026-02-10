@@ -3,6 +3,8 @@ bring cogito
 
 fun build_buttons_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
+    vstack.set_vexpand(true)
+    vstack.set_hexpand(true)
     vstack.set_gap(8)
     vstack.set_padding(16, 16, 16, 16)
 
@@ -30,6 +32,8 @@ fun build_buttons_view() (( cogito.VStack )) {
 
 fun build_textfields_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
+    vstack.set_vexpand(true)
+    vstack.set_hexpand(true)
     vstack.set_gap(8)
     vstack.set_padding(16, 16, 16, 16)
 
@@ -54,6 +58,8 @@ fun build_textfields_view() (( cogito.VStack )) {
 
 fun build_checkboxes_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
+    vstack.set_vexpand(true)
+    vstack.set_hexpand(true)
     vstack.set_gap(8)
     vstack.set_padding(16, 16, 16, 16)
 
@@ -81,6 +87,8 @@ fun build_checkboxes_view() (( cogito.VStack )) {
 
 fun build_sliders_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
+    vstack.set_vexpand(true)
+    vstack.set_hexpand(true)
     vstack.set_gap(8)
     vstack.set_padding(16, 16, 16, 16)
 
@@ -102,6 +110,8 @@ fun build_sliders_view() (( cogito.VStack )) {
 
 fun build_pickers_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
+    vstack.set_vexpand(true)
+    vstack.set_hexpand(true)
     vstack.set_gap(8)
     vstack.set_padding(16, 16, 16, 16)
 
@@ -120,6 +130,8 @@ fun build_pickers_view() (( cogito.VStack )) {
 
 fun build_lists_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
+    vstack.set_vexpand(true)
+    vstack.set_hexpand(true)
     vstack.set_gap(8)
     vstack.set_padding(16, 16, 16, 16)
 
@@ -145,6 +157,8 @@ fun build_lists_view() (( cogito.VStack )) {
 
 fun build_controls_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
+    vstack.set_vexpand(true)
+    vstack.set_hexpand(true)
     vstack.set_gap(8)
     vstack.set_padding(16, 16, 16, 16)
 
@@ -185,6 +199,8 @@ fun build_controls_view() (( cogito.VStack )) {
 
 fun build_tabs_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
+    vstack.set_vexpand(true)
+    vstack.set_hexpand(true)
     vstack.set_gap(8)
     vstack.set_padding(16, 16, 16, 16)
 
@@ -228,6 +244,8 @@ fun build_tabs_view() (( cogito.VStack )) {
 
 fun build_chips_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
+    vstack.set_vexpand(true)
+    vstack.set_hexpand(true)
     vstack.set_gap(8)
     vstack.set_padding(16, 16, 16, 16)
 
@@ -274,6 +292,8 @@ fun build_chips_view() (( cogito.VStack )) {
 
 fun build_dialogs_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
+    vstack.set_vexpand(true)
+    vstack.set_hexpand(true)
     vstack.set_gap(8)
     vstack.set_padding(16, 16, 16, 16)
 
@@ -313,6 +333,8 @@ fun build_dialogs_view() (( cogito.VStack )) {
 
 fun build_tree_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
+    vstack.set_vexpand(true)
+    vstack.set_hexpand(true)
     vstack.set_gap(8)
     vstack.set_padding(16, 16, 16, 16)
 
@@ -452,6 +474,8 @@ fun build_ui(win = cogito.Window) (( -- )) {
     let scroller = cogito.scroller()
     scroller.set_axes(false, true)
     scroller.add(views)
+    scroller.set_vexpand(true)
+    scroller.set_hexpand(true)
     content.add(scroller)
     hstack.add(content)
 
