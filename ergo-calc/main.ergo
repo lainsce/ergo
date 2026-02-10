@@ -112,7 +112,6 @@ fun evaluate() (( -- )) {
 
 fun digit_button(d = num) (( cogito.Button )) {
     let btn = cogito.button(str(d))
-    btn.set_hexpand(true)
     btn.on_click((b = cogito.Button) => {
         input_digit(d)
     })
@@ -121,7 +120,6 @@ fun digit_button(d = num) (( cogito.Button )) {
 
 fun operator_button(text = string, op = string) (( cogito.Button )) {
     let btn = cogito.button(text)
-    btn.set_hexpand(true)
     cogito.set_class(btn, @"outlined")
     btn.on_click((b = cogito.Button) => {
         choose_operator(op)
@@ -131,7 +129,6 @@ fun operator_button(text = string, op = string) (( cogito.Button )) {
 
 fun clear_button() (( cogito.Button )) {
     let btn = cogito.button(@"C")
-    btn.set_hexpand(true)
     cogito.set_class(btn, @"text")
     btn.on_click((b = cogito.Button) => {
         clear_all()
@@ -141,7 +138,6 @@ fun clear_button() (( cogito.Button )) {
 
 fun equals_button() (( cogito.Button )) {
     let btn = cogito.button(@"=")
-    btn.set_hexpand(true)
     btn.on_click((b = cogito.Button) => {
         evaluate()
     })
@@ -150,9 +146,9 @@ fun equals_button() (( cogito.Button )) {
 
 fun build_ui(win = cogito.Window) (( -- )) {
     let root = cogito.vstack()
-    root.set_gap(10)
+    root.set_gap(6)
 
-    let bar = cogito.appbar(@"Calculator", @"")
+    let bar = cogito.appbar(@"", @"")
     bar.set_hexpand(true)
     root.add(bar)
 
@@ -162,7 +158,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
     root.add(display)
 
     let keypad = cogito.grid(4)
-    keypad.set_gap(8, 8)
+    keypad.set_gap(12, 12)
     keypad.set_hexpand(true)
 
     keypad.add(digit_button(7))
@@ -193,7 +189,8 @@ fun build_ui(win = cogito.Window) (( -- )) {
 
 entry () (( -- )) {
     let app = cogito.app()
-    let win = cogito.window_size(@"Ergo Calc", 320, 420)
+    app.set_accent_color(@"#8C56BF", false)
+    let win = cogito.window_size(@"Ergo Calc", 300, 420)
     win.build(build_ui)
     win.set_resizable(false)
     app.set_appid(@"ergo.cogito.Calc")

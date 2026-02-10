@@ -1,18 +1,31 @@
 static void cogito_appbar_window_action(CogitoNode* win, int action) {
-  (void)win;
   if (action == 0) {
     if (win) win->should_close = true;
   } else if (action == 1) {
-    if (cogito_active_window && cogito_backend) {
-      // TODO: Add window_minimize to backend
-      // cogito_backend->window_minimize(cogito_active_window);
+    if (cogito_backend && cogito_backend->window_minimize) {
+      CogitoWindow* backend_win = cogito_backend_window_for_node(win);
+      if (backend_win) {
+        cogito_backend->window_minimize(backend_win);
+      }
     }
   } else if (action == 2) {
-    if (cogito_active_window && cogito_backend) {
-      // TODO: Add window maximize/restore to backend
-      // For now, just toggle the flag
-      static bool maximized = false;
-      maximized = !maximized;
+    if (cogito_backend) {
+      CogitoWindow* backend_win = cogito_backend_window_for_node(win);
+      if (backend_win) {
+        bool is_max = false;
+        if (cogito_backend->window_is_maximized) {
+          is_max = cogito_backend->window_is_maximized(backend_win);
+        }
+        if (is_max) {
+          if (cogito_backend->window_restore) {
+            cogito_backend->window_restore(backend_win);
+          }
+        } else {
+          if (cogito_backend->window_maximize) {
+            cogito_backend->window_maximize(backend_win);
+          }
+        }
+      }
     }
   }
 }

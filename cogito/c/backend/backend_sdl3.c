@@ -24,6 +24,7 @@ static void* sdl3_window_get_native_handle(CogitoWindow* window);
 static SDL_HitTestResult sdl3_csd_hit_test_callback(SDL_Window* sdl_win, const SDL_Point* point, void* data);
 static SDL_Renderer* sdl3_active_renderer(void);
 static SDL_Renderer* sdl3_create_renderer_for_window(SDL_Window* window);
+static void sdl3_get_mouse_position_in_window(CogitoWindow* window, int* x, int* y);
 
 // ============================================================================
 // Internal Types
@@ -80,6 +81,7 @@ static bool sdl3_initialized = false;
 static bool ttf_initialized = false;
 static SDL_GPUDevice* global_gpu_device = NULL;
 static SDL_Renderer* g_current_renderer = NULL;
+static struct CogitoSDL3Window* g_current_window = NULL;
 static CogitoWindowRegistry window_registry = {0};
 static CogitoDebugFlags debug_flags = {0};
 
@@ -320,13 +322,22 @@ static CogitoWindow* sdl3_window_create(const char* title, int w, int h, bool re
     
     SDL_WindowFlags flags = SDL_WINDOW_HIGH_PIXEL_DENSITY;
     if (resizable) flags |= SDL_WINDOW_RESIZABLE;
-    if (borderless) flags |= SDL_WINDOW_BORDERLESS;
+    bool try_transparent = false;
+    if (borderless) {
+        flags |= SDL_WINDOW_BORDERLESS;
+        flags |= SDL_WINDOW_TRANSPARENT;
+        try_transparent = true;
+    }
 #ifdef __APPLE__
     // Required for OpenGL renderer path where MSAA attributes are honored.
     flags |= SDL_WINDOW_OPENGL;
 #endif
     
     win->sdl_window = SDL_CreateWindow(title, w, h, flags);
+    if (!win->sdl_window && try_transparent) {
+        SDL_WindowFlags fallback_flags = flags & ~SDL_WINDOW_TRANSPARENT;
+        win->sdl_window = SDL_CreateWindow(title, w, h, fallback_flags);
+    }
     if (!win->sdl_window) {
         free(win);
         return NULL;
@@ -442,6 +453,31 @@ static void sdl3_window_hide(CogitoWindow* window) {
     SDL_HideWindow(win->sdl_window);
 }
 
+static void sdl3_window_minimize(CogitoWindow* window) {
+    CogitoSDL3Window* win = (CogitoSDL3Window*)window;
+    if (!win || !win->sdl_window) return;
+    SDL_MinimizeWindow(win->sdl_window);
+}
+
+static void sdl3_window_maximize(CogitoWindow* window) {
+    CogitoSDL3Window* win = (CogitoSDL3Window*)window;
+    if (!win || !win->sdl_window) return;
+    SDL_MaximizeWindow(win->sdl_window);
+}
+
+static void sdl3_window_restore(CogitoWindow* window) {
+    CogitoSDL3Window* win = (CogitoSDL3Window*)window;
+    if (!win || !win->sdl_window) return;
+    SDL_RestoreWindow(win->sdl_window);
+}
+
+static bool sdl3_window_is_maximized(CogitoWindow* window) {
+    CogitoSDL3Window* win = (CogitoSDL3Window*)window;
+    if (!win || !win->sdl_window) return false;
+    SDL_WindowFlags flags = SDL_GetWindowFlags(win->sdl_window);
+    return (flags & SDL_WINDOW_MAXIMIZED) != 0;
+}
+
 static void* sdl3_window_get_native_handle(CogitoWindow* window) {
     CogitoSDL3Window* win = (CogitoSDL3Window*)window;
     if (!win || !win->sdl_window) return NULL;
@@ -485,6 +521,7 @@ static void sdl3_begin_frame(CogitoWindow* window) {
     }
     
     g_current_renderer = win->renderer;
+    g_current_window = win;
     g_render_state.window_width = w;
     g_render_state.window_height = h;
     SDL_SetRenderClipRect(g_current_renderer, NULL);
@@ -499,6 +536,9 @@ static void sdl3_present(CogitoWindow* window) {
     if (!win || !win->renderer) return;
     SDL_RenderPresent(win->renderer);
     g_current_renderer = NULL;
+    if (g_current_window == win) {
+        g_current_window = NULL;
+    }
 }
 
 static void sdl3_clear(CogitoColor color) {
@@ -585,11 +625,11 @@ static void process_events(void) {
                     keys_pressed[event.key.scancode] = true;
                 }
                 
-                // CSD debug overlay toggle: Ctrl+Shift+I (when inspector is not active)
+                // CSD debug overlay toggle: Ctrl+Shift+D
                 if (debug_flags.debug_csd && !debug_flags.inspector) {
                     bool ctrl = keys_down[SDL_SCANCODE_LCTRL] || keys_down[SDL_SCANCODE_RCTRL];
                     bool shift = keys_down[SDL_SCANCODE_LSHIFT] || keys_down[SDL_SCANCODE_RSHIFT];
-                    if (ctrl && shift && event.key.scancode == SDL_SCANCODE_I) {
+                    if (ctrl && shift && event.key.scancode == SDL_SCANCODE_D) {
                         // Toggle CSD overlay for focused window
                         CogitoWindow* win = cogito_window_registry_get_focused(&window_registry);
                         if (win) {
@@ -661,21 +701,40 @@ static bool sdl3_window_should_close(CogitoWindow* window) {
 // ============================================================================
 
 static void sdl3_get_mouse_position(int* x, int* y) {
+    // During drawing, route coordinates to the window being rendered.
+    if (g_current_window) {
+        sdl3_get_mouse_position_in_window((CogitoWindow*)g_current_window, x, y);
+        return;
+    }
     if (x) *x = mouse_x;
     if (y) *y = mouse_y;
 }
 
 static void sdl3_get_mouse_position_in_window(CogitoWindow* window, int* x, int* y) {
     CogitoSDL3Window* win = (CogitoSDL3Window*)window;
-    if (!win) {
+    if (!win || !win->sdl_window) {
         if (x) *x = 0;
         if (y) *y = 0;
         return;
     }
-    int wx, wy;
+    // When this window has mouse focus, use SDL's window-relative cached coordinates.
+    SDL_Window* focused = SDL_GetMouseFocus();
+    if (focused == win->sdl_window) {
+        float lx = 0.0f;
+        float ly = 0.0f;
+        SDL_GetMouseState(&lx, &ly);
+        if (x) *x = (int)lx;
+        if (y) *y = (int)ly;
+        return;
+    }
+    float gx = 0.0f;
+    float gy = 0.0f;
+    SDL_GetGlobalMouseState(&gx, &gy);
+    int wx = 0;
+    int wy = 0;
     SDL_GetWindowPosition(win->sdl_window, &wx, &wy);
-    if (x) *x = mouse_x - wx;
-    if (y) *y = mouse_y - wy;
+    if (x) *x = (int)(gx - (float)wx);
+    if (y) *y = (int)(gy - (float)wy);
 }
 
 static bool sdl3_is_mouse_button_down(int button) {
@@ -1626,6 +1685,10 @@ static CogitoBackend sdl3_backend = {
     .window_set_title = sdl3_window_set_title,
     .window_show = sdl3_window_show,
     .window_hide = sdl3_window_hide,
+    .window_minimize = sdl3_window_minimize,
+    .window_maximize = sdl3_window_maximize,
+    .window_restore = sdl3_window_restore,
+    .window_is_maximized = sdl3_window_is_maximized,
     .window_get_native_handle = sdl3_window_get_native_handle,
     .window_get_id = sdl3_window_get_id,
     .begin_frame = sdl3_begin_frame,

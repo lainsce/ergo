@@ -66,6 +66,10 @@ typedef struct CogitoBackend {
     void (*window_set_title)(CogitoWindow* window, const char* title);
     void (*window_show)(CogitoWindow* window);
     void (*window_hide)(CogitoWindow* window);
+    void (*window_minimize)(CogitoWindow* window);
+    void (*window_maximize)(CogitoWindow* window);
+    void (*window_restore)(CogitoWindow* window);
+    bool (*window_is_maximized)(CogitoWindow* window);
     void* (*window_get_native_handle)(CogitoWindow* window);
     uint32_t (*window_get_id)(CogitoWindow* window);
     

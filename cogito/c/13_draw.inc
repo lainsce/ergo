@@ -368,6 +368,162 @@ static void cogito_draw_icon_fallback(CogitoNode* n, const char* icon, int x, in
   cogito_draw_text_size_node(n, tx, ty, txt, color, fs, false);
 }
 
+typedef struct {
+  bool over_close;
+  bool over_min;
+  bool over_max;
+  bool over_cluster;
+  int state_close;
+  int state_min;
+  int state_max;
+  int close_lx;
+  int min_lx;
+  int max_lx;
+  int lights_y;
+  int light_d;
+  int light_rad;
+} CogitoTrafficLightsState;
+
+static void cogito_traffic_lights_compute(int close_x, int min_x, int max_x, int by, int btn,
+                                          int mx, int my, bool down,
+                                          CogitoTrafficLightsState* out) {
+  if (!out) return;
+  memset(out, 0, sizeof(*out));
+  if (btn <= 0) return;
+
+  int center_off = btn / 2;
+  float light_r = (btn / 14.0f) * 9.0f;
+  int light_d = (int)(light_r * 2.0f + 0.5f);
+  if (light_d < 2) light_d = 2;
+
+  out->light_d = light_d;
+  out->light_rad = light_d / 2;
+  out->lights_y = by + center_off - light_d / 2;
+  out->close_lx = close_x + center_off - light_d / 2;
+  out->min_lx = min_x + center_off - light_d / 2;
+  out->max_lx = max_x + center_off - light_d / 2;
+
+  out->over_close = (close_x >= 0) && cogito_hit_rect(mx, my, close_x, by, btn, btn);
+  out->over_min = (min_x >= 0) && cogito_hit_rect(mx, my, min_x, by, btn, btn);
+  out->over_max = (max_x >= 0) && cogito_hit_rect(mx, my, max_x, by, btn, btn);
+
+  int cluster_left = 0;
+  int cluster_right = 0;
+  bool cluster_init = false;
+  if (close_x >= 0) {
+    cluster_left = close_x;
+    cluster_right = close_x + btn;
+    cluster_init = true;
+  }
+  if (min_x >= 0) {
+    if (!cluster_init || min_x < cluster_left) cluster_left = min_x;
+    if (!cluster_init || min_x + btn > cluster_right) cluster_right = min_x + btn;
+    cluster_init = true;
+  }
+  if (max_x >= 0) {
+    if (!cluster_init || max_x < cluster_left) cluster_left = max_x;
+    if (!cluster_init || max_x + btn > cluster_right) cluster_right = max_x + btn;
+    cluster_init = true;
+  }
+  if (cluster_init) {
+    out->over_cluster = cogito_hit_rect(mx, my, cluster_left, by, cluster_right - cluster_left, btn);
+  }
+
+  out->state_close = out->over_close ? (down ? 2 : 1) : 0;
+  out->state_min = out->over_min ? (down ? 2 : 1) : 0;
+  out->state_max = out->over_max ? (down ? 2 : 1) : 0;
+}
+
+static void cogito_draw_traffic_lights_styled(const CogitoStyle* base_style,
+                                              CogitoColor fallback_btn,
+                                              CogitoColor fallback_border,
+                                              int close_x, int min_x, int max_x,
+                                              const CogitoTrafficLightsState* st) {
+  if (!st) return;
+  CogitoStyle empty = {0};
+  const CogitoStyle* s = base_style ? base_style : &empty;
+
+  CogitoStyle close_s = cogito_appbar_win_btn_style(0, st->state_close);
+  CogitoStyle min_s = cogito_appbar_win_btn_style(1, st->state_min);
+  CogitoStyle max_s = cogito_appbar_win_btn_style(2, st->state_max);
+
+  CogitoColor close_bg = close_s.has_bg ? close_s.bg
+    : (s->has_appbar_btn_close_color ? s->appbar_btn_close_color : fallback_btn);
+  CogitoColor min_bg = min_s.has_bg ? min_s.bg
+    : (s->has_appbar_btn_min_color ? s->appbar_btn_min_color : fallback_btn);
+  CogitoColor max_bg = max_s.has_bg ? max_s.bg
+    : (s->has_appbar_btn_max_color ? s->appbar_btn_max_color : fallback_btn);
+
+  if (close_x >= 0) {
+    cogito_draw_rect(st->close_lx, st->lights_y, st->light_d, st->light_d, close_bg, st->light_rad);
+  }
+  if (min_x >= 0) {
+    cogito_draw_rect(st->min_lx, st->lights_y, st->light_d, st->light_d, min_bg, st->light_rad);
+  }
+  if (max_x >= 0) {
+    cogito_draw_rect(st->max_lx, st->lights_y, st->light_d, st->light_d, max_bg, st->light_rad);
+  }
+
+  if (close_x >= 0 && (close_s.has_border || close_s.has_border_width)) {
+    int bw = close_s.has_border_width ? close_s.border_width : 1;
+    CogitoColor bc = close_s.has_border ? close_s.border : fallback_border;
+    if (bw > 0) {
+      cogito_draw_rect_lines(st->close_lx, st->lights_y, st->light_d, st->light_d, bc, st->light_rad, bw);
+    }
+  }
+  if (min_x >= 0 && (min_s.has_border || min_s.has_border_width)) {
+    int bw = min_s.has_border_width ? min_s.border_width : 1;
+    CogitoColor bc = min_s.has_border ? min_s.border : fallback_border;
+    if (bw > 0) {
+      cogito_draw_rect_lines(st->min_lx, st->lights_y, st->light_d, st->light_d, bc, st->light_rad, bw);
+    }
+  }
+  if (max_x >= 0 && (max_s.has_border || max_s.has_border_width)) {
+    int bw = max_s.has_border_width ? max_s.border_width : 1;
+    CogitoColor bc = max_s.has_border ? max_s.border : fallback_border;
+    if (bw > 0) {
+      cogito_draw_rect_lines(st->max_lx, st->lights_y, st->light_d, st->light_d, bc, st->light_rad, bw);
+    }
+  }
+
+  if (!st->over_cluster) return;
+  CogitoColor glyph = cogito_rgba(28, 28, 28, 220);
+  int inset = st->light_d / 3;
+  if (inset < 2) inset = 2;
+
+  if (close_x >= 0) {
+    int x0 = st->close_lx + inset;
+    int y0 = st->lights_y + inset;
+    int x1 = st->close_lx + st->light_d - inset - 1;
+    int y1 = st->lights_y + st->light_d - inset - 1;
+    if (x1 < x0) x1 = x0;
+    if (y1 < y0) y1 = y0;
+    cogito_draw_line(x0, y0, x1, y1, glyph);
+    cogito_draw_line(x1, y0, x0, y1, glyph);
+  }
+
+  if (min_x >= 0) {
+    int x0 = st->min_lx + inset;
+    int x1 = st->min_lx + st->light_d - inset - 1;
+    int y = st->lights_y + st->light_d / 2;
+    if (x1 < x0) x1 = x0;
+    cogito_draw_line(x0, y, x1, y, glyph);
+  }
+
+  if (max_x >= 0) {
+    int x0 = st->max_lx + inset;
+    int x1 = st->max_lx + st->light_d - inset - 1;
+    int y = st->lights_y + st->light_d / 2;
+    int x = st->max_lx + st->light_d / 2;
+    int y0 = st->lights_y + inset;
+    int y1 = st->lights_y + st->light_d - inset - 1;
+    if (x1 < x0) x1 = x0;
+    if (y1 < y0) y1 = y0;
+    cogito_draw_line(x0, y, x1, y, glyph);
+    cogito_draw_line(x, y0, x, y1, glyph);
+  }
+}
+
 static void cogito_inspector_color_hex(CogitoColor c, char* out, size_t cap) {
   if (!out || cap == 0) return;
   if (c.a == 255) snprintf(out, cap, "#%02X%02X%02X", (unsigned int)c.r, (unsigned int)c.g, (unsigned int)c.b);
@@ -376,13 +532,19 @@ static void cogito_inspector_color_hex(CogitoColor c, char* out, size_t cap) {
 
 static void cogito_inspector_panel_rect(CogitoNode* win, int* out_x, int* out_y, int* out_w, int* out_h, int* out_tree_w) {
   if (!win) return;
-  int panel_w = win->w / 2;
-  if (panel_w < 320) panel_w = win->w;
+  int view_x = cogito_inspector_view_x;
+  int view_y = cogito_inspector_view_y;
+  int view_w = cogito_inspector_view_w > 0 ? cogito_inspector_view_w : win->w;
+  int view_h = cogito_inspector_view_h > 0 ? cogito_inspector_view_h : win->h;
+  if (view_w < 0) view_w = 0;
+  if (view_h < 0) view_h = 0;
+  int panel_w = view_w / 2;
+  if (panel_w < 320) panel_w = view_w;
   if (panel_w > 520) panel_w = 520;
-  int x = win->w - panel_w;
+  int x = view_x + view_w - panel_w;
   if (x < 0) x = 0;
-  int y = 0;
-  int h = win->h;
+  int y = view_y;
+  int h = view_h;
   int tree_w = (panel_w * 45) / 100;
   if (tree_w < 170) tree_w = panel_w / 2;
   if (tree_w > panel_w - 120) tree_w = panel_w - 120;
@@ -393,12 +555,46 @@ static void cogito_inspector_panel_rect(CogitoNode* win, int* out_x, int* out_y,
   if (out_tree_w) *out_tree_w = tree_w;
 }
 
+static bool cogito_inspector_is_collapsed(CogitoNode* n) {
+  if (!n) return false;
+  for (int i = 0; i < cogito_inspector_collapsed_count; i++) {
+    if (cogito_inspector_collapsed_nodes[i] == n) {
+      return cogito_inspector_collapsed_values[i];
+    }
+  }
+  return false;
+}
+
+static void cogito_inspector_set_collapsed(CogitoNode* n, bool collapsed) {
+  if (!n) return;
+  for (int i = 0; i < cogito_inspector_collapsed_count; i++) {
+    if (cogito_inspector_collapsed_nodes[i] == n) {
+      if (collapsed) {
+        cogito_inspector_collapsed_values[i] = true;
+      } else {
+        for (int j = i; j + 1 < cogito_inspector_collapsed_count; j++) {
+          cogito_inspector_collapsed_nodes[j] = cogito_inspector_collapsed_nodes[j + 1];
+          cogito_inspector_collapsed_values[j] = cogito_inspector_collapsed_values[j + 1];
+        }
+        cogito_inspector_collapsed_count--;
+      }
+      return;
+    }
+  }
+  if (collapsed && cogito_inspector_collapsed_count < COGITO_INSPECTOR_MAX_NODES) {
+    cogito_inspector_collapsed_nodes[cogito_inspector_collapsed_count] = n;
+    cogito_inspector_collapsed_values[cogito_inspector_collapsed_count] = true;
+    cogito_inspector_collapsed_count++;
+  }
+}
+
 static void cogito_inspector_collect_nodes(CogitoNode* n, int depth) {
   if (!n) return;
   if (cogito_inspector_node_count >= COGITO_INSPECTOR_MAX_NODES) return;
   cogito_inspector_nodes[cogito_inspector_node_count] = n;
   cogito_inspector_depths[cogito_inspector_node_count] = depth;
   cogito_inspector_node_count++;
+  if (n->len == 0 || cogito_inspector_is_collapsed(n)) return;
   for (size_t i = 0; i < n->len; i++) {
     cogito_inspector_collect_nodes(n->children[i], depth + 1);
   }
@@ -439,12 +635,25 @@ static bool cogito_inspector_handle_click(CogitoNode* win, int x, int y) {
   cogito_inspector_rebuild_tree(win);
   const int header_h = 28;
   const int row_h = 18;
+  const int pad = 8;
   int list_y = py + header_h + 4;
   int list_h = ph - (header_h + 8);
   if (cogito_hit_rect(x, y, px, list_y, tree_w, list_h)) {
     int row = (y - list_y) / row_h;
     if (row >= 0 && row < cogito_inspector_node_count) {
-      cogito_inspector_selected = cogito_inspector_nodes[row];
+      CogitoNode* n = cogito_inspector_nodes[row];
+      int depth = cogito_inspector_depths[row];
+      int row_y = list_y + row * row_h;
+      int indent_x = px + pad + depth * 12;
+      int chevron_x = indent_x;
+      int chevron_y = row_y + 3;
+      int chevron_w = 10;
+      int chevron_h = 12;
+      if (n && n->len > 0 && cogito_hit_rect(x, y, chevron_x, chevron_y, chevron_w, chevron_h)) {
+        cogito_inspector_set_collapsed(n, !cogito_inspector_is_collapsed(n));
+      } else {
+        cogito_inspector_selected = n;
+      }
     }
   }
   return true;
@@ -456,6 +665,29 @@ static void cogito_draw_inspector_highlight(void) {
   if (n->w <= 0 || n->h <= 0) return;
   CogitoColor red = cogito_rgba(220, 44, 44, 255);
   cogito_draw_rect_lines(n->x - 1, n->y - 1, n->w + 2, n->h + 2, red, n->border_radius, 2);
+}
+
+static int cogito_inspector_draw_prop_kv_row(CogitoNode* win, int x, int y, int w,
+                                             const char* key, const char* value,
+                                             CogitoColor key_color, CogitoColor value_color,
+                                             CogitoColor row_bg, CogitoColor row_border,
+                                             int text_size, int row_pad) {
+  if (!win || !key || !value || w <= 0) return y;
+  int row_h = cogito_text_height_size(text_size) + row_pad * 2;
+  if (row_h < 16) row_h = 16;
+  cogito_draw_rect(x, y, w, row_h, row_bg, 4);
+  cogito_draw_rect_lines(x, y, w, row_h, row_border, 4, 1);
+
+  int key_x = x + row_pad;
+  int key_w = cogito_text_width_size_node(win, key, text_size);
+  int value_w = cogito_text_width_size_node(win, value, text_size);
+  int value_x = x + w - row_pad - value_w;
+  int min_value_x = key_x + key_w + 10;
+  if (value_x < min_value_x) value_x = min_value_x;
+
+  cogito_draw_text_size_node(win, key_x, y + row_pad, key, key_color, text_size, false);
+  cogito_draw_text_size_node(win, value_x, y + row_pad, value, value_color, text_size, false);
+  return y + row_h + 4;
 }
 
 static void cogito_draw_inspector_panel(CogitoNode* win) {
@@ -476,6 +708,9 @@ static void cogito_draw_inspector_panel(CogitoNode* win) {
   CogitoColor text = cogito_rgba(220, 226, 235, 255);
   CogitoColor muted = cogito_rgba(160, 170, 184, 255);
   CogitoColor selected_bg = cogito_rgba(45, 74, 124, 255);
+  CogitoColor prop_row_bg = cogito_rgba(28, 33, 40, 235);
+  CogitoColor prop_row_bg_alt = cogito_rgba(32, 37, 46, 235);
+  CogitoColor prop_row_border = cogito_rgba(75, 82, 95, 180);
 
   cogito_draw_rect(px, py, pw, ph, bg, 0);
   cogito_draw_rect(px, py, tree_w, ph, panel, 0);
@@ -496,69 +731,120 @@ static void cogito_draw_inspector_panel(CogitoNode* win) {
     if (n == cogito_inspector_selected) {
       cogito_draw_rect(px + 1, row_y, tree_w - 2, row_h, selected_bg, 0);
     }
+    int indent_x = px + pad + depth * 12;
+    int label_x = indent_x;
+    if (n && n->len > 0) {
+      bool collapsed = cogito_inspector_is_collapsed(n);
+      int cx = indent_x + 4;
+      int cy = row_y + row_h / 2;
+      if (collapsed) {
+        cogito_draw_line(cx - 1, cy - 3, cx + 2, cy, muted);
+        cogito_draw_line(cx - 1, cy + 3, cx + 2, cy, muted);
+      } else {
+        cogito_draw_line(cx - 3, cy - 1, cx, cy + 2, muted);
+        cogito_draw_line(cx + 3, cy - 1, cx, cy + 2, muted);
+      }
+      label_x = indent_x + 12;
+    }
     char label[128];
     cogito_inspector_node_label(n, label, sizeof(label));
-    int tx = px + pad + depth * 10;
-    if (tx > px + tree_w - 60) tx = px + tree_w - 60;
-    cogito_draw_text_size_node(win, tx, row_y + 2, label, text, text_size, false);
+    if (label_x > px + tree_w - 60) label_x = px + tree_w - 60;
+    cogito_draw_text_size_node(win, label_x, row_y + 2, label, text, text_size, false);
   }
 
   CogitoNode* s = cogito_inspector_selected;
   if (!s) return;
   int rx = px + tree_w + pad;
+  int rw = pw - tree_w - pad * 2;
+  if (rw < 40) rw = 40;
   int ry = py + header_h + 6;
-  int lh = 16;
+  const int row_pad = 6;
+  bool row_alt = false;
 
   char line[192];
+  char value[192];
   char cbuf1[20], cbuf2[20], cbuf3[20], cbuf4[20];
 
   cogito_inspector_node_label(s, line, sizeof(line));
-  cogito_draw_text_size_node(win, rx, ry, line, text, 13, true);
-  ry += lh + 2;
+  ry = cogito_inspector_draw_prop_kv_row(
+    win, rx, ry, rw, "node", line, muted, text,
+    row_alt ? prop_row_bg_alt : prop_row_bg, prop_row_border, 13, row_pad
+  );
+  row_alt = !row_alt;
 
-  snprintf(line, sizeof(line), "geometry: x=%d y=%d w=%d h=%d", s->x, s->y, s->w, s->h);
-  cogito_draw_text_size_node(win, rx, ry, line, text, text_size, false);
-  ry += lh;
+  snprintf(value, sizeof(value), "x=%d y=%d w=%d h=%d", s->x, s->y, s->w, s->h);
+  ry = cogito_inspector_draw_prop_kv_row(
+    win, rx, ry, rw, "geometry", value, muted, text,
+    row_alt ? prop_row_bg_alt : prop_row_bg, prop_row_border, text_size, row_pad
+  );
+  row_alt = !row_alt;
 
   bool hover = false, active = false;
   if (!s->disabled && cogito_backend_ready && cogito_backend) {
     cogito_node_hover_state(s, &hover, &active);
   }
-  snprintf(line, sizeof(line), "state: hover=%d active=%d focused=%d disabled=%d", hover ? 1 : 0, active ? 1 : 0, (s == cogito_focused) ? 1 : 0, s->disabled ? 1 : 0);
-  cogito_draw_text_size_node(win, rx, ry, line, muted, 11, false);
-  ry += lh + 2;
+  snprintf(value, sizeof(value), "hover=%d active=%d focused=%d disabled=%d",
+           hover ? 1 : 0, active ? 1 : 0, (s == cogito_focused) ? 1 : 0, s->disabled ? 1 : 0);
+  ry = cogito_inspector_draw_prop_kv_row(
+    win, rx, ry, rw, "state", value, muted, text,
+    row_alt ? prop_row_bg_alt : prop_row_bg, prop_row_border, text_size, row_pad
+  );
+  row_alt = !row_alt;
 
   cogito_inspector_color_hex(s->bg, cbuf1, sizeof(cbuf1));
   cogito_inspector_color_hex(s->text_color, cbuf2, sizeof(cbuf2));
   cogito_inspector_color_hex(s->border_color, cbuf3, sizeof(cbuf3));
   cogito_inspector_color_hex(s->selection_color, cbuf4, sizeof(cbuf4));
 
-  snprintf(line, sizeof(line), "background      = %s", cbuf1);
-  cogito_draw_text_size_node(win, rx, ry, line, text, text_size, false);
-  ry += lh;
-  snprintf(line, sizeof(line), "color           = %s", cbuf2);
-  cogito_draw_text_size_node(win, rx, ry, line, text, text_size, false);
-  ry += lh;
-  snprintf(line, sizeof(line), "border-color    = %s", cbuf3);
-  cogito_draw_text_size_node(win, rx, ry, line, text, text_size, false);
-  ry += lh;
-  snprintf(line, sizeof(line), "selection-color = %s", cbuf4);
-  cogito_draw_text_size_node(win, rx, ry, line, text, text_size, false);
-  ry += lh;
-  snprintf(line, sizeof(line), "border-width    = %d", s->border_width);
-  cogito_draw_text_size_node(win, rx, ry, line, text, text_size, false);
-  ry += lh;
-  snprintf(line, sizeof(line), "border-radius   = %d", s->border_radius);
-  cogito_draw_text_size_node(win, rx, ry, line, text, text_size, false);
-  ry += lh;
-  snprintf(line, sizeof(line), "padding         = %d %d %d %d", s->padding_top, s->padding_right, s->padding_bottom, s->padding_left);
-  cogito_draw_text_size_node(win, rx, ry, line, text, text_size, false);
-  ry += lh;
-  snprintf(line, sizeof(line), "margin          = %d %d %d %d", s->margin_top, s->margin_right, s->margin_bottom, s->margin_left);
-  cogito_draw_text_size_node(win, rx, ry, line, text, text_size, false);
-  ry += lh;
-  snprintf(line, sizeof(line), "opacity         = %.2f", s->opacity);
-  cogito_draw_text_size_node(win, rx, ry, line, text, text_size, false);
+  ry = cogito_inspector_draw_prop_kv_row(
+    win, rx, ry, rw, "background", cbuf1, muted, text,
+    row_alt ? prop_row_bg_alt : prop_row_bg, prop_row_border, text_size, row_pad
+  );
+  row_alt = !row_alt;
+  ry = cogito_inspector_draw_prop_kv_row(
+    win, rx, ry, rw, "color", cbuf2, muted, text,
+    row_alt ? prop_row_bg_alt : prop_row_bg, prop_row_border, text_size, row_pad
+  );
+  row_alt = !row_alt;
+  ry = cogito_inspector_draw_prop_kv_row(
+    win, rx, ry, rw, "border-color", cbuf3, muted, text,
+    row_alt ? prop_row_bg_alt : prop_row_bg, prop_row_border, text_size, row_pad
+  );
+  row_alt = !row_alt;
+  ry = cogito_inspector_draw_prop_kv_row(
+    win, rx, ry, rw, "selection-color", cbuf4, muted, text,
+    row_alt ? prop_row_bg_alt : prop_row_bg, prop_row_border, text_size, row_pad
+  );
+  row_alt = !row_alt;
+  snprintf(value, sizeof(value), "%d", s->border_width);
+  ry = cogito_inspector_draw_prop_kv_row(
+    win, rx, ry, rw, "border-width", value, muted, text,
+    row_alt ? prop_row_bg_alt : prop_row_bg, prop_row_border, text_size, row_pad
+  );
+  row_alt = !row_alt;
+  snprintf(value, sizeof(value), "%d", s->border_radius);
+  ry = cogito_inspector_draw_prop_kv_row(
+    win, rx, ry, rw, "border-radius", value, muted, text,
+    row_alt ? prop_row_bg_alt : prop_row_bg, prop_row_border, text_size, row_pad
+  );
+  row_alt = !row_alt;
+  snprintf(value, sizeof(value), "%d %d %d %d", s->padding_top, s->padding_right, s->padding_bottom, s->padding_left);
+  ry = cogito_inspector_draw_prop_kv_row(
+    win, rx, ry, rw, "padding", value, muted, text,
+    row_alt ? prop_row_bg_alt : prop_row_bg, prop_row_border, text_size, row_pad
+  );
+  row_alt = !row_alt;
+  snprintf(value, sizeof(value), "%d %d %d %d", s->margin_top, s->margin_right, s->margin_bottom, s->margin_left);
+  ry = cogito_inspector_draw_prop_kv_row(
+    win, rx, ry, rw, "margin", value, muted, text,
+    row_alt ? prop_row_bg_alt : prop_row_bg, prop_row_border, text_size, row_pad
+  );
+  row_alt = !row_alt;
+  snprintf(value, sizeof(value), "%.2f", s->opacity);
+  ry = cogito_inspector_draw_prop_kv_row(
+    win, rx, ry, rw, "opacity", value, muted, text,
+    row_alt ? prop_row_bg_alt : prop_row_bg, prop_row_border, text_size, row_pad
+  );
 }
 
 static void cogito_draw_node(CogitoNode* n);

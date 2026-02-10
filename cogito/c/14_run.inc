@@ -1,6 +1,26 @@
 #include <SDL3/SDL.h>
 
 static CogitoNode* cogito_find_stepper_hit(CogitoNode* n, int x, int y);
+static int cogito_inspector_hit_test(CogitoWindow* win, int x, int y, void* user) {
+  (void)win;
+  const int* params = (const int*)user;
+  int appbar_h = (params && params[0] > 0) ? params[0] : 52;
+  int margin = (params && params[1] > 0) ? params[1] : 0;
+  int btn = (params && params[2] > 0) ? params[2] : 14;
+  int gap = (params && params[3] > 0) ? params[3] : 8;
+  int pad_x = (params && params[4] > 0) ? params[4] : 12;
+  int by = margin + (appbar_h - btn) / 2;
+  int close_x = margin + pad_x;
+  int min_x = close_x + btn + gap;
+  int max_x = min_x + btn + gap;
+  if (cogito_hit_rect(x, y, close_x, by, btn, btn) ||
+      cogito_hit_rect(x, y, min_x, by, btn, btn) ||
+      cogito_hit_rect(x, y, max_x, by, btn, btn)) {
+    return 0; // normal, so clicks on traffic lights are delivered to UI handlers.
+  }
+  // Cogito hit-test enum values: 0 = normal, 1 = draggable.
+  return (y >= margin && y < (margin + appbar_h) && x >= margin) ? 1 : 0;
+}
 
 static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (appv.tag != EVT_OBJ) ergo_trap("cogito.run expects app");
@@ -51,9 +71,13 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   cogito_backend_ready = true;
   {
     const char* env_inspector = getenv("COGITO_INSPECTOR");
-    cogito_inspector_enabled = env_inspector && env_inspector[0] && env_inspector[0] != '0';
-    cogito_inspector_open = false;
+    cogito_inspector_enabled = true;
+    cogito_inspector_open = env_inspector && env_inspector[0] && env_inspector[0] != '0';
     cogito_inspector_selected = win;
+    cogito_inspector_view_x = 0;
+    cogito_inspector_view_y = 0;
+    cogito_inspector_view_w = 0;
+    cogito_inspector_view_h = 0;
   }
   
 #if defined(__APPLE__)
@@ -143,6 +167,54 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
   }
   cogito_layout_window(win);
+  CogitoWindow* inspector_window = NULL;
+  const int inspector_w = 520;
+  const int inspector_h = 680;
+  const int inspector_appbar_h = 52;
+  const int inspector_corner_r = 18;
+#if defined(__APPLE__)
+  const int inspector_shadow_margin = 0;
+#else
+  const int inspector_shadow_margin = 18;
+#endif
+  const int inspector_traffic_btn = 14;
+  const int inspector_traffic_gap = 8;
+  const int inspector_traffic_pad_x = 12;
+  int inspector_hit_test_params[5] = {
+    52,
+    inspector_shadow_margin,
+    inspector_traffic_btn,
+    inspector_traffic_gap,
+    inspector_traffic_pad_x
+  };
+  bool inspector_native_drag = false;
+  bool inspector_drag_pending = false;
+  bool inspector_drag_active = false;
+  int inspector_drag_start_gx = 0;
+  int inspector_drag_start_gy = 0;
+  int inspector_drag_start_wx = 0;
+  int inspector_drag_start_wy = 0;
+  if (cogito_inspector_open) {
+    inspector_window = cogito_backend->window_create(
+      "Cogito Inspector",
+      inspector_w + inspector_shadow_margin * 2,
+      inspector_h + inspector_shadow_margin * 2,
+      true,
+      true
+    );
+    if (inspector_window) {
+      cogito_backend->window_show(inspector_window);
+      if (cogito_backend->window_set_hit_test_callback) {
+        cogito_backend->window_set_hit_test_callback(inspector_window, cogito_inspector_hit_test, (void*)inspector_hit_test_params);
+        inspector_native_drag = true;
+      }
+#if defined(__APPLE__)
+      cogito_macos_set_window_shadow(inspector_window, true);
+#endif
+    } else {
+      cogito_inspector_open = false;
+    }
+  }
 
   // Main event loop
   while (!cogito_backend->window_should_close(window) && !win->should_close) {
@@ -152,12 +224,47 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     if (cogito_active_app) {
       cogito_update_system_theme(cogito_active_app);
     }
-    if (cogito_inspector_enabled) {
-      bool ctrl = cogito_backend->is_key_down(SDL_SCANCODE_LCTRL) || cogito_backend->is_key_down(SDL_SCANCODE_RCTRL);
-      bool shift = cogito_backend->is_key_down(SDL_SCANCODE_LSHIFT) || cogito_backend->is_key_down(SDL_SCANCODE_RSHIFT);
-      if (ctrl && shift && cogito_backend->is_key_pressed(SDL_SCANCODE_I)) {
-        cogito_inspector_open = !cogito_inspector_open;
+    if (inspector_window && cogito_backend->window_should_close(inspector_window)) {
+      cogito_backend->window_destroy(inspector_window);
+      inspector_window = NULL;
+      cogito_inspector_open = false;
+      inspector_native_drag = false;
+      inspector_drag_pending = false;
+      inspector_drag_active = false;
+    }
+    if (cogito_inspector_enabled && cogito_debug_inspector_toggle_pressed(cogito_backend)) {
+      cogito_inspector_open = !cogito_inspector_open;
+      if (cogito_inspector_open) {
+        if (!inspector_window) {
+          inspector_window = cogito_backend->window_create(
+            "Cogito Inspector",
+            inspector_w + inspector_shadow_margin * 2,
+            inspector_h + inspector_shadow_margin * 2,
+            true,
+            true
+          );
+          if (inspector_window) {
+            cogito_backend->window_show(inspector_window);
+            if (cogito_backend->window_set_hit_test_callback) {
+              cogito_backend->window_set_hit_test_callback(inspector_window, cogito_inspector_hit_test, (void*)inspector_hit_test_params);
+              inspector_native_drag = true;
+            }
+#if defined(__APPLE__)
+            cogito_macos_set_window_shadow(inspector_window, true);
+#endif
+          } else {
+            cogito_inspector_open = false;
+          }
+        }
         if (cogito_inspector_open && !cogito_inspector_selected) cogito_inspector_selected = win;
+      } else {
+        if (inspector_window) {
+          cogito_backend->window_destroy(inspector_window);
+          inspector_window = NULL;
+        }
+        inspector_native_drag = false;
+        inspector_drag_pending = false;
+        inspector_drag_active = false;
       }
     }
     
@@ -170,20 +277,102 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       cogito_window_relayout(win);
     }
 
-    // Get mouse position
-    int mx, my;
-    cogito_backend->get_mouse_position(&mx, &my);
-    
-    // Update stepper hit states for hover effects
-    CogitoNode* stepper_hit = cogito_find_stepper_hit(win, mx, my);
-    if (stepper_hit) {
-      cogito_stepper_hit_test(stepper_hit, mx, my);
+    // Get mouse position in the main window coordinate space.
+    int mx = 0;
+    int my = 0;
+    bool main_mouse_inside = false;
+    if (cogito_backend->get_mouse_position_in_window) {
+      cogito_backend->get_mouse_position_in_window(window, &mx, &my);
+      main_mouse_inside = (mx >= 0 && my >= 0 && mx < sw && my < sh);
+    } else {
+      cogito_backend->get_mouse_position(&mx, &my);
+      main_mouse_inside = (mx >= 0 && my >= 0 && mx < sw && my < sh);
     }
     
     float wheel = cogito_backend->get_mouse_wheel_move();
     bool click = cogito_backend->is_mouse_button_pressed(0);  // Left button
     if (cogito_pointer_capture && cogito_backend->is_mouse_button_released(0)) {
       cogito_pointer_capture = NULL;
+    }
+
+    int imx = 0, imy = 0, iw = 0, ih = 0, iwx = 0, iwy = 0;
+    bool inspector_mouse_known = false;
+    bool inspector_mouse_inside = false;
+    int inspector_gx = 0;
+    int inspector_gy = 0;
+    if (inspector_window && cogito_backend->get_mouse_position_in_window) {
+      cogito_backend->get_mouse_position_in_window(inspector_window, &imx, &imy);
+      cogito_backend->window_get_size(inspector_window, &iw, &ih);
+      cogito_backend->window_get_position(inspector_window, &iwx, &iwy);
+      inspector_gx = iwx + imx;
+      inspector_gy = iwy + imy;
+      inspector_mouse_known = true;
+      inspector_mouse_inside = (imx >= 0 && imy >= 0 && imx < iw && imy < ih);
+    }
+    int inspector_frame_x = inspector_shadow_margin;
+    int inspector_frame_y = inspector_shadow_margin;
+    int inspector_frame_w = iw - inspector_shadow_margin * 2;
+    int inspector_frame_h = ih - inspector_shadow_margin * 2;
+    if (inspector_frame_w < 1) inspector_frame_w = 1;
+    if (inspector_frame_h < 1) inspector_frame_h = 1;
+    bool inspector_mouse_in_frame = inspector_mouse_inside &&
+      imx >= inspector_frame_x &&
+      imy >= inspector_frame_y &&
+      imx < inspector_frame_x + inspector_frame_w &&
+      imy < inspector_frame_y + inspector_frame_h;
+    bool route_main_pointer = main_mouse_inside && !inspector_mouse_in_frame;
+
+    // Update stepper hit states for hover effects.
+    if (route_main_pointer) {
+      CogitoNode* stepper_hit = cogito_find_stepper_hit(win, mx, my);
+      if (stepper_hit) {
+        cogito_stepper_hit_test(stepper_hit, mx, my);
+      }
+    }
+
+    int inspector_btn_close_x = -1;
+    int inspector_btn_min_x = -1;
+    int inspector_btn_max_x = -1;
+    int inspector_btn_y = 0;
+    CogitoTrafficLightsState inspector_lights = (CogitoTrafficLightsState){0};
+    if (inspector_window) {
+      int appbar_h = inspector_appbar_h;
+      if (appbar_h > inspector_frame_h) appbar_h = inspector_frame_h;
+      inspector_btn_y = inspector_frame_y + (appbar_h - inspector_traffic_btn) / 2;
+      inspector_btn_close_x = inspector_frame_x + inspector_traffic_pad_x;
+      inspector_btn_min_x = inspector_btn_close_x + inspector_traffic_btn + inspector_traffic_gap;
+      inspector_btn_max_x = inspector_btn_min_x + inspector_traffic_btn + inspector_traffic_gap;
+      bool down = cogito_backend && cogito_backend->is_mouse_button_down && cogito_backend->is_mouse_button_down(0);
+      cogito_traffic_lights_compute(
+        inspector_btn_close_x, inspector_btn_min_x, inspector_btn_max_x, inspector_btn_y, inspector_traffic_btn,
+        imx, imy, down, &inspector_lights
+      );
+    }
+
+    if (!inspector_native_drag && inspector_drag_pending) {
+      if (cogito_backend->is_mouse_button_down(0)) {
+        if (inspector_mouse_known) {
+          int dx = inspector_gx - inspector_drag_start_gx;
+          int dy = inspector_gy - inspector_drag_start_gy;
+          if (abs(dx) > 2 || abs(dy) > 2) {
+            inspector_drag_active = true;
+            inspector_drag_pending = false;
+          }
+        }
+      } else {
+        inspector_drag_pending = false;
+      }
+    }
+    if (!inspector_native_drag && inspector_drag_active) {
+      if (cogito_backend->is_mouse_button_down(0)) {
+        if (inspector_mouse_known) {
+          int dx = inspector_gx - inspector_drag_start_gx;
+          int dy = inspector_gy - inspector_drag_start_gy;
+          cogito_backend->window_set_position(inspector_window, inspector_drag_start_wx + dx, inspector_drag_start_wy + dy);
+        }
+      } else {
+        inspector_drag_active = false;
+      }
     }
     
     // Escape key closes menu
@@ -228,7 +417,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
 #endif
 
     // Mouse wheel scrolling
-    if (wheel != 0.0f) {
+    if (wheel != 0.0f && route_main_pointer) {
       CogitoNode* slot = (win->dialog && win->dialog->kind == COGITO_DIALOG_SLOT && win->dialog->dialog_open && win->dialog->dialog)
         ? win->dialog
         : cogito_find_dialog_slot(win);
@@ -399,13 +588,71 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     // Click handling
     if (click) {
       if (cogito_inspector_open) {
-        if (cogito_inspector_handle_click(win, mx, my)) {
+        bool consumed = false;
+        if (inspector_window) {
+          if (inspector_mouse_in_frame) {
+            int appbar_h = inspector_appbar_h;
+            if (appbar_h > inspector_frame_h) appbar_h = inspector_frame_h;
+            if (imy < inspector_frame_y + appbar_h) {
+              if (inspector_lights.over_close) {
+                cogito_backend->window_destroy(inspector_window);
+                inspector_window = NULL;
+                cogito_inspector_open = false;
+                inspector_native_drag = false;
+                inspector_drag_pending = false;
+                inspector_drag_active = false;
+              } else if (inspector_lights.over_min) {
+                if (cogito_backend->window_minimize) {
+                  cogito_backend->window_minimize(inspector_window);
+                }
+              } else if (inspector_lights.over_max) {
+                if (cogito_backend->window_is_maximized && cogito_backend->window_restore && cogito_backend->window_maximize) {
+                  if (cogito_backend->window_is_maximized(inspector_window)) cogito_backend->window_restore(inspector_window);
+                  else cogito_backend->window_maximize(inspector_window);
+                } else if (cogito_backend->window_maximize) {
+                  cogito_backend->window_maximize(inspector_window);
+                }
+              } else if (!inspector_native_drag) {
+                inspector_drag_pending = true;
+                inspector_drag_active = false;
+                inspector_drag_start_gx = inspector_gx;
+                inspector_drag_start_gy = inspector_gy;
+                inspector_drag_start_wx = iwx;
+                inspector_drag_start_wy = iwy;
+              }
+              consumed = true;
+            } else {
+              cogito_inspector_view_x = inspector_frame_x;
+              cogito_inspector_view_y = inspector_frame_y + appbar_h;
+              cogito_inspector_view_w = inspector_frame_w;
+              if (cogito_inspector_view_w < 0) cogito_inspector_view_w = 0;
+              cogito_inspector_view_h = inspector_frame_h - appbar_h - inspector_corner_r;
+              if (cogito_inspector_view_h < 0) cogito_inspector_view_h = 0;
+              (void)cogito_inspector_handle_click(win, imx, imy);
+              consumed = true;
+              cogito_inspector_view_x = 0;
+              cogito_inspector_view_y = 0;
+              cogito_inspector_view_w = 0;
+              cogito_inspector_view_h = 0;
+            }
+          } else if (inspector_mouse_inside) {
+            consumed = true;
+          }
+        } else {
+          if (cogito_inspector_handle_click(win, mx, my)) {
+            consumed = true;
+          }
+        }
+        if (consumed) {
           click = false;
         } else {
           CogitoNode* picked = cogito_inspector_pick_node_recursive(win, mx, my);
           if (picked) cogito_inspector_selected = picked;
         }
       }
+    }
+    if (click && !route_main_pointer) {
+      click = false;
     }
     if (click) {
       static int cogito_debug_hit = -1;
@@ -699,7 +946,9 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     if (cogito_menu.open) cogito_draw_menu();
     if (cogito_inspector_open) {
       cogito_draw_inspector_highlight();
-      cogito_draw_inspector_panel(win);
+      if (!inspector_window) {
+        cogito_draw_inspector_panel(win);
+      }
     }
     if (!cogito_menu.open) {
       CogitoNode* slot = (win->dialog && win->dialog->kind == COGITO_DIALOG_SLOT && win->dialog->dialog_open && win->dialog->dialog)
@@ -712,7 +961,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       }
       if (cogito_tooltip_hovered) {
         cogito_draw_tooltip(win, cogito_tooltip_hovered);
-      } else {
+      } else if (route_main_pointer) {
         CogitoNode* tip = cogito_find_tooltip_node(root, mx, my);
         if (tip) {
           cogito_draw_tooltip(win, tip);
@@ -722,6 +971,64 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     
     cogito_backend->end_frame(window);
     cogito_backend->present(window);
+
+    if (cogito_inspector_open && inspector_window) {
+      int iw = 0;
+      int ih = 0;
+      int appbar_h = inspector_appbar_h;
+      cogito_backend->window_get_size(inspector_window, &iw, &ih);
+      int frame_x = inspector_shadow_margin;
+      int frame_y = inspector_shadow_margin;
+      int frame_w = iw - inspector_shadow_margin * 2;
+      int frame_h = ih - inspector_shadow_margin * 2;
+      if (frame_w < 1) frame_w = 1;
+      if (frame_h < 1) frame_h = 1;
+      if (appbar_h > frame_h) appbar_h = frame_h;
+      cogito_backend->begin_frame(inspector_window);
+      cogito_backend->clear(cogito_rgba(0, 0, 0, 0));
+      CogitoColor frame_bg = cogito_rgba(18, 21, 26, 245);
+      CogitoColor appbar_bg = frame_bg;
+      CogitoColor appbar_fg = cogito_rgba(220, 226, 235, 255);
+      CogitoColor appbar_div = cogito_rgba(255, 255, 255, 34);
+      CogitoStyle inspector_appbar_style = cogito_theme.per_kind[COGITO_APPBAR];
+#if !defined(__APPLE__)
+      cogito_draw_shadow_radii_level(frame_x, frame_y, frame_w, frame_h, inspector_corner_r, inspector_corner_r, inspector_corner_r, inspector_corner_r, 4);
+#endif
+      cogito_draw_rect(frame_x, frame_y, frame_w, frame_h, frame_bg, inspector_corner_r);
+      cogito_draw_rect(frame_x, frame_y, frame_w, appbar_h + inspector_corner_r, appbar_bg, inspector_corner_r);
+      if (appbar_h > 0) {
+        cogito_draw_line(frame_x, frame_y + appbar_h - 1, frame_x + frame_w, frame_y + appbar_h - 1, appbar_div);
+      }
+      cogito_draw_rect_lines(frame_x, frame_y, frame_w, frame_h, appbar_div, inspector_corner_r, 1);
+      CogitoColor inspector_fallback_btn = inspector_appbar_style.has_selection
+        ? inspector_appbar_style.selection
+        : cogito_rgba(184, 184, 184, 255);
+      CogitoColor inspector_fallback_border = appbar_fg;
+      if (inspector_fallback_border.a > 80) inspector_fallback_border.a = 80;
+      cogito_draw_traffic_lights_styled(
+        &inspector_appbar_style, inspector_fallback_btn, inspector_fallback_border,
+        inspector_btn_close_x, inspector_btn_min_x, inspector_btn_max_x,
+        &inspector_lights
+      );
+      int title_size = 20;
+      int title_y = (appbar_h - cogito_text_height_size(title_size)) / 2;
+      if (title_y < 0) title_y = 0;
+      int title_x = inspector_btn_max_x + inspector_traffic_btn + 12;
+      cogito_draw_text_size_node(win, title_x, frame_y + title_y, "Inspector", appbar_fg, title_size, true);
+      cogito_inspector_view_x = frame_x;
+      cogito_inspector_view_y = frame_y + appbar_h;
+      cogito_inspector_view_w = frame_w;
+      if (cogito_inspector_view_w < 0) cogito_inspector_view_w = 0;
+      cogito_inspector_view_h = frame_h - appbar_h - inspector_corner_r;
+      if (cogito_inspector_view_h < 0) cogito_inspector_view_h = 0;
+      cogito_draw_inspector_panel(win);
+      cogito_inspector_view_x = 0;
+      cogito_inspector_view_y = 0;
+      cogito_inspector_view_w = 0;
+      cogito_inspector_view_h = 0;
+      cogito_backend->end_frame(inspector_window);
+      cogito_backend->present(inspector_window);
+    }
   }
   
   // Cleanup
@@ -736,6 +1043,14 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     cogito_backend->font_unload(cogito_font_bold);
   }
   
+  if (inspector_window) {
+    cogito_backend->window_destroy(inspector_window);
+    inspector_window = NULL;
+  }
+  cogito_inspector_view_x = 0;
+  cogito_inspector_view_y = 0;
+  cogito_inspector_view_w = 0;
+  cogito_inspector_view_h = 0;
   cogito_backend->window_destroy(window);
   cogito_active_backend_window = NULL;
   cogito_backend_ready = false;

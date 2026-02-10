@@ -632,10 +632,17 @@ static double cogito_drag_last_move = 0.0;
 static bool cogito_inspector_enabled = false;
 static bool cogito_inspector_open = false;
 static CogitoNode* cogito_inspector_selected = NULL;
+static int cogito_inspector_view_x = 0;
+static int cogito_inspector_view_y = 0;
+static int cogito_inspector_view_w = 0;
+static int cogito_inspector_view_h = 0;
 #define COGITO_INSPECTOR_MAX_NODES 2048
 static CogitoNode* cogito_inspector_nodes[COGITO_INSPECTOR_MAX_NODES];
 static int cogito_inspector_depths[COGITO_INSPECTOR_MAX_NODES];
 static int cogito_inspector_node_count = 0;
+static CogitoNode* cogito_inspector_collapsed_nodes[COGITO_INSPECTOR_MAX_NODES];
+static bool cogito_inspector_collapsed_values[COGITO_INSPECTOR_MAX_NODES];
+static int cogito_inspector_collapsed_count = 0;
 
 static CogitoWindow* cogito_backend_window_for_node(CogitoNode* node) {
   if (!node || !cogito_active_window || !cogito_active_backend_window) return NULL;
@@ -720,6 +727,20 @@ static void cogito_macos_set_window_a11y_label(const char* label) {
   SEL sel = sel_registerName("setAccessibilityLabel:");
   if (!sel) return;
   ((void (*)(id, SEL, id))objc_msgSend)(nsw, sel, cogito_nsstring(label ? label : ""));
+}
+
+static void cogito_macos_set_window_shadow(CogitoWindow* backend_window, bool enable) {
+  if (!cogito_backend || !backend_window) return;
+  id nsw =
+#if defined(__OBJC__)
+      (__bridge id)cogito_backend->window_get_native_handle(backend_window);
+#else
+      (id)cogito_backend->window_get_native_handle(backend_window);
+#endif
+  if (!nsw) return;
+  SEL sel = sel_registerName("setHasShadow:");
+  if (!sel) return;
+  ((void (*)(id, SEL, BOOL))objc_msgSend)(nsw, sel, (BOOL)(enable ? 1 : 0));
 }
 #endif
 
