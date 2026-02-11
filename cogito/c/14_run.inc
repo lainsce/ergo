@@ -536,6 +536,12 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         cogito_text_backspace(cogito_focused);
         changed = true;
       }
+      if (cogito_focused->kind == COGITO_TEXTVIEW &&
+          (cogito_backend->is_key_pressed(SDL_SCANCODE_RETURN) ||
+           cogito_backend->is_key_pressed(SDL_SCANCODE_KP_ENTER))) {
+        cogito_text_append_codepoint(cogito_focused, '\n');
+        changed = true;
+      }
       if (changed) {
         if (cogito_focused->kind == COGITO_COLORPICKER) {
           CogitoColor col = {0};

@@ -125,6 +125,8 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_appbar_new cogito_appbar_new_ergo
 #define cogito_appbar_add_button cogito_appbar_add_button_ergo
 #define cogito_appbar_set_controls cogito_appbar_set_controls_ergo
+#define cogito_appbar_set_title cogito_appbar_set_title_ergo
+#define cogito_appbar_set_subtitle cogito_appbar_set_subtitle_ergo
 #define cogito_image_new cogito_image_new_ergo
 #define cogito_image_set_icon cogito_image_set_icon_ergo
 #define cogito_list_on_select cogito_list_on_select_ergo
@@ -267,6 +269,8 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_appbar_new
 #undef cogito_appbar_add_button
 #undef cogito_appbar_set_controls
+#undef cogito_appbar_set_title
+#undef cogito_appbar_set_subtitle
 #undef cogito_image_new
 #undef cogito_image_set_icon
 #undef cogito_node_set_text
@@ -1199,6 +1203,20 @@ void cogito_appbar_set_controls(cogito_node* appbar, const char* layout) {
   ErgoVal lv = cogito_val_from_cstr(layout);
   cogito_appbar_set_controls_ergo(EV_OBJ(appbar), lv);
   if (lv.tag == EVT_STR) ergo_release_val(lv);
+}
+
+void cogito_appbar_set_title(cogito_node* appbar, const char* title) {
+  if (!appbar) return;
+  ErgoVal tv = cogito_val_from_cstr(title);
+  cogito_appbar_set_title_ergo(EV_OBJ(appbar), tv);
+  if (tv.tag == EVT_STR) ergo_release_val(tv);
+}
+
+void cogito_appbar_set_subtitle(cogito_node* appbar, const char* subtitle) {
+  if (!appbar) return;
+  ErgoVal sv = cogito_val_from_cstr(subtitle);
+  cogito_appbar_set_subtitle_ergo(EV_OBJ(appbar), sv);
+  if (sv.tag == EVT_STR) ergo_release_val(sv);
 }
 
 void cogito_dialog_slot_show(cogito_node* slot, cogito_node* dialog) {

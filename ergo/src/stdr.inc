@@ -206,6 +206,121 @@ static ErgoStr* stdr_read_line(void) {
   return s;
 }
 
+static ErgoVal stdr_read_text_file(ErgoVal pathv) {
+  if (pathv.tag != EVT_STR) ergo_trap("read_text_file expects string path");
+  ErgoStr* path = (ErgoStr*)pathv.as.p;
+  FILE* f = fopen(path->data, "rb");
+  if (!f) return EV_NULLV;
+  if (fseek(f, 0, SEEK_END) != 0) {
+    fclose(f);
+    return EV_NULLV;
+  }
+  long sz = ftell(f);
+  if (sz < 0) {
+    fclose(f);
+    return EV_NULLV;
+  }
+  if (fseek(f, 0, SEEK_SET) != 0) {
+    fclose(f);
+    return EV_NULLV;
+  }
+  size_t len = (size_t)sz;
+  char* buf = (char*)malloc(len + 1);
+  if (!buf) ergo_trap("out of memory");
+  size_t n = 0;
+  if (len > 0) n = fread(buf, 1, len, f);
+  fclose(f);
+  if (n != len) {
+    free(buf);
+    return EV_NULLV;
+  }
+  buf[len] = 0;
+  ErgoStr* out = stdr_str_from_slice(buf, len);
+  free(buf);
+  return EV_STR(out);
+}
+
+static ErgoVal stdr_write_text_file(ErgoVal pathv, ErgoVal textv) {
+  if (pathv.tag != EVT_STR) ergo_trap("write_text_file expects string path");
+  if (textv.tag != EVT_STR) ergo_trap("write_text_file expects string text");
+  ErgoStr* path = (ErgoStr*)pathv.as.p;
+  ErgoStr* text = (ErgoStr*)textv.as.p;
+  FILE* f = fopen(path->data, "wb");
+  if (!f) return EV_BOOL(false);
+  size_t n = 0;
+  if (text->len > 0) n = fwrite(text->data, 1, text->len, f);
+  bool ok = (n == text->len) && (fclose(f) == 0);
+  return EV_BOOL(ok);
+}
+
+static ErgoVal stdr_capture_shell_first_line(const char* cmd) {
+  if (!cmd || !cmd[0]) return EV_NULLV;
+#if defined(_WIN32)
+  FILE* p = _popen(cmd, "r");
+#else
+  FILE* p = popen(cmd, "r");
+#endif
+  if (!p) return EV_NULLV;
+  char buf[4096];
+  if (!fgets(buf, sizeof(buf), p)) {
+#if defined(_WIN32)
+    _pclose(p);
+#else
+    pclose(p);
+#endif
+    return EV_NULLV;
+  }
+#if defined(_WIN32)
+  _pclose(p);
+#else
+  pclose(p);
+#endif
+  size_t len = strlen(buf);
+  while (len > 0 && (buf[len - 1] == '\n' || buf[len - 1] == '\r')) len--;
+  if (len == 0) return EV_NULLV;
+  return EV_STR(stdr_str_from_slice(buf, len));
+}
+
+static ErgoVal stdr_open_file_dialog(ErgoVal promptv, ErgoVal extv) {
+  if (promptv.tag != EVT_STR) ergo_trap("open_file_dialog expects prompt string");
+  if (extv.tag != EVT_STR) ergo_trap("open_file_dialog expects extension string");
+  ErgoStr* prompt = (ErgoStr*)promptv.as.p;
+  ErgoStr* ext = (ErgoStr*)extv.as.p;
+#if defined(__APPLE__)
+  char cmd[8192];
+  snprintf(cmd, sizeof(cmd),
+           "osascript -e 'set _p to POSIX path of (choose file of type {\"%s\"} with prompt \"%s\")' -e 'return _p' 2>/dev/null",
+           ext ? ext->data : "", prompt ? prompt->data : "");
+  return stdr_capture_shell_first_line(cmd);
+#else
+  (void)prompt;
+  (void)ext;
+  return EV_NULLV;
+#endif
+}
+
+static ErgoVal stdr_save_file_dialog(ErgoVal promptv, ErgoVal default_namev, ErgoVal extv) {
+  if (promptv.tag != EVT_STR) ergo_trap("save_file_dialog expects prompt string");
+  if (default_namev.tag != EVT_STR) ergo_trap("save_file_dialog expects default_name string");
+  if (extv.tag != EVT_STR) ergo_trap("save_file_dialog expects extension string");
+  ErgoStr* prompt = (ErgoStr*)promptv.as.p;
+  ErgoStr* def = (ErgoStr*)default_namev.as.p;
+  ErgoStr* ext = (ErgoStr*)extv.as.p;
+#if defined(__APPLE__)
+  char cmd[8192];
+  snprintf(cmd, sizeof(cmd),
+           "osascript -e 'set _p to POSIX path of (choose file name with prompt \"%s\" default name \"%s\")' -e 'return _p' 2>/dev/null",
+           prompt ? prompt->data : "", def ? def->data : "");
+  (void)ext;
+  return stdr_capture_shell_first_line(cmd);
+#else
+  (void)prompt;
+  (void)def;
+  (void)ext;
+  return EV_NULLV;
+#endif
+}
+
 static size_t stdr_find_sub(const char* s, size_t slen, const char* sub, size_t sublen, size_t start) {
   if (sublen == 0) return start;
   if (start > slen) return (size_t)-1;

@@ -127,6 +127,8 @@ cogito_node* cogito_bottom_toolbar_new(void);
 cogito_node* cogito_dialog_new(const char* title);
 cogito_node* cogito_dialog_slot_new(void);
 cogito_node* cogito_appbar_new(const char* title, const char* subtitle);
+void cogito_appbar_set_title(cogito_node* appbar, const char* title);
+void cogito_appbar_set_subtitle(cogito_node* appbar, const char* subtitle);
 cogito_node* cogito_image_new(const char* icon);
 
 // Tree / layout

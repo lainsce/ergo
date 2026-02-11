@@ -323,9 +323,9 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
 
 static void cogito_node_set_text(CogitoNode* n, ErgoStr* s) {
   if (!n) return;
+  if (s) ergo_retain_val(EV_STR(s));
   if (n->text) ergo_release_val(EV_STR(n->text));
   n->text = s;
-  if (s) ergo_retain_val(EV_STR(s));
   int len = n->text ? (int)n->text->len : 0;
   if (n->caret > len) n->caret = len;
   if (n->sel_start > len) n->sel_start = len;
@@ -334,30 +334,30 @@ static void cogito_node_set_text(CogitoNode* n, ErgoStr* s) {
 
 static void cogito_node_set_subtitle(CogitoNode* n, ErgoStr* s) {
   if (!n) return;
+  if (s) ergo_retain_val(EV_STR(s));
   if (n->subtitle) ergo_release_val(EV_STR(n->subtitle));
   n->subtitle = s;
-  if (s) ergo_retain_val(EV_STR(s));
 }
 
 static void cogito_node_set_tooltip(CogitoNode* n, ErgoStr* s) {
   if (!n) return;
+  if (s) ergo_retain_val(EV_STR(s));
   if (n->tooltip) ergo_release_val(EV_STR(n->tooltip));
   n->tooltip = s;
-  if (s) ergo_retain_val(EV_STR(s));
 }
 
 static void cogito_node_set_icon(CogitoNode* n, ErgoStr* s) {
   if (!n) return;
+  if (s) ergo_retain_val(EV_STR(s));
   if (n->icon) ergo_release_val(EV_STR(n->icon));
   n->icon = s;
-  if (s) ergo_retain_val(EV_STR(s));
 }
 
 static void cogito_node_set_group(CogitoNode* n, ErgoVal group) {
   if (!n) return;
+  if (group.tag != EVT_NULL) ergo_retain_val(group);
   if (n->group.tag != EVT_NULL) ergo_release_val(n->group);
   n->group = group;
-  if (group.tag != EVT_NULL) ergo_retain_val(group);
 }
 
 static void cogito_children_add(CogitoNode* parent, CogitoNode* child) {

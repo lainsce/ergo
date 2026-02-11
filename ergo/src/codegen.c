@@ -2262,6 +2262,74 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__read_text_file")) {
+                        if (e->as.call.args_len != 1) return cg_set_err(err, path, "__read_text_file expects 1 arg");
+                        GenExpr pathv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &pathv, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = stdr_read_text_file(%s);", t, pathv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", pathv.tmp);
+                        gen_expr_release_except(cg, &pathv, pathv.tmp);
+                        gen_expr_free(&pathv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__write_text_file")) {
+                        if (e->as.call.args_len != 2) return cg_set_err(err, path, "__write_text_file expects 2 args");
+                        GenExpr pathv, textv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &pathv, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &textv, err)) { gen_expr_free(&pathv); return false; }
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = stdr_write_text_file(%s, %s);", t, pathv.tmp, textv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", pathv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", textv.tmp);
+                        gen_expr_release_except(cg, &pathv, pathv.tmp);
+                        gen_expr_release_except(cg, &textv, textv.tmp);
+                        gen_expr_free(&pathv);
+                        gen_expr_free(&textv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__open_file_dialog")) {
+                        if (e->as.call.args_len != 2) return cg_set_err(err, path, "__open_file_dialog expects 2 args");
+                        GenExpr promptv, extv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &promptv, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &extv, err)) { gen_expr_free(&promptv); return false; }
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = stdr_open_file_dialog(%s, %s);", t, promptv.tmp, extv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", promptv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", extv.tmp);
+                        gen_expr_release_except(cg, &promptv, promptv.tmp);
+                        gen_expr_release_except(cg, &extv, extv.tmp);
+                        gen_expr_free(&promptv);
+                        gen_expr_free(&extv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__save_file_dialog")) {
+                        if (e->as.call.args_len != 3) return cg_set_err(err, path, "__save_file_dialog expects 3 args");
+                        GenExpr promptv, defaultv, extv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &promptv, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &defaultv, err)) { gen_expr_free(&promptv); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[2], &extv, err)) { gen_expr_free(&promptv); gen_expr_free(&defaultv); return false; }
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = stdr_save_file_dialog(%s, %s, %s);", t, promptv.tmp, defaultv.tmp, extv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", promptv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", defaultv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", extv.tmp);
+                        gen_expr_release_except(cg, &promptv, promptv.tmp);
+                        gen_expr_release_except(cg, &defaultv, defaultv.tmp);
+                        gen_expr_release_except(cg, &extv, extv.tmp);
+                        gen_expr_free(&promptv);
+                        gen_expr_free(&defaultv);
+                        gen_expr_free(&extv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__readf_parse")) {
                         GenExpr fmt, line, args;
                         if (!gen_expr(cg, path, e->as.call.args[0], &fmt, err)) return false;
@@ -4121,6 +4189,40 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         gen_expr_release_except(cg, &layout, layout.tmp);
                         gen_expr_free(&app);
                         gen_expr_free(&layout);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_appbar_set_title")) {
+                        GenExpr app, title;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &app, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &title, err)) { gen_expr_free(&app); return false; }
+                        w_line(&cg->w, "cogito_appbar_set_title(%s, %s);", app.tmp, title.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", app.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", title.tmp);
+                        gen_expr_release_except(cg, &app, app.tmp);
+                        gen_expr_release_except(cg, &title, title.tmp);
+                        gen_expr_free(&app);
+                        gen_expr_free(&title);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_appbar_set_subtitle")) {
+                        GenExpr app, subtitle;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &app, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &subtitle, err)) { gen_expr_free(&app); return false; }
+                        w_line(&cg->w, "cogito_appbar_set_subtitle(%s, %s);", app.tmp, subtitle.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", app.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", subtitle.tmp);
+                        gen_expr_release_except(cg, &app, app.tmp);
+                        gen_expr_release_except(cg, &subtitle, subtitle.tmp);
+                        gen_expr_free(&app);
+                        gen_expr_free(&subtitle);
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
                         gen_expr_add(out, t);

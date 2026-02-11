@@ -92,4 +92,26 @@ static void cogito_appbar_set_controls(ErgoVal appv, ErgoVal layout) {
     cogito_window_relayout(win);
   }
 }
+
+static void cogito_appbar_set_title(ErgoVal appv, ErgoVal titlev) {
+  if (appv.tag != EVT_OBJ) ergo_trap("cogito.appbar_set_title expects appbar");
+  CogitoNode* ab = (CogitoNode*)appv.as.p;
+  ErgoStr* ts = stdr_to_string(titlev);
+  cogito_node_set_text(ab, ts);
+  CogitoNode* win = cogito_root(ab);
+  if (win && win->kind == COGITO_WINDOW) {
+    cogito_window_relayout(win);
+  }
+}
+
+static void cogito_appbar_set_subtitle(ErgoVal appv, ErgoVal subtitlev) {
+  if (appv.tag != EVT_OBJ) ergo_trap("cogito.appbar_set_subtitle expects appbar");
+  CogitoNode* ab = (CogitoNode*)appv.as.p;
+  ErgoStr* ss = stdr_to_string(subtitlev);
+  cogito_node_set_subtitle(ab, ss);
+  CogitoNode* win = cogito_root(ab);
+  if (win && win->kind == COGITO_WINDOW) {
+    cogito_window_relayout(win);
+  }
+}
 // Helper functions moved to 02_theme.inc to be available earlier

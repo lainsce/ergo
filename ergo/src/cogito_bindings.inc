@@ -101,6 +101,8 @@
 #undef cogito_image_set_icon
 #undef cogito_appbar_add_button
 #undef cogito_appbar_set_controls
+#undef cogito_appbar_set_title
+#undef cogito_appbar_set_subtitle
 #undef cogito_dialog_slot_show
 #undef cogito_dialog_slot_clear
 #undef cogito_window_set_dialog
@@ -602,6 +604,22 @@ static void __cogito_appbar_set_controls(ErgoVal appbarv, ErgoVal layoutv) {
   ErgoStr* tmp = NULL;
   const char* layout = cogito_optional_cstr(layoutv, &tmp);
   if (layout) cogito_appbar_set_controls(appbar, layout);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
+static void __cogito_appbar_set_title(ErgoVal appbarv, ErgoVal titlev) {
+  cogito_node* appbar = cogito_node_from_val(appbarv);
+  ErgoStr* tmp = NULL;
+  const char* title = cogito_optional_cstr(titlev, &tmp);
+  cogito_appbar_set_title(appbar, title ? title : "");
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
+static void __cogito_appbar_set_subtitle(ErgoVal appbarv, ErgoVal subtitlev) {
+  cogito_node* appbar = cogito_node_from_val(appbarv);
+  ErgoStr* tmp = NULL;
+  const char* subtitle = cogito_optional_cstr(subtitlev, &tmp);
+  cogito_appbar_set_subtitle(appbar, subtitle ? subtitle : "");
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
 
@@ -1743,6 +1761,8 @@ void __cogito_button_on_click(ErgoVal btn, ErgoVal handler);
 #define cogito_chip_on_close __cogito_chip_on_close
 #define cogito_appbar_add_button __cogito_appbar_add_button
 #define cogito_appbar_set_controls __cogito_appbar_set_controls
+#define cogito_appbar_set_title __cogito_appbar_set_title
+#define cogito_appbar_set_subtitle __cogito_appbar_set_subtitle
 #define cogito_iconbtn_add_menu __cogito_iconbtn_add_menu
 #define cogito_run __cogito_run
 #define cogito_load_sum __cogito_load_sum
