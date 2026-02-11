@@ -1319,6 +1319,9 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "searchfield\n  background: %s\n  color: %s\n  border-radius: 18\n  min-height: 36\n  min-width: 180\n  padding: 6 12\n  transition: 180 standard\n", surft, ons);
   cogito_sum_append(out, cap, &off, "searchfield:hover\n  background: %s\n  border-color: %s\n", surfth, ons);
   cogito_sum_append(out, cap, &off, "searchfield:active\n  border-color: %s\n  border-width: 2\n", p);
+  cogito_sum_append(out, cap, &off, "textfield:focus\n  border: 2 solid %s\n", p);
+  cogito_sum_append(out, cap, &off, "searchfield:focus\n  border: 2 solid %s\n", p);
+  cogito_sum_append(out, cap, &off, "textview:focus\n  border: 2 solid %s\n", p);
   cogito_sum_append(out, cap, &off, "searchfield:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, "textview\n  background: %s\n  color: %s\n  border-radius: 8\n  min-height: 96\n  transition: 180 standard\n", surf, ons);
   cogito_sum_append(out, cap, &off, "textfield:selection, .textfield:selection\n  background: %s\n", p);
@@ -1349,6 +1352,7 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "iconbtn\n  background: %s\n  border-radius: 99\n  min-width: 42\n  min-height: 42\n  color: %s\n  transition: 150 standard\n", iconbg, ons);
   cogito_sum_append(out, cap, &off, "iconbtn:hover\n  background: %s\n  border-radius: 99\n  min-width: 42\n  min-height: 42\n  color: %s\n", outl, ons);
   cogito_sum_append(out, cap, &off, "iconbtn:active\n  background: %s\n  border-radius: 99\n  min-width: 42\n  min-height: 42\n  color: %s\n", p, op);
+  cogito_sum_append(out, cap, &off, "button:focus, iconbtn:focus, checkbox:focus, switch:focus, slider:focus, dropdown:focus, chip:focus, segmented:focus, stepper:focus, fab:focus, nav_rail:focus, bottom_nav:focus, datepicker:focus, colorpicker:focus\n  border-color: %s\n  border-width: 2\n", p);
   cogito_sum_append(out, cap, &off, "image\n  min-width: 20\n  min-height: 20\n");
   cogito_sum_append(out, cap, &off, "label\n  color: %s\n", ons);
   cogito_sum_append(out, cap, &off, "tooltip\n  background: %s\n  color: %s\n  border-radius: 6\n  font-size: 13\n  padding: 6 8\n", tooltipbg, tooltipfg);

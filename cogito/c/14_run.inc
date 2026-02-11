@@ -665,9 +665,15 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         ? win->dialog
         : cogito_find_dialog_slot(win);
       CogitoNode* root = (slot && slot->dialog) ? slot->dialog : win;
+      bool reverse = cogito_backend->is_key_down(SDL_SCANCODE_LSHIFT) || cogito_backend->is_key_down(SDL_SCANCODE_RSHIFT);
       bool found = false;
-      CogitoNode* next = cogito_focus_next(root, cogito_focused, &found);
-      if (!next) next = cogito_focus_first(root);
+      CogitoNode* next = reverse
+        ? cogito_focus_prev(root, cogito_focused, &found)
+        : cogito_focus_next(root, cogito_focused, &found);
+      if (!next) next = reverse ? cogito_focus_last(root) : cogito_focus_first(root);
+      if (cogito_focused && cogito_focused != next && cogito_focused->kind == COGITO_COLORPICKER) {
+        cogito_focused->color_hex_editing = false;
+      }
       cogito_focused = next;
     }
 
@@ -682,6 +688,10 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       bool caret_changed = false;
       int ch = cogito_backend->get_char_pressed();
       while (ch > 0) {
+        if (ch == '\t') {
+          ch = cogito_backend->get_char_pressed();
+          continue;
+        }
         if ((cogito_focused->kind == COGITO_TEXTFIELD || cogito_focused->kind == COGITO_SEARCHFIELD) && (ch == '\n' || ch == '\r')) {
           ch = cogito_backend->get_char_pressed();
           continue;

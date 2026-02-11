@@ -86,6 +86,9 @@ button:active
   color: @primary
   border-radius: 21
 
+button:focus
+  border: 2 solid @primary
+
 button.outlined
   background: alpha(@primary, 0%)
   color: @primary
@@ -117,6 +120,9 @@ button.text:active
   color: #6A6A6A
   border-radius: 21
 
+button.text:focus
+  border: 2 solid @primary
+
 button.calc-equals
   background: @primary
   color: #ffffff
@@ -130,6 +136,12 @@ button.calc-equals:active
   background: mix(@primary, #000000, 18%)
   color: #ffffff
   border-radius: 21
+
+button.calc-equals:focus
+  border: 2 solid #ffffff
+
+iconbtn:focus
+  border: 2 solid @primary
 
 dialog
   background: #ffffff

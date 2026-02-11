@@ -281,6 +281,28 @@ static CogitoNode* cogito_focus_next(CogitoNode* n, CogitoNode* current, bool* f
   return NULL;
 }
 
+static CogitoNode* cogito_focus_prev(CogitoNode* n, CogitoNode* current, bool* found_current) {
+  if (!n) return NULL;
+  if (n->kind == COGITO_VIEWSWITCHER) {
+    CogitoNode* active = cogito_view_switcher_active_child(n);
+    if (active) {
+      CogitoNode* hit = cogito_focus_prev(active, current, found_current);
+      if (hit) return hit;
+    }
+  } else {
+    for (size_t i = n->len; i > 0; i--) {
+      CogitoNode* hit = cogito_focus_prev(n->children[i - 1], current, found_current);
+      if (hit) return hit;
+    }
+  }
+  if (n == current) {
+    *found_current = true;
+    return NULL;
+  }
+  if (*found_current && cogito_node_focusable(n)) return n;
+  return NULL;
+}
+
 static CogitoNode* cogito_focus_first(CogitoNode* n) {
   if (!n) return NULL;
   if (cogito_node_focusable(n)) return n;
@@ -293,6 +315,21 @@ static CogitoNode* cogito_focus_first(CogitoNode* n) {
       if (hit) return hit;
     }
   }
+  return NULL;
+}
+
+static CogitoNode* cogito_focus_last(CogitoNode* n) {
+  if (!n) return NULL;
+  if (n->kind == COGITO_VIEWSWITCHER) {
+    CogitoNode* active = cogito_view_switcher_active_child(n);
+    if (active) return cogito_focus_last(active);
+  } else {
+    for (size_t i = n->len; i > 0; i--) {
+      CogitoNode* hit = cogito_focus_last(n->children[i - 1]);
+      if (hit) return hit;
+    }
+  }
+  if (cogito_node_focusable(n)) return n;
   return NULL;
 }
 

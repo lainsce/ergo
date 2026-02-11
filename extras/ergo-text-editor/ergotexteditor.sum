@@ -40,6 +40,9 @@ textview
   padding: 12
   border-radius: 0
 
+textview:focus
+  border: 2 solid @primary
+
 button
   background: @primary-container
   color: @primary
@@ -54,10 +57,19 @@ button:active
   background: mix(@primary-container, #000000, 8%)
   border-radius: 16
 
+button:focus
+  border: 2 solid @primary
+
 button.outlined
   background: alpha(@primary, 0%)
   color: @primary
   border: 1 solid alpha(@primary, 30%)
+
+button.outlined:focus
+  border: 2 solid @primary
+
+iconbtn:focus
+  border: 2 solid @primary
 
 @when dark
   window

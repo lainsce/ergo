@@ -710,6 +710,7 @@ static CogitoCustomClassStyle* cogito_get_or_create_custom_class(const char* nam
   cogito_style_clear(&entry->style);
   cogito_style_clear(&entry->hover);
   cogito_style_clear(&entry->active);
+  cogito_style_clear(&entry->focused);
   cogito_style_clear(&entry->checked);
   cogito_style_clear(&entry->disabled);
   return entry;
@@ -745,6 +746,7 @@ void cogito_sum_add_styles(const char* parent, const char* child, CogitoStyle** 
       CogitoStyle* style = NULL;
       bool hover = strcmp(state, "hover") == 0;
       bool active = strcmp(state, "active") == 0;
+      bool focused = strcmp(state, "focus") == 0 || strcmp(state, "focused") == 0;
       bool checked = strcmp(state, "checked") == 0;
       bool disabled = strcmp(state, "disabled") == 0;
       if (class_kind == COGITO_STYLE_CLASS_NONE && label_class == COGITO_LABEL_CLASS_NONE && 
@@ -754,6 +756,7 @@ void cogito_sum_add_styles(const char* parent, const char* child, CogitoStyle** 
           if (checked) style = &entry->checked;
           else if (disabled) style = &entry->disabled;
           else if (active) style = &entry->active;
+          else if (focused) style = &entry->focused;
           else if (hover) style = &entry->hover;
           else style = &entry->style;
         }
@@ -762,22 +765,26 @@ void cogito_sum_add_styles(const char* parent, const char* child, CogitoStyle** 
           if (checked) style = &cogito_theme.class_mono_checked;
           else if (disabled) style = &cogito_theme.class_mono_disabled;
           else if (active) style = &cogito_theme.class_mono_active;
+          else if (focused) style = &cogito_theme.class_mono_focused;
           else if (hover) style = &cogito_theme.class_mono_hover;
           else style = &cogito_theme.class_mono;
         } else if (class_kind == COGITO_STYLE_CLASS_TABULAR) {
           if (checked) style = &cogito_theme.class_tabular_checked;
           else if (disabled) style = &cogito_theme.class_tabular_disabled;
           else if (active) style = &cogito_theme.class_tabular_active;
+          else if (focused) style = &cogito_theme.class_tabular_focused;
           else if (hover) style = &cogito_theme.class_tabular_hover;
           else style = &cogito_theme.class_tabular;
         } else if (class_kind == COGITO_STYLE_CLASS_OUTLINED) {
           if (disabled) style = &cogito_theme.button_outlined_disabled;
           else if (active) style = &cogito_theme.button_outlined_active;
+          else if (focused) style = &cogito_theme.button_outlined_focused;
           else if (hover) style = &cogito_theme.button_outlined_hover;
           else style = &cogito_theme.button_outlined;
         } else if (class_kind == COGITO_STYLE_CLASS_TEXT) {
           if (disabled) style = &cogito_theme.button_text_disabled;
           else if (active) style = &cogito_theme.button_text_active;
+          else if (focused) style = &cogito_theme.button_text_focused;
           else if (hover) style = &cogito_theme.button_text_hover;
           else style = &cogito_theme.button_text;
         }
@@ -785,6 +792,7 @@ void cogito_sum_add_styles(const char* parent, const char* child, CogitoStyle** 
         if (checked) style = &cogito_theme.label_class_checked[label_class];
         else if (disabled) style = &cogito_theme.label_class_disabled[label_class];
         else if (active) style = &cogito_theme.label_class_active[label_class];
+        else if (focused) style = &cogito_theme.label_class_focused[label_class];
         else if (hover) style = &cogito_theme.label_class_hover[label_class];
         else style = &cogito_theme.label_class[label_class];
       } else if (is_menu) {
@@ -798,6 +806,8 @@ void cogito_sum_add_styles(const char* parent, const char* child, CogitoStyle** 
           style = &cogito_theme.per_kind_disabled[kind];
         } else if (active) {
           style = &cogito_theme.per_kind_active[kind];
+        } else if (focused) {
+          style = &cogito_theme.per_kind_focused[kind];
         } else if (hover) {
           style = &cogito_theme.per_kind_hover[kind];
         } else {
