@@ -21,7 +21,7 @@ It is intended as an implementation-facing reference, not a future design docume
 
 Current reserved words:
 
-`module`, `bring`, `fun`, `entry`, `class`, `pub`, `lock`, `seal`, `def`, `let`, `const`, `if`, `elif`, `else`, `for`, `match`, `return`, `true`, `false`, `null`, `new`, `in`
+`module`, `bring`, `fun`, `entry`, `class`, `struct`, `enum`, `pub`, `lock`, `seal`, `def`, `let`, `const`, `if`, `elif`, `else`, `for`, `match`, `return`, `true`, `false`, `null`, `new`, `in`, `break`, `continue`
 
 Note: `module` is currently reserved but not used as a top-level declaration.
 
@@ -65,6 +65,7 @@ Use `bring` at module top level:
 ```ergo
 bring stdr
 bring math
+bring cogito
 bring utils
 bring utils.ergo
 ```
@@ -72,9 +73,11 @@ bring utils.ergo
 Current behavior:
 
 - Imports are namespaced (`math.sin(...)`, `utils.fn(...)`).
+- Built-in module names include `stdr`, `math`, and `cogito`.
 - `bring name` resolves to `name.ergo` for user modules.
 - `bring name.ergo` is accepted.
 - `stdr` is required in non-stdlib modules.
+- Legacy `.e` imports are rejected.
 
 ### 4.2 Module Naming
 
@@ -93,7 +96,7 @@ Allowed top-level declarations:
 
 - `fun`
 - `entry`
-- `class` (with optional `pub` / `lock` / `seal` prefixes)
+- nominal declarations: `class`, `struct`, `enum` (with optional `pub` / `lock` / `seal` prefixes)
 - `def` (module global)
 - `const` (currently enforced only for `stdr` / `math` modules)
 
@@ -152,11 +155,11 @@ fun add(a = num, b = num) (( num )) {
 
 ### 8.2 Methods
 
-- Methods are declared inside classes with `fun`.
+- Methods are declared inside nominal types (`class` / `struct` / `enum`) with `fun`.
 - First parameter must be `this` or `?this`.
 - `this`/`?this` is implicit receiver syntax and does not use `= Type`.
 
-### 8.3 Class Syntax
+### 8.3 Nominal Type Syntax
 
 ```ergo
 class Point {
@@ -170,9 +173,24 @@ class Point {
 }
 ```
 
-### 8.4 Class Modifiers
+Struct/enum declarations use `=[ ... ]` field lists:
 
-- `pub class ...` is parsed.
+```ergo
+struct Color = [
+    r = num
+    g = num
+    b = num
+]
+
+enum Result = [
+    tag = string
+    value = any
+]
+```
+
+### 8.4 Nominal Modifiers
+
+- `pub class/struct/enum ...` is parsed.
 - `lock class ...` enforces restricted field access (same file or own methods).
 - `seal class ...` is parsed and stored; extra semantic restrictions are currently limited.
 
@@ -212,6 +230,12 @@ Foreach currently supports iterating arrays and strings.
 - For non-void functions, explicit `return expr` is the reliable way to set return values.
 - Without explicit return, generated code defaults return storage to `null`.
 
+### 9.5 Loop Control
+
+- `break` exits the nearest loop.
+- `continue` skips to the next iteration of the nearest loop.
+- Using either outside a loop is a type error.
+
 ## 10. Expressions
 
 ### 10.1 Core Forms
@@ -224,7 +248,11 @@ Foreach currently supports iterating arrays and strings.
 - Member: `a.b`
 - Index: `a[i]`
 - Object construction: `new Class(...)`
+- Named-argument constructor form: `Class(field: value, ...)` (constructor shorthand)
 - Match: `match x: pat => expr, ...` or block-arm form
+- If-expression:
+  - `if cond { expr } else { expr }`
+  - `if cond: expr elif other: expr else: expr`
 - Lambda:
   - `|x = num| x + 1`
   - `(x = num) => x + 1`
@@ -235,7 +263,9 @@ Foreach currently supports iterating arrays and strings.
 
 Notes:
 
-- `if` is a statement form in current grammar (not an expression form).
+- `if` is supported as both statement and expression.
+- `if` expressions require an `else` branch.
+- Braced `if` expression branches currently accept a single expression.
 
 ### 10.2 Match Patterns
 
@@ -308,6 +338,10 @@ Current core functions:
 - `len(x)` -> `num`
 - `is_null(x)` -> `bool`
 - `str(x)` -> `string`
+- `read_text_file(path)` -> `any` (`null` on failure)
+- `write_text_file(path, text)` -> `bool`
+- `open_file_dialog(prompt, extension)` -> `any`
+- `save_file_dialog(prompt, default_name, extension)` -> `any`
 
 When `stdr` is brought, core prelude helpers are available unqualified and via `stdr.*`.
 
