@@ -310,23 +310,18 @@ fun build_controls_view() (( cogito.VStack )) {
     vstack.add(prog)
 
     dd.on_change((idx) => {
-        if idx == 0 {
-            prog.set_value(0.25)
-            prog_label.set_text(@"Progress (25%)")
-            status.set_text(@"Low severity selected.")
+        let next = if idx == 0 {
+            (0.25, @"Progress (25%)", @"Low severity selected.")
         } elif idx == 1 {
-            prog.set_value(0.50)
-            prog_label.set_text(@"Progress (50%)")
-            status.set_text(@"Medium severity selected.")
+            (0.50, @"Progress (50%)", @"Medium severity selected.")
         } elif idx == 2 {
-            prog.set_value(0.75)
-            prog_label.set_text(@"Progress (75%)")
-            status.set_text(@"High severity selected.")
+            (0.75, @"Progress (75%)", @"High severity selected.")
         } else {
-            prog.set_value(1.0)
-            prog_label.set_text(@"Progress (100%)")
-            status.set_text(@"Critical severity selected.")
+            (1.0, @"Progress (100%)", @"Critical severity selected.")
         }
+        prog.set_value(next[0])
+        prog_label.set_text(next[1])
+        status.set_text(next[2])
     })
 
     let row = cogito.hstack()
@@ -684,31 +679,32 @@ fun build_ui(win = cogito.Window) (( -- )) {
     sidebar_list.add(cogito.label(@"Dialogs"))
     sidebar_list.add(cogito.label(@"Tree View"))
     sidebar_list.on_select((idx) => {
-        if idx == 0 {
-            views.set_active(@"buttons")
+        let target = if idx == 0 {
+            @"buttons"
         } elif idx == 1 {
-            views.set_active(@"textfields")
+            @"textfields"
         } elif idx == 2 {
-            views.set_active(@"checkboxes")
+            @"checkboxes"
         } elif idx == 3 {
-            views.set_active(@"sliders")
+            @"sliders"
         } elif idx == 4 {
-            views.set_active(@"pickers")
+            @"pickers"
         } elif idx == 5 {
-            views.set_active(@"lists")
+            @"lists"
         } elif idx == 6 {
-            views.set_active(@"controls")
+            @"controls"
         } elif idx == 7 {
-            views.set_active(@"tabs")
+            @"tabs"
         } elif idx == 8 {
-            views.set_active(@"chips")
+            @"chips"
         } elif idx == 9 {
-            views.set_active(@"dialogs")
+            @"dialogs"
         } elif idx == 10 {
-            views.set_active(@"tree")
+            @"tree"
         } else {
-            views.set_active(@"buttons")
+            @"buttons"
         }
+        views.set_active(target)
     })
     sidebar.add(sidebar_list)
 
