@@ -135,6 +135,7 @@ static void cogito_state_drop(ErgoObj* o) {
   }
 }
 
+__attribute__((unused))
 static CogitoState* cogito_state_new_obj(ErgoVal initial) {
   CogitoState* s = (CogitoState*)ergo_obj_new(sizeof(CogitoState), cogito_state_drop);
   s->value = initial;

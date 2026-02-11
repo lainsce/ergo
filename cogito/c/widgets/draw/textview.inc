@@ -186,7 +186,16 @@ case COGITO_TEXTVIEW: {
             break;
           }
           cy += line_h;
-          if (idx >= len) break;
+          if (idx >= len) {
+            // If text ends with '\n', caret can be on a trailing empty line.
+            if (caret_idx == len && len > 0 && t[len - 1] == '\n') {
+              int cx = n->x + pad;
+              int max_x = n->x + n->w - pad;
+              if (cx > max_x) cx = max_x;
+              cogito_draw_line(cx, cy, cx, cy + line_h, text);
+            }
+            break;
+          }
         }
       }
       break;

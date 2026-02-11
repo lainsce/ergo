@@ -34,6 +34,7 @@ static bool cogito_sum_read_duration_ms(const char** p, int* out_ms) {
   return true;
 }
 
+__attribute__((unused))
 static bool cogito_sum_read_bool(const char** p, bool* out) {
   if (!p || !*p || !out) return false;
   const char* s = *p;

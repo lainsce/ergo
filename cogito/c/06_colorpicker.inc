@@ -155,6 +155,7 @@ static void cogito_draw_text_size_node(const CogitoNode* n, int x, int y, const 
   }
 }
 
+__attribute__((unused))
 static void cogito_draw_text_node(const CogitoNode* n, int x, int y, const char* text, CogitoColor color) {
   if (!text || !n) return;
   int size = cogito_node_font_size(n);

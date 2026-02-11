@@ -26,6 +26,7 @@ static int cogito_font_weight_bold(void) {
   return cogito_font_parse_int_env("COGITO_FONT_BOLD_WEIGHT", 700);
 }
 
+__attribute__((unused))
 static int cogito_default_codepoints(int* out, int cap) {
   int count = 0;
   if (!out || cap <= 0) return 0;
@@ -34,6 +35,7 @@ static int cogito_default_codepoints(int* out, int cap) {
   return count;
 }
 
+__attribute__((unused))
 static bool cogito_freetype_set_weight(FT_Library lib, FT_Face face, int weight, bool* out_applied) {
   if (!face || weight <= 0) return false;
   if (!(face->face_flags & FT_FACE_FLAG_MULTIPLE_MASTERS)) return false;
@@ -192,6 +194,7 @@ static CogitoFont* cogito_font_tabular_cache_get(const char* path, int size, int
   return cogito_font_tabular_cache[slot].font;
 }
 
+__attribute__((unused))
 static CogitoFont* cogito_font_for_size(CogitoFont* f, int size) {
   if (!f) return f;
   if (size <= 0) size = cogito_font_size();
