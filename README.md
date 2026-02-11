@@ -39,6 +39,23 @@ Run the compiler from the build tree:
 ./ergo/build/ergo run ergo/examples/hello.ergo
 ```
 
+## SUM Theme Validator
+
+Validate Cogito SUM themes (including `@bring` expansion with source-mapped diagnostics):
+
+```sh
+./ergo/build/ergo sum validate cogito/examples/sum_validator_fixtures/theme.sum
+./ergo/build/ergo sum validate --mode off cogito/examples/sum_validator_fixtures/theme.sum
+./ergo/build/ergo sum validate --mode strict cogito/examples/sum_validator_fixtures/theme.sum
+./ergo/build/ergo sum validate cogito/examples/sum_validator_fixtures
+```
+
+Fixtures for validator behavior are in:
+
+```txt
+cogito/examples/sum_validator_fixtures/
+```
+
 ## Build Cogito
 
 Build the Cogito shared library in its own build directory:

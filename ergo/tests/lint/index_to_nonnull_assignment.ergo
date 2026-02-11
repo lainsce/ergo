@@ -1,0 +1,14 @@
+module index_to_nonnull_assignment
+
+bring stdr
+
+fun consume(x = num) (( -- )) {
+    writef(@"{}\n", x)
+}
+
+entry () (( -- )) {
+    let nums = [1, 2, 3]
+    let ?picked = 0
+    picked = nums[12]
+    consume(picked)
+}

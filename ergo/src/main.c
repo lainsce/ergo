@@ -22,6 +22,7 @@
 #include "file.h"
 #include "platform.h"
 #include "project.h"
+#include "sum_validate.h"
 #include "str.h"
 #include "typecheck.h"
 
@@ -349,6 +350,8 @@ static bool verbose_mode = false;
 static void print_usage(FILE *out) {
     fprintf(out, "Usage: ergo [OPTIONS] <source.ergo>\n");
     fprintf(out, "       ergo run [OPTIONS] <source.ergo>\n");
+    fprintf(out, "       ergo lint [--mode warn|strict] <source.ergo>\n");
+    fprintf(out, "       ergo sum validate [--mode off|warn|strict] <path>\n");
     fprintf(out, "\n");
     fprintf(out, "Options:\n");
     fprintf(out, "  -h, --help       Show this help message\n");
@@ -358,6 +361,8 @@ static void print_usage(FILE *out) {
     fprintf(out, "Examples:\n");
     fprintf(out, "  ergo init.ergo              # Compile and check init.ergo\n");
     fprintf(out, "  ergo run init.ergo          # Compile and run init.ergo\n");
+    fprintf(out, "  ergo lint --mode strict init.ergo\n");
+    fprintf(out, "  ergo sum validate theme.sum # Validate one SUM file\n");
     fprintf(out, "  ergo --help                 # Show this help\n");
     fprintf(out, "\n");
     fprintf(out, "Environment Variables:\n");
@@ -546,6 +551,72 @@ int main(int argc, char **argv) {
     if (is_flag(argv[1], "--emit-c")) {
         fprintf(stderr, "error: --emit-c is not supported in the C compiler\n");
         return 2;
+    }
+
+    if (is_flag(argv[1], "sum")) {
+        return sum_validate_cli(argc, argv);
+    }
+
+    if (is_flag(argv[1], "lint")) {
+        ErgoLintMode lint_mode = ERGO_LINT_WARN;
+        const char *entry = NULL;
+        for (int i = 2; i < argc; i++) {
+            if (strcmp(argv[i], "--mode") == 0) {
+                if (i + 1 >= argc) {
+                    fprintf(stderr, "error: --mode requires one of warn|strict\n");
+                    return 2;
+                }
+                i++;
+                if (strcmp(argv[i], "warn") == 0) {
+                    lint_mode = ERGO_LINT_WARN;
+                } else if (strcmp(argv[i], "strict") == 0) {
+                    lint_mode = ERGO_LINT_STRICT;
+                } else {
+                    fprintf(stderr, "error: unknown lint mode '%s'\n", argv[i]);
+                    return 2;
+                }
+                continue;
+            }
+            if (argv[i][0] == '-') {
+                fprintf(stderr, "error: unknown option %s\n", argv[i]);
+                return 2;
+            }
+            if (entry) {
+                fprintf(stderr, "error: multiple source paths provided\n");
+                return 2;
+            }
+            entry = argv[i];
+        }
+        if (!entry) {
+            fprintf(stderr, "error: lint needs a source path\n");
+            return 2;
+        }
+        Arena arena;
+        arena_init(&arena);
+        Diag err = {0};
+        Program *prog = NULL;
+        if (!load_project(entry, &arena, &prog, NULL, &err)) {
+            diag_print_enhanced(&err, verbose_mode);
+            arena_free(&arena);
+            return 1;
+        }
+        prog = lower_program(prog, &arena, &err);
+        if (!prog || err.message) {
+            diag_print_enhanced(&err, verbose_mode);
+            arena_free(&arena);
+            return 1;
+        }
+        if (!typecheck_program(prog, &arena, &err)) {
+            diag_print_enhanced(&err, verbose_mode);
+            arena_free(&arena);
+            return 1;
+        }
+        int warnings = 0;
+        int errors = 0;
+        bool ok = lint_program(prog, &arena, lint_mode, &warnings, &errors);
+        fprintf(stderr, "lint summary: %d warning(s), %d error(s)\n", warnings, errors);
+        arena_free(&arena);
+        return ok ? 0 : 1;
     }
 
     if (is_flag(argv[1], "run")) {

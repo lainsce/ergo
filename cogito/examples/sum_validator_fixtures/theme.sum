@@ -1,0 +1,11 @@
+@diagnostics: warn
+@bring: "partials/layer1.sum"
+
+quikbutton:hover
+  color: #ffffff
+
+button
+  backgrounnd: #121212
+ 
+  color: #222222
+	padding: 8

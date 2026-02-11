@@ -1,0 +1,14 @@
+module index_with_coalesce_ok
+
+bring stdr
+
+fun consume(x = num) (( -- )) {
+    writef(@"{}\n", x)
+}
+
+entry () (( -- )) {
+    let nums = [1, 2, 3]
+    let ?picked = 0
+    picked = nums[12] ?? 0
+    consume(picked)
+}

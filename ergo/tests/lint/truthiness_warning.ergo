@@ -1,0 +1,10 @@
+module truthiness_warning
+
+bring stdr
+
+entry () (( -- )) {
+    let n = 3
+    if n {
+        write(@"n is truthy\n")
+    }
+}

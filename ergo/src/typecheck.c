@@ -3006,6 +3006,570 @@ Ty *tc_expr_ctx(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *err) {
     return tc_expr_inner(e, ctx, loc, env, err);
 }
 
+typedef struct {
+    ErgoLintMode mode;
+    int warnings;
+    int errors;
+} LintState;
+
+static bool ty_requires_non_null(Ty *t) {
+    if (!t) return false;
+    if (ty_is_void(t) || ty_is_null(t) || ty_is_nullable(t)) return false;
+    if (t->tag == TY_PRIM && str_eq_c(t->name, "any")) return false;
+    return true;
+}
+
+static void lint_emit(LintState *ls, Str path, int line, int col, const char *msg, const char *hint) {
+    if (!ls || !msg) return;
+    const char *level = (ls->mode == ERGO_LINT_STRICT) ? "error" : "warning";
+    if (ls->mode == ERGO_LINT_STRICT) ls->errors++;
+    else ls->warnings++;
+
+    if (line <= 0) line = 1;
+    if (col <= 0) col = 1;
+    int end_col = col + 1;
+    fprintf(stderr, "%s: %.*s:%d:%d-%d:%d: %s\n",
+            level,
+            (int)path.len, path.data,
+            line, col, line, end_col,
+            msg);
+    if (hint && hint[0]) {
+        fprintf(stderr, "  hint: %s\n", hint);
+    }
+}
+
+static bool match_has_null_arm(Expr *e) {
+    if (!e || e->kind != EXPR_MATCH) return false;
+    for (size_t i = 0; i < e->as.match_expr.arms_len; i++) {
+        MatchArm *arm = e->as.match_expr.arms[i];
+        if (arm && arm->pat && arm->pat->kind == PAT_NULL) return true;
+    }
+    return false;
+}
+
+static bool expr_value_has_unchecked_index(Expr *e);
+
+static bool stmt_value_has_unchecked_index(Stmt *s) {
+    if (!s) return false;
+    switch (s->kind) {
+        case STMT_RETURN:
+            return expr_value_has_unchecked_index(s->as.ret_s.expr);
+        case STMT_EXPR:
+            return expr_value_has_unchecked_index(s->as.expr_s.expr);
+        case STMT_BLOCK:
+            for (size_t i = 0; i < s->as.block_s.stmts_len; i++) {
+                if (stmt_value_has_unchecked_index(s->as.block_s.stmts[i])) return true;
+            }
+            return false;
+        case STMT_IF:
+            for (size_t i = 0; i < s->as.if_s.arms_len; i++) {
+                IfArm *arm = s->as.if_s.arms[i];
+                if (arm && stmt_value_has_unchecked_index(arm->body)) return true;
+            }
+            return false;
+        default:
+            return false;
+    }
+}
+
+static bool expr_value_has_unchecked_index(Expr *e) {
+    if (!e) return false;
+    switch (e->kind) {
+        case EXPR_INDEX:
+            return true;
+        case EXPR_UNARY:
+            return expr_value_has_unchecked_index(e->as.unary.x);
+        case EXPR_PAREN:
+            return expr_value_has_unchecked_index(e->as.paren.x);
+        case EXPR_MOVE:
+            return expr_value_has_unchecked_index(e->as.move.x);
+        case EXPR_BINARY:
+            if (e->as.binary.op == TOK_QQ) {
+                return expr_value_has_unchecked_index(e->as.binary.b);
+            }
+            return expr_value_has_unchecked_index(e->as.binary.a) ||
+                   expr_value_has_unchecked_index(e->as.binary.b);
+        case EXPR_TERNARY:
+            return expr_value_has_unchecked_index(e->as.ternary.then_expr) ||
+                   expr_value_has_unchecked_index(e->as.ternary.else_expr);
+        case EXPR_IF:
+            for (size_t i = 0; i < e->as.if_expr.arms_len; i++) {
+                ExprIfArm *arm = e->as.if_expr.arms[i];
+                if (arm && expr_value_has_unchecked_index(arm->value)) return true;
+            }
+            return false;
+        case EXPR_MATCH: {
+            bool scrut_guarded = match_has_null_arm(e);
+            if (!scrut_guarded && expr_value_has_unchecked_index(e->as.match_expr.scrut)) return true;
+            for (size_t i = 0; i < e->as.match_expr.arms_len; i++) {
+                MatchArm *arm = e->as.match_expr.arms[i];
+                if (arm && expr_value_has_unchecked_index(arm->expr)) return true;
+            }
+            return false;
+        }
+        case EXPR_BLOCK:
+            return stmt_value_has_unchecked_index(e->as.block_expr.block);
+        default:
+            return false;
+    }
+}
+
+static void lint_check_index_flow(Expr *value_expr, Ctx *ctx, LintState *ls, const char *context_desc) {
+    if (!value_expr || !ctx || !ls) return;
+    if (!expr_value_has_unchecked_index(value_expr)) return;
+    char msg[320];
+    snprintf(msg, sizeof(msg),
+             "indexing expression may yield null when used as %s",
+             context_desc ? context_desc : "a non-null value");
+    lint_emit(ls, ctx->module_path, value_expr->line, value_expr->col, msg,
+              "use ??, an explicit null check, or match to handle null.");
+}
+
+static void lint_check_truthiness(Expr *cond, Ctx *ctx, Locals *loc, GlobalEnv *env, LintState *ls, const char *where) {
+    if (!cond || !ctx || !loc || !env || !ls) return;
+    Diag tmp = {0};
+    Ty *ct = tc_expr_ctx(cond, ctx, loc, env, &tmp);
+    if (!ct || ty_is_void(ct)) return;
+    if (ct->tag == TY_PRIM && str_eq_c(ct->name, "bool")) return;
+    char tdesc[64];
+    ty_desc(ct, tdesc, sizeof(tdesc));
+    char msg[320];
+    snprintf(msg, sizeof(msg), "implicit truthiness in %s condition (type %s)", where, tdesc);
+    lint_emit(ls, ctx->module_path, cond->line, cond->col, msg,
+              "use an explicit comparison or null check.");
+}
+
+static bool stmt_guarantees_return(Stmt *s) {
+    if (!s) return false;
+    switch (s->kind) {
+        case STMT_RETURN:
+            return true;
+        case STMT_BLOCK:
+            for (size_t i = 0; i < s->as.block_s.stmts_len; i++) {
+                if (stmt_guarantees_return(s->as.block_s.stmts[i])) {
+                    return true;
+                }
+            }
+            return false;
+        case STMT_IF: {
+            bool has_else = false;
+            for (size_t i = 0; i < s->as.if_s.arms_len; i++) {
+                IfArm *arm = s->as.if_s.arms[i];
+                if (arm && !arm->cond) has_else = true;
+            }
+            if (!has_else) return false;
+            for (size_t i = 0; i < s->as.if_s.arms_len; i++) {
+                IfArm *arm = s->as.if_s.arms[i];
+                if (!arm || !stmt_guarantees_return(arm->body)) return false;
+            }
+            return true;
+        }
+        default:
+            return false;
+    }
+}
+
+static void describe_fallthrough(Stmt *s, char *out, size_t out_cap) {
+    if (!out || out_cap == 0) return;
+    if (!s) {
+        snprintf(out, out_cap, "function body can reach end without return");
+        return;
+    }
+    if (s->kind == STMT_BLOCK) {
+        if (s->as.block_s.stmts_len == 0) {
+            snprintf(out, out_cap, "empty body can reach end without return");
+            return;
+        }
+        describe_fallthrough(s->as.block_s.stmts[s->as.block_s.stmts_len - 1], out, out_cap);
+        return;
+    }
+    if (s->kind == STMT_IF) {
+        bool has_else = false;
+        for (size_t i = 0; i < s->as.if_s.arms_len; i++) {
+            IfArm *arm = s->as.if_s.arms[i];
+            if (arm && !arm->cond) has_else = true;
+        }
+        if (!has_else) {
+            snprintf(out, out_cap, "if branch at line %d has no else and can fall through", s->line);
+            return;
+        }
+        for (size_t i = 0; i < s->as.if_s.arms_len; i++) {
+            IfArm *arm = s->as.if_s.arms[i];
+            if (arm && !stmt_guarantees_return(arm->body)) {
+                if (arm->cond) {
+                    snprintf(out, out_cap, "if branch at line %d can fall through", arm->body ? arm->body->line : s->line);
+                } else {
+                    snprintf(out, out_cap, "else branch at line %d can fall through", arm->body ? arm->body->line : s->line);
+                }
+                return;
+            }
+        }
+    }
+    snprintf(out, out_cap, "control path can reach end without return");
+}
+
+static Ty *lint_ret_ty_from_spec(GlobalEnv *env, RetSpec *ret, Str mod_name, Str *imports, size_t imports_len, Diag *err) {
+    if (!ret) return ty_void(env->arena);
+    if (ret->is_void) return ty_void(env->arena);
+    if (ret->types_len == 1) {
+        return ty_from_type_ref(env, ret->types[0], mod_name, imports, imports_len, err);
+    }
+    Ty **items = (Ty **)arena_array(env->arena, ret->types_len, sizeof(Ty *));
+    if (!items) return NULL;
+    for (size_t i = 0; i < ret->types_len; i++) {
+        items[i] = ty_from_type_ref(env, ret->types[i], mod_name, imports, imports_len, err);
+        if (!items[i]) return NULL;
+    }
+    return ty_tuple(env->arena, items, ret->types_len);
+}
+
+static bool is_empty_body_stub(Stmt *body) {
+    return body && body->kind == STMT_BLOCK && body->as.block_s.stmts_len == 0;
+}
+
+static void lint_expr(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, LintState *ls);
+static void lint_stmt(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *ret_ty, LintState *ls);
+
+static void lint_call_args(Expr *call, Ctx *ctx, Locals *loc, GlobalEnv *env, LintState *ls) {
+    if (!call || call->kind != EXPR_CALL) return;
+    Expr *fn = call->as.call.fn;
+    Ty **params = NULL;
+    size_t params_len = 0;
+
+    if (fn && fn->kind == EXPR_IDENT) {
+        Binding *b = locals_lookup(loc, fn->as.ident.name);
+        if (b && b->ty && b->ty->tag == TY_FN) {
+            params = b->ty->params;
+            params_len = b->ty->params_len;
+        } else {
+            FunSig *sig = find_fun(env, ctx->module_name, fn->as.ident.name);
+            if (!sig && is_stdr_prelude(fn->as.ident.name)) {
+                bool allow = str_eq_c(ctx->module_name, "stdr");
+                for (size_t i = 0; i < ctx->imports_len && !allow; i++) {
+                    if (str_eq_c(ctx->imports[i], "stdr")) allow = true;
+                }
+                if (allow) sig = find_fun(env, str_from_c("stdr"), fn->as.ident.name);
+            }
+            if (sig) {
+                params = sig->params;
+                params_len = sig->params_len;
+            }
+        }
+    } else if (fn && fn->kind == EXPR_MEMBER) {
+        Expr *base = fn->as.member.a;
+        if (base && base->kind == EXPR_IDENT) {
+            Str mod = base->as.ident.name;
+            if (module_in_scope(mod, ctx, loc)) {
+                FunSig *sig = find_fun(env, mod, fn->as.member.name);
+                if (sig) {
+                    params = sig->params;
+                    params_len = sig->params_len;
+                }
+            }
+        }
+        if (!params) {
+            Diag tmp = {0};
+            Ty *base_ty = tc_expr_ctx(base, ctx, loc, env, &tmp);
+            base_ty = ty_strip_nullable(base_ty);
+            if (base_ty && base_ty->tag == TY_CLASS) {
+                ClassInfo *ci = find_class(env, base_ty->name);
+                if (ci) {
+                    for (size_t i = 0; i < ci->methods_len; i++) {
+                        if (str_eq(ci->methods[i].name, fn->as.member.name)) {
+                            params = ci->methods[i].sig->params;
+                            params_len = ci->methods[i].sig->params_len;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    for (size_t i = 0; i < call->as.call.args_len; i++) {
+        Expr *arg = call->as.call.args[i];
+        if (params && i < params_len && ty_requires_non_null(params[i])) {
+            lint_check_index_flow(arg, ctx, ls, "a non-null call argument");
+        }
+        lint_expr(arg, ctx, loc, env, ls);
+    }
+}
+
+static void lint_expr(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, LintState *ls) {
+    if (!e) return;
+    switch (e->kind) {
+        case EXPR_UNARY:
+            lint_expr(e->as.unary.x, ctx, loc, env, ls);
+            return;
+        case EXPR_BINARY:
+            lint_expr(e->as.binary.a, ctx, loc, env, ls);
+            lint_expr(e->as.binary.b, ctx, loc, env, ls);
+            return;
+        case EXPR_ASSIGN: {
+            Ty *target_ty = NULL;
+            if (e->as.assign.target && e->as.assign.target->kind == EXPR_IDENT) {
+                Binding *b = locals_lookup(loc, e->as.assign.target->as.ident.name);
+                if (b) target_ty = b->ty;
+            }
+            if (target_ty && ty_requires_non_null(target_ty)) {
+                lint_check_index_flow(e->as.assign.value, ctx, ls, "a non-null assignment");
+            }
+            lint_expr(e->as.assign.target, ctx, loc, env, ls);
+            lint_expr(e->as.assign.value, ctx, loc, env, ls);
+            return;
+        }
+        case EXPR_CALL: {
+            if (e->as.call.fn && e->as.call.fn->kind == EXPR_MEMBER) {
+                lint_check_index_flow(e->as.call.fn->as.member.a, ctx, ls, "a call receiver");
+                lint_expr(e->as.call.fn->as.member.a, ctx, loc, env, ls);
+            } else {
+                lint_expr(e->as.call.fn, ctx, loc, env, ls);
+            }
+            lint_call_args(e, ctx, loc, env, ls);
+            return;
+        }
+        case EXPR_INDEX:
+            lint_expr(e->as.index.a, ctx, loc, env, ls);
+            lint_expr(e->as.index.i, ctx, loc, env, ls);
+            return;
+        case EXPR_MEMBER:
+            lint_check_index_flow(e->as.member.a, ctx, ls, "a member access receiver");
+            lint_expr(e->as.member.a, ctx, loc, env, ls);
+            return;
+        case EXPR_PAREN:
+            lint_expr(e->as.paren.x, ctx, loc, env, ls);
+            return;
+        case EXPR_MATCH:
+            lint_expr(e->as.match_expr.scrut, ctx, loc, env, ls);
+            for (size_t i = 0; i < e->as.match_expr.arms_len; i++) {
+                MatchArm *arm = e->as.match_expr.arms[i];
+                if (arm) lint_expr(arm->expr, ctx, loc, env, ls);
+            }
+            return;
+        case EXPR_LAMBDA:
+            lint_expr(e->as.lambda.body, ctx, loc, env, ls);
+            return;
+        case EXPR_BLOCK:
+            lint_stmt(e->as.block_expr.block, ctx, loc, env, ty_null(env->arena), ls);
+            return;
+        case EXPR_NEW:
+            for (size_t i = 0; i < e->as.new_expr.args_len; i++) {
+                lint_expr(e->as.new_expr.args[i], ctx, loc, env, ls);
+            }
+            return;
+        case EXPR_IF:
+            for (size_t i = 0; i < e->as.if_expr.arms_len; i++) {
+                ExprIfArm *arm = e->as.if_expr.arms[i];
+                if (!arm) continue;
+                if (arm->cond) lint_check_truthiness(arm->cond, ctx, loc, env, ls, "if");
+                if (arm->cond) lint_expr(arm->cond, ctx, loc, env, ls);
+                lint_expr(arm->value, ctx, loc, env, ls);
+            }
+            return;
+        case EXPR_TERNARY:
+            lint_check_truthiness(e->as.ternary.cond, ctx, loc, env, ls, "ternary");
+            lint_expr(e->as.ternary.cond, ctx, loc, env, ls);
+            lint_expr(e->as.ternary.then_expr, ctx, loc, env, ls);
+            lint_expr(e->as.ternary.else_expr, ctx, loc, env, ls);
+            return;
+        case EXPR_MOVE:
+            lint_expr(e->as.move.x, ctx, loc, env, ls);
+            return;
+        case EXPR_TUPLE:
+            for (size_t i = 0; i < e->as.tuple_lit.items_len; i++) {
+                lint_expr(e->as.tuple_lit.items[i], ctx, loc, env, ls);
+            }
+            return;
+        case EXPR_ARRAY:
+            for (size_t i = 0; i < e->as.array_lit.items_len; i++) {
+                lint_expr(e->as.array_lit.items[i], ctx, loc, env, ls);
+            }
+            return;
+        default:
+            return;
+    }
+}
+
+static void lint_stmt(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *ret_ty, LintState *ls) {
+    if (!s) return;
+    switch (s->kind) {
+        case STMT_LET: {
+            Diag tmp = {0};
+            Ty *t = tc_expr_ctx(s->as.let_s.expr, ctx, loc, env, &tmp);
+            Binding b = { t, s->as.let_s.is_mut, false };
+            locals_define(loc, s->as.let_s.name, b);
+            lint_expr(s->as.let_s.expr, ctx, loc, env, ls);
+            return;
+        }
+        case STMT_CONST: {
+            Diag tmp = {0};
+            Ty *t = tc_expr_ctx(s->as.const_s.expr, ctx, loc, env, &tmp);
+            Binding b = { t, false, true };
+            locals_define(loc, s->as.const_s.name, b);
+            lint_expr(s->as.const_s.expr, ctx, loc, env, ls);
+            return;
+        }
+        case STMT_EXPR:
+            lint_expr(s->as.expr_s.expr, ctx, loc, env, ls);
+            return;
+        case STMT_RETURN:
+            if (s->as.ret_s.expr && ty_requires_non_null(ret_ty)) {
+                lint_check_index_flow(s->as.ret_s.expr, ctx, ls, "a non-null return value");
+            }
+            lint_expr(s->as.ret_s.expr, ctx, loc, env, ls);
+            return;
+        case STMT_IF:
+            for (size_t i = 0; i < s->as.if_s.arms_len; i++) {
+                IfArm *arm = s->as.if_s.arms[i];
+                if (!arm) continue;
+                Locals arm_loc = locals_clone(loc);
+                if (arm->cond) {
+                    lint_check_truthiness(arm->cond, ctx, &arm_loc, env, ls, "if");
+                    lint_expr(arm->cond, ctx, &arm_loc, env, ls);
+                }
+                lint_stmt(arm->body, ctx, &arm_loc, env, ret_ty, ls);
+                locals_free(&arm_loc);
+            }
+            return;
+        case STMT_FOR:
+            locals_push(loc);
+            if (s->as.for_s.init) lint_stmt(s->as.for_s.init, ctx, loc, env, ret_ty, ls);
+            if (s->as.for_s.cond) {
+                lint_check_truthiness(s->as.for_s.cond, ctx, loc, env, ls, "for");
+                lint_expr(s->as.for_s.cond, ctx, loc, env, ls);
+            }
+            if (s->as.for_s.step) lint_expr(s->as.for_s.step, ctx, loc, env, ls);
+            lint_stmt(s->as.for_s.body, ctx, loc, env, ret_ty, ls);
+            locals_pop(loc);
+            return;
+        case STMT_FOREACH:
+            lint_expr(s->as.foreach_s.expr, ctx, loc, env, ls);
+            locals_push(loc);
+            locals_define(loc, s->as.foreach_s.name, (Binding){ ty_prim(env->arena, "any"), false, false });
+            lint_stmt(s->as.foreach_s.body, ctx, loc, env, ret_ty, ls);
+            locals_pop(loc);
+            return;
+        case STMT_BLOCK:
+            locals_push(loc);
+            for (size_t i = 0; i < s->as.block_s.stmts_len; i++) {
+                lint_stmt(s->as.block_s.stmts[i], ctx, loc, env, ret_ty, ls);
+            }
+            locals_pop(loc);
+            return;
+        default:
+            return;
+    }
+}
+
+bool lint_program(Program *prog, Arena *arena, ErgoLintMode mode, int *warning_count, int *error_count) {
+    Diag err = {0};
+    GlobalEnv *env = build_global_env(prog, arena, &err);
+    if (!env) return false;
+
+    LintState ls;
+    ls.mode = mode;
+    ls.warnings = 0;
+    ls.errors = 0;
+
+    for (size_t i = 0; i < prog->mods_len; i++) {
+        Module *m = prog->mods[i];
+        Str mod_name = env->module_names[i].name;
+        ModuleImport *imps = find_imports(env, mod_name);
+        Str *imports = imps ? imps->imports : NULL;
+        size_t imports_len = imps ? imps->imports_len : 0;
+
+        for (size_t j = 0; j < m->decls_len; j++) {
+            Decl *d = m->decls[j];
+            if (d->kind == DECL_FUN) {
+                Locals loc;
+                locals_init(&loc);
+                Ctx ctx;
+                ctx.module_path = m->path;
+                ctx.module_name = mod_name;
+                ctx.imports = imports;
+                ctx.imports_len = imports_len;
+                ctx.has_current_class = false;
+                ctx.loop_depth = 0;
+
+                for (size_t p = 0; p < d->as.fun.params_len; p++) {
+                    Param *pp = d->as.fun.params[p];
+                    Ty *pty = ty_from_type_ref(env, pp->typ, mod_name, imports, imports_len, &err);
+                    locals_define(&loc, pp->name, (Binding){ pty, pp->is_mut, false });
+                }
+                Ty *ret_ty = lint_ret_ty_from_spec(env, &d->as.fun.ret, mod_name, imports, imports_len, &err);
+                if (ret_ty && !ty_is_void(ret_ty) && !is_empty_body_stub(d->as.fun.body) && !stmt_guarantees_return(d->as.fun.body)) {
+                    char why[256];
+                    char msg[384];
+                    describe_fallthrough(d->as.fun.body, why, sizeof(why));
+                    snprintf(msg, sizeof(msg),
+                             "missing return coverage in function '%.*s': %s",
+                             (int)d->as.fun.name.len, d->as.fun.name.data, why);
+                    lint_emit(&ls, m->path, d->line, d->col, msg,
+                              "add explicit return statements for every path.");
+                }
+                lint_stmt(d->as.fun.body, &ctx, &loc, env, ret_ty, &ls);
+                locals_free(&loc);
+            } else if (d->kind == DECL_CLASS) {
+                ClassInfo *ci = find_class(env, qualify_class_name(env->arena, mod_name, d->as.class_decl.name));
+                if (!ci) continue;
+                for (size_t mi = 0; mi < d->as.class_decl.methods_len; mi++) {
+                    FunDecl *md = d->as.class_decl.methods[mi];
+                    Locals loc;
+                    locals_init(&loc);
+                    Ctx ctx;
+                    ctx.module_path = m->path;
+                    ctx.module_name = mod_name;
+                    ctx.imports = imports;
+                    ctx.imports_len = imports_len;
+                    ctx.has_current_class = true;
+                    ctx.current_class = ci->qname;
+                    ctx.loop_depth = 0;
+                    for (size_t p = 0; p < md->params_len; p++) {
+                        Param *pp = md->params[p];
+                        Ty *pty = pp->is_this ? ty_class(env->arena, ci->qname)
+                                              : ty_from_type_ref(env, pp->typ, mod_name, imports, imports_len, &err);
+                        locals_define(&loc, pp->name, (Binding){ pty, pp->is_mut, false });
+                    }
+                    Ty *ret_ty = lint_ret_ty_from_spec(env, &md->ret, mod_name, imports, imports_len, &err);
+                    if (ret_ty && !ty_is_void(ret_ty) && !is_empty_body_stub(md->body) && !stmt_guarantees_return(md->body)) {
+                        char why[256];
+                        char msg[384];
+                        describe_fallthrough(md->body, why, sizeof(why));
+                        snprintf(msg, sizeof(msg),
+                                 "missing return coverage in function '%.*s.%.*s': %s",
+                                 (int)ci->name.len, ci->name.data,
+                                 (int)md->name.len, md->name.data, why);
+                        lint_emit(&ls, m->path, md->body ? md->body->line : d->line, md->body ? md->body->col : d->col, msg,
+                                  "add explicit return statements for every path.");
+                    }
+                    lint_stmt(md->body, &ctx, &loc, env, ret_ty, &ls);
+                    locals_free(&loc);
+                }
+            } else if (d->kind == DECL_ENTRY) {
+                Locals loc;
+                locals_init(&loc);
+                Ctx ctx;
+                ctx.module_path = m->path;
+                ctx.module_name = mod_name;
+                ctx.imports = imports;
+                ctx.imports_len = imports_len;
+                ctx.has_current_class = false;
+                ctx.loop_depth = 0;
+                Ty *ret_ty = lint_ret_ty_from_spec(env, &d->as.entry.ret, mod_name, imports, imports_len, &err);
+                lint_stmt(d->as.entry.body, &ctx, &loc, env, ret_ty, &ls);
+                locals_free(&loc);
+            }
+        }
+    }
+
+    if (warning_count) *warning_count = ls.warnings;
+    if (error_count) *error_count = ls.errors;
+    if (mode == ERGO_LINT_STRICT) {
+        return ls.errors == 0;
+    }
+    return true;
+}
+
 bool typecheck_program(Program *prog, Arena *arena, Diag *err) {
     if (!arena) {
         set_err(err, "internal error: missing arena");

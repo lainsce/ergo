@@ -1,0 +1,13 @@
+module missing_return
+
+bring stdr
+
+fun choose(flag = bool) (( num )) {
+    if flag {
+        return 1
+    }
+}
+
+entry () (( -- )) {
+    writef(@"{}\n", choose(true))
+}

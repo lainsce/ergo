@@ -1,0 +1,15 @@
+module safe_return
+
+bring stdr
+
+fun choose(flag = bool) (( num )) {
+    if flag {
+        return 1
+    } else {
+        return 0
+    }
+}
+
+entry () (( -- )) {
+    writef(@"{}\n", choose(true))
+}

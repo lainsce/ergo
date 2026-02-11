@@ -8,6 +8,7 @@ ergo_c_sources = files(
   'src/lexer.c',
   'src/parser.c',
   'src/project.c',
+  'src/sum_validate.c',
   'src/codegen.c',
   'src/typecheck.c',
   'src/file.c',

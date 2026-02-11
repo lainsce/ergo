@@ -168,8 +168,14 @@ typedef struct {
     Arena *arena;
 } GlobalEnv;
 
+typedef enum {
+    ERGO_LINT_WARN = 0,
+    ERGO_LINT_STRICT = 1
+} ErgoLintMode;
+
 Program *lower_program(Program *prog, Arena *arena, Diag *err);
 bool typecheck_program(Program *prog, Arena *arena, Diag *err);
+bool lint_program(Program *prog, Arena *arena, ErgoLintMode mode, int *warning_count, int *error_count);
 
 GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err);
 Ty *tc_expr(Expr *e, GlobalEnv *env, Str module_path, Str module_name, Str *imports, size_t imports_len, Diag *err);
