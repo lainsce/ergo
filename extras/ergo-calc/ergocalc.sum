@@ -172,6 +172,13 @@ tooltip
     background: #1c1c1c
   grid.calc-keypad
     background: #1a1a1a
+  dialog
+    background: #1c1c1c
+    color: #f2f2f7
+  label.about-window-title
+    color: #f2f2f7
+  label.about-window-license
+    color: #bbbbbb
   label.calc-display-working
     color: #f1f1f1
   label.calc-display-expression
