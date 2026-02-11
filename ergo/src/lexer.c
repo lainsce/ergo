@@ -81,6 +81,8 @@ static const char *tok_name_default(TokKind kind) {
         case TOK_KW_fun: return "KW_fun";
         case TOK_KW_entry: return "KW_entry";
         case TOK_KW_class: return "KW_class";
+        case TOK_KW_struct: return "KW_struct";
+        case TOK_KW_enum: return "KW_enum";
         case TOK_KW_pub: return "KW_pub";
         case TOK_KW_lock: return "KW_lock";
         case TOK_KW_seal: return "KW_seal";
@@ -98,6 +100,8 @@ static const char *tok_name_default(TokKind kind) {
         case TOK_KW_match: return "KW_match";
         case TOK_KW_new: return "KW_new";
         case TOK_KW_in: return "KW_in";
+        case TOK_KW_break: return "KW_break";
+        case TOK_KW_continue: return "KW_continue";
         default: return "<invalid>";
     }
 }
@@ -163,6 +167,8 @@ const char *tok_kind_desc(TokKind kind) {
         case TOK_KW_fun: return "'fun'";
         case TOK_KW_entry: return "'entry'";
         case TOK_KW_class: return "'class'";
+        case TOK_KW_struct: return "'struct'";
+        case TOK_KW_enum: return "'enum'";
         case TOK_KW_pub: return "'pub'";
         case TOK_KW_lock: return "'lock'";
         case TOK_KW_seal: return "'seal'";
@@ -180,6 +186,8 @@ const char *tok_kind_desc(TokKind kind) {
         case TOK_KW_match: return "'match'";
         case TOK_KW_new: return "'new'";
         case TOK_KW_in: return "'in'";
+        case TOK_KW_break: return "'break'";
+        case TOK_KW_continue: return "'continue'";
         
         default: return "unknown token";
     }
@@ -383,6 +391,8 @@ static bool is_stmt_end(TokKind kind) {
         case TOK_KW_true:
         case TOK_KW_false:
         case TOK_KW_null:
+        case TOK_KW_break:
+        case TOK_KW_continue:
             return true;
         default:
             return false;
@@ -964,6 +974,8 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             else if (str_eq_c(word, "fun")) kw = TOK_KW_fun;
             else if (str_eq_c(word, "entry")) kw = TOK_KW_entry;
             else if (str_eq_c(word, "class")) kw = TOK_KW_class;
+            else if (str_eq_c(word, "struct")) kw = TOK_KW_struct;
+            else if (str_eq_c(word, "enum")) kw = TOK_KW_enum;
             else if (str_eq_c(word, "pub")) kw = TOK_KW_pub;
             else if (str_eq_c(word, "lock")) kw = TOK_KW_lock;
             else if (str_eq_c(word, "seal")) kw = TOK_KW_seal;
@@ -981,6 +993,8 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             else if (str_eq_c(word, "match")) kw = TOK_KW_match;
             else if (str_eq_c(word, "new")) kw = TOK_KW_new;
             else if (str_eq_c(word, "in")) kw = TOK_KW_in;
+            else if (str_eq_c(word, "break")) kw = TOK_KW_break;
+            else if (str_eq_c(word, "continue")) kw = TOK_KW_continue;
 
             if (kw != TOK_INVALID) {
                 if (!emit_simple(&lx, out, err, kw, word, start_line, start_col)) {

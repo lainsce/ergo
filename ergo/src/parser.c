@@ -200,7 +200,15 @@ static Stmt *parse_block(Parser *p);
 static Expr *parse_primary(Parser *p);
 static Expr *parse_unary(Parser *p);
 static Expr *parse_postfix(Parser *p);
-static Expr **parse_call_args(Parser *p, size_t *out_len);
+typedef struct {
+    Expr **args;
+    Str *names;
+    size_t len;
+    bool has_named;
+} CallArgs;
+static CallArgs parse_call_args(Parser *p);
+static Expr *parse_if_expr(Parser *p);
+static Expr *parse_braced_expr(Parser *p);
 static Expr *parse_match(Parser *p);
 static Expr *parse_new(Parser *p);
 static Expr *parse_lambda(Parser *p);
@@ -214,7 +222,7 @@ static Decl *parse_fun(Parser *p);
 static Decl *parse_entry(Parser *p);
 static Decl *parse_const_decl(Parser *p);
 static Decl *parse_def_decl(Parser *p);
-static Decl *parse_class(Parser *p);
+static Decl *parse_nominal(Parser *p);
 static Import *parse_import(Parser *p);
 
 static TypeRef *new_type(Parser *p, TypeKind kind, Tok *t) {
@@ -673,6 +681,14 @@ static Stmt *parse_stmt(Parser *p) {
         st->as.ret_s.expr = expr;
         return st;
     }
+    if (at(p, TOK_KW_break)) {
+        eat(p, TOK_KW_break);
+        return new_stmt(p, STMT_BREAK, t);
+    }
+    if (at(p, TOK_KW_continue)) {
+        eat(p, TOK_KW_continue);
+        return new_stmt(p, STMT_CONTINUE, t);
+    }
     if (at(p, TOK_LBRACE)) {
         return parse_block(p);
     }
@@ -711,10 +727,11 @@ static Decl *parse_def_decl(Parser *p) {
     return decl;
 }
 
-static Decl *parse_class(Parser *p) {
+static Decl *parse_nominal(Parser *p) {
     Tok *t = peek(p, 0);
     Str vis = str_from_c("priv");
     bool is_seal = false;
+    ClassKind kind = CLASS_KIND_CLASS;
     if (at(p, TOK_KW_pub)) {
         eat(p, TOK_KW_pub);
         vis = str_from_c("pub");
@@ -726,14 +743,35 @@ static Decl *parse_class(Parser *p) {
         eat(p, TOK_KW_seal);
         is_seal = true;
     }
-    eat(p, TOK_KW_class);
+    if (at(p, TOK_KW_class)) {
+        eat(p, TOK_KW_class);
+        kind = CLASS_KIND_CLASS;
+    } else if (at(p, TOK_KW_struct)) {
+        eat(p, TOK_KW_struct);
+        kind = CLASS_KIND_STRUCT;
+        is_seal = false;
+    } else if (at(p, TOK_KW_enum)) {
+        eat(p, TOK_KW_enum);
+        kind = CLASS_KIND_ENUM;
+        is_seal = false;
+    } else {
+        parser_set_error(p, peek(p, 0), "expected class/struct/enum");
+        return NULL;
+    }
     Tok *name_tok = eat(p, TOK_IDENT);
-    eat(p, TOK_LBRACE);
+    TokKind body_close = TOK_RBRACE;
+    if (kind == CLASS_KIND_CLASS) {
+        eat(p, TOK_LBRACE);
+    } else {
+        eat(p, TOK_EQ);
+        eat(p, TOK_LBRACK);
+        body_close = TOK_RBRACK;
+    }
 
     PtrVec fields = {0};
     PtrVec methods = {0};
     skip_semi(p);
-    while (!at(p, TOK_RBRACE) && p->ok) {
+    while (!at(p, body_close) && p->ok) {
         if (at(p, TOK_KW_pub) && peek(p, 1)->kind == TOK_KW_fun) {
             eat(p, TOK_KW_pub);
             FunDecl *fun = parse_fun_decl(p);
@@ -758,13 +796,14 @@ static Decl *parse_class(Parser *p) {
         }
         skip_semi(p);
     }
-    eat(p, TOK_RBRACE);
+    eat(p, body_close);
 
     Decl *decl = new_decl(p, DECL_CLASS, t);
     if (!decl) return NULL;
     decl->as.class_decl.name = name_tok->val.ident;
     decl->as.class_decl.vis = vis;
     decl->as.class_decl.is_seal = is_seal;
+    decl->as.class_decl.kind = kind;
     decl->as.class_decl.fields = (FieldDecl **)ptrvec_finalize(p, &fields);
     decl->as.class_decl.fields_len = fields.len;
     decl->as.class_decl.methods = (FunDecl **)ptrvec_finalize(p, &methods);
@@ -823,14 +862,33 @@ static Expr *parse_postfix(Parser *p) {
     Expr *x = parse_primary(p);
     while (p->ok) {
         if (at(p, TOK_LPAR)) {
-            size_t argc = 0;
-            Expr **args = parse_call_args(p, &argc);
-            Expr *call = new_expr(p, EXPR_CALL, peek(p, 0));
-            if (!call) return NULL;
-            call->as.call.fn = x;
-            call->as.call.args = args;
-            call->as.call.args_len = argc;
-            x = call;
+            CallArgs ca = parse_call_args(p);
+            if (!p->ok) return NULL;
+            if (ca.has_named) {
+                Str ctor_name = {0};
+                if (x && x->kind == EXPR_IDENT) {
+                    ctor_name = x->as.ident.name;
+                } else if (x && x->kind == EXPR_MEMBER && x->as.member.a && x->as.member.a->kind == EXPR_IDENT) {
+                    ctor_name = str_concat(p, x->as.member.a->as.ident.name, ".", x->as.member.name);
+                } else {
+                    parser_set_error(p, peek(p, 0), "named args are only supported for constructors");
+                    return NULL;
+                }
+                Expr *ctor = new_expr(p, EXPR_NEW, peek(p, 0));
+                if (!ctor) return NULL;
+                ctor->as.new_expr.name = ctor_name;
+                ctor->as.new_expr.args = ca.args;
+                ctor->as.new_expr.args_len = ca.len;
+                ctor->as.new_expr.arg_names = ca.names;
+                x = ctor;
+            } else {
+                Expr *call = new_expr(p, EXPR_CALL, peek(p, 0));
+                if (!call) return NULL;
+                call->as.call.fn = x;
+                call->as.call.args = ca.args;
+                call->as.call.args_len = ca.len;
+                x = call;
+            }
             continue;
         }
         if (at(p, TOK_LBRACK)) {
@@ -859,22 +917,128 @@ static Expr *parse_postfix(Parser *p) {
     return x;
 }
 
-static Expr **parse_call_args(Parser *p, size_t *out_len) {
+static CallArgs parse_call_args(Parser *p) {
+    CallArgs out = {0};
     eat(p, TOK_LPAR);
-    PtrVec args = {0};
+    PtrVec args = {0}, names = {0};
     if (!at(p, TOK_RPAR)) {
-        Expr *first = parse_expr(p, 0);
-        if (!p->ok) return NULL;
-        ptrvec_push(p, &args, first);
-        while (maybe(p, TOK_COMMA)) {
-            Expr *arg = parse_expr(p, 0);
-            if (!p->ok) return NULL;
+        while (true) {
+            Str name = {0};
+            Expr *arg = NULL;
+            if (at(p, TOK_IDENT) && peek(p, 1)->kind == TOK_COLON) {
+                Tok *n = eat(p, TOK_IDENT);
+                eat(p, TOK_COLON);
+                name = n->val.ident;
+                out.has_named = true;
+            }
+            arg = parse_expr(p, 0);
+            if (!p->ok) return out;
+            Str *name_slot = (Str *)ast_alloc(p->arena, sizeof(Str));
+            if (!name_slot) {
+                parser_set_oom(p);
+                return out;
+            }
+            *name_slot = name;
             ptrvec_push(p, &args, arg);
+            ptrvec_push(p, &names, name_slot);
+            if (!maybe(p, TOK_COMMA)) break;
         }
     }
     eat(p, TOK_RPAR);
-    if (out_len) *out_len = args.len;
-    return (Expr **)ptrvec_finalize(p, &args);
+    out.len = args.len;
+    out.args = (Expr **)ptrvec_finalize(p, &args);
+    if (out.len) {
+        Str *arr = (Str *)ast_alloc(p->arena, out.len * sizeof(Str));
+        if (!arr) {
+            parser_set_oom(p);
+            return out;
+        }
+        for (size_t i = 0; i < out.len; i++) {
+            Str *name_slot = (Str *)names.data[i];
+            arr[i] = name_slot ? *name_slot : (Str){0};
+        }
+        out.names = arr;
+    }
+    return out;
+}
+
+static Expr *parse_braced_expr(Parser *p) {
+    eat(p, TOK_LBRACE);
+    skip_semi(p);
+    Expr *x = parse_expr(p, 0);
+    if (!p->ok) return NULL;
+    skip_semi(p);
+    if (!at(p, TOK_RBRACE)) {
+        parser_set_error(p, peek(p, 0), "if-expression block must contain a single expression");
+        return NULL;
+    }
+    eat(p, TOK_RBRACE);
+    return x;
+}
+
+static Expr *parse_if_expr(Parser *p) {
+    Tok *t = eat(p, TOK_KW_if);
+    if (!p->ok) return NULL;
+    PtrVec arms = {0};
+    while (true) {
+        Expr *cond = NULL;
+        if (at(p, TOK_LPAR)) {
+            eat(p, TOK_LPAR);
+            cond = parse_expr(p, 0);
+            eat(p, TOK_RPAR);
+        } else {
+            cond = parse_expr(p, 0);
+        }
+        Expr *value = NULL;
+        if (at(p, TOK_COLON)) {
+            eat(p, TOK_COLON);
+            value = parse_expr(p, 0);
+        } else if (at(p, TOK_LBRACE)) {
+            value = parse_braced_expr(p);
+        } else {
+            value = parse_expr(p, 0);
+        }
+        ExprIfArm *arm = (ExprIfArm *)ast_alloc(p->arena, sizeof(ExprIfArm));
+        if (!arm) {
+            parser_set_oom(p);
+            return NULL;
+        }
+        arm->cond = cond;
+        arm->value = value;
+        ptrvec_push(p, &arms, arm);
+        if (at(p, TOK_KW_elif)) {
+            eat(p, TOK_KW_elif);
+            continue;
+        }
+        break;
+    }
+    if (!at(p, TOK_KW_else)) {
+        parser_set_error(p, peek(p, 0), "if expression requires else branch");
+        return NULL;
+    }
+    eat(p, TOK_KW_else);
+    Expr *else_value = NULL;
+    if (at(p, TOK_COLON)) {
+        eat(p, TOK_COLON);
+        else_value = parse_expr(p, 0);
+    } else if (at(p, TOK_LBRACE)) {
+        else_value = parse_braced_expr(p);
+    } else {
+        else_value = parse_expr(p, 0);
+    }
+    ExprIfArm *else_arm = (ExprIfArm *)ast_alloc(p->arena, sizeof(ExprIfArm));
+    if (!else_arm) {
+        parser_set_oom(p);
+        return NULL;
+    }
+    else_arm->cond = NULL;
+    else_arm->value = else_value;
+    ptrvec_push(p, &arms, else_arm);
+    Expr *e = new_expr(p, EXPR_IF, t);
+    if (!e) return NULL;
+    e->as.if_expr.arms = (ExprIfArm **)ptrvec_finalize(p, &arms);
+    e->as.if_expr.arms_len = arms.len;
+    return e;
 }
 
 static Expr *parse_primary(Parser *p) {
@@ -902,6 +1066,9 @@ static Expr *parse_primary(Parser *p) {
     }
     if (t->kind == TOK_KW_match) {
         return parse_match(p);
+    }
+    if (t->kind == TOK_KW_if) {
+        return parse_if_expr(p);
     }
     if (t->kind == TOK_KW_new) {
         return parse_new(p);
@@ -1181,14 +1348,19 @@ static Expr *parse_new(Parser *p) {
     }
     size_t args_len = 0;
     Expr **args = NULL;
+    Str *arg_names = NULL;
     if (at(p, TOK_LPAR)) {
-        args = parse_call_args(p, &args_len);
+        CallArgs ca = parse_call_args(p);
+        args = ca.args;
+        args_len = ca.len;
+        arg_names = ca.names;
     }
     Expr *e = new_expr(p, EXPR_NEW, t);
     if (!e) return NULL;
     e->as.new_expr.name = name;
     e->as.new_expr.args = args;
     e->as.new_expr.args_len = args_len;
+    e->as.new_expr.arg_names = arg_names;
     return e;
 }
 
@@ -1248,8 +1420,9 @@ Module *parse_module(Tok *toks, size_t len, const char *path, Arena *arena, Diag
             Decl *decl = parse_def_decl(&p);
             if (!p.ok) return NULL;
             ptrvec_push(&p, &decls, decl);
-        } else if (at(&p, TOK_KW_pub) || at(&p, TOK_KW_lock) || at(&p, TOK_KW_seal) || at(&p, TOK_KW_class)) {
-            Decl *decl = parse_class(&p);
+        } else if (at(&p, TOK_KW_pub) || at(&p, TOK_KW_lock) || at(&p, TOK_KW_seal) ||
+                   at(&p, TOK_KW_class) || at(&p, TOK_KW_struct) || at(&p, TOK_KW_enum)) {
+            Decl *decl = parse_nominal(&p);
             if (!p.ok) return NULL;
             ptrvec_push(&p, &decls, decl);
         } else {

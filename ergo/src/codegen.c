@@ -408,6 +408,10 @@ typedef struct {
 } ClassDeclEntry;
 
 typedef struct {
+    char *continue_label;
+} LoopCtx;
+
+typedef struct {
     Program *prog;
     GlobalEnv *env;
     Arena *arena;
@@ -447,6 +451,10 @@ typedef struct {
     ClassDeclEntry *class_decls;
     size_t class_decls_len;
     size_t class_decls_cap;
+
+    LoopCtx *loop_stack;
+    size_t loop_stack_len;
+    size_t loop_stack_cap;
 } Codegen;
 
 static char *codegen_c_class_name(Codegen *cg, Str qname) {
@@ -621,6 +629,30 @@ static void codegen_release_scope(Codegen *cg, LocalList locals) {
     free(locals.items);
 }
 
+static bool codegen_loop_push(Codegen *cg, char *continue_label) {
+    if (cg->loop_stack_len + 1 > cg->loop_stack_cap) {
+        size_t next = cg->loop_stack_cap ? cg->loop_stack_cap * 2 : 8;
+        LoopCtx *arr = (LoopCtx *)realloc(cg->loop_stack, next * sizeof(LoopCtx));
+        if (!arr) return false;
+        cg->loop_stack = arr;
+        cg->loop_stack_cap = next;
+    }
+    cg->loop_stack[cg->loop_stack_len].continue_label = continue_label;
+    cg->loop_stack_len++;
+    return true;
+}
+
+static void codegen_loop_pop(Codegen *cg) {
+    if (cg->loop_stack_len > 0) {
+        cg->loop_stack_len--;
+    }
+}
+
+static LoopCtx *codegen_loop_current(Codegen *cg) {
+    if (!cg || cg->loop_stack_len == 0) return NULL;
+    return &cg->loop_stack[cg->loop_stack_len - 1];
+}
+
 // -----------------
 // Env helpers
 // -----------------
@@ -742,6 +774,7 @@ static Ctx codegen_ctx_for(Codegen *cg, Str path) {
     ctx.imports_len = mi ? mi->imports_len : 0;
     ctx.has_current_class = cg->has_current_class;
     ctx.current_class = cg->current_class;
+    ctx.loop_depth = (int)cg->loop_stack_len;
     return ctx;
 }
 
@@ -998,6 +1031,13 @@ static void collect_expr(Codegen *cg, Expr *e, Str path, bool allow_funval) {
                 collect_expr(cg, e->as.new_expr.args[i], path, true);
             }
             break;
+        case EXPR_IF:
+            for (size_t i = 0; i < e->as.if_expr.arms_len; i++) {
+                ExprIfArm *arm = e->as.if_expr.arms[i];
+                if (arm->cond) collect_expr(cg, arm->cond, path, true);
+                collect_expr(cg, arm->value, path, true);
+            }
+            break;
         default:
             break;
     }
@@ -1034,6 +1074,9 @@ static void collect_stmt(Codegen *cg, Stmt *s, Str path) {
         case STMT_FOREACH:
             collect_expr(cg, s->as.foreach_s.expr, path, true);
             collect_stmt(cg, s->as.foreach_s.body, path);
+            break;
+        case STMT_BREAK:
+        case STMT_CONTINUE:
             break;
         case STMT_BLOCK:
             for (size_t i = 0; i < s->as.block_s.stmts_len; i++) {
@@ -1116,6 +1159,13 @@ static void fv_expr(Expr *e, StrVec *defined, StrVec *free_vars) {
         case EXPR_NEW:
             for (size_t i = 0; i < e->as.new_expr.args_len; i++) fv_expr(e->as.new_expr.args[i], defined, free_vars);
             break;
+        case EXPR_IF:
+            for (size_t i = 0; i < e->as.if_expr.arms_len; i++) {
+                ExprIfArm *arm = e->as.if_expr.arms[i];
+                if (arm->cond) fv_expr(arm->cond, defined, free_vars);
+                fv_expr(arm->value, defined, free_vars);
+            }
+            break;
         case EXPR_TERNARY:
             fv_expr(e->as.ternary.cond, defined, free_vars);
             fv_expr(e->as.ternary.then_expr, defined, free_vars);
@@ -1161,6 +1211,9 @@ static void fv_stmt(Stmt *s, StrVec *defined, StrVec *free_vars) {
             fv_expr(s->as.foreach_s.expr, defined, free_vars);
             VEC_PUSH(*defined, s->as.foreach_s.name);
             fv_stmt(s->as.foreach_s.body, defined, free_vars);
+            break;
+        case STMT_BREAK:
+        case STMT_CONTINUE:
             break;
         case STMT_BLOCK:
             for (size_t i = 0; i < s->as.block_s.stmts_len; i++) {
@@ -1661,15 +1714,57 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             w_line(&cg->w, "ErgoVal %s = EV_OBJ(%s);", t, obj_name);
 
             ClassInfo *ci = codegen_class_info(cg, qname);
+            MethodEntry *init = NULL;
             if (ci) {
-                MethodEntry *init = NULL;
                 for (size_t i = 0; i < ci->methods_len; i++) {
                     if (str_eq_c(ci->methods[i].name, "init")) {
                         init = &ci->methods[i];
                         break;
                     }
                 }
-                if (init) {
+            }
+            bool has_named = false;
+            for (size_t i = 0; i < e->as.new_expr.args_len; i++) {
+                if (e->as.new_expr.arg_names && e->as.new_expr.arg_names[i].len > 0) {
+                    has_named = true;
+                    break;
+                }
+            }
+            if (has_named) {
+                for (size_t i = 0; i < e->as.new_expr.args_len; i++) {
+                    Str aname = e->as.new_expr.arg_names[i];
+                    GenExpr ge;
+                    if (!gen_expr(cg, path, e->as.new_expr.args[i], &ge, err)) return false;
+                    bool found = false;
+                    for (size_t f = 0; f < decl->fields_len; f++) {
+                        FieldDecl *fd = decl->fields[f];
+                        if (str_eq(fd->name, aname)) {
+                            w_line(&cg->w, "ergo_move_into(&%s->%s, %s);", obj_name, codegen_c_field_name(cg, fd->name), ge.tmp);
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        gen_expr_free(&ge);
+                        return cg_set_errf(err, path, e->line, e->col, "unknown field '%.*s' in constructor", (int)aname.len, aname.data);
+                    }
+                    gen_expr_release_except(cg, &ge, ge.tmp);
+                    gen_expr_free(&ge);
+                }
+            } else if (!init && e->as.new_expr.args_len > 0 &&
+                       (decl->kind == CLASS_KIND_STRUCT || decl->kind == CLASS_KIND_ENUM)) {
+                if (e->as.new_expr.args_len != decl->fields_len) {
+                    return cg_set_errf(err, path, e->line, e->col, "'%.*s' expects %zu args", (int)decl->name.len, decl->name.data, decl->fields_len);
+                }
+                for (size_t i = 0; i < e->as.new_expr.args_len; i++) {
+                    GenExpr ge;
+                    if (!gen_expr(cg, path, e->as.new_expr.args[i], &ge, err)) return false;
+                    FieldDecl *fd = decl->fields[i];
+                    w_line(&cg->w, "ergo_move_into(&%s->%s, %s);", obj_name, codegen_c_field_name(cg, fd->name), ge.tmp);
+                    gen_expr_release_except(cg, &ge, ge.tmp);
+                    gen_expr_free(&ge);
+                }
+            } else if (init) {
                     VEC(char *) arg_ts = VEC_INIT;
                     for (size_t i = 0; i < e->as.new_expr.args_len; i++) {
                         GenExpr ge;
@@ -1694,7 +1789,39 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         w_line(&cg->w, "ergo_release_val(%s);", arg_ts.data[i]);
                     }
                     VEC_FREE(arg_ts);
+            }
+            gen_expr_add(out, t);
+            out->tmp = t;
+            return true;
+        }
+        case EXPR_IF: {
+            char *t = codegen_new_tmp(cg);
+            w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+            for (size_t i = 0; i < e->as.if_expr.arms_len; i++) {
+                ExprIfArm *arm = e->as.if_expr.arms[i];
+                if (arm->cond) {
+                    GenExpr cond;
+                    if (!gen_expr(cg, path, arm->cond, &cond, err)) return false;
+                    if (i == 0) {
+                        w_line(&cg->w, "if (ergo_as_bool(%s)) {", cond.tmp);
+                    } else {
+                        w_line(&cg->w, "else if (ergo_as_bool(%s)) {", cond.tmp);
+                    }
+                    w_line(&cg->w, "ergo_release_val(%s);", cond.tmp);
+                    gen_expr_release_except(cg, &cond, cond.tmp);
+                    gen_expr_free(&cond);
+                } else {
+                    if (i == 0) w_line(&cg->w, "{");
+                    else w_line(&cg->w, "else {");
                 }
+                cg->w.indent++;
+                GenExpr v;
+                if (!gen_expr(cg, path, arm->value, &v, err)) return false;
+                w_line(&cg->w, "ergo_move_into(&%s, %s);", t, v.tmp);
+                gen_expr_release_except(cg, &v, v.tmp);
+                gen_expr_free(&v);
+                cg->w.indent--;
+                w_line(&cg->w, "}");
             }
             gen_expr_add(out, t);
             out->tmp = t;
@@ -4735,12 +4862,29 @@ static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err) {
         case STMT_IF: {
             return gen_if_chain(cg, path, s->as.if_s.arms, 0, s->as.if_s.arms_len, ret_void, err);
         }
+        case STMT_BREAK: {
+            w_line(&cg->w, "break;");
+            return true;
+        }
+        case STMT_CONTINUE: {
+            LoopCtx *lc = codegen_loop_current(cg);
+            if (lc && lc->continue_label) {
+                w_line(&cg->w, "goto %s;", lc->continue_label);
+            } else {
+                w_line(&cg->w, "continue;");
+            }
+            return true;
+        }
         case STMT_FOR: {
             if (s->as.for_s.init) {
                 if (!gen_stmt(cg, path, s->as.for_s.init, ret_void, err)) return false;
             }
             w_line(&cg->w, "for (;;) {");
             cg->w.indent++;
+            char *cont_label = codegen_new_sym(cg, "for_continue");
+            if (!codegen_loop_push(cg, cont_label)) {
+                return cg_set_err(err, path, "out of memory");
+            }
             if (s->as.for_s.cond) {
                 GenExpr ct;
                 if (!gen_expr(cg, path, s->as.for_s.cond, &ct, err)) return false;
@@ -4764,6 +4908,7 @@ static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err) {
             }
             LocalList locals = codegen_pop_scope(cg);
             codegen_release_scope(cg, locals);
+            w_line(&cg->w, "%s: ;", cont_label);
             if (s->as.for_s.step) {
                 GenExpr st;
                 if (!gen_expr(cg, path, s->as.for_s.step, &st, err)) return false;
@@ -4771,6 +4916,7 @@ static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err) {
                 gen_expr_release_except(cg, &st, st.tmp);
                 gen_expr_free(&st);
             }
+            codegen_loop_pop(cg);
             cg->w.indent--;
             w_line(&cg->w, "}");
             return true;
@@ -4799,6 +4945,9 @@ static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err) {
             w_line(&cg->w, "int %s = stdr_len(%s);", len_name, it.tmp);
             w_line(&cg->w, "for (int %s = 0; %s < %s; %s++) {", idx_name, idx_name, len_name, idx_name);
             cg->w.indent++;
+            if (!codegen_loop_push(cg, NULL)) {
+                return cg_set_err(err, path, "out of memory");
+            }
             codegen_push_scope(cg);
 
             if (elem_ty->tag == TY_ARRAY) {
@@ -4816,6 +4965,7 @@ static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err) {
 
             LocalList inner_locals = codegen_pop_scope(cg);
             codegen_release_scope(cg, inner_locals);
+            codegen_loop_pop(cg);
             cg->w.indent--;
             w_line(&cg->w, "}");
 
@@ -4912,6 +5062,7 @@ static char *c_params(size_t count, bool leading_comma) {
 static bool gen_method(Codegen *cg, Str path, ClassDecl *cls, FunDecl *fn, Diag *err) {
     cg->scopes_len = 0;
     cg->scope_locals_len = 0;
+    cg->loop_stack_len = 0;
     locals_free(&cg->ty_loc);
     locals_init(&cg->ty_loc);
     codegen_push_scope(cg);
@@ -4994,6 +5145,7 @@ static bool gen_method(Codegen *cg, Str path, ClassDecl *cls, FunDecl *fn, Diag 
 static bool gen_fun(Codegen *cg, Str path, FunDecl *fn, Diag *err) {
     cg->scopes_len = 0;
     cg->scope_locals_len = 0;
+    cg->loop_stack_len = 0;
     locals_free(&cg->ty_loc);
     locals_init(&cg->ty_loc);
     codegen_push_scope(cg);
@@ -5054,6 +5206,7 @@ static bool gen_entry(Codegen *cg, Diag *err) {
 
     cg->scopes_len = 0;
     cg->scope_locals_len = 0;
+    cg->loop_stack_len = 0;
     locals_free(&cg->ty_loc);
     locals_init(&cg->ty_loc);
     codegen_push_scope(cg);
@@ -5147,6 +5300,7 @@ static void codegen_free(Codegen *cg) {
         free(cg->scope_locals[i].items);
     }
     free(cg->scope_locals);
+    free(cg->loop_stack);
     free(cg->lambdas);
     free(cg->funvals);
     free(cg->class_decls);

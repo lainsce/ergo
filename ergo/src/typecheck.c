@@ -347,7 +347,35 @@ static Expr *lower_expr(Arena *arena, Expr *e, Diag *err) {
             n->as.new_expr.name = e->as.new_expr.name;
             n->as.new_expr.args = args;
             n->as.new_expr.args_len = e->as.new_expr.args_len;
+            n->as.new_expr.arg_names = e->as.new_expr.arg_names;
             return n;
+        }
+        case EXPR_IF: {
+            size_t n = e->as.if_expr.arms_len;
+            ExprIfArm **arms = NULL;
+            if (n > 0) {
+                arms = (ExprIfArm **)arena_array(arena, n, sizeof(ExprIfArm *));
+                if (!arms) {
+                    set_err(err, "out of memory");
+                    return NULL;
+                }
+                for (size_t i = 0; i < n; i++) {
+                    ExprIfArm *src = e->as.if_expr.arms[i];
+                    ExprIfArm *arm = (ExprIfArm *)ast_alloc(arena, sizeof(ExprIfArm));
+                    if (!arm) {
+                        set_err(err, "out of memory");
+                        return NULL;
+                    }
+                    arm->cond = src->cond ? lower_expr(arena, src->cond, err) : NULL;
+                    arm->value = lower_expr(arena, src->value, err);
+                    arms[i] = arm;
+                }
+            }
+            Expr *ie = new_expr_like(arena, e, EXPR_IF, err);
+            if (!ie) return NULL;
+            ie->as.if_expr.arms = arms;
+            ie->as.if_expr.arms_len = n;
+            return ie;
         }
         case EXPR_TERNARY: {
             Expr *c = lower_expr(arena, e->as.ternary.cond, err);
@@ -407,6 +435,10 @@ static Stmt *lower_stmt(Arena *arena, Stmt *s, Diag *err) {
             out->as.ret_s.expr = s->as.ret_s.expr ? lower_expr(arena, s->as.ret_s.expr, err) : NULL;
             return out;
         }
+        case STMT_BREAK:
+            return new_stmt_like(arena, s, STMT_BREAK, err);
+        case STMT_CONTINUE:
+            return new_stmt_like(arena, s, STMT_CONTINUE, err);
         case STMT_EXPR: {
             Stmt *out = new_stmt_like(arena, s, STMT_EXPR, err);
             if (!out) return NULL;
@@ -1681,6 +1713,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
             ci->qname = qname;
             ci->vis = d->as.class_decl.vis;
             ci->is_seal = d->as.class_decl.is_seal;
+            ci->kind = d->as.class_decl.kind;
             ci->module_path = m->path;
         }
     }
@@ -2641,6 +2674,29 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
             tc_stmt_inner(e->as.block_expr.block, ctx, loc, env, ret_ty, err);
             return ret_ty;
         }
+        case EXPR_IF: {
+            Ty *arm_ty = NULL;
+            bool saw_else = false;
+            for (size_t i = 0; i < e->as.if_expr.arms_len; i++) {
+                ExprIfArm *arm = e->as.if_expr.arms[i];
+                if (arm->cond) {
+                    Ty *ct = tc_expr_inner(arm->cond, ctx, loc, env, err);
+                    if (ty_is_void(ct)) {
+                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: if condition cannot be void", (int)ctx->module_path.len, ctx->module_path.data);
+                        return NULL;
+                    }
+                } else {
+                    saw_else = true;
+                }
+                Ty *vt = tc_expr_inner(arm->value, ctx, loc, env, err);
+                arm_ty = arm_ty ? unify(env->arena, arm_ty, vt, ctx->module_path, "if expression", NULL, err) : vt;
+            }
+            if (!saw_else) {
+                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: if expression requires else branch", (int)ctx->module_path.len, ctx->module_path.data);
+                return NULL;
+            }
+            return arm_ty ? arm_ty : ty_null(env->arena);
+        }
         case EXPR_NEW: {
             Str name = e->as.new_expr.name;
             Str qname = name;
@@ -2669,6 +2725,52 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                     break;
                 }
             }
+
+            bool has_named = false;
+            bool has_positional = false;
+            for (size_t i = 0; i < e->as.new_expr.args_len; i++) {
+                bool named = e->as.new_expr.arg_names && e->as.new_expr.arg_names[i].len > 0;
+                if (named) has_named = true;
+                else has_positional = true;
+            }
+            if (has_named && has_positional) {
+                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: constructor cannot mix named and positional args", (int)ctx->module_path.len, ctx->module_path.data);
+                return NULL;
+            }
+
+            if (has_named) {
+                bool *seen = ci->fields_len ? (bool *)calloc(ci->fields_len, sizeof(bool)) : NULL;
+                if (ci->fields_len && !seen) {
+                    set_err(err, "out of memory");
+                    return NULL;
+                }
+                for (size_t i = 0; i < e->as.new_expr.args_len; i++) {
+                    Str aname = e->as.new_expr.arg_names[i];
+                    size_t fidx = ci->fields_len;
+                    for (size_t f = 0; f < ci->fields_len; f++) {
+                        if (str_eq(ci->fields[f].name, aname)) {
+                            fidx = f;
+                            break;
+                        }
+                    }
+                    if (fidx == ci->fields_len) {
+                        free(seen);
+                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: unknown field '%.*s' in constructor", (int)ctx->module_path.len, ctx->module_path.data, (int)aname.len, aname.data);
+                        return NULL;
+                    }
+                    if (seen[fidx]) {
+                        free(seen);
+                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: duplicate field '%.*s' in constructor", (int)ctx->module_path.len, ctx->module_path.data, (int)aname.len, aname.data);
+                        return NULL;
+                    }
+                    seen[fidx] = true;
+                    Ty *at = tc_expr_inner(e->as.new_expr.args[i], ctx, loc, env, err);
+                    ensure_assignable(env->arena, ci->fields[fidx].ty, at, ctx->module_path, "field init", err);
+                }
+                free(seen);
+                return ty_class(env->arena, qname);
+            }
+
             if (init) {
                 FunSig *sig = init->sig;
                 if (e->as.new_expr.args_len != sig->params_len) {
@@ -2685,6 +2787,15 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                 if (!ty_is_void(sig->ret)) {
                     set_errf(err, ctx->module_path, e->line, e->col, "%.*s: '%.*s.init' must return void", (int)ctx->module_path.len, ctx->module_path.data, (int)ci->name.len, ci->name.data);
                     return NULL;
+                }
+            } else if ((ci->kind == CLASS_KIND_STRUCT || ci->kind == CLASS_KIND_ENUM) && e->as.new_expr.args_len > 0) {
+                if (e->as.new_expr.args_len != ci->fields_len) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: '%.*s' expects %zu args", (int)ctx->module_path.len, ctx->module_path.data, (int)ci->name.len, ci->name.data, ci->fields_len);
+                    return NULL;
+                }
+                for (size_t i = 0; i < e->as.new_expr.args_len; i++) {
+                    Ty *at = tc_expr_inner(e->as.new_expr.args[i], ctx, loc, env, err);
+                    ensure_assignable(env->arena, ci->fields[i].ty, at, ctx->module_path, "field init", err);
                 }
             } else if (e->as.new_expr.args_len > 0) {
                 set_errf(err, ctx->module_path, e->line, e->col, "%.*s: class '%.*s' has no init method", (int)ctx->module_path.len, ctx->module_path.data, (int)ci->name.len, ci->name.data);
@@ -2780,6 +2891,16 @@ static void tc_stmt_inner(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *re
             }
             return;
         }
+        case STMT_BREAK:
+            if (ctx->loop_depth <= 0) {
+                set_errf(err, ctx->module_path, s->line, s->col, "%.*s: break used outside loop", (int)ctx->module_path.len, ctx->module_path.data);
+            }
+            return;
+        case STMT_CONTINUE:
+            if (ctx->loop_depth <= 0) {
+                set_errf(err, ctx->module_path, s->line, s->col, "%.*s: continue used outside loop", (int)ctx->module_path.len, ctx->module_path.data);
+            }
+            return;
         case STMT_FOR: {
             locals_push(loc);
             if (s->as.for_s.init) {
@@ -2794,7 +2915,9 @@ static void tc_stmt_inner(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *re
             if (s->as.for_s.step) {
                 tc_expr_inner(s->as.for_s.step, ctx, loc, env, err);
             }
+            ctx->loop_depth++;
             tc_stmt_inner(s->as.for_s.body, ctx, loc, env, ret_ty, err);
+            ctx->loop_depth--;
             locals_pop(loc);
             return;
         }
@@ -2813,7 +2936,9 @@ static void tc_stmt_inner(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *re
             locals_push(loc);
             Binding b = { elem, false, false };
             locals_define(loc, s->as.foreach_s.name, b);
+            ctx->loop_depth++;
             tc_stmt_inner(s->as.foreach_s.body, ctx, loc, env, ret_ty, err);
+            ctx->loop_depth--;
             locals_pop(loc);
             return;
         }
@@ -2837,6 +2962,7 @@ Ty *tc_expr(Expr *e, GlobalEnv *env, Str module_path, Str module_name, Str *impo
     ctx.imports = imports;
     ctx.imports_len = imports_len;
     ctx.has_current_class = false;
+    ctx.loop_depth = 0;
     Locals loc;
     locals_init(&loc);
     Ty *t = tc_expr_inner(e, &ctx, &loc, env, err);
@@ -2880,6 +3006,7 @@ bool typecheck_program(Program *prog, Arena *arena, Diag *err) {
                 ctx.imports = imports;
                 ctx.imports_len = imports_len;
                 ctx.has_current_class = false;
+                ctx.loop_depth = 0;
                 for (size_t p = 0; p < d->as.fun.params_len; p++) {
                     Param *pp = d->as.fun.params[p];
                     Ty *pty = ty_from_type_ref(env, pp->typ, mod_name, imports, imports_len, err);
@@ -2920,6 +3047,7 @@ bool typecheck_program(Program *prog, Arena *arena, Diag *err) {
                     ctx.imports_len = imports_len;
                     ctx.has_current_class = true;
                     ctx.current_class = ci->qname;
+                    ctx.loop_depth = 0;
                     // receiver
                     Ty *self_ty = ty_class(env->arena, ci->qname);
                     Binding self_b = { self_ty, md->params[0]->is_mut, false };
@@ -2941,6 +3069,7 @@ bool typecheck_program(Program *prog, Arena *arena, Diag *err) {
                 ctx.imports = imports;
                 ctx.imports_len = imports_len;
                 ctx.has_current_class = false;
+                ctx.loop_depth = 0;
                 Ty *ret_ty = d->as.entry.ret.is_void ? ty_void(env->arena) : NULL;
                 if (!d->as.entry.ret.is_void) {
                     if (d->as.entry.ret.types_len == 1) {

@@ -15,6 +15,18 @@ class Point {
     }
 }
 
+struct Color = [
+    r = num
+    g = num
+    b = num
+    a = num
+]
+
+enum Result = [
+    tag = string
+    value = any
+]
+
 fun feature_smoke() (( -- )) {
     let p = new Point(2, 3)
     let s = p.sum()
@@ -32,7 +44,20 @@ fun feature_smoke() (( -- )) {
     let s = math.sin(math.PI / 2.0)
     writef(@"sin(pi/2)={}\n", s)
 
-    for (let ?i = 0; i < 3; i += 1) {
+    let title = if s > 0.0 { @"positive" } else { @"non-positive" }
+    writef(@"title={}\n", title)
+
+    let c = Color(r: 1, g: 0, b: 0, a: 1)
+    let r = Result(tag: @"ok", value: c.r)
+    writef(@"result={} {}\n", r.tag, r.value)
+
+    for (let ?i = 0; i < 5; i += 1) {
+        if i == 1 {
+            continue
+        }
+        if i == 4 {
+            break
+        }
         writef(@"i={}\n", i)
     }
 

@@ -20,7 +20,10 @@ fun _wrap_angle(x = num) (( num )) {
   let pi = math.PI
   let two_pi = pi + pi
   let ?y = x
-  for (let ?i = 0; i < 128 && (y > pi || y < -pi); i += 1) {
+  for (let ?i = 0; i < 128; i += 1) {
+    if !(y > pi || y < -pi) {
+      break
+    }
     if y > pi {
       y -= two_pi
     } elif y < -pi {
@@ -102,7 +105,10 @@ fun sqrt(x = num) (( num )) {
     guess = x
   }
   let eps = 0.000000000001
-  for (let ?i = 0; i < 30 && abs(guess * guess - x) > eps; i += 1) {
+  for (let ?i = 0; i < 30; i += 1) {
+    if !(abs(guess * guess - x) > eps) {
+      break
+    }
     guess = 0.5 * (guess + x / guess)
   }
   return guess
@@ -110,27 +116,15 @@ fun sqrt(x = num) (( num )) {
 
 -- Absolute value
 fun abs(x = num) (( num )) {
-  if x < 0.0 {
-    return -x
-  } else {
-    return x
-  }
+  return if x < 0.0 { -x } else { x }
 }
 
 -- Minimum of two floats
 fun min(a = num, b = num) (( num )) {
-  if a < b {
-    return a
-  } else {
-    return b
-  }
+  return if a < b { a } else { b }
 }
 
 -- Maximum of two floats
 fun max(a = num, b = num) (( num )) {
-  if a > b {
-    return a
-  } else {
-    return b
-  }
+  return if a > b { a } else { b }
 }

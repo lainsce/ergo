@@ -49,15 +49,8 @@ fun set_status(text = string) (( -- )) {
 }
 
 fun refresh_header() (( -- )) {
-    let ?name = @"Untitled.txt"
-    if current_path != @"" {
-        name = basename(current_path)
-    }
-    if is_dirty {
-        title_text = @"$name *"
-    } else {
-        title_text = name
-    }
+    let name = if current_path != @"" { basename(current_path) } else { @"Untitled.txt" }
+    title_text = if is_dirty { @"$name *" } else { name }
     bar.set_title(title_text)
 }
 
@@ -76,10 +69,7 @@ fun new_document() (( -- )) {
 }
 
 fun default_save_name() (( string )) {
-    if current_path == @"" {
-        return @"Untitled.txt"
-    }
-    return current_path
+    return if current_path == @"" { @"Untitled.txt" } else { current_path }
 }
 
 fun show_open_dialog() (( -- )) {

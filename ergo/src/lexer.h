@@ -57,6 +57,8 @@ typedef enum {
     TOK_KW_fun,
     TOK_KW_entry,
     TOK_KW_class,
+    TOK_KW_struct,
+    TOK_KW_enum,
     TOK_KW_pub,
     TOK_KW_lock,
     TOK_KW_seal,
@@ -73,7 +75,9 @@ typedef enum {
     TOK_KW_for,
     TOK_KW_match,
     TOK_KW_new,
-    TOK_KW_in
+    TOK_KW_in,
+    TOK_KW_break,
+    TOK_KW_continue
 } TokKind;
 
 const char *tok_kind_name(TokKind kind);

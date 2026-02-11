@@ -65,6 +65,7 @@ typedef struct {
     size_t imports_len;
     Str current_class;
     bool has_current_class;
+    int loop_depth;
 } Ctx;
 
 typedef struct {
@@ -131,6 +132,7 @@ typedef struct {
     Str qname;
     Str vis;
     bool is_seal;
+    ClassKind kind;
     Str module_path;
     FieldEntry *fields;
     size_t fields_len;

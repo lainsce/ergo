@@ -228,6 +228,14 @@ static void program_find_cogito_appid_expr(Expr *e, char *out, size_t out_cap, b
                 program_find_cogito_appid_expr(e->as.new_expr.args[i], out, out_cap, found);
             }
             break;
+        case EXPR_IF:
+            for (size_t i = 0; i < e->as.if_expr.arms_len; i++) {
+                ExprIfArm *arm = e->as.if_expr.arms[i];
+                if (!arm) continue;
+                program_find_cogito_appid_expr(arm->cond, out, out_cap, found);
+                program_find_cogito_appid_expr(arm->value, out, out_cap, found);
+            }
+            break;
         case EXPR_TERNARY:
             program_find_cogito_appid_expr(e->as.ternary.cond, out, out_cap, found);
             program_find_cogito_appid_expr(e->as.ternary.then_expr, out, out_cap, found);
@@ -285,6 +293,9 @@ static void program_find_cogito_appid_stmt(Stmt *s, char *out, size_t out_cap, b
             break;
         case STMT_RETURN:
             program_find_cogito_appid_expr(s->as.ret_s.expr, out, out_cap, found);
+            break;
+        case STMT_BREAK:
+        case STMT_CONTINUE:
             break;
         case STMT_EXPR:
             program_find_cogito_appid_expr(s->as.expr_s.expr, out, out_cap, found);

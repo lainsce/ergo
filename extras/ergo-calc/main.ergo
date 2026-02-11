@@ -20,19 +20,12 @@ fun clear_expression() (( -- )) {
 }
 
 fun set_expression(lhs_text = string, op_text = string, rhs_text = string, show_equals = bool) (( -- )) {
-    if rhs_text == @"" {
-        if show_equals {
-            display_expression.set_text(@"$lhs_text $op_text =")
-        } else {
-            display_expression.set_text(@"$lhs_text $op_text")
-        }
+    let text = if rhs_text == @"" {
+        if show_equals { @"$lhs_text $op_text =" } else { @"$lhs_text $op_text" }
     } else {
-        if show_equals {
-            display_expression.set_text(@"$lhs_text $op_text $rhs_text =")
-        } else {
-            display_expression.set_text(@"$lhs_text $op_text $rhs_text")
-        }
+        if show_equals { @"$lhs_text $op_text $rhs_text =" } else { @"$lhs_text $op_text $rhs_text" }
     }
+    display_expression.set_text(text)
 }
 
 fun clear_all() (( -- )) {
@@ -66,15 +59,14 @@ fun commit_pending(show_equals = bool) (( -- )) {
         return
     }
 
-    let ?result = 0.0
-    if op == @"+" {
-        result = lhs + rhs
+    let result = if op == @"+" {
+        lhs + rhs
     } elif op == @"-" {
-        result = lhs - rhs
+        lhs - rhs
     } elif op == @"*" {
-        result = lhs * rhs
+        lhs * rhs
     } else {
-        result = lhs / rhs
+        lhs / rhs
     }
 
     current_value = result

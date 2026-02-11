@@ -64,6 +64,7 @@ typedef enum {
     EXPR_LAMBDA,
     EXPR_BLOCK,
     EXPR_NEW,
+    EXPR_IF,
     EXPR_TERNARY,
     EXPR_MOVE
 } ExprKind;
@@ -172,7 +173,18 @@ typedef struct {
     Str name;
     Expr **args;
     size_t args_len;
+    Str *arg_names;
 } ExprNew;
+
+typedef struct {
+    Expr *cond;
+    Expr *value;
+} ExprIfArm;
+
+typedef struct {
+    ExprIfArm **arms;
+    size_t arms_len;
+} ExprIf;
 
 typedef struct {
     Expr *cond;
@@ -207,6 +219,7 @@ struct Expr {
         ExprLambda lambda;
         ExprBlock block_expr;
         ExprNew new_expr;
+        ExprIf if_expr;
         ExprTernary ternary;
         ExprMove move;
     } as;
@@ -243,6 +256,8 @@ typedef enum {
     STMT_IF,
     STMT_FOR,
     STMT_FOREACH,
+    STMT_BREAK,
+    STMT_CONTINUE,
     STMT_RETURN,
     STMT_EXPR,
     STMT_BLOCK
@@ -352,10 +367,17 @@ typedef struct {
     TypeRef *typ;
 } FieldDecl;
 
+typedef enum {
+    CLASS_KIND_CLASS,
+    CLASS_KIND_STRUCT,
+    CLASS_KIND_ENUM
+} ClassKind;
+
 typedef struct {
     Str name;
     Str vis;
     bool is_seal;
+    ClassKind kind;
     FieldDecl **fields;
     size_t fields_len;
     FunDecl **methods;
