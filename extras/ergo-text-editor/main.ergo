@@ -11,20 +11,16 @@ def ?is_dirty = false
 
 fun is_txt_path(path = string) (( bool )) {
     let n = len(path)
-    if n < 4 {
+    if n < 4 || path[n - 4] != @"." {
         return false
     }
-    let d = path[n - 4]
     let c1 = path[n - 3]
     let c2 = path[n - 2]
     let c3 = path[n - 1]
-    if d != @"." {
-        return false
-    }
-    let t_ok = c1 == @"t" || c1 == @"T"
-    let x_ok = c2 == @"x" || c2 == @"X"
-    let t2_ok = c3 == @"t" || c3 == @"T"
-    return t_ok && x_ok && t2_ok
+    -- .txt or .TXT (retro)
+    return (c1 == @"t" || c1 == @"T") &&
+           (c2 == @"x" || c2 == @"X") &&
+           (c3 == @"t" || c3 == @"T")
 }
 
 fun basename(path = string) (( string )) {
