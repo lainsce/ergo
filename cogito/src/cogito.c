@@ -6,6 +6,10 @@
 #include <math.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <stdlib.h>
+#include <string.h>
+#include "cogito.h"
+
 #if defined(__APPLE__)
 #include <CoreGraphics/CoreGraphics.h>
 #endif
@@ -27,9 +31,6 @@ static const char* cogito_font_bold_path_active = NULL;
 #define ergo_arr_new cogito_compat_arr_new
 #define ergo_arr_set cogito_compat_arr_set
 #define ergo_arr_get cogito_compat_arr_get
-
-#include <stdlib.h>
-#include <string.h>
 
 // Rename internal Ergo-facing symbols to avoid conflicts with public C API.
 #define cogito_app_new cogito_app_new_ergo
@@ -181,9 +182,6 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_dialog_close cogito_dialog_close_ergo
 #define cogito_dialog_remove cogito_dialog_remove_ergo
 #define cogito_node_parent cogito_node_parent_ergo
-
-// Public C API declarations (must be included before internal engine).
-#include "cogito.h"
 
 // Internal engine (same order as previous runtime include).
 #include "../c/00_core.inc"
