@@ -279,7 +279,11 @@ static Pat *new_pat(Parser *p, PatKind kind, Tok *t) {
 
 static int prec_of(TokKind kind) {
     switch (kind) {
-        case TOK_EQ: return 1;
+        case TOK_EQ:
+        case TOK_PLUSEQ:
+        case TOK_MINUSEQ:
+        case TOK_STAREQ:
+        case TOK_SLASHEQ: return 1;
         case TOK_OROR: return 2;
         case TOK_ANDAND: return 3;
         case TOK_EQEQ:
@@ -294,6 +298,19 @@ static int prec_of(TokKind kind) {
         case TOK_SLASH:
         case TOK_PERCENT: return 7;
         default: return -1;
+    }
+}
+
+static bool is_assign_op(TokKind kind) {
+    switch (kind) {
+        case TOK_EQ:
+        case TOK_PLUSEQ:
+        case TOK_MINUSEQ:
+        case TOK_STAREQ:
+        case TOK_SLASHEQ:
+            return true;
+        default:
+            return false;
     }
 }
 
@@ -765,12 +782,13 @@ static Expr *parse_expr(Parser *p, int min_prec) {
         }
         TokKind op = t->kind;
         eat(p, op);
-        int next_min = prec + (op == TOK_EQ ? 0 : 1);
+        int next_min = prec + (is_assign_op(op) ? 0 : 1);
         Expr *rhs = parse_expr(p, next_min);
         if (!p->ok) return NULL;
-        if (op == TOK_EQ) {
+        if (is_assign_op(op)) {
             Expr *assign = new_expr(p, EXPR_ASSIGN, t);
             if (!assign) return NULL;
+            assign->as.assign.op = op;
             assign->as.assign.target = x;
             assign->as.assign.value = rhs;
             x = assign;

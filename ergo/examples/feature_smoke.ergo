@@ -32,7 +32,7 @@ fun feature_smoke() (( -- )) {
     let s = math.sin(math.PI / 2.0)
     writef(@"sin(pi/2)={}\n", s)
 
-    for (let ?i = 0; i < 3; i = i + 1) {
+    for (let ?i = 0; i < 3; i += 1) {
         writef(@"i={}\n", i)
     }
 

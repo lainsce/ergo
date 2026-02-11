@@ -18,7 +18,7 @@ case COGITO_ICONBTN: {
       }
       CogitoColor bg = n->bg;
       CogitoColor border = n->border_color;
-      CogitoColor icon_color = s.has_text ? s.text : n->text_color;
+      CogitoColor icon_color = n->text_color;
       int border_w = n->border_width;
       int radius = n->border_radius;
       if (s.has_bg) bg = s.bg;
@@ -43,8 +43,9 @@ case COGITO_ICONBTN: {
 	        int min_dim = n->w < n->h ? n->w : n->h;
 	        if (min_dim > 0) radius = min_dim / 2;
 	      }
-      cogito_anim_apply(n, &s, &bg, &icon_color, &border, NULL);
-      if (cogito_has_selection_text) icon_color = cogito_selection_text;
+	      if (s.has_text) icon_color = s.text;
+	      else if (cogito_has_selection_text) icon_color = cogito_selection_text;
+	      cogito_anim_apply(n, &s, &bg, &icon_color, &border, NULL);
 	      if (n->bg_set || border_w > 0) {
 	        if (n->shadow_set && n->shadow_level > 0) {
 	          cogito_draw_shadow_node_level(n, &s, n->x, n->y, n->w, n->h, radius, n->shadow_level);

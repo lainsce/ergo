@@ -112,6 +112,7 @@ typedef struct {
 } ExprBinary;
 
 typedef struct {
+    TokKind op;
     Expr *target;
     Expr *value;
 } ExprAssign;

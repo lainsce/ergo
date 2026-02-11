@@ -240,6 +240,7 @@ static Expr *lower_expr(Arena *arena, Expr *e, Diag *err) {
             Expr *v = lower_expr(arena, e->as.assign.value, err);
             Expr *a = new_expr_like(arena, e, EXPR_ASSIGN, err);
             if (!a) return NULL;
+            a->as.assign.op = e->as.assign.op;
             a->as.assign.target = t;
             a->as.assign.value = v;
             return a;
@@ -1952,6 +1953,50 @@ static Ty *numeric_result(Arena *arena, Ty *a, Ty *b, Str path, int line, int co
     return ty_prim(arena, "num");
 }
 
+static bool is_assign_op(TokKind op) {
+    switch (op) {
+        case TOK_EQ:
+        case TOK_PLUSEQ:
+        case TOK_MINUSEQ:
+        case TOK_STAREQ:
+        case TOK_SLASHEQ:
+            return true;
+        default:
+            return false;
+    }
+}
+
+static bool is_compound_assign_op(TokKind op) {
+    switch (op) {
+        case TOK_PLUSEQ:
+        case TOK_MINUSEQ:
+        case TOK_STAREQ:
+        case TOK_SLASHEQ:
+            return true;
+        default:
+            return false;
+    }
+}
+
+static Ty *tc_assignment_result(Arena *arena, Ty *lhs, Ty *rhs, TokKind op, Str path, int line, int col, Diag *err) {
+    if (!lhs || !rhs) {
+        return NULL;
+    }
+    if (!is_compound_assign_op(op)) {
+        ensure_assignable(arena, lhs, rhs, path, "assignment", err);
+        return unify(arena, lhs, rhs, path, "assignment", NULL, err);
+    }
+    if (ty_is_nullable(lhs) || ty_is_nullable(rhs)) {
+        set_errf(err, path, line, col, "operator on nullable value");
+        return NULL;
+    }
+    Ty *nr = numeric_result(arena, ty_strip_nullable(lhs), ty_strip_nullable(rhs), path, line, col, tok_kind_name(op), err);
+    if (!nr) {
+        return NULL;
+    }
+    return unify(arena, lhs, nr, path, tok_kind_name(op), NULL, err);
+}
+
 static Ty *tc_call(Expr *call_expr, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *err) {
     Expr *fn = call_expr->as.call.fn;
     size_t argc = call_expr->as.call.args_len;
@@ -2392,6 +2437,7 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
             return NULL;
         }
         case EXPR_ASSIGN: {
+            TokKind op = is_assign_op(e->as.assign.op) ? e->as.assign.op : TOK_EQ;
             if (e->as.assign.target->kind == EXPR_IDENT) {
                 Binding *b = locals_lookup(loc, e->as.assign.target->as.ident.name);
                 if (b) {
@@ -2404,8 +2450,10 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                         return NULL;
                     }
                     Ty *tv = tc_expr_inner(e->as.assign.value, ctx, loc, env, err);
-                    ensure_assignable(env->arena, b->ty, tv, ctx->module_path, "assignment", err);
-                    Ty *new_ty = unify(env->arena, b->ty, tv, ctx->module_path, "assignment", NULL, err);
+                    Ty *new_ty = tc_assignment_result(env->arena, b->ty, tv, op, ctx->module_path, e->line, e->col, err);
+                    if (!new_ty) {
+                        return NULL;
+                    }
                     b->ty = new_ty;
                     return new_ty;
                 }
@@ -2421,8 +2469,7 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                         return NULL;
                     }
                     Ty *tv = tc_expr_inner(e->as.assign.value, ctx, loc, env, err);
-                    ensure_assignable(env->arena, gv->ty, tv, ctx->module_path, "assignment", err);
-                    return unify(env->arena, gv->ty, tv, ctx->module_path, "assignment", NULL, err);
+                    return tc_assignment_result(env->arena, gv->ty, tv, op, ctx->module_path, e->line, e->col, err);
                 }
                 set_errf(err, ctx->module_path, e->line, e->col, "%.*s: assign to unknown '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
                 return NULL;
@@ -2435,8 +2482,7 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                 }
                 Ty *tt = tc_expr_inner(e->as.assign.target, ctx, loc, env, err);
                 Ty *tv = tc_expr_inner(e->as.assign.value, ctx, loc, env, err);
-                ensure_assignable(env->arena, tt, tv, ctx->module_path, "assignment", err);
-                return unify(env->arena, tt, tv, ctx->module_path, "assignment", NULL, err);
+                return tc_assignment_result(env->arena, tt, tv, op, ctx->module_path, e->line, e->col, err);
             }
             set_errf(err, ctx->module_path, e->line, e->col, "%.*s: invalid assignment target", (int)ctx->module_path.len, ctx->module_path.data);
             return NULL;

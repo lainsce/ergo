@@ -3,7 +3,7 @@ bring stdr
 -- Ergo Example: FizzBuzz
 
 fun fizzbuzz(n = num) (( -- )) {
-    for (let ?i = 1; i <= n; i = i + 1) {
+    for (let ?i = 1; i <= n; i += 1) {
         let ?flag = false
         if i % 3 == 0 {
             write(@"Fizz")

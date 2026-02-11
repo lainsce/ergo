@@ -20,11 +20,11 @@ fun _wrap_angle(x = num) (( num )) {
   let pi = math.PI
   let two_pi = pi + pi
   let ?y = x
-  for (let ?i = 0; i < 128 && (y > pi || y < -pi); i = i + 1) {
+  for (let ?i = 0; i < 128 && (y > pi || y < -pi); i += 1) {
     if y > pi {
-      y = y - two_pi
+      y -= two_pi
     } elif y < -pi {
-      y = y + two_pi
+      y += two_pi
     }
   }
   return y
@@ -35,9 +35,9 @@ fun _sin_taylor(x = num) (( num )) {
   let x2 = x * x
   let ?term = x
   let ?sum = x
-  for (let ?i = 0; i < 7; i = i + 1) {
+  for (let ?i = 0; i < 7; i += 1) {
     term = -term * x2 / ((2.0 * i + 2.0) * (2.0 * i + 3.0))
-    sum = sum + term
+    sum += term
   }
   return sum
 }
@@ -47,9 +47,9 @@ fun _cos_taylor(x = num) (( num )) {
   let x2 = x * x
   let ?term = 1.0
   let ?sum = 1.0
-  for (let ?i = 0; i < 7; i = i + 1) {
+  for (let ?i = 0; i < 7; i += 1) {
     term = -term * x2 / ((2.0 * i + 1.0) * (2.0 * i + 2.0))
-    sum = sum + term
+    sum += term
   }
   return sum
 }
@@ -102,7 +102,7 @@ fun sqrt(x = num) (( num )) {
     guess = x
   }
   let eps = 0.000000000001
-  for (let ?i = 0; i < 30 && abs(guess * guess - x) > eps; i = i + 1) {
+  for (let ?i = 0; i < 30 && abs(guess * guess - x) > eps; i += 1) {
     guess = 0.5 * (guess + x / guess)
   }
   return guess

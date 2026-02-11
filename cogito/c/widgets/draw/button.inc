@@ -26,8 +26,8 @@ case COGITO_BUTTON: {
       if (s.has_border_width) border_w = s.border_width;
       if (s.has_radius) radius = s.radius;
       // Animate colors
-      if (cogito_has_selection_text) text = cogito_selection_text;
-      else if (s.has_text) text = s.text;
+      if (s.has_text) text = s.text;
+      else if (cogito_has_selection_text) text = cogito_selection_text;
       cogito_anim_apply(n, &s, &bg, &text, &border, NULL);
       if (n->bg_set || border_w > 0) {
         if (n->shadow_set && n->shadow_level > 0) {

@@ -10,7 +10,7 @@ window
 vstack
 hstack
 zstack
-  background: transparent
+  background: #ffffff00
   color: #2D2D2D
 
 appbar
@@ -22,13 +22,14 @@ appbar
 appbar .iconbtn
   background: #D7C5E9
   color: #8C56BF
-  border-radius: 10
+  border-radius: 21
 
 appbar .iconbtn:hover
-  background: #D7C5E9
+  background: #F1EAF7
 
 appbar .iconbtn:active
-  background: #D7C5E9
+  background: #BEA0DB
+  border-radius: 10
 
 vstack.calc-root
   padding: 18 18 18 18
@@ -40,14 +41,14 @@ vstack.calc-display
 
 label.calc-display-working
   color: #2D2D2D
-  background: transparent
+  background: #ffffff00
   font-size: 34
   padding: 6 18
   font-variant-numeric: tabular-nums
 
 label.calc-display-expression
   color: #6A6A6A
-  background: transparent
+  background: #ffffff00
   font-size: 18
   padding: 6 18
   font-variant-numeric: tabular-nums
@@ -69,24 +70,28 @@ label.calc-spacer
   color: #00000000
 
 button:hover
-  background: #D7C5E9
+  background: #F1EAF7
+  color: #8C56BF
 
 button:active
-  background: #D7C5E9
+  background: #BEA0DB
+  color: #8C56BF
   border-radius: 21
 
 button.outlined
-  background: transparent
+  background: #ffffff00
   color: #8C56BF
   border-radius: 10
   border: 1 solid #D7C5E9
 
 button.outlined:hover
-  background: #D7C5E9
-  border-color: #D7C5E9
+  background: #F1EAF7
+  color: #8C56BF
+  border-color: #F1EAF7
 
 button.outlined:active
-  background: #D7C5E9
+  background: #BEA0DB
+  color: #8C56BF
   border-radius: 21
 
 button.text
@@ -96,11 +101,11 @@ button.text
   padding: 8 12
 
 button.text:hover
-  background: #F1ACC1
+  background: #F8D8E2
   color: #6A6A6A
 
 button.text:active
-  background: #F1ACC1
+  background: #EA80A0
   color: #6A6A6A
   border-radius: 21
 
@@ -110,10 +115,13 @@ button.calc-equals
   border: 0 none #000
 
 button.calc-equals:hover
-  background: #8C56BF
+  background: #BEA0DB
+  color: #ffffff
 
 button.calc-equals:active
-  background: #8C56BF
+  background: #723EA4
+  color: #ffffff
+  border-radius: 21
 
 dialog
   background: #ffffff
@@ -128,7 +136,7 @@ label.about-window-license
   color: #6A6A6A
 
 hstack.about-window-actions
-  background: transparent
+  background: #ffffff00
   gap: 10
 
 tooltip

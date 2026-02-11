@@ -5,8 +5,8 @@ bring math
 
 fun sum(arr = [num]) (( num )) {
     let ?total = 0
-    for (let ?i = 0; i < len(arr); i = i + 1) {
-        total = total + arr[i]
+    for (let ?i = 0; i < len(arr); i += 1) {
+        total += arr[i]
     }
     total
 }

@@ -37,7 +37,7 @@ entry () (( -- )) {
 
     -- Iterate over array
     write(@"Iterating over array:")
-    for (let ?i = 0; i < len(arr); i = i + 1) {
+    for (let ?i = 0; i < len; i += 1) {
         writef(@"  arr[{}] = {}\n", i, arr[i])
     }
 }

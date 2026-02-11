@@ -1230,6 +1230,29 @@ static Ty *cg_tc_expr(Codegen *cg, Str path, Expr *e, Diag *err) {
     return t;
 }
 
+static bool is_assign_op(TokKind op) {
+    switch (op) {
+        case TOK_EQ:
+        case TOK_PLUSEQ:
+        case TOK_MINUSEQ:
+        case TOK_STAREQ:
+        case TOK_SLASHEQ:
+            return true;
+        default:
+            return false;
+    }
+}
+
+static const char *compound_assign_opfn(TokKind op) {
+    switch (op) {
+        case TOK_PLUSEQ: return "ergo_add";
+        case TOK_MINUSEQ: return "ergo_sub";
+        case TOK_STAREQ: return "ergo_mul";
+        case TOK_SLASHEQ: return "ergo_div";
+        default: return NULL;
+    }
+}
+
 static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err);
 
 static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
@@ -1837,38 +1860,140 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             return true;
         }
         case EXPR_ASSIGN: {
+            TokKind assign_op = is_assign_op(e->as.assign.op) ? e->as.assign.op : TOK_EQ;
+            bool is_compound = assign_op != TOK_EQ;
             GenExpr vt;
             if (!gen_expr(cg, path, e->as.assign.value, &vt, err)) return false;
             char *tret = codegen_new_tmp(cg);
-            w_line(&cg->w, "ErgoVal %s = %s; ergo_retain_val(%s);", tret, vt.tmp, tret);
-            if (e->as.assign.target->kind == EXPR_IDENT) {
-                char *slot = codegen_cname_of(cg, e->as.assign.target->as.ident.name);
-                if (!slot) return cg_set_err(err, path, "unknown assignment target");
-                w_line(&cg->w, "ergo_move_into(&%s, %s);", slot, vt.tmp);
-            } else if (e->as.assign.target->kind == EXPR_INDEX) {
-                GenExpr at, it;
-                if (!gen_expr(cg, path, e->as.assign.target->as.index.a, &at, err)) return false;
-                if (!gen_expr(cg, path, e->as.assign.target->as.index.i, &it, err)) { gen_expr_free(&at); return false; }
-                w_line(&cg->w, "ergo_arr_set((ErgoArr*)%s.as.p, ergo_as_int(%s), %s);", at.tmp, it.tmp, vt.tmp);
-                w_line(&cg->w, "ergo_release_val(%s);", at.tmp);
-                w_line(&cg->w, "ergo_release_val(%s);", it.tmp);
-                gen_expr_release_except(cg, &at, at.tmp);
-                gen_expr_release_except(cg, &it, it.tmp);
-                gen_expr_free(&at);
-                gen_expr_free(&it);
-            } else if (e->as.assign.target->kind == EXPR_MEMBER) {
-                Ty *base_ty = cg_tc_expr(cg, path, e->as.assign.target->as.member.a, err);
-                if (!base_ty || base_ty->tag != TY_CLASS) return cg_set_err(err, path, "unsupported member assignment");
-                GenExpr at;
-                if (!gen_expr(cg, path, e->as.assign.target->as.member.a, &at, err)) return false;
-                char *cname = codegen_c_class_name(cg, base_ty->name);
-                char *field = codegen_c_field_name(cg, e->as.assign.target->as.member.name);
-                w_line(&cg->w, "ergo_move_into(&((%s*)%s.as.p)->%s, %s);", cname, at.tmp, field, vt.tmp);
-                w_line(&cg->w, "ergo_release_val(%s);", at.tmp);
-                gen_expr_release_except(cg, &at, at.tmp);
-                gen_expr_free(&at);
+            if (!tret) {
+                gen_expr_free(&vt);
+                return cg_set_err(err, path, "out of memory");
+            }
+            if (!is_compound) {
+                w_line(&cg->w, "ErgoVal %s = %s; ergo_retain_val(%s);", tret, vt.tmp, tret);
+                if (e->as.assign.target->kind == EXPR_IDENT) {
+                    char *slot = codegen_cname_of(cg, e->as.assign.target->as.ident.name);
+                    if (!slot) {
+                        gen_expr_free(&vt);
+                        return cg_set_err(err, path, "unknown assignment target");
+                    }
+                    w_line(&cg->w, "ergo_move_into(&%s, %s);", slot, vt.tmp);
+                } else if (e->as.assign.target->kind == EXPR_INDEX) {
+                    GenExpr at, it;
+                    if (!gen_expr(cg, path, e->as.assign.target->as.index.a, &at, err)) {
+                        gen_expr_free(&vt);
+                        return false;
+                    }
+                    if (!gen_expr(cg, path, e->as.assign.target->as.index.i, &it, err)) {
+                        gen_expr_free(&at);
+                        gen_expr_free(&vt);
+                        return false;
+                    }
+                    w_line(&cg->w, "ergo_arr_set((ErgoArr*)%s.as.p, ergo_as_int(%s), %s);", at.tmp, it.tmp, vt.tmp);
+                    w_line(&cg->w, "ergo_release_val(%s);", at.tmp);
+                    w_line(&cg->w, "ergo_release_val(%s);", it.tmp);
+                    gen_expr_release_except(cg, &at, at.tmp);
+                    gen_expr_release_except(cg, &it, it.tmp);
+                    gen_expr_free(&at);
+                    gen_expr_free(&it);
+                } else if (e->as.assign.target->kind == EXPR_MEMBER) {
+                    Ty *base_ty = cg_tc_expr(cg, path, e->as.assign.target->as.member.a, err);
+                    if (!base_ty || base_ty->tag != TY_CLASS) {
+                        gen_expr_free(&vt);
+                        return cg_set_err(err, path, "unsupported member assignment");
+                    }
+                    GenExpr at;
+                    if (!gen_expr(cg, path, e->as.assign.target->as.member.a, &at, err)) {
+                        gen_expr_free(&vt);
+                        return false;
+                    }
+                    char *cname = codegen_c_class_name(cg, base_ty->name);
+                    char *field = codegen_c_field_name(cg, e->as.assign.target->as.member.name);
+                    w_line(&cg->w, "ergo_move_into(&((%s*)%s.as.p)->%s, %s);", cname, at.tmp, field, vt.tmp);
+                    w_line(&cg->w, "ergo_release_val(%s);", at.tmp);
+                    gen_expr_release_except(cg, &at, at.tmp);
+                    gen_expr_free(&at);
+                } else {
+                    gen_expr_free(&vt);
+                    return cg_set_err(err, path, "unsupported assignment target");
+                }
             } else {
-                return cg_set_err(err, path, "unsupported assignment target");
+                const char *opfn = compound_assign_opfn(assign_op);
+                if (!opfn) {
+                    gen_expr_free(&vt);
+                    return cg_set_err(err, path, "unsupported compound assignment op");
+                }
+                if (e->as.assign.target->kind == EXPR_IDENT) {
+                    char *slot = codegen_cname_of(cg, e->as.assign.target->as.ident.name);
+                    if (!slot) {
+                        gen_expr_free(&vt);
+                        return cg_set_err(err, path, "unknown assignment target");
+                    }
+                    w_line(&cg->w, "ErgoVal %s = %s(%s, %s);", tret, opfn, slot, vt.tmp);
+                    w_line(&cg->w, "ergo_retain_val(%s);", tret);
+                    w_line(&cg->w, "ergo_move_into(&%s, %s);", slot, tret);
+                } else if (e->as.assign.target->kind == EXPR_INDEX) {
+                    Ty *base_ty = cg_tc_expr(cg, path, e->as.assign.target->as.index.a, err);
+                    if (!base_ty) {
+                        gen_expr_free(&vt);
+                        return false;
+                    }
+                    if (base_ty->tag == TY_PRIM && str_eq_c(base_ty->name, "string")) {
+                        gen_expr_free(&vt);
+                        return cg_set_err(err, path, "unsupported string index assignment");
+                    }
+                    GenExpr at, it;
+                    if (!gen_expr(cg, path, e->as.assign.target->as.index.a, &at, err)) {
+                        gen_expr_free(&vt);
+                        return false;
+                    }
+                    if (!gen_expr(cg, path, e->as.assign.target->as.index.i, &it, err)) {
+                        gen_expr_free(&at);
+                        gen_expr_free(&vt);
+                        return false;
+                    }
+                    char *cur = codegen_new_tmp(cg);
+                    if (!cur) {
+                        gen_expr_free(&at);
+                        gen_expr_free(&it);
+                        gen_expr_free(&vt);
+                        return cg_set_err(err, path, "out of memory");
+                    }
+                    w_line(&cg->w, "ErgoVal %s = ergo_arr_get((ErgoArr*)%s.as.p, ergo_as_int(%s));", cur, at.tmp, it.tmp);
+                    w_line(&cg->w, "ErgoVal %s = %s(%s, %s);", tret, opfn, cur, vt.tmp);
+                    w_line(&cg->w, "ergo_retain_val(%s);", tret);
+                    w_line(&cg->w, "ergo_arr_set((ErgoArr*)%s.as.p, ergo_as_int(%s), %s);", at.tmp, it.tmp, tret);
+                    w_line(&cg->w, "ergo_release_val(%s);", cur);
+                    w_line(&cg->w, "ergo_release_val(%s);", at.tmp);
+                    w_line(&cg->w, "ergo_release_val(%s);", it.tmp);
+                    gen_expr_release_except(cg, &at, at.tmp);
+                    gen_expr_release_except(cg, &it, it.tmp);
+                    gen_expr_free(&at);
+                    gen_expr_free(&it);
+                } else if (e->as.assign.target->kind == EXPR_MEMBER) {
+                    Ty *base_ty = cg_tc_expr(cg, path, e->as.assign.target->as.member.a, err);
+                    if (!base_ty || base_ty->tag != TY_CLASS) {
+                        gen_expr_free(&vt);
+                        return cg_set_err(err, path, "unsupported member assignment");
+                    }
+                    GenExpr at;
+                    if (!gen_expr(cg, path, e->as.assign.target->as.member.a, &at, err)) {
+                        gen_expr_free(&vt);
+                        return false;
+                    }
+                    char *cname = codegen_c_class_name(cg, base_ty->name);
+                    char *field = codegen_c_field_name(cg, e->as.assign.target->as.member.name);
+                    w_line(&cg->w, "ErgoVal %s = %s(((%s*)%s.as.p)->%s, %s);", tret, opfn, cname, at.tmp, field, vt.tmp);
+                    w_line(&cg->w, "ergo_retain_val(%s);", tret);
+                    w_line(&cg->w, "ergo_move_into(&((%s*)%s.as.p)->%s, %s);", cname, at.tmp, field, tret);
+                    w_line(&cg->w, "ergo_release_val(%s);", at.tmp);
+                    gen_expr_release_except(cg, &at, at.tmp);
+                    gen_expr_free(&at);
+                } else {
+                    gen_expr_free(&vt);
+                    return cg_set_err(err, path, "unsupported assignment target");
+                }
+                w_line(&cg->w, "ergo_release_val(%s);", vt.tmp);
             }
             gen_expr_release_except(cg, &vt, vt.tmp);
             gen_expr_free(&vt);

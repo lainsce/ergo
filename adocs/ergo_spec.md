@@ -219,7 +219,7 @@ Foreach currently supports iterating arrays and strings.
 - Literals and identifiers
 - Unary: `!x`, `-x`, `#x`
 - Binary: `+ - * / % == != < <= > >= && ||`
-- Assignment: `=`
+- Assignment: `=`, `+=`, `-=`, `*=`, `/=`
 - Call: `fn(args...)`
 - Member: `a.b`
 - Index: `a[i]`
@@ -235,7 +235,6 @@ Foreach currently supports iterating arrays and strings.
 
 Notes:
 
-- `+=`, `-=`, `*=`, `/=` are tokenized but not currently parsed as assignment expressions.
 - `if` is a statement form in current grammar (not an expression form).
 
 ### 10.2 Match Patterns
