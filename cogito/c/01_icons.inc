@@ -757,4 +757,15 @@ static bool cogito_icon_load_texture(const char* name, int size, CogitoTexture**
   return false;
 }
 
+static void cogito_icon_cache_clear(void) {
+  for (int i = 0; i < cogito_icon_cache_len; i++) {
+    CogitoIconCacheEntry* e = &cogito_icon_cache[i];
+    if (e->tex && cogito_backend && cogito_backend->texture_destroy) {
+      cogito_backend->texture_destroy(e->tex);
+      e->tex = NULL;
+    }
+  }
+  cogito_icon_cache_len = 0;
+}
+
 static void cogito_load_sum_file(const char* path);

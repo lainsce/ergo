@@ -182,6 +182,9 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_dialog_remove cogito_dialog_remove_ergo
 #define cogito_node_parent cogito_node_parent_ergo
 
+// Public C API declarations (must be included before internal engine).
+#include "cogito.h"
+
 // Internal engine (same order as previous runtime include).
 #include "../c/00_core.inc"
 #include "../c/01_icons.inc"
@@ -349,8 +352,6 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_dialog_close
 #undef cogito_dialog_remove
 #undef cogito_node_parent
-
-#include "cogito.h"
 
 // Public C API implementations for node hierarchy (use internal functions)
 cogito_node* cogito_node_get_parent(cogito_node* node) {
@@ -535,14 +536,22 @@ void cogito_window_set_hit_test(cogito_window* window, cogito_hit_test_fn callba
     cogito_backend->window_set_hit_test_callback(backend_window, NULL, NULL);
     return;
   }
-  if (!cogito_hit_test_adapter) {
-    cogito_hit_test_adapter = (CogitoHitTestAdapter*)calloc(1, sizeof(*cogito_hit_test_adapter));
-    if (!cogito_hit_test_adapter) return;
+  if (cogito_hit_test_adapter) {
+    free(cogito_hit_test_adapter);
   }
+  cogito_hit_test_adapter = (CogitoHitTestAdapter*)calloc(1, sizeof(*cogito_hit_test_adapter));
+  if (!cogito_hit_test_adapter) return;
   cogito_hit_test_adapter->window = window;
   cogito_hit_test_adapter->fn = callback;
   cogito_hit_test_adapter->user = user;
   cogito_backend->window_set_hit_test_callback(backend_window, cogito_hit_test_bridge, cogito_hit_test_adapter);
+}
+
+void cogito_hit_test_cleanup(void) {
+  if (cogito_hit_test_adapter) {
+    free(cogito_hit_test_adapter);
+    cogito_hit_test_adapter = NULL;
+  }
 }
 
 void cogito_window_set_debug_overlay(cogito_window* window, bool enable) {

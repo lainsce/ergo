@@ -379,14 +379,15 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (inspector_traffic_gap < 0) inspector_traffic_gap = 0;
   if (inspector_traffic_pad_top < 0) inspector_traffic_pad_top = 0;
   if (inspector_traffic_pad_x < 0) inspector_traffic_pad_x = 0;
-  int inspector_hit_test_params[6] = {
-    inspector_appbar_h,
-    inspector_shadow_margin,
-    inspector_traffic_btn,
-    inspector_traffic_gap,
-    inspector_traffic_pad_x,
-    inspector_traffic_pad_top
-  };
+  int* inspector_hit_test_params = (int*)malloc(6 * sizeof(int));
+  if (inspector_hit_test_params) {
+    inspector_hit_test_params[0] = inspector_appbar_h;
+    inspector_hit_test_params[1] = inspector_shadow_margin;
+    inspector_hit_test_params[2] = inspector_traffic_btn;
+    inspector_hit_test_params[3] = inspector_traffic_gap;
+    inspector_hit_test_params[4] = inspector_traffic_pad_x;
+    inspector_hit_test_params[5] = inspector_traffic_pad_top;
+  }
   bool inspector_native_drag = false;
   bool inspector_drag_pending = false;
   bool inspector_drag_active = false;
@@ -434,14 +435,20 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     if (inspector_traffic_gap < 0) inspector_traffic_gap = 0;
     if (inspector_traffic_pad_top < 0) inspector_traffic_pad_top = 0;
     if (inspector_traffic_pad_x < 0) inspector_traffic_pad_x = 0;
-    inspector_hit_test_params[2] = inspector_traffic_btn;
-    inspector_hit_test_params[3] = inspector_traffic_gap;
-    inspector_hit_test_params[4] = inspector_traffic_pad_x;
-    inspector_hit_test_params[5] = inspector_traffic_pad_top;
+    if (inspector_hit_test_params) {
+      inspector_hit_test_params[2] = inspector_traffic_btn;
+      inspector_hit_test_params[3] = inspector_traffic_gap;
+      inspector_hit_test_params[4] = inspector_traffic_pad_x;
+      inspector_hit_test_params[5] = inspector_traffic_pad_top;
+    }
     if (inspector_window && cogito_backend->window_should_close(inspector_window)) {
       cogito_backend->window_destroy(inspector_window);
       inspector_window = NULL;
       cogito_inspector_open = false;
+      if (inspector_hit_test_params) {
+        free(inspector_hit_test_params);
+        inspector_hit_test_params = NULL;
+      }
       inspector_native_drag = false;
       inspector_drag_pending = false;
       inspector_drag_active = false;
@@ -1300,6 +1307,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   
   // Cleanup
   cogito_font_cache_clear();
+  cogito_icon_cache_clear();
+  cogito_hit_test_cleanup();
   if (cogito_font_ready && cogito_font_from_env && cogito_font) {
     cogito_backend->font_unload(cogito_font);
   }
@@ -1314,6 +1323,10 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     cogito_backend->window_destroy(inspector_window);
     inspector_window = NULL;
   }
+  if (inspector_hit_test_params) {
+    free(inspector_hit_test_params);
+    inspector_hit_test_params = NULL;
+  }
   cogito_inspector_view_x = 0;
   cogito_inspector_view_y = 0;
   cogito_inspector_view_w = 0;
@@ -1322,4 +1335,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   cogito_active_backend_window = NULL;
   cogito_backend_ready = false;
   cogito_menu_close();
+  if (cogito_user_sum) {
+    free(cogito_user_sum);
+    cogito_user_sum = NULL;
+  }
 }

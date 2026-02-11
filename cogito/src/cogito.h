@@ -92,6 +92,7 @@ void cogito_window_set_builder(cogito_window* window, cogito_node_fn builder, vo
 void* cogito_window_get_native_handle(cogito_window* window);
 bool cogito_window_has_native_handle(cogito_window* window);
 void cogito_window_set_hit_test(cogito_window* window, cogito_hit_test_fn callback, void* user);
+void cogito_hit_test_cleanup(void);
 void cogito_window_set_debug_overlay(cogito_window* window, bool enable);
 void cogito_rebuild_active_window(void);
 
