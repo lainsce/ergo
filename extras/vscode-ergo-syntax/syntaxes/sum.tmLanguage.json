@@ -49,6 +49,18 @@
           ]
         },
         {
+          "name": "meta.directive.bring.sum",
+          "match": "^(\\s*)(@bring)\\b(?:\\s*:\\s*|\\s+)([^;\\n]+)",
+          "captures": {
+            "2": {
+              "name": "keyword.control.directive.sum"
+            },
+            "3": {
+              "name": "string.unquoted.sum"
+            }
+          }
+        },
+        {
           "name": "meta.directive.when.sum",
           "match": "^(\\s*)(@when)\\b(?:\\s+([^;\\n]+))?",
           "captures": {

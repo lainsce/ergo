@@ -695,7 +695,9 @@ static void sum_parse(const char* src) {
   free(pre);
 }
 
-static char* sum_read_file(const char* path, size_t* out_len) {
+#define SUM_BRING_MAX_DEPTH 16
+
+static char* sum_read_file_raw(const char* path, size_t* out_len) {
   if (!path || !path[0]) return NULL;
   FILE* f = fopen(path, "rb");
   if (!f) return NULL;
@@ -710,6 +712,219 @@ static char* sum_read_file(const char* path, size_t* out_len) {
   buf[got] = 0;
   if (out_len) *out_len = got;
   return buf;
+}
+
+static bool sum_path_is_absolute(const char* path) {
+  if (!path || !path[0]) return false;
+#if defined(_WIN32)
+  if ((isalpha((unsigned char)path[0]) && path[1] == ':') ||
+      path[0] == '\\' || path[0] == '/') return true;
+  return false;
+#else
+  return path[0] == '/';
+#endif
+}
+
+static void sum_path_dirname(const char* path, char* out, size_t out_cap) {
+  if (!out || out_cap == 0) return;
+  out[0] = 0;
+  if (!path || !path[0]) {
+    snprintf(out, out_cap, ".");
+    return;
+  }
+  const char* last = strrchr(path, '/');
+#if defined(_WIN32)
+  const char* back = strrchr(path, '\\');
+  if (!last || (back && back > last)) last = back;
+#endif
+  if (!last) {
+    snprintf(out, out_cap, ".");
+    return;
+  }
+  size_t n = (size_t)(last - path);
+  if (n == 0) {
+    snprintf(out, out_cap, "/");
+    return;
+  }
+  if (n >= out_cap) n = out_cap - 1;
+  memcpy(out, path, n);
+  out[n] = 0;
+}
+
+static void sum_path_join(const char* base_dir, const char* rel, char* out, size_t out_cap) {
+  if (!out || out_cap == 0) return;
+  out[0] = 0;
+  if (!rel || !rel[0]) return;
+  if (sum_path_is_absolute(rel) || !base_dir || !base_dir[0] || strcmp(base_dir, ".") == 0) {
+    snprintf(out, out_cap, "%s", rel);
+    return;
+  }
+  size_t bl = strlen(base_dir);
+  bool has_sep = bl > 0 && (base_dir[bl - 1] == '/' || base_dir[bl - 1] == '\\');
+  if (has_sep) snprintf(out, out_cap, "%s%s", base_dir, rel);
+  else snprintf(out, out_cap, "%s/%s", base_dir, rel);
+}
+
+static void sum_path_normalize(const char* path, char* out, size_t out_cap) {
+  if (!out || out_cap == 0) return;
+  out[0] = 0;
+  if (!path || !path[0]) return;
+#if defined(_WIN32)
+  char resolved[PATH_MAX];
+  if (_fullpath(resolved, path, sizeof(resolved))) {
+    snprintf(out, out_cap, "%s", resolved);
+  } else {
+    snprintf(out, out_cap, "%s", path);
+  }
+#else
+  char resolved[PATH_MAX];
+  if (realpath(path, resolved)) {
+    snprintf(out, out_cap, "%s", resolved);
+  } else {
+    snprintf(out, out_cap, "%s", path);
+  }
+#endif
+}
+
+static bool sum_parse_bring_target(const char* line, char* out, size_t out_cap) {
+  if (!line || !out || out_cap == 0) return false;
+  out[0] = 0;
+  if (strncmp(line, "@bring", 6) != 0) return false;
+  char c = line[6];
+  if (!(c == 0 || c == ':' || c == ' ' || c == '\t')) return false;
+  const char* p = line + 6;
+  while (*p == ' ' || *p == '\t') p++;
+  if (*p == ':') {
+    p++;
+    while (*p == ' ' || *p == '\t') p++;
+  }
+  if (!*p) return false;
+  if (*p == '"') {
+    p++;
+    size_t i = 0;
+    while (*p && *p != '"') {
+      if (i + 1 < out_cap) out[i++] = *p;
+      p++;
+    }
+    if (*p != '"') return false;
+    out[i] = 0;
+    p++;
+    while (*p == ' ' || *p == '\t') p++;
+    return *p == 0 && out[0] != 0;
+  }
+  size_t i = 0;
+  while (*p && *p != ' ' && *p != '\t') {
+    if (i + 1 < out_cap) out[i++] = *p;
+    p++;
+  }
+  out[i] = 0;
+  while (*p == ' ' || *p == '\t') p++;
+  return *p == 0 && out[0] != 0;
+}
+
+static bool sum_path_in_stack(const char* path, char stack[][PATH_MAX], int depth) {
+  if (!path || !path[0]) return false;
+  for (int i = 0; i < depth; i++) {
+    if (strcmp(path, stack[i]) == 0) return true;
+  }
+  return false;
+}
+
+static bool sum_append_file_composed(const char* path, char stack[][PATH_MAX], int depth, char** out, size_t* out_len, size_t* out_cap) {
+  if (!path || !path[0] || !stack || !out || !out_len || !out_cap) return false;
+  if (depth >= SUM_BRING_MAX_DEPTH) {
+    sum_diag_emit(false, 1, "@bring nesting exceeds max depth (%d): %s", SUM_BRING_MAX_DEPTH, path);
+    return false;
+  }
+
+  char normalized[PATH_MAX];
+  sum_path_normalize(path, normalized, sizeof(normalized));
+  if (sum_path_in_stack(normalized, stack, depth)) {
+    sum_diag_emit(false, 1, "@bring cycle detected: %s", normalized);
+    return false;
+  }
+  snprintf(stack[depth], sizeof(stack[depth]), "%s", normalized);
+
+  size_t src_len = 0;
+  char* src = sum_read_file_raw(path, &src_len);
+  if (!src) return false;
+
+  char base_dir[PATH_MAX];
+  sum_path_dirname(path, base_dir, sizeof(base_dir));
+
+  int line_no = 1;
+  const char* p = src;
+  while (*p) {
+    const char* ls = p;
+    const char* le = ls;
+    while (*le && *le != '\n') le++;
+    size_t llen = (size_t)(le - ls);
+
+    char line[512];
+    size_t use_len = llen >= sizeof(line) ? sizeof(line) - 1 : llen;
+    memcpy(line, ls, use_len);
+    line[use_len] = 0;
+    sum_trim_trailing(line);
+    char* semi = strchr(line, ';');
+    if (semi) *semi = 0;
+    const char* t = line;
+    while (*t == ' ' || *t == '\t') t++;
+
+    char bring_rel[PATH_MAX];
+    if (sum_parse_bring_target(t, bring_rel, sizeof(bring_rel))) {
+      char bring_path[PATH_MAX];
+      sum_path_join(base_dir, bring_rel, bring_path, sizeof(bring_path));
+      if (!sum_append_file_composed(bring_path, stack, depth + 1, out, out_len, out_cap)) {
+        sum_diag_emit(false, line_no, "failed to @bring '%s' from %s", bring_rel, path);
+      }
+    } else {
+      bool looks_like_bring = strncmp(t, "@bring", 6) == 0 &&
+        (t[6] == 0 || t[6] == ':' || t[6] == ' ' || t[6] == '\t');
+      if (looks_like_bring) {
+        sum_diag_emit(false, line_no, "malformed @bring directive");
+      } else {
+        if (!sum_buf_append_n(out, out_len, out_cap, ls, llen)) {
+          free(src);
+          return false;
+        }
+        if (*le == '\n') {
+          if (!sum_buf_append_n(out, out_len, out_cap, "\n", 1)) {
+            free(src);
+            return false;
+          }
+        }
+      }
+    }
+
+    if (*le == '\n') {
+      p = le + 1;
+      line_no++;
+    } else {
+      p = le;
+    }
+  }
+
+  free(src);
+  return true;
+}
+
+static char* sum_read_file(const char* path, size_t* out_len) {
+  if (!path || !path[0]) return NULL;
+  char* out = NULL;
+  size_t out_size = 0;
+  size_t out_cap = 0;
+  char stack[SUM_BRING_MAX_DEPTH][PATH_MAX];
+  if (!sum_append_file_composed(path, stack, 0, &out, &out_size, &out_cap)) {
+    free(out);
+    return NULL;
+  }
+  if (!out) {
+    out = (char*)malloc(1);
+    if (!out) return NULL;
+    out[0] = 0;
+  }
+  if (out_len) *out_len = out_size;
+  return out;
 }
 
 static const char* sum_default_path(void) {

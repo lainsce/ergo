@@ -26,6 +26,10 @@ SUM supports lightweight directives before rule parsing:
   - Example: `@primary: #6750A4`
 - Diagnostics mode:
   - `@diagnostics: off|warn|strict`
+- File composition:
+  - `@bring: "path/to/base.sum"` (quotes optional for paths without spaces)
+  - Paths resolve relative to the file containing the directive.
+  - Imported content is inlined at the `@bring` line, so later declarations still override earlier ones.
 - Variant condition block:
   - `@when <condition>`
   - Condition examples: `dark`, `light`, `high-contrast`, `reduced-motion`
