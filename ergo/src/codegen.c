@@ -1308,6 +1308,54 @@ static const char *compound_assign_opfn(TokKind op) {
 
 static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err);
 
+static bool gen_if_expr_chain(Codegen *cg,
+                              Str path,
+                              ExprIfArm **arms,
+                              size_t idx,
+                              size_t arms_len,
+                              char *result_tmp,
+                              Diag *err) {
+    if (idx >= arms_len) return true;
+    ExprIfArm *arm = arms[idx];
+    if (!arm->cond) {
+        GenExpr v;
+        if (!gen_expr(cg, path, arm->value, &v, err)) return false;
+        w_line(&cg->w, "ergo_move_into(&%s, %s);", result_tmp, v.tmp);
+        gen_expr_release_except(cg, &v, v.tmp);
+        gen_expr_free(&v);
+        return true;
+    }
+
+    GenExpr cond;
+    if (!gen_expr(cg, path, arm->cond, &cond, err)) return false;
+    cg->var_id++;
+    char *bname = arena_printf(cg->arena, "__b%d", cg->var_id);
+    w_line(&cg->w, "bool %s = ergo_as_bool(%s);", bname, cond.tmp);
+    w_line(&cg->w, "ergo_release_val(%s);", cond.tmp);
+    gen_expr_release_except(cg, &cond, cond.tmp);
+    gen_expr_free(&cond);
+
+    w_line(&cg->w, "if (%s) {", bname);
+    cg->w.indent++;
+    GenExpr v;
+    if (!gen_expr(cg, path, arm->value, &v, err)) return false;
+    w_line(&cg->w, "ergo_move_into(&%s, %s);", result_tmp, v.tmp);
+    gen_expr_release_except(cg, &v, v.tmp);
+    gen_expr_free(&v);
+    cg->w.indent--;
+
+    if (idx + 1 < arms_len) {
+        w_line(&cg->w, "} else {");
+        cg->w.indent++;
+        if (!gen_if_expr_chain(cg, path, arms, idx + 1, arms_len, result_tmp, err)) return false;
+        cg->w.indent--;
+        w_line(&cg->w, "}");
+    } else {
+        w_line(&cg->w, "}");
+    }
+    return true;
+}
+
 static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
     gen_expr_init(out);
     if (!e) {
@@ -1797,32 +1845,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
         case EXPR_IF: {
             char *t = codegen_new_tmp(cg);
             w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
-            for (size_t i = 0; i < e->as.if_expr.arms_len; i++) {
-                ExprIfArm *arm = e->as.if_expr.arms[i];
-                if (arm->cond) {
-                    GenExpr cond;
-                    if (!gen_expr(cg, path, arm->cond, &cond, err)) return false;
-                    if (i == 0) {
-                        w_line(&cg->w, "if (ergo_as_bool(%s)) {", cond.tmp);
-                    } else {
-                        w_line(&cg->w, "else if (ergo_as_bool(%s)) {", cond.tmp);
-                    }
-                    w_line(&cg->w, "ergo_release_val(%s);", cond.tmp);
-                    gen_expr_release_except(cg, &cond, cond.tmp);
-                    gen_expr_free(&cond);
-                } else {
-                    if (i == 0) w_line(&cg->w, "{");
-                    else w_line(&cg->w, "else {");
-                }
-                cg->w.indent++;
-                GenExpr v;
-                if (!gen_expr(cg, path, arm->value, &v, err)) return false;
-                w_line(&cg->w, "ergo_move_into(&%s, %s);", t, v.tmp);
-                gen_expr_release_except(cg, &v, v.tmp);
-                gen_expr_free(&v);
-                cg->w.indent--;
-                w_line(&cg->w, "}");
-            }
+            if (!gen_if_expr_chain(cg, path, e->as.if_expr.arms, 0, e->as.if_expr.arms_len, t, err)) return false;
             gen_expr_add(out, t);
             out->tmp = t;
             return true;

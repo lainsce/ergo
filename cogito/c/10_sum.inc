@@ -577,6 +577,10 @@ static void sum_parse(const char* src) {
       continue;
     }
 
+    bool ml_active = false;
+    char ml_prop[64] = {0};
+    char ml_val[512] = {0};
+    int ml_line_no = 0;
     while (*p) {
       const char* dl = p;
       const char* de = dl;
@@ -603,6 +607,30 @@ static void sum_parse(const char* src) {
       char* dsemi = strchr(decl, ';');
       if (dsemi) *dsemi = 0;
       sum_trim_trailing(decl);
+
+      if (ml_active) {
+        if (decl[0]) {
+          if (strlen(ml_val) + strlen(decl) + 2 < sizeof(ml_val)) {
+            strcat(ml_val, " ");
+            strcat(ml_val, decl);
+          }
+        }
+        if (strchr(decl, ']')) {
+          char expanded[256];
+          sum_expand_value(ml_val, expanded, sizeof(expanded), ml_line_no);
+          for (int i = 0; i < style_count; i++) {
+            const char* v = expanded;
+            cogito_sum_apply_property(styles[i], ml_prop, &v, style_flags[i] != 0);
+          }
+          ml_active = false;
+          ml_prop[0] = 0;
+          ml_val[0] = 0;
+          ml_line_no = 0;
+        }
+        p = *de ? de + 1 : de;
+        line_no++;
+        continue;
+      }
 
       char prop[64] = {0};
       const char* dp = decl;
@@ -634,6 +662,20 @@ static void sum_parse(const char* src) {
           val_buf[vi++] = *vp++;
         }
         val_buf[vi] = 0;
+      }
+
+      // Support multi-line bracket values, e.g.
+      // box-shadow: [
+      //   0 2 8 0 #0000001f
+      // ]
+      if (strchr(val_buf, '[') && !strchr(val_buf, ']')) {
+        ml_active = true;
+        snprintf(ml_prop, sizeof(ml_prop), "%s", prop);
+        snprintf(ml_val, sizeof(ml_val), "%s", val_buf);
+        ml_line_no = line_no;
+        p = *de ? de + 1 : de;
+        line_no++;
+        continue;
       }
 
       char expanded[256];
