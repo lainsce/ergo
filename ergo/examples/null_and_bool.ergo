@@ -1,3 +1,5 @@
+module null_and_bool
+
 bring stdr
 
 -- Ergo Example: Null and Boolean Logic
@@ -44,6 +46,16 @@ fun null_and_bool_demo () (( -- )) {
     } else {
         write(@"t || f is false\n")
     }
+
+    let truthy_num = 3 && @"ok"
+    writef(@"truthy_num -> {}\n", truthy_num)
+
+    let ?maybe_name = null
+    let name = maybe_name ?? @"guest"
+    writef(@"name -> {}\n", name)
+
+    let nums = []: [num]
+    writef(@"typed empty array len -> {}\n", #nums)
 }
 
 entry () (( -- )) {

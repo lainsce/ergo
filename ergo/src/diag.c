@@ -199,7 +199,7 @@ static const char *get_error_tip(const char *msg) {
         if (strstr(msg, "use num")) {
             return "Ergo uses 'num' for all numeric types instead of 'int' or 'float'.";
         }
-        return "This type name is not recognized. Check for typos or missing imports.";
+        return "This type name is not recognized. Check for typos, missing imports, or explicit generic names like T.";
     }
     if (strstr(msg, "unknown name")) {
         return "This identifier is not defined. Check for typos or missing variable declarations.";
@@ -300,9 +300,6 @@ static const char *get_error_tip(const char *msg) {
     if (strstr(msg, "missing entry() in init.ergo")) {
         return "Your main file needs an entry() function: 'entry() { ... }'.";
     }
-    if (strstr(msg, "module-level consts are only supported in stdr/math")) {
-        return "Constants at module level are only allowed in the standard library. Use 'def' or 'const' inside functions.";
-    }
     if (strstr(msg, "free function") && strstr(msg, "cannot take this")) {
         return "Only class methods can have 'this' as a parameter. Remove 'this' from this function.";
     }
@@ -316,7 +313,10 @@ static const char *get_error_tip(const char *msg) {
         return "Lambda functions cannot have 'this' as a parameter.";
     }
     if (strstr(msg, "cannot infer type of empty array")) {
-        return "Empty arrays need a type annotation. Use 'let arr: [num] = []' or add elements.";
+        return "Empty arrays need a type annotation. Use '[]: [num]' or provide at least one element.";
+    }
+    if (strstr(msg, "module declaration") && strstr(msg, "must match file name")) {
+        return "Use 'module <name>' only when it matches the .ergo file basename.";
     }
     if (strstr(msg, "foreach expects array or string")) {
         return "for (x in y) requires 'y' to be an array or string. Check the type of your iterable.";

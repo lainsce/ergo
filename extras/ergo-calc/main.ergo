@@ -1,3 +1,5 @@
+module main
+
 bring stdr
 bring cogito
 

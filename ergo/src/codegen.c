@@ -831,11 +831,12 @@ static Ty *cg_ty_gen(Codegen *cg, Str name) {
     return t;
 }
 
-static bool str_is_ident_like(Str s) {
+static bool str_is_explicit_generic_name(Str s) {
     if (s.len == 0) return false;
+    if (!(s.data[0] >= 'A' && s.data[0] <= 'Z')) return false;
     for (size_t i = 0; i < s.len; i++) {
         char c = s.data[i];
-        if (!(c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))) {
+        if (!(c == '_' || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) {
             return false;
         }
     }
@@ -888,7 +889,7 @@ static Ty *cg_ty_from_type_ref(Codegen *cg, TypeRef *tref, Str ctx_mod, Str *imp
     if (codegen_class_info(cg, qname)) {
         return cg_ty_class(cg, qname);
     }
-    if (str_is_ident_like(n)) {
+    if (str_is_explicit_generic_name(n)) {
         return cg_ty_gen(cg, n);
     }
     cg_set_errf(err, ctx_mod, tref->line, tref->col, "unknown type '%.*s'", (int)n.len, n.data);
@@ -1877,7 +1878,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
         }
         case EXPR_BINARY: {
             TokKind op = e->as.binary.op;
-            if (op != TOK_ANDAND && op != TOK_OROR) {
+            if (op != TOK_ANDAND && op != TOK_OROR && op != TOK_QQ) {
                 GenExpr a;
                 GenExpr b;
                 if (!gen_expr(cg, path, e->as.binary.a, &a, err)) return false;
@@ -1910,6 +1911,34 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                 gen_expr_release_except(cg, &b, b.tmp);
                 gen_expr_free(&a);
                 gen_expr_free(&b);
+                gen_expr_add(out, t);
+                out->tmp = t;
+                return true;
+            }
+            if (op == TOK_QQ) {
+                GenExpr left;
+                if (!gen_expr(cg, path, e->as.binary.a, &left, err)) return false;
+                char *t = codegen_new_tmp(cg);
+                w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                w_line(&cg->w, "if (%s.tag != EVT_NULL) {", left.tmp);
+                cg->w.indent++;
+                w_line(&cg->w, "ergo_move_into(&%s, %s);", t, left.tmp);
+                w_line(&cg->w, "%s = EV_NULLV;", left.tmp);
+                cg->w.indent--;
+                w_line(&cg->w, "} else {");
+                cg->w.indent++;
+                GenExpr right;
+                if (!gen_expr(cg, path, e->as.binary.b, &right, err)) { gen_expr_free(&left); return false; }
+                w_line(&cg->w, "ergo_move_into(&%s, %s);", t, right.tmp);
+                w_line(&cg->w, "%s = EV_NULLV;", right.tmp);
+                w_line(&cg->w, "ergo_release_val(%s);", right.tmp);
+                gen_expr_release_except(cg, &right, right.tmp);
+                gen_expr_free(&right);
+                cg->w.indent--;
+                w_line(&cg->w, "}");
+                w_line(&cg->w, "ergo_release_val(%s);", left.tmp);
+                gen_expr_release_except(cg, &left, left.tmp);
+                gen_expr_free(&left);
                 gen_expr_add(out, t);
                 out->tmp = t;
                 return true;

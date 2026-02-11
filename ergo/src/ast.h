@@ -99,6 +99,7 @@ typedef struct {
 typedef struct {
     Expr **items;
     size_t items_len;
+    TypeRef *annot;
 } ExprArray;
 
 typedef struct {
@@ -405,6 +406,8 @@ typedef struct {
 
 typedef struct {
     Str path;
+    Str declared_name;
+    bool has_declared_name;
     Import **imports;
     size_t imports_len;
     Decl **decls;

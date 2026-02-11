@@ -1,3 +1,5 @@
+module writef_demo
+
 bring stdr
 
 -- Example: Formatted Output with writef

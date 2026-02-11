@@ -292,19 +292,20 @@ static int prec_of(TokKind kind) {
         case TOK_MINUSEQ:
         case TOK_STAREQ:
         case TOK_SLASHEQ: return 1;
-        case TOK_OROR: return 2;
-        case TOK_ANDAND: return 3;
+        case TOK_QQ: return 2;
+        case TOK_OROR: return 3;
+        case TOK_ANDAND: return 4;
         case TOK_EQEQ:
-        case TOK_NEQ: return 4;
+        case TOK_NEQ: return 5;
         case TOK_LT:
         case TOK_LTE:
         case TOK_GT:
-        case TOK_GTE: return 5;
+        case TOK_GTE: return 6;
         case TOK_PLUS:
-        case TOK_MINUS: return 6;
+        case TOK_MINUS: return 7;
         case TOK_STAR:
         case TOK_SLASH:
-        case TOK_PERCENT: return 7;
+        case TOK_PERCENT: return 8;
         default: return -1;
     }
 }
@@ -749,11 +750,17 @@ static Decl *parse_nominal(Parser *p) {
     } else if (at(p, TOK_KW_struct)) {
         eat(p, TOK_KW_struct);
         kind = CLASS_KIND_STRUCT;
-        is_seal = false;
+        if (is_seal) {
+            parser_set_error(p, t, "seal is only valid on class declarations");
+            return NULL;
+        }
     } else if (at(p, TOK_KW_enum)) {
         eat(p, TOK_KW_enum);
         kind = CLASS_KIND_ENUM;
-        is_seal = false;
+        if (is_seal) {
+            parser_set_error(p, t, "seal is only valid on class declarations");
+            return NULL;
+        }
     } else {
         parser_set_error(p, peek(p, 0), "expected class/struct/enum");
         return NULL;
@@ -1382,6 +1389,11 @@ static Expr *parse_array_lit(Parser *p) {
     if (!e) return NULL;
     e->as.array_lit.items = (Expr **)ptrvec_finalize(p, &items);
     e->as.array_lit.items_len = items.len;
+    e->as.array_lit.annot = NULL;
+    if (at(p, TOK_COLON)) {
+        eat(p, TOK_COLON);
+        e->as.array_lit.annot = parse_type(p);
+    }
     return e;
 }
 
@@ -1397,8 +1409,18 @@ Module *parse_module(Tok *toks, size_t len, const char *path, Arena *arena, Diag
 
     PtrVec imports = {0};
     PtrVec decls = {0};
+    Str declared_name = {0};
+    bool has_declared_name = false;
 
     skip_semi(&p);
+    if (at(&p, TOK_KW_module)) {
+        eat(&p, TOK_KW_module);
+        Tok *name_tok = eat(&p, TOK_IDENT);
+        if (!p.ok) return NULL;
+        declared_name = name_tok->val.ident;
+        has_declared_name = true;
+        skip_semi(&p);
+    }
     while (!at(&p, TOK_EOF) && p.ok) {
         if (at(&p, TOK_KW_bring)) {
             Import *imp = parse_import(&p);
@@ -1442,6 +1464,8 @@ Module *parse_module(Tok *toks, size_t len, const char *path, Arena *arena, Diag
     pstr.data = path ? path : "";
     pstr.len = path ? strlen(path) : 0;
     mod->path = pstr;
+    mod->declared_name = declared_name;
+    mod->has_declared_name = has_declared_name;
     mod->imports = (Import **)ptrvec_finalize(&p, &imports);
     mod->imports_len = imports.len;
     mod->decls = (Decl **)ptrvec_finalize(&p, &decls);

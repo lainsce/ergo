@@ -1,3 +1,5 @@
+module namespaced_imports
+
 bring stdr
 bring math
 

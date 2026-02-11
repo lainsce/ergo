@@ -1,3 +1,5 @@
+module short_circuit
+
 bring stdr
 
 -- Ergo Example: Short-Circuit Logic

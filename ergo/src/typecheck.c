@@ -285,6 +285,7 @@ static Expr *lower_expr(Arena *arena, Expr *e, Diag *err) {
             if (!arr) return NULL;
             arr->as.array_lit.items = items;
             arr->as.array_lit.items_len = e->as.array_lit.items_len;
+            arr->as.array_lit.annot = e->as.array_lit.annot;
             return arr;
         }
         case EXPR_TUPLE: {
@@ -625,6 +626,8 @@ Program *lower_program(Program *prog, Arena *arena, Diag *err) {
             return NULL;
         }
         nm->path = m->path;
+        nm->declared_name = m->declared_name;
+        nm->has_declared_name = m->has_declared_name;
         nm->imports = m->imports;
         nm->imports_len = m->imports_len;
         nm->decls_len = m->decls_len;
@@ -834,14 +837,16 @@ static Str str_slice(Str s, size_t start, size_t len) {
     return out;
 }
 
-static bool str_is_ident_like(Str s) {
+static bool str_is_explicit_generic_name(Str s) {
+    if (s.len == 0) return false;
+    if (!(s.data[0] >= 'A' && s.data[0] <= 'Z')) return false;
     for (size_t i = 0; i < s.len; i++) {
         char c = s.data[i];
-        if (!(c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))) {
+        if (!(c == '_' || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) {
             return false;
         }
     }
-    return s.len > 0;
+    return true;
 }
 
 static Ty *ty_new(Arena *arena, TyTag tag) {
@@ -1405,7 +1410,7 @@ static Ty *ty_from_type_ref(GlobalEnv *env, TypeRef *tref, Str ctx_mod, Str *imp
     Str qn = qualify_class_name(env->arena, ctx_mod, n);
     ClassInfo *ci = find_class(env, qn);
     if (ci) return ty_class(env->arena, qn);
-    if (str_is_ident_like(n)) {
+    if (str_is_explicit_generic_name(n)) {
         return ty_gen(env->arena, n);
     }
     set_errf(err, ctx_mod, tref->line, tref->col, "unknown type '%.*s'", (int)n.len, n.data);
@@ -1566,6 +1571,14 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
     for (size_t i = 0; i < prog->mods_len; i++) {
         Module *m = prog->mods[i];
         Str mod_name = module_name_for_path(arena, m->path);
+        if (m->has_declared_name && !str_eq(m->declared_name, mod_name)) {
+            set_errf(err, m->path, 1, 1,
+                     "%.*s: module declaration '%.*s' must match file name '%.*s'",
+                     (int)m->path.len, m->path.data,
+                     (int)m->declared_name.len, m->declared_name.data,
+                     (int)mod_name.len, mod_name.data);
+            return NULL;
+        }
         env->module_names[i].path = m->path;
         env->module_names[i].name = mod_name;
         env->module_imports[i].module = mod_name;
@@ -1638,10 +1651,10 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
         return NULL;
     }
 
-    // module consts (stdr/math)
+    // module consts
     env->module_consts_len = 0;
-    env->module_consts = (ModuleConsts *)arena_array(arena, 2, sizeof(ModuleConsts));
-    if (!env->module_consts) {
+    env->module_consts = (ModuleConsts *)arena_array(arena, prog->mods_len, sizeof(ModuleConsts));
+    if (prog->mods_len && !env->module_consts) {
         set_err(err, "out of memory");
         return NULL;
     }
@@ -1649,22 +1662,11 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
     for (size_t i = 0; i < prog->mods_len; i++) {
         Module *m = prog->mods[i];
         Str mod_name = env->module_names[i].name;
-        bool is_std = str_eq_c(mod_name, "stdr") || str_eq_c(mod_name, "math");
-        if (!is_std) {
-            for (size_t j = 0; j < m->decls_len; j++) {
-                if (m->decls[j]->kind == DECL_CONST) {
-                    set_errf(err, m->path, m->decls[j]->line, m->decls[j]->col,
-                             "%.*s: module-level consts are only supported in stdr/math",
-                             (int)m->path.len, m->path.data);
-                    return NULL;
-                }
-            }
-            continue;
-        }
         size_t const_count = 0;
         for (size_t j = 0; j < m->decls_len; j++) {
             if (m->decls[j]->kind == DECL_CONST) const_count++;
         }
+        if (const_count == 0) continue;
         ModuleConsts *mc = &env->module_consts[env->module_consts_len++];
         mc->module = mod_name;
         mc->len = const_count;
@@ -2387,13 +2389,31 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
         }
         case EXPR_ARRAY: {
             if (e->as.array_lit.items_len == 0) {
-                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: cannot infer type of empty array []", (int)ctx->module_path.len, ctx->module_path.data);
-                return NULL;
+                if (!e->as.array_lit.annot) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: cannot infer type of empty array []", (int)ctx->module_path.len, ctx->module_path.data);
+                    return NULL;
+                }
+                Ty *annot = ty_from_type_ref(env, e->as.array_lit.annot, ctx->module_name, ctx->imports, ctx->imports_len, err);
+                if (!annot) return NULL;
+                if (annot->tag != TY_ARRAY || !annot->elem) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: empty array annotation must be array type like [num]", (int)ctx->module_path.len, ctx->module_path.data);
+                    return NULL;
+                }
+                return annot;
             }
             Ty *t0 = tc_expr_inner(e->as.array_lit.items[0], ctx, loc, env, err);
             for (size_t i = 1; i < e->as.array_lit.items_len; i++) {
                 Ty *ti = tc_expr_inner(e->as.array_lit.items[i], ctx, loc, env, err);
                 t0 = unify(env->arena, t0, ti, ctx->module_path, "array literal", NULL, err);
+            }
+            if (e->as.array_lit.annot) {
+                Ty *annot = ty_from_type_ref(env, e->as.array_lit.annot, ctx->module_name, ctx->imports, ctx->imports_len, err);
+                if (!annot) return NULL;
+                if (annot->tag != TY_ARRAY || !annot->elem) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: array annotation must be array type like [num]", (int)ctx->module_path.len, ctx->module_path.data);
+                    return NULL;
+                }
+                t0 = unify(env->arena, t0, annot->elem, ctx->module_path, "array annotation", NULL, err);
             }
             return ty_array(env->arena, t0);
         }
@@ -2435,6 +2455,17 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
             Ty *ta = tc_expr_inner(e->as.binary.a, ctx, loc, env, err);
             Ty *tb = tc_expr_inner(e->as.binary.b, ctx, loc, env, err);
             TokKind op = e->as.binary.op;
+            if (op == TOK_QQ) {
+                if (ty_is_void(ta) || ty_is_void(tb)) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: ?? operands cannot be void", (int)ctx->module_path.len, ctx->module_path.data);
+                    return NULL;
+                }
+                if (ty_is_null(ta)) return tb;
+                if (ty_is_nullable(ta)) {
+                    return unify(env->arena, ty_strip_nullable(ta), tb, ctx->module_path, "??", NULL, err);
+                }
+                return unify(env->arena, ta, tb, ctx->module_path, "??", NULL, err);
+            }
             if (op == TOK_PLUS || op == TOK_MINUS || op == TOK_STAR || op == TOK_SLASH || op == TOK_PERCENT) {
                 if (ty_is_nullable(ta) || ty_is_nullable(tb)) {
                     set_errf(err, ctx->module_path, e->line, e->col, "operator on nullable value");
@@ -2454,12 +2485,10 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                 return ty_prim(env->arena, "bool");
             }
             if (op == TOK_ANDAND || op == TOK_OROR) {
-                if (ty_is_nullable(ta) || ty_is_nullable(tb)) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: logical op on nullable value", (int)ctx->module_path.len, ctx->module_path.data);
+                if (ty_is_void(ta) || ty_is_void(tb)) {
+                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: logical op on void value", (int)ctx->module_path.len, ctx->module_path.data);
                     return NULL;
                 }
-                unify(env->arena, ta, ty_prim(env->arena, "bool"), ctx->module_path, tok_kind_name(op), NULL, err);
-                unify(env->arena, tb, ty_prim(env->arena, "bool"), ctx->module_path, tok_kind_name(op), NULL, err);
                 return ty_prim(env->arena, "bool");
             }
             if (op == TOK_EQEQ || op == TOK_NEQ) {

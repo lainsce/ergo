@@ -48,6 +48,7 @@ typedef enum {
     TOK_STAREQ,
     TOK_SLASHEQ,
     TOK_QMARK,
+    TOK_QQ,
     TOK_HASH,
     TOK_RET_L,
     TOK_RET_R,

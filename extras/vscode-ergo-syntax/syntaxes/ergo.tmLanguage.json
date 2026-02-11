@@ -246,7 +246,7 @@
         },
         {
           "name": "keyword.operator.logical.ergo",
-          "match": "(?:&&|\\|\\||!)"
+          "match": "(?:\\?\\?|&&|\\|\\||!)"
         },
         {
           "name": "keyword.operator.arithmetic.ergo",

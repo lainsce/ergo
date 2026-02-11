@@ -1,3 +1,5 @@
+module gui_gallery
+
 bring stdr
 bring cogito
 

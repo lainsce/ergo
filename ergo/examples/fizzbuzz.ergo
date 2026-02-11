@@ -1,3 +1,5 @@
+module fizzbuzz
+
 bring stdr
 
 -- Ergo Example: FizzBuzz

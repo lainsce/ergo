@@ -225,18 +225,28 @@ static ErgoVal stdr_read_text_file(ErgoVal pathv) {
     return EV_NULLV;
   }
   size_t len = (size_t)sz;
-  char* buf = (char*)malloc(len + 1);
-  if (!buf) ergo_trap("out of memory");
+  ErgoStr* out = (ErgoStr*)malloc(sizeof(ErgoStr));
+  if (!out) {
+    fclose(f);
+    ergo_trap("out of memory");
+  }
+  out->data = (char*)malloc(len + 1);
+  if (!out->data) {
+    fclose(f);
+    free(out);
+    ergo_trap("out of memory");
+  }
   size_t n = 0;
-  if (len > 0) n = fread(buf, 1, len, f);
+  if (len > 0) n = fread(out->data, 1, len, f);
   fclose(f);
   if (n != len) {
-    free(buf);
+    free(out->data);
+    free(out);
     return EV_NULLV;
   }
-  buf[len] = 0;
-  ErgoStr* out = stdr_str_from_slice(buf, len);
-  free(buf);
+  out->ref = 1;
+  out->len = len;
+  out->data[len] = 0;
   return EV_STR(out);
 }
 

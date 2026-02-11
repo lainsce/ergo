@@ -1,3 +1,5 @@
+module string_features
+
 bring stdr
 
 -- Ergo Example: String Features

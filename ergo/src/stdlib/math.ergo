@@ -1,3 +1,5 @@
+module math
+
 -- Ergo Standard Library: math.ergo
 
 -- Math constants

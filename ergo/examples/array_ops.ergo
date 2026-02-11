@@ -1,3 +1,5 @@
+module array_ops
+
 bring stdr
 
 -- Ergo Example: Array Operations

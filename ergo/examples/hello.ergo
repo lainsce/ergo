@@ -1,3 +1,5 @@
+module hello
+
 -- Ergo Example: Hello World
 
 bring stdr

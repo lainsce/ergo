@@ -23,7 +23,7 @@ Current reserved words:
 
 `module`, `bring`, `fun`, `entry`, `class`, `struct`, `enum`, `pub`, `lock`, `seal`, `def`, `let`, `const`, `if`, `elif`, `else`, `for`, `match`, `return`, `true`, `false`, `null`, `new`, `in`, `break`, `continue`
 
-Note: `module` is currently reserved but not used as a top-level declaration.
+`module` is an optional top-level declaration used to assert module identity.
 
 ### 2.3 Comments
 
@@ -82,7 +82,13 @@ Current behavior:
 ### 4.2 Module Naming
 
 - Module names are derived from file basename (without `.ergo`).
-- There is no explicit `module ...` declaration syntax in current parsing.
+- Optional declaration form:
+
+```ergo
+module mymod
+```
+
+- If present, declared module name must match the file basename.
 
 ### 4.3 Entry Constraints
 
@@ -98,7 +104,7 @@ Allowed top-level declarations:
 - `entry`
 - nominal declarations: `class`, `struct`, `enum` (with optional `pub` / `lock` / `seal` prefixes)
 - `def` (module global)
-- `const` (currently enforced only for `stdr` / `math` modules)
+- `const` (module constants, general-purpose)
 
 ## 6. Types
 
@@ -126,12 +132,16 @@ Function return syntax:
 
 ### 6.4 Generic Type Variables
 
-- Unknown identifier-like type names in signatures are treated as generic placeholders and unified at call sites.
+- Generic placeholders are explicit by naming convention:
+  - unqualified type names matching `^[A-Z][A-Z0-9_]*$` are generic placeholders.
+  - other unknown names are type errors (prevents typo-driven implicit generics).
 
 ### 6.5 Nullability
 
 - Unifying a type with `null` produces a nullable form internally.
-- Nullable values are restricted in many operations (member/index/call/logical/arithmetic).
+- Nullable values are restricted in many operations (member/index/call/arithmetic/comparison).
+- Null-coalescing operator is supported:
+  - `a ?? b` evaluates to `a` when `a != null`, otherwise `b`.
 
 ## 7. Variables and Mutability
 
@@ -192,7 +202,8 @@ enum Result = [
 
 - `pub class/struct/enum ...` is parsed.
 - `lock class ...` enforces restricted field access (same file or own methods).
-- `seal class ...` is parsed and stored; extra semantic restrictions are currently limited.
+- `seal` is only valid on `class` declarations.
+- There is currently no class inheritance syntax, so `seal` has no additional runtime/dispatch effect beyond this declaration constraint.
 
 ## 9. Statements and Control Flow
 
@@ -224,11 +235,20 @@ for (item in expr) { ... }
 
 Foreach currently supports iterating arrays and strings.
 
+Element type:
+
+- `for (x in [T])` binds `x: T`.
+- `for (ch in some_string)` binds `ch: string` (single-character string slices).
+
 ### 9.4 Return
 
 - `return` or `return expr`.
 - For non-void functions, explicit `return expr` is the reliable way to set return values.
 - Without explicit return, generated code defaults return storage to `null`.
+- Current typechecking behavior:
+  - validates explicit `return` statements (`return expr` required in non-void functions, bare `return` for void),
+  - does not enforce whole-function/path-complete return coverage.
+  - So non-void functions may legally fall through; runtime value is then `null`.
 
 ### 9.5 Loop Control
 
@@ -242,7 +262,7 @@ Foreach currently supports iterating arrays and strings.
 
 - Literals and identifiers
 - Unary: `!x`, `-x`, `#x`
-- Binary: `+ - * / % == != < <= > >= && ||`
+- Binary: `+ - * / % == != < <= > >= && || ??`
 - Assignment: `=`, `+=`, `-=`, `*=`, `/=`
 - Call: `fn(args...)`
 - Member: `a.b`
@@ -258,6 +278,7 @@ Foreach currently supports iterating arrays and strings.
   - `(x = num) => x + 1`
   - `(x) => { ... }`
 - Array literal: `[a, b, c]`
+- Typed array literal annotation: `[...]: [T]` (notably supports empty arrays: `[]: [num]`)
 - Tuple literal: `(a, b, c)`
 - Paren grouping: `(expr)`
 
@@ -309,9 +330,23 @@ Supported pattern kinds:
 ### 11.2 Logical Operators
 
 - `&&` and `||` are short-circuiting.
-- Typechecking currently expects boolean-typed operands for these operators.
+- Operand evaluation uses truthiness (same model as `if` / `for` conditions).
+- Result type is `bool`.
 
 ### 11.3 Indexing Behavior
+
+Typing rule (semantic model):
+
+- For arrays, `a[i] : T | null` when `a : [T]` (out-of-bounds reads yield `null`).
+- Practical handling patterns:
+  - coalesce: `let v = a[i] ?? fallback`
+  - null test: `if stdr.is_null(a[i]) { ... }`
+  - explicit compare: `if a[i] != null { ... }`
+
+Implementation note:
+
+- Current typechecker tracks array indexing as element type `T` in many contexts,
+  while runtime may still produce `null` on out-of-bounds reads.
 
 - Arrays:
   - read out-of-bounds -> `null`
@@ -324,7 +359,8 @@ Supported pattern kinds:
 
 ### 11.4 Empty Array Literals
 
-- `[]` is rejected because element type cannot be inferred.
+- `[]` without annotation is rejected because element type cannot be inferred.
+- Use `[]: [T]` to declare element type.
 
 ## 12. Standard Library Modules
 

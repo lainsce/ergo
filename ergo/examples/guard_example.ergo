@@ -1,3 +1,5 @@
+module guard_example
+
 bring stdr
 
 -- Ergo Example: Optionals and Safe Operations

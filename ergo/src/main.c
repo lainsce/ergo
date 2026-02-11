@@ -776,12 +776,14 @@ int main(int argc, char **argv) {
         if (!(keep_c && keep_c[0] && keep_c[0] != '0')) {
             (void)remove(c_path);
         }
+        // Compile-time AST/type data is no longer needed after codegen/compile.
+        // Release it before running user code to reduce peak RSS.
+        arena_free(&arena);
         rc = run_binary(run_cmd);
         free(cache_base);
         free(cache_dir);
         free(cache_c);
         free(cache_bin);
-        arena_free(&arena);
         return rc == 0 ? 0 : 1;
     }
 

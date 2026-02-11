@@ -1,3 +1,5 @@
+module stdr
+
 -- Ergo Standard Library: stdr.ergo
 
 -- Internal formatted output primitive (compiler intrinsic)

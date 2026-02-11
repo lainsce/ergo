@@ -1,1 +1,3 @@
+module cogito
+
 -- @include "../../../cogito/cogito.ergo"

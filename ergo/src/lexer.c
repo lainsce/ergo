@@ -72,6 +72,7 @@ static const char *tok_name_default(TokKind kind) {
         case TOK_STAREQ: return "*=";
         case TOK_SLASHEQ: return "/=";
         case TOK_QMARK: return "QMARK";
+        case TOK_QQ: return "?" "?";
         case TOK_HASH: return "#";
         case TOK_RET_L: return "((";
         case TOK_RET_R: return "))";
@@ -154,6 +155,7 @@ const char *tok_kind_desc(TokKind kind) {
         case TOK_STAREQ: return "'*='";
         case TOK_SLASHEQ: return "'/='";
         case TOK_QMARK: return "'?'";
+        case TOK_QQ: return "'?" "?'";
         case TOK_HASH: return "'#'";
         
         // Return syntax
@@ -684,6 +686,14 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             }
             adv(&lx, 2);
             set_last(&lx, TOK_SLASHEQ);
+            continue;
+        }
+        if (two0 == '?' && two1 == '?') {
+            if (!emit_simple(&lx, out, err, TOK_QQ, str_from_c("??"), lx.line, lx.col)) {
+                return false;
+            }
+            adv(&lx, 2);
+            set_last(&lx, TOK_QQ);
             continue;
         }
 
