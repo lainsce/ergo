@@ -1,9 +1,16 @@
+@diagnostics: warn
+@primary: #2f4a9a
+@primary-container: #dbe4ff
+@surface: #f8f9fb
+@surface-strong: #eceff5
+@text: #2b2b2b
+
 * 
-  color: #2b2b2b
+  color: @text
   font-size: 14
 
 window
-  background: #f8f9fb
+  background: @surface
 
 vstack
 hstack
@@ -11,20 +18,20 @@ appbar
   background: #ffffff00
 
 appbar
-  background: #eceff5
+  background: @surface-strong
   min-height: 46
   padding: 6 10
 
 appbar .iconbtn
-  background: #dbe4ff
-  color: #2f4a9a
+  background: @primary-container
+  color: @primary
   border-radius: 10
 
 appbar .iconbtn:hover
-  background: #cbd9ff
+  background: mix(@primary-container, #ffffff, 35%)
 
 appbar .iconbtn:active
-  background: #b7c9ff
+  background: mix(@primary-container, #000000, 8%)
   border-radius: 16
 
 textview
@@ -34,20 +41,29 @@ textview
   border-radius: 0
 
 button
-  background: #dbe4ff
-  color: #2f4a9a
+  background: @primary-container
+  color: @primary
   border-radius: 10
   min-height: 36
   padding: 6 10
 
 button:hover
-  background: #cbd9ff
+  background: mix(@primary-container, #ffffff, 35%)
 
 button:active
-  background: #b7c9ff
+  background: mix(@primary-container, #000000, 8%)
   border-radius: 16
 
 button.outlined
-  background: #ffffff00
-  color: #2f4a9a
-  border: 1 solid #b7c9ff
+  background: alpha(@primary, 0%)
+  color: @primary
+  border: 1 solid alpha(@primary, 30%)
+
+@when dark
+  window
+    background: #121418
+  textview
+    background: #1b1f26
+    color: #e8ecf5
+  appbar
+    background: #171b22

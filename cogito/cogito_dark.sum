@@ -1,11 +1,17 @@
 ; Cogito dark theme
+@diagnostics: warn
+@primary: #d0bcff
+@on-primary: #381e72
+@surface: #111111
+@on-surface: #f2f2f7
+@outline: #938f99
 
 *
-  color: #f2f2f7
+  color: @on-surface
   font-size: 16
 
 window
-  background: #111111
+  background: @surface
 
 vstack
   background: #111111
@@ -32,8 +38,8 @@ dialogslot
   color: #f2f2f7
 
 button
-  background: #d0bcff
-  color: #381e72
+  background: @primary
+  color: @on-primary
   border-radius: 20
   min-height: 40
   padding: 10 24
@@ -46,16 +52,16 @@ button:active
 
 button.outlined
   background: transparent
-  color: #d0bcff
-  border: 1 solid #938f99
+  color: @primary
+  border: 1 solid @outline
   box-shadow: none
 
 button.outlined:hover
-  background: #d0bcff12
-  border-color: #d0bcff
+  background: alpha(@primary, 12%)
+  border-color: @primary
 
 button.outlined:active
-  background: #d0bcff1f
+  background: alpha(@primary, 20%)
 
 button.outlined:disabled
   color: #cac4d061
@@ -63,15 +69,19 @@ button.outlined:disabled
 
 button.text
   background: transparent
-  color: #d0bcff
+  color: @primary
   box-shadow: none
   padding: 10 12
 
 button.text:hover
-  background: #d0bcff12
+  background: alpha(@primary, 12%)
 
 button.text:active
-  background: #d0bcff1f
+  background: alpha(@primary, 20%)
+
+@when light
+  window
+    background: #ffffff
 
 button.text:disabled
   color: #cac4d061

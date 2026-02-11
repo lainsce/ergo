@@ -3,6 +3,431 @@
 // Forward declarations for functions defined in 11_sum_cogito.inc
 static void cogito_sum_add_styles(const char* parent, const char* child, CogitoStyle** styles, int* flags, int* count, int max);
 static void cogito_sum_apply_property(CogitoStyle* style, const char* prop, const char** p, bool selection_mode);
+static bool sum_system_is_dark(void);
+
+typedef enum {
+  SUM_DIAG_OFF = 0,
+  SUM_DIAG_WARN,
+  SUM_DIAG_STRICT
+} SumDiagMode;
+
+typedef struct {
+  char name[64];
+  char value[160];
+} SumToken;
+
+typedef struct {
+  int indent_spaces;
+  bool active;
+} SumVariantFrame;
+
+static SumDiagMode sum_diag_mode = SUM_DIAG_WARN;
+static bool sum_diag_strict_failed = false;
+static SumToken sum_tokens[128];
+static int sum_tokens_len = 0;
+
+static bool sum_env_truthy(const char* name) {
+  const char* v = getenv(name);
+  if (!v || !v[0]) return false;
+  if (strcmp(v, "1") == 0 || strcmp(v, "true") == 0 || strcmp(v, "yes") == 0 || strcmp(v, "on") == 0) return true;
+  return false;
+}
+
+static bool sum_system_high_contrast(void) {
+  const char* v = getenv("COGITO_CONTRAST");
+  if (!v || !v[0]) v = getenv("ERGO_CONTRAST");
+  if (v && (strstr(v, "high") || strstr(v, "HIGH"))) return true;
+  if (sum_env_truthy("COGITO_HIGH_CONTRAST") || sum_env_truthy("ERGO_HIGH_CONTRAST")) return true;
+  return false;
+}
+
+static bool sum_system_reduced_motion(void) {
+  if (sum_env_truthy("COGITO_REDUCED_MOTION") || sum_env_truthy("ERGO_REDUCED_MOTION")) return true;
+  const char* v = getenv("COGITO_MOTION");
+  if (!v || !v[0]) v = getenv("ERGO_MOTION");
+  if (v && (strstr(v, "reduce") || strstr(v, "REDUCE") || strstr(v, "minimal"))) return true;
+  return false;
+}
+
+static void sum_diag_emit(bool is_error, int line, const char* fmt, ...) {
+  if (sum_diag_mode == SUM_DIAG_OFF) return;
+  if (sum_diag_mode == SUM_DIAG_WARN && is_error) is_error = false;
+  va_list ap;
+  va_start(ap, fmt);
+  fprintf(stderr, "%s: line %d: ", (is_error || sum_diag_mode == SUM_DIAG_STRICT) ? "error" : "warn", line);
+  vfprintf(stderr, fmt, ap);
+  fprintf(stderr, "\n");
+  va_end(ap);
+  if (is_error || sum_diag_mode == SUM_DIAG_STRICT) {
+    sum_diag_strict_failed = true;
+  }
+}
+
+static void sum_trim_trailing(char* s) {
+  if (!s) return;
+  size_t n = strlen(s);
+  while (n > 0 && (s[n - 1] == ' ' || s[n - 1] == '\t' || s[n - 1] == '\r')) {
+    s[--n] = 0;
+  }
+}
+
+static bool sum_buf_append_n(char** buf, size_t* len, size_t* cap, const char* s, size_t n) {
+  if (!buf || !len || !cap || !s) return false;
+  if (*len + n + 1 > *cap) {
+    size_t next = *cap ? *cap * 2 : 1024;
+    while (*len + n + 1 > next) next *= 2;
+    char* p = (char*)realloc(*buf, next);
+    if (!p) return false;
+    *buf = p;
+    *cap = next;
+  }
+  memcpy(*buf + *len, s, n);
+  *len += n;
+  (*buf)[*len] = 0;
+  return true;
+}
+
+static bool sum_buf_append(char** buf, size_t* len, size_t* cap, const char* s) {
+  return sum_buf_append_n(buf, len, cap, s, strlen(s));
+}
+
+static int sum_token_find(const char* name) {
+  for (int i = 0; i < sum_tokens_len; i++) {
+    if (strcmp(sum_tokens[i].name, name) == 0) return i;
+  }
+  return -1;
+}
+
+static void sum_token_set(const char* name, const char* value) {
+  if (!name || !name[0] || !value) return;
+  int i = sum_token_find(name);
+  if (i < 0) {
+    if (sum_tokens_len >= (int)(sizeof(sum_tokens) / sizeof(sum_tokens[0]))) return;
+    i = sum_tokens_len++;
+  }
+  strncpy(sum_tokens[i].name, name, sizeof(sum_tokens[i].name) - 1);
+  sum_tokens[i].name[sizeof(sum_tokens[i].name) - 1] = 0;
+  strncpy(sum_tokens[i].value, value, sizeof(sum_tokens[i].value) - 1);
+  sum_tokens[i].value[sizeof(sum_tokens[i].value) - 1] = 0;
+}
+
+static bool sum_eval_variant_condition(const char* expr, int line) {
+  if (!expr) return false;
+  while (*expr == ' ' || *expr == '\t') expr++;
+  bool neg = false;
+  if (*expr == '!') {
+    neg = true;
+    expr++;
+    while (*expr == ' ' || *expr == '\t') expr++;
+  } else if (strncmp(expr, "not ", 4) == 0) {
+    neg = true;
+    expr += 4;
+    while (*expr == ' ' || *expr == '\t') expr++;
+  }
+  char cond[64];
+  size_t ci = 0;
+  while (*expr && *expr != ' ' && *expr != '\t') {
+    if (ci + 1 < sizeof(cond)) cond[ci++] = *expr;
+    expr++;
+  }
+  cond[ci] = 0;
+  if (!cond[0]) {
+    sum_diag_emit(false, line, "malformed @when condition");
+    return false;
+  }
+
+  bool value = false;
+  if (strcmp(cond, "dark") == 0) value = sum_system_is_dark();
+  else if (strcmp(cond, "light") == 0) value = !sum_system_is_dark();
+  else if (strcmp(cond, "high-contrast") == 0 || strcmp(cond, "highcontrast") == 0) value = sum_system_high_contrast();
+  else if (strcmp(cond, "reduced-motion") == 0 || strcmp(cond, "reducedmotion") == 0) value = sum_system_reduced_motion();
+  else if (strcmp(cond, "default") == 0 || strcmp(cond, "base") == 0) value = true;
+  else {
+    sum_diag_emit(false, line, "unknown @when condition '%s'", cond);
+    return false;
+  }
+  return neg ? !value : value;
+}
+
+static void sum_color_to_hex_any(CogitoColor c, char out[16]) {
+  if (c.a == 255) {
+    snprintf(out, 16, "#%02x%02x%02x", c.r, c.g, c.b);
+  } else {
+    snprintf(out, 16, "#%02x%02x%02x%02x", c.r, c.g, c.b, c.a);
+  }
+}
+
+static bool sum_eval_color_function(const char* expr, char* out, size_t out_cap, int line) {
+  const char* p = expr;
+  cogito_css_skip_ws(&p);
+  if (strncmp(p, "alpha", 5) == 0) {
+    p += 5;
+    cogito_css_skip_ws(&p);
+    if (*p != '(') {
+      sum_diag_emit(false, line, "malformed alpha() expression");
+      return false;
+    }
+    p++;
+    CogitoColor c = cogito_rgba(0, 0, 0, 255);
+    if (!cogito_css_parse_color(&p, &c)) {
+      sum_diag_emit(false, line, "alpha() expects a color as first argument");
+      return false;
+    }
+    cogito_css_skip_ws(&p);
+    if (*p != ',') {
+      sum_diag_emit(false, line, "alpha() missing comma");
+      return false;
+    }
+    p++;
+    cogito_css_skip_ws(&p);
+    double a = 0.0;
+    if (!cogito_css_read_number(&p, &a)) {
+      sum_diag_emit(false, line, "alpha() expects number as second argument");
+      return false;
+    }
+    bool percent = false;
+    if (*p == '%') {
+      percent = true;
+      p++;
+    }
+    cogito_css_skip_ws(&p);
+    if (*p != ')') {
+      sum_diag_emit(false, line, "alpha() missing closing ')'");
+      return false;
+    }
+    p++;
+    cogito_css_skip_ws(&p);
+    if (*p) {
+      sum_diag_emit(false, line, "alpha() must be the full value");
+      return false;
+    }
+    double factor = percent ? (a / 100.0) : (a <= 1.0 ? a : (a / 255.0));
+    if (factor < 0.0) factor = 0.0;
+    if (factor > 1.0) factor = 1.0;
+    int na = (int)lround((double)c.a * factor);
+    CogitoColor r = cogito_rgba(c.r, c.g, c.b, na);
+    char hex[16];
+    sum_color_to_hex_any(r, hex);
+    snprintf(out, out_cap, "%s", hex);
+    return true;
+  }
+  if (strncmp(p, "mix", 3) == 0) {
+    p += 3;
+    cogito_css_skip_ws(&p);
+    if (*p != '(') {
+      sum_diag_emit(false, line, "malformed mix() expression");
+      return false;
+    }
+    p++;
+    CogitoColor a = cogito_rgba(0, 0, 0, 255), b = cogito_rgba(0, 0, 0, 255);
+    if (!cogito_css_parse_color(&p, &a)) {
+      sum_diag_emit(false, line, "mix() expects color as first argument");
+      return false;
+    }
+    cogito_css_skip_ws(&p);
+    if (*p != ',') {
+      sum_diag_emit(false, line, "mix() missing first comma");
+      return false;
+    }
+    p++;
+    if (!cogito_css_parse_color(&p, &b)) {
+      sum_diag_emit(false, line, "mix() expects color as second argument");
+      return false;
+    }
+    cogito_css_skip_ws(&p);
+    if (*p != ',') {
+      sum_diag_emit(false, line, "mix() missing second comma");
+      return false;
+    }
+    p++;
+    cogito_css_skip_ws(&p);
+    double t = 0.0;
+    if (!cogito_css_read_number(&p, &t)) {
+      sum_diag_emit(false, line, "mix() expects number as third argument");
+      return false;
+    }
+    if (*p == '%') {
+      t = t / 100.0;
+      p++;
+    }
+    if (t < 0.0) t = 0.0;
+    if (t > 1.0) t = 1.0;
+    cogito_css_skip_ws(&p);
+    if (*p != ')') {
+      sum_diag_emit(false, line, "mix() missing closing ')'");
+      return false;
+    }
+    p++;
+    cogito_css_skip_ws(&p);
+    if (*p) {
+      sum_diag_emit(false, line, "mix() must be the full value");
+      return false;
+    }
+    CogitoColor r = cogito_mix(a, b, (float)t);
+    char hex[16];
+    sum_color_to_hex_any(r, hex);
+    snprintf(out, out_cap, "%s", hex);
+    return true;
+  }
+  return false;
+}
+
+static void sum_expand_value(const char* in, char* out, size_t out_cap, int line) {
+  char tmp[512];
+  size_t wi = 0;
+  const char* p = in ? in : "";
+  while (*p && wi + 1 < sizeof(tmp)) {
+    if (*p == '@') {
+      const char* s = p + 1;
+      char name[64];
+      size_t ni = 0;
+      while (*s && (isalnum((unsigned char)*s) || *s == '_' || *s == '-')) {
+        if (ni + 1 < sizeof(name)) name[ni++] = *s;
+        s++;
+      }
+      name[ni] = 0;
+      if (ni > 0) {
+        int idx = sum_token_find(name);
+        if (idx >= 0) {
+          const char* v = sum_tokens[idx].value;
+          while (*v && wi + 1 < sizeof(tmp)) tmp[wi++] = *v++;
+        } else {
+          sum_diag_emit(false, line, "unknown theme token '@%s'", name);
+        }
+        p = s;
+        continue;
+      }
+    }
+    tmp[wi++] = *p++;
+  }
+  tmp[wi] = 0;
+
+  char fn_eval[128];
+  if (sum_eval_color_function(tmp, fn_eval, sizeof(fn_eval), line)) {
+    snprintf(out, out_cap, "%s", fn_eval);
+  } else {
+    snprintf(out, out_cap, "%s", tmp);
+  }
+}
+
+static char* sum_preprocess_source(const char* src, size_t* out_len) {
+  char* out = NULL;
+  size_t out_size = 0, out_cap = 0;
+  SumVariantFrame stack[16];
+  int depth = 0;
+  int line_no = 1;
+  const char* p = src;
+  while (*p) {
+    const char* ls = p;
+    const char* le = ls;
+    while (*le && *le != '\n') le++;
+    size_t llen = (size_t)(le - ls);
+    int spaces = 0;
+    while (spaces < (int)llen && ls[spaces] == ' ') spaces++;
+
+    char line[512];
+    size_t use_len = llen >= sizeof(line) ? sizeof(line) - 1 : llen;
+    memcpy(line, ls, use_len);
+    line[use_len] = 0;
+    sum_trim_trailing(line);
+    char* semi = strchr(line, ';');
+    if (semi) *semi = 0;
+    const char* t = line;
+    while (*t == ' ' || *t == '\t') t++;
+    bool blank = (*t == 0);
+
+    if (!blank) {
+      while (depth > 0 && spaces <= stack[depth - 1].indent_spaces) depth--;
+    }
+    bool active = true;
+    for (int i = 0; i < depth; i++) {
+      if (!stack[i].active) {
+        active = false;
+        break;
+      }
+    }
+
+    if (*t == '@') {
+      if (strncmp(t, "@diagnostics", 12) == 0) {
+        const char* c = strchr(t, ':');
+        if (!c) sum_diag_emit(false, line_no, "malformed @diagnostics directive");
+        else {
+          c++;
+          while (*c == ' ' || *c == '\t') c++;
+          if (strncmp(c, "off", 3) == 0) sum_diag_mode = SUM_DIAG_OFF;
+          else if (strncmp(c, "warn", 4) == 0) sum_diag_mode = SUM_DIAG_WARN;
+          else if (strncmp(c, "strict", 6) == 0) sum_diag_mode = SUM_DIAG_STRICT;
+          else sum_diag_emit(false, line_no, "unknown diagnostics mode '%s'", c);
+        }
+      } else if (strncmp(t, "@when", 5) == 0) {
+        const char* expr = t + 5;
+        while (*expr == ' ' || *expr == '\t') expr++;
+        bool cond = sum_eval_variant_condition(expr, line_no);
+        if (depth < (int)(sizeof(stack) / sizeof(stack[0]))) {
+          stack[depth].indent_spaces = spaces;
+          stack[depth].active = active && cond;
+          depth++;
+        } else {
+          sum_diag_emit(false, line_no, "variant nesting too deep");
+        }
+      } else {
+        const char* c = strchr(t, ':');
+        if (c) {
+          char name[64];
+          size_t ni = 0;
+          const char* np = t + 1;
+          while (np < c && (isalnum((unsigned char)*np) || *np == '_' || *np == '-')) {
+            if (ni + 1 < sizeof(name)) name[ni++] = *np;
+            np++;
+          }
+          name[ni] = 0;
+          if (!name[0]) {
+            sum_diag_emit(false, line_no, "malformed token declaration");
+          } else if (active) {
+            char value[192];
+            const char* vp = c + 1;
+            while (*vp == ' ' || *vp == '\t') vp++;
+            snprintf(value, sizeof(value), "%s", vp);
+            sum_trim_trailing(value);
+            sum_token_set(name, value);
+          }
+        } else if (active) {
+          sum_diag_emit(false, line_no, "malformed directive '%s'", t);
+        }
+      }
+    } else if (active) {
+      int strip = depth * 2;
+      int lead = spaces;
+      if (strip > lead) strip = lead;
+      const char* emit = ls + strip;
+      size_t emit_len = llen - (size_t)strip;
+      if (!sum_buf_append_n(&out, &out_size, &out_cap, emit, emit_len)) {
+        free(out);
+        return NULL;
+      }
+      if (*le == '\n') {
+        if (!sum_buf_append(&out, &out_size, &out_cap, "\n")) {
+          free(out);
+          return NULL;
+        }
+      }
+    }
+
+    if (*le == '\n') {
+      p = le + 1;
+      line_no++;
+    } else {
+      p = le;
+    }
+  }
+  if (!out) {
+    out = (char*)malloc(1);
+    if (!out) return NULL;
+    out[0] = 0;
+  }
+  if (out_len) *out_len = out_size;
+  return out;
+}
 
 static bool sum_line_is_blank_or_comment(const char* line, size_t len) {
   for (size_t i = 0; i < len; i++) {
@@ -26,23 +451,35 @@ static inline int sum_indent_level(const char *line, size_t len) {
       ++p;
       continue;
     }
-    if (c == '\t') {   // no-op
+    if (c == '\t') {
+      ++p;
       continue;
     }
     break;
   }
 
-  return (int)(spaces >> 1);  // 2 spaces = 1 level (floor)
+  return (int)(spaces >> 1);
 }
 
 static void sum_parse(const char* src) {
   if (!src || !*src) return;
   cogito_style_version++;
+  sum_tokens_len = 0;
+  sum_diag_strict_failed = false;
+  sum_diag_mode = SUM_DIAG_WARN;
 
-  const char* p = src;
+  size_t pre_len = 0;
+  char* pre = sum_preprocess_source(src, &pre_len);
+  if (!pre) return;
+  if (sum_diag_strict_failed && sum_diag_mode == SUM_DIAG_STRICT) {
+    free(pre);
+    return;
+  }
+
+  const char* p = pre;
+  int line_no = 1;
 
   while (*p) {
-    // Skip blank/comment lines
     const char* line_start = p;
     const char* line_end = line_start;
     while (*line_end && *line_end != '\n') line_end++;
@@ -50,18 +487,17 @@ static void sum_parse(const char* src) {
 
     if (sum_line_is_blank_or_comment(line_start, line_len)) {
       p = *line_end ? line_end + 1 : line_end;
+      line_no++;
       continue;
     }
 
-    // Check indentation — selector lines have 0 indent
     int indent = sum_indent_level(line_start, line_len);
     if (indent > 0) {
-      // Stray indented line outside a rule — skip
       p = *line_end ? line_end + 1 : line_end;
+      line_no++;
       continue;
     }
 
-    // Collect all consecutive selector lines at indent 0 (multi-rule support)
     CogitoStyle* styles[32];
     int style_flags[32] = {0};
     int style_count = 0;
@@ -71,42 +507,28 @@ static void sum_parse(const char* src) {
       while (*sel_end && *sel_end != '\n') sel_end++;
       size_t sel_len = (size_t)(sel_end - sel_start);
 
-      // Check if this is a blank/comment line
       if (sum_line_is_blank_or_comment(sel_start, sel_len)) {
         p = *sel_end ? sel_end + 1 : sel_end;
+        line_no++;
         continue;
       }
 
-      // Check indentation
       int sel_indent = sum_indent_level(sel_start, sel_len);
-      if (sel_indent > 0) {
-        // Found indented line - this is the start of declarations
-        break;
-      }
+      if (sel_indent > 0) break;
 
-      // This is a selector line at indent 0 - parse it
       char sel_line[256];
       if (sel_len >= sizeof(sel_line)) sel_len = sizeof(sel_line) - 1;
       memcpy(sel_line, sel_start, sel_len);
       sel_line[sel_len] = 0;
-
-      // Strip trailing comment
       char* semi = strchr(sel_line, ';');
       if (semi) *semi = 0;
+      sum_trim_trailing(sel_line);
 
-      // Trim trailing whitespace
-      size_t sl = strlen(sel_line);
-      while (sl > 0 && (sel_line[sl-1] == ' ' || sel_line[sl-1] == '\t' || sel_line[sl-1] == '\r')) {
-        sel_line[--sl] = 0;
-      }
-
-      // Parse selector(s) — support comma-separated selectors on one line
       const char* sp = sel_line;
       while (*sp) {
         while (*sp == ' ' || *sp == '\t') sp++;
         if (!*sp) break;
 
-        // Read first token (parent or only selector)
         char parent[64] = {0};
         size_t pi = 0;
         while (*sp && *sp != ' ' && *sp != '\t' && *sp != ',') {
@@ -114,8 +536,6 @@ static void sum_parse(const char* src) {
           sp++;
         }
         parent[pi] = 0;
-
-        // Skip spaces to see if there's a child selector
         while (*sp == ' ' || *sp == '\t') sp++;
 
         char child[64] = {0};
@@ -131,18 +551,14 @@ static void sum_parse(const char* src) {
         if (style_count < (int)(sizeof(styles) / sizeof(styles[0]))) {
           cogito_sum_add_styles(parent, child[0] ? child : NULL, styles, style_flags, &style_count, (int)(sizeof(styles) / sizeof(styles[0])));
         }
-
-        // Skip to next comma or end
         while (*sp == ' ' || *sp == '\t') sp++;
         if (*sp == ',') { sp++; continue; }
         break;
       }
-
-      // Advance past this selector line
       p = *sel_end ? sel_end + 1 : sel_end;
+      line_no++;
     }
 
-    // If no valid selectors found, skip the indented block
     if (style_count == 0) {
       while (*p) {
         const char* bl = p;
@@ -151,15 +567,16 @@ static void sum_parse(const char* src) {
         size_t blen = (size_t)(be - bl);
         if (sum_line_is_blank_or_comment(bl, blen)) {
           p = *be ? be + 1 : be;
+          line_no++;
           continue;
         }
         if (sum_indent_level(bl, blen) == 0) break;
         p = *be ? be + 1 : be;
+        line_no++;
       }
       continue;
     }
 
-    // Parse indented declaration lines (apply to all collected selectors)
     while (*p) {
       const char* dl = p;
       const char* de = dl;
@@ -168,17 +585,16 @@ static void sum_parse(const char* src) {
 
       if (sum_line_is_blank_or_comment(dl, dlen)) {
         p = *de ? de + 1 : de;
+        line_no++;
         continue;
       }
 
       int di = sum_indent_level(dl, dlen);
-      if (di == 0) break;  // Next selector block — stop
+      if (di == 0) break;
 
-      // Extract declaration line content (skip indent)
       const char* dc = dl;
       while (*dc == ' ' || *dc == '\t') dc++;
 
-      // Strip comment
       char decl[256];
       size_t dremain = (size_t)(de - dc);
       if (dremain >= sizeof(decl)) dremain = sizeof(decl) - 1;
@@ -186,14 +602,8 @@ static void sum_parse(const char* src) {
       decl[dremain] = 0;
       char* dsemi = strchr(decl, ';');
       if (dsemi) *dsemi = 0;
+      sum_trim_trailing(decl);
 
-      // Trim trailing whitespace
-      size_t dll = strlen(decl);
-      while (dll > 0 && (decl[dll-1] == ' ' || decl[dll-1] == '\t' || decl[dll-1] == '\r')) {
-        decl[--dll] = 0;
-      }
-
-      // Parse property: value
       char prop[64] = {0};
       const char* dp = decl;
       size_t ppi = 0;
@@ -202,40 +612,45 @@ static void sum_parse(const char* src) {
         dp++;
       }
       prop[ppi] = 0;
-
-      // Skip to colon
       while (*dp == ' ' || *dp == '\t') dp++;
-      if (*dp == ':') dp++;
+      if (*dp != ':') {
+        sum_diag_emit(false, line_no, "malformed declaration '%s' (expected ':')", decl);
+        p = *de ? de + 1 : de;
+        line_no++;
+        continue;
+      }
+      dp++;
       while (*dp == ' ' || *dp == '\t') dp++;
 
-      // Strip 'sp' unit suffixes from values for compatibility
-      // (SUM uses Nsp, Cogito internally uses bare numbers)
       char val_buf[256];
       {
         size_t vi = 0;
         const char* vp = dp;
         while (*vp && vi < sizeof(val_buf) - 1) {
-          // If we see a digit followed by 'sp', skip the 'sp'
-          if (vp[0] == 's' && vp[1] == 'p' && vi > 0 &&
-              (val_buf[vi-1] >= '0' && val_buf[vi-1] <= '9')) {
+          if (vp[0] == 's' && vp[1] == 'p' && vi > 0 && (val_buf[vi - 1] >= '0' && val_buf[vi - 1] <= '9')) {
             vp += 2;
             continue;
           }
           val_buf[vi++] = *vp++;
         }
         val_buf[vi] = 0;
-        dp = val_buf;
       }
 
-      // Apply property to all matched styles
+      char expanded[256];
+      sum_expand_value(val_buf, expanded, sizeof(expanded), line_no);
+
       for (int i = 0; i < style_count; i++) {
-        const char* v = dp;
+        const char* v = expanded;
         cogito_sum_apply_property(styles[i], prop, &v, style_flags[i] != 0);
       }
 
       p = *de ? de + 1 : de;
+      line_no++;
     }
+    if (sum_diag_strict_failed && sum_diag_mode == SUM_DIAG_STRICT) break;
   }
+
+  free(pre);
 }
 
 static char* sum_read_file(const char* path, size_t* out_len) {
@@ -262,6 +677,7 @@ static const char* sum_default_path(void) {
     snprintf(buf, sizeof(buf), "%s/cogito_default.sum", stdlib);
     if (cogito_file_exists(buf)) return buf;
   }
+  return NULL;
 }
 
 static const char* sum_dark_path(void) {
@@ -271,6 +687,7 @@ static const char* sum_dark_path(void) {
     snprintf(buf, sizeof(buf), "%s/cogito_dark.sum", stdlib);
     if (cogito_file_exists(buf)) return buf;
   }
+  return NULL;
 }
 
 static bool sum_streq_ci(const char* a, const char* b) {

@@ -17,12 +17,27 @@ It supersedes the old "minimal v1" draft for implementation work.
 - Empty lines are allowed.
 - Files are indentation-based.
 
-### 1.1 Indentation Rules (Current Runtime)
+### 1.1 Preprocessor Directives
+
+SUM supports lightweight directives before rule parsing:
+
+- Theme token:
+  - `@name: value`
+  - Example: `@primary: #6750A4`
+- Diagnostics mode:
+  - `@diagnostics: off|warn|strict`
+- Variant condition block:
+  - `@when <condition>`
+  - Condition examples: `dark`, `light`, `high-contrast`, `reduced-motion`
+  - Negation: `!dark` or `not dark`
+
+### 1.2 Indentation Rules (Current Runtime)
 
 - Selector lines are unindented (column 0).
 - Declaration lines are indented.
 - In practice, use **2 spaces** for declaration indentation.
 - Tabs should be avoided for now.
+- `@when` block contents are normally indented one level under `@when`.
 
 ## 2. Rule Structure
 
@@ -176,6 +191,19 @@ Supported color forms:
 - `rgb(r, g, b)`
 - `rgba(r, g, b, a)`
 - named colors: `transparent`, `white`, `black`
+- token refs: `@primary`
+- function: `alpha(color, amount)`
+- function: `mix(colorA, colorB, t)`
+
+`alpha()`:
+
+- `amount` accepts `0..1`, `0..255`, or `%`.
+- Produces a hex color with adjusted alpha.
+
+`mix()`:
+
+- `t` accepts `0..1` or `%`.
+- `0` => first color, `1` => second color.
 
 ### 5.3 Strings and Idents
 
@@ -313,9 +341,31 @@ box-shadow: [ <dx> <dy> [<blur>] [<spread>] <color> [inset] ]
 - Invalid declarations do not abort parsing of other declarations.
 - Blank/comment lines are skipped.
 
+### 8.1 Diagnostics Mode
+
+Diagnostics can be configured with:
+
+```sum
+@diagnostics: warn
+```
+
+Modes:
+
+- `off`: suppress SUM diagnostics.
+- `warn`: emit warnings and continue (default).
+- `strict`: emit errors and abort SUM parse on strict failures.
+
+Message format:
+
+- `warn: line <n>: <message>`
+- `error: line <n>: <message>`
+
 ## 9. Example
 
 ```sum
+@diagnostics: warn
+@primary: #6750A4
+
 ; Base
 *
   color: #222
@@ -325,9 +375,9 @@ window
   background: #fafafa
 
 button.outlined
-  background: transparent
-  color: #6750A4
-  border: 1sp solid #6750A4
+  background: alpha(@primary, 12%)
+  color: @primary
+  border: 1sp solid mix(@primary, #ffffff, 20%)
   border-radius: 20sp
   transition: 180 standard
 
@@ -338,5 +388,9 @@ button.outlined:active
   background: #6750A433
 
 textfield:selection, .textfield:selection
-  background: #6750A4
+  background: @primary
+
+@when dark
+  window
+    background: #121212
 ```

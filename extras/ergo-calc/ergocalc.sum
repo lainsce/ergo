@@ -1,34 +1,42 @@
 ; ErgoCalc SUM theme
+@diagnostics: warn
+@primary: #8C56BF
+@primary-container: #D7C5E9
+@primary-hover: #F1EAF7
+@primary-active: #BEA0DB
+@surface: #ffffff
+@text: #2D2D2D
+@muted: #6A6A6A
 
 *
-  color: #2D2D2D
+  color: @text
   font-size: 14
 
 window
-  background: #ffffff
+  background: @surface
 
 vstack
 hstack
 zstack
   background: #ffffff00
-  color: #2D2D2D
+  color: @text
 
 appbar
   background: #f5f5f5
-  color: #2D2D2D
+  color: @text
   min-height: 46
   padding: 6 10
 
 appbar .iconbtn
-  background: #D7C5E9
-  color: #8C56BF
+  background: @primary-container
+  color: @primary
   border-radius: 21
 
 appbar .iconbtn:hover
-  background: #F1EAF7
+  background: @primary-hover
 
 appbar .iconbtn:active
-  background: #BEA0DB
+  background: @primary-active
   border-radius: 10
 
 vstack.calc-root
@@ -40,14 +48,14 @@ vstack.calc-display
   padding: 10 14
 
 label.calc-display-working
-  color: #2D2D2D
+  color: @text
   background: #ffffff00
   font-size: 34
   padding: 6 18
   font-variant-numeric: tabular-nums
 
 label.calc-display-expression
-  color: #6A6A6A
+  color: @muted
   background: #ffffff00
   font-size: 18
   padding: 6 18
@@ -60,8 +68,8 @@ grid.calc-keypad
   gap: 12
 
 button
-  background: #D7C5E9
-  color: #8C56BF
+  background: @primary-container
+  color: @primary
   border-radius: 10
   min-height: 46
   padding: 8 12
@@ -70,28 +78,28 @@ label.calc-spacer
   color: #00000000
 
 button:hover
-  background: #F1EAF7
-  color: #8C56BF
+  background: @primary-hover
+  color: @primary
 
 button:active
-  background: #BEA0DB
-  color: #8C56BF
+  background: @primary-active
+  color: @primary
   border-radius: 21
 
 button.outlined
-  background: #ffffff00
-  color: #8C56BF
+  background: alpha(@primary, 0%)
+  color: @primary
   border-radius: 10
-  border: 1 solid #D7C5E9
+  border: 1 solid alpha(@primary, 35%)
 
 button.outlined:hover
-  background: #F1EAF7
-  color: #8C56BF
-  border-color: #F1EAF7
+  background: @primary-hover
+  color: @primary
+  border-color: @primary-hover
 
 button.outlined:active
-  background: #BEA0DB
-  color: #8C56BF
+  background: @primary-active
+  color: @primary
   border-radius: 21
 
 button.text
@@ -110,7 +118,7 @@ button.text:active
   border-radius: 21
 
 button.calc-equals
-  background: #8C56BF
+  background: @primary
   color: #ffffff
   border: 0 none #000
 
@@ -119,7 +127,7 @@ button.calc-equals:hover
   color: #ffffff
 
 button.calc-equals:active
-  background: #723EA4
+  background: mix(@primary, #000000, 18%)
   color: #ffffff
   border-radius: 21
 
@@ -140,7 +148,19 @@ hstack.about-window-actions
   gap: 10
 
 tooltip
-  background: #2D2D2D
+  background: @text
   color: #F5F5F5
   border-radius: 8
   padding: 6 8
+
+@when dark
+  window
+    background: #121212
+  appbar
+    background: #1c1c1c
+  grid.calc-keypad
+    background: #1a1a1a
+  label.calc-display-working
+    color: #f1f1f1
+  label.calc-display-expression
+    color: #bbbbbb

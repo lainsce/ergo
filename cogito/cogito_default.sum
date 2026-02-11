@@ -1,11 +1,17 @@
 ; Cogito default theme (light)
+@diagnostics: warn
+@primary: #6750a4
+@on-primary: #ffffff
+@surface: #ffffff
+@on-surface: #222222
+@outline: #79747e
 
 *
-  color: #222222
+  color: @on-surface
   font-size: 13
 
 window
-  background: #ffffff
+  background: @surface
 
 vstack
   background: #ffffff
@@ -32,8 +38,8 @@ dialogslot
   color: #222222
 
 button
-  background: #6750a4
-  color: #ffffff
+  background: @primary
+  color: @on-primary
   border-radius: 20
   min-height: 40
   padding: 10 24
@@ -46,15 +52,15 @@ button:active
 
 button.outlined
   background: transparent
-  color: #6750a4
-  border: 1 solid #79747e
+  color: @primary
+  border: 1 solid @outline
 
 button.outlined:hover
-  background: #6750a412
-  border-color: #6750a4
+  background: alpha(@primary, 12%)
+  border-color: @primary
 
 button.outlined:active
-  background: #6750a41f
+  background: alpha(@primary, 20%)
 
 button.outlined:disabled
   color: #1d1b2061
@@ -62,14 +68,20 @@ button.outlined:disabled
 
 button.text
   background: transparent
-  color: #6750a4
+  color: @primary
   padding: 10 12
 
 button.text:hover
-  background: #6750a412
+  background: alpha(@primary, 12%)
 
 button.text:active
-  background: #6750a41f
+  background: alpha(@primary, 20%)
+
+@when reduced-motion
+  button
+    transition: 0 linear
+  iconbtn
+    transition: 0 linear
 
 button.text:disabled
   color: #1d1b2061
