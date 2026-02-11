@@ -19,7 +19,7 @@
       "include": "#functionDecl"
     },
     {
-      "include": "#classDecl"
+      "include": "#typeDecl"
     },
     {
       "include": "#mutableNames"
@@ -154,17 +154,17 @@
         }
       ]
     },
-    "classDecl": {
+    "typeDecl": {
       "patterns": [
         {
-          "name": "meta.class.ergo",
-          "match": "\\b(class)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
+          "name": "meta.type.ergo",
+          "match": "\\b(class|struct|enum)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
           "captures": {
             "1": {
-              "name": "keyword.declaration.class.ergo"
+              "name": "keyword.declaration.type.ergo"
             },
             "2": {
-              "name": "entity.name.type.class.ergo"
+              "name": "entity.name.type.ergo"
             }
           }
         }
@@ -182,11 +182,11 @@
       "patterns": [
         {
           "name": "keyword.control.ergo",
-          "match": "\\b(?:if|elif|else|for|in|match|return|new)\\b"
+          "match": "\\b(?:if|elif|else|for|in|match|return|new|break|continue)\\b"
         },
         {
           "name": "keyword.declaration.ergo",
-          "match": "\\b(?:module|bring|fun|entry|class|pub|lock|seal|def|let|const)\\b"
+          "match": "\\b(?:module|bring|fun|entry|class|struct|enum|pub|lock|seal|def|let|const)\\b"
         }
       ]
     },

@@ -7,6 +7,9 @@
       "include": "#comments"
     },
     {
+      "include": "#directives"
+    },
+    {
       "include": "#declarations"
     },
     {
@@ -22,6 +25,40 @@
         {
           "name": "comment.line.semicolon.sum",
           "match": ";.*$"
+        }
+      ]
+    },
+    "directives": {
+      "patterns": [
+        {
+          "name": "meta.directive.assignment.sum",
+          "begin": "^(\\s*)(@[A-Za-z_][A-Za-z0-9_-]*)(\\s*:\\s*)",
+          "beginCaptures": {
+            "2": {
+              "name": "keyword.control.directive.sum"
+            },
+            "3": {
+              "name": "punctuation.separator.key-value.sum"
+            }
+          },
+          "end": "(?=\\s*(?:;.*)?$)",
+          "patterns": [
+            {
+              "include": "#values"
+            }
+          ]
+        },
+        {
+          "name": "meta.directive.when.sum",
+          "match": "^(\\s*)(@when)\\b(?:\\s+([^;\\n]+))?",
+          "captures": {
+            "2": {
+              "name": "keyword.control.conditional.sum"
+            },
+            "3": {
+              "name": "meta.condition.sum"
+            }
+          }
         }
       ]
     },
@@ -83,20 +120,26 @@
       "patterns": [
         {
           "name": "meta.array.item.sum",
-          "match": "^(\\s+)(-?\\d+(?:\\.\\d+)?)(?:\\s+(-?\\d+(?:\\.\\d+)?))*\\s*(#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8}))?\\s*$",
-          "captures": {
-            "2": {
-              "name": "constant.numeric.sum"
-            },
-            "4": {
-              "name": "constant.other.color.rgb-value.sum"
+          "begin": "^(\\s+)(?![A-Za-z@][A-Za-z0-9_-]*\\s*:)(?!\\s*\\])(?=\\S)",
+          "end": "(?=\\s*(?:;.*)?$)",
+          "patterns": [
+            {
+              "include": "#values"
             }
-          }
+          ]
         }
       ]
     },
     "values": {
       "patterns": [
+        {
+          "name": "support.function.color.sum",
+          "match": "\\b(?:alpha|mix)\\s*(?=\\()"
+        },
+        {
+          "name": "variable.other.theme-token.sum",
+          "match": "@[A-Za-z_][A-Za-z0-9_-]*\\b"
+        },
         {
           "name": "string.quoted.double.sum",
           "begin": "\"",
@@ -122,7 +165,7 @@
         },
         {
           "name": "constant.language.sum",
-          "match": "\\b(?:transparent|none|solid|dashed|bold|normal|standard)\\b"
+          "match": "\\b(?:transparent|none|solid|dashed|bold|normal|standard|warn|strict|light|dark|high-contrast|reduced-motion)\\b"
         },
         {
           "name": "variable.other.state.sum",
