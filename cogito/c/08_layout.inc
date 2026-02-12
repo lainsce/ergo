@@ -468,6 +468,106 @@ static void cogito_layout_scroller(CogitoNode* n, int x, int y) {
   }
 }
 
+static void cogito_layout_carousel(CogitoNode* n, int x, int y) {
+  int inner_x = x + n->padding_left;
+  int inner_y = y + n->padding_top;
+  int inner_w = n->w - n->padding_left - n->padding_right;
+  int inner_h = n->h - n->padding_top - n->padding_bottom;
+  
+  if (inner_w < 0) inner_w = 0;
+  if (inner_h < 0) inner_h = 0;
+  
+  size_t count = n->len;
+  if (count == 0) return;
+  
+  // Fixed height of 240px for carousel items
+  int item_h = inner_h;
+  if (item_h < 0) item_h = 0;
+  
+  // Minimum 3 items visible at a time
+  int min_visible = 3;
+  if (count < (size_t)min_visible) min_visible = (int)count;
+  
+  // Base width per item (when all equal)
+  int base_item_w = inner_w / min_visible;
+  if (base_item_w < 1) base_item_w = 1;
+  
+  // Calculate max scroll position
+  int max_scroll = (int)(count - min_visible) * base_item_w;
+  if (max_scroll < 0) max_scroll = 0;
+  
+  // Calculate scroll progress (0.0 = left-most, 1.0 = right-most)
+  double scroll_progress = 0.0;
+  if (max_scroll > 0) {
+    scroll_progress = (double)n->carousel_scroll_x / (double)max_scroll;
+  }
+  if (scroll_progress < 0.0) scroll_progress = 0.0;
+  if (scroll_progress > 1.0) scroll_progress = 1.0;
+  
+  // Calculate which item should be "active" based on scroll
+  int active_idx = (int)(scroll_progress * (double)(count - 1) + 0.5);
+  if (active_idx < 0) active_idx = 0;
+  if (active_idx >= (int)count) active_idx = (int)count - 1;
+  n->carousel_active_index = active_idx;
+  
+  // Width ratios: dominant item gets 4/7, secondary gets 2/7, tertiary gets 1/7
+  const int total_ratio = 7;
+  const int dominant_ratio = 4;
+  const int secondary_ratio = 2;
+  const int tertiary_ratio = 1;
+  
+  // Calculate widths for each item
+  int* item_widths = (int*)calloc(count, sizeof(int));
+  if (!item_widths) return;
+  
+  int total_content_w = 0;
+  for (size_t i = 0; i < count; i++) {
+    int dist_from_active = abs((int)i - active_idx);
+    double final_ratio;
+    
+    if (dist_from_active == 0) {
+      final_ratio = (double)dominant_ratio / (double)total_ratio;
+    } else if (dist_from_active == 1) {
+      final_ratio = (double)secondary_ratio / (double)total_ratio;
+    } else {
+      final_ratio = (double)tertiary_ratio / (double)total_ratio;
+    }
+    
+    item_widths[i] = (int)(final_ratio * inner_w);
+    if (item_widths[i] < 1) item_widths[i] = 1;
+    total_content_w += item_widths[i];
+  }
+  
+  // Normalize widths to fit exactly in inner_w
+  if (total_content_w > 0) {
+    double scale = (double)inner_w / (double)total_content_w;
+    total_content_w = 0;
+    for (size_t i = 0; i < count; i++) {
+      item_widths[i] = (int)(item_widths[i] * scale);
+      if (item_widths[i] < 1) item_widths[i] = 1;
+      total_content_w += item_widths[i];
+    }
+  }
+  
+  // Apply scroll offset
+  int cx = inner_x - n->carousel_scroll_x;
+  
+  // Layout children with calculated widths
+  for (size_t i = 0; i < count; i++) {
+    CogitoNode* c = n->children[i];
+    int cw = item_widths[i];
+    
+    // Center vertically
+    int cy = inner_y;
+    int ch = item_h;
+    
+    cogito_layout_node(c, cx + c->margin_left, cy + c->margin_top, cw, ch);
+    cx += cw;
+  }
+  
+  free(item_widths);
+}
+
 static void cogito_layout_hstack(CogitoNode* n, int x, int y) {
   int pad = n->gap;
   int avail_w = n->w - n->padding_left - n->padding_right;
@@ -779,6 +879,8 @@ static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h) {
 
     #include "widgets/layout/button.inc"
 
+    #include "widgets/layout/carousel.inc"
+
     #include "widgets/layout/iconbtn.inc"
 
     #include "widgets/layout/image.inc"
@@ -813,9 +915,7 @@ static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h) {
 
     case COGITO_KIND_COUNT:
       break;
-  
-
-}
+  }
 }
 
 static void cogito_layout_window(CogitoNode* win) {

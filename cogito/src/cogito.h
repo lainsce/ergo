@@ -63,6 +63,7 @@ typedef enum {
   COGITO_NODE_TOASTS,
   COGITO_NODE_TOAST,
   COGITO_NODE_BOTTOM_TOOLBAR,
+  COGITO_NODE_CAROUSEL,
   COGITO_NODE_DIALOG,
   COGITO_NODE_DIALOG_SLOT,
   COGITO_NODE_TOOLTIP,
@@ -101,6 +102,9 @@ cogito_node* cogito_node_new(cogito_node_kind kind);
 cogito_node* cogito_grid_new_with_cols(int cols);
 cogito_node* cogito_label_new(const char* text);
 cogito_node* cogito_button_new(const char* text);
+cogito_node* cogito_carousel_new(void);
+int cogito_carousel_get_active_index(cogito_node* node);
+void cogito_carousel_set_active_index(cogito_node* node, int index);
 cogito_node* cogito_iconbtn_new(const char* text);
 cogito_node* cogito_checkbox_new(const char* text, const char* group);
 cogito_node* cogito_chip_new(const char* text);
@@ -251,6 +255,8 @@ void cogito_window_clear_dialog(cogito_window* window);
 // Containers and layout helpers
 void cogito_fixed_set_pos(cogito_node* fixed, cogito_node* child, int x, int y);
 void cogito_scroller_set_axes(cogito_node* scroller, bool h, bool v);
+void cogito_carousel_set_active_index(cogito_node* carousel, int idx);
+int cogito_carousel_get_active_index(cogito_node* carousel);
 void cogito_grid_set_gap(cogito_node* grid, int x, int y);
 void cogito_grid_set_span(cogito_node* child, int col_span, int row_span);
 void cogito_grid_set_align(cogito_node* child, int halign, int valign);

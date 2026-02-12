@@ -794,6 +794,48 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       }
     }
 
+    // Carousel active handling (drag-to-scroll)
+    if (cogito_carousel_active) {
+      if (cogito_backend->is_mouse_button_down(0)) {
+        CogitoNode* cr = cogito_carousel_active;
+        int dx = mx - cr->carousel_drag_start_x;
+        int new_scroll = cr->carousel_drag_start_scroll - dx;
+        
+        // Calculate max scroll
+        int min_visible = 3;
+        if (cr->len < (size_t)min_visible) min_visible = (int)cr->len;
+        int base_item_w = cr->w / min_visible;
+        if (base_item_w < 1) base_item_w = 1;
+        int max_scroll = (int)(cr->len - min_visible) * base_item_w;
+        if (max_scroll < 0) max_scroll = 0;
+        
+        // Clamp scroll position
+        if (new_scroll < 0) new_scroll = 0;
+        if (new_scroll > max_scroll) new_scroll = max_scroll;
+        
+        if (new_scroll != cr->carousel_scroll_x) {
+          cr->carousel_scroll_x = new_scroll;
+          cogito_window_relayout(win);
+        }
+        
+        // Set cursor to grabbing during drag
+        if (cogito_backend && cogito_backend->set_cursor) {
+          cogito_backend->set_cursor(COGITO_CURSOR_GRABBING);
+        }
+      } else {
+        if (cogito_pointer_capture == cogito_carousel_active) {
+          cogito_pointer_capture = NULL;
+        }
+        cogito_carousel_active->carousel_dragging = false;
+        cogito_carousel_active = NULL;
+        
+        // Reset cursor
+        if (cogito_backend && cogito_backend->set_cursor) {
+          cogito_backend->set_cursor(COGITO_CURSOR_DEFAULT);
+        }
+      }
+    }
+
     // Color picker active handling
     if (cogito_colorpicker_active) {
       if (cogito_backend->is_mouse_button_down(0)) {
@@ -1094,6 +1136,16 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           } else if (hit->kind == COGITO_SLIDER) {
             cogito_slider_active = hit;
             cogito_pointer_capture = hit;
+          } else if (hit->kind == COGITO_CAROUSEL) {
+            cogito_carousel_active = hit;
+            cogito_pointer_capture = hit;
+            hit->carousel_dragging = true;
+            hit->carousel_drag_start_x = mx;
+            hit->carousel_drag_start_scroll = hit->carousel_scroll_x;
+            // Set cursor to grab
+            if (cogito_backend && cogito_backend->set_cursor) {
+              cogito_backend->set_cursor(COGITO_CURSOR_GRAB);
+            }
           } else if (hit->kind == COGITO_TABS) {
             int idx = cogito_tabs_hit_index(hit, mx, my);
             if (idx >= 0) {

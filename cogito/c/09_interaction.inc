@@ -88,6 +88,7 @@ static ErgoVal cogito_node_parent(ErgoVal nodev);
 static void cogito_container_remove_child(CogitoNode* parent, CogitoNode* child);
 
 #include "widgets/interaction/button.inc"
+#include "widgets/interaction/carousel.inc"
 #include "widgets/interaction/checkbox.inc"
 #include "widgets/interaction/chip.inc"
 #include "widgets/interaction/colorpicker.inc"
@@ -207,6 +208,7 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
       n->kind == COGITO_TREEVIEW ||
       n->kind == COGITO_TEXTFIELD || n->kind == COGITO_TEXTVIEW ||
       n->kind == COGITO_DROPDOWN || n->kind == COGITO_SLIDER ||
+      n->kind == COGITO_CAROUSEL ||
       n->kind == COGITO_TABS || n->kind == COGITO_TOAST ||
       n->kind == COGITO_DATEPICKER || n->kind == COGITO_COLORPICKER ||
       n->kind == COGITO_CHIP || n->kind == COGITO_FAB ||
@@ -246,6 +248,7 @@ static bool cogito_node_focusable(const CogitoNode* n) {
     #include "widgets/interaction/focusable/dropdown.inc"
     #include "widgets/interaction/focusable/slider.inc"
     #include "widgets/interaction/focusable/button.inc"
+    #include "widgets/interaction/focusable/carousel.inc"
     #include "widgets/interaction/focusable/iconbtn.inc"
     #include "widgets/interaction/focusable/checkbox.inc"
     #include "widgets/interaction/focusable/chip.inc"

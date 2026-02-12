@@ -27,6 +27,26 @@ static SDL_Renderer* sdl3_create_renderer_for_window(SDL_Window* window);
 static void sdl3_get_mouse_position_in_window(CogitoWindow* window, int* x, int* y);
 
 // ============================================================================
+// Cursor
+// ============================================================================
+
+static SDL_Cursor* sdl3_cursors[COGITO_CURSOR_COUNT] = {NULL};
+
+static void sdl3_init_cursors(void) {
+    sdl3_cursors[COGITO_CURSOR_DEFAULT] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
+    sdl3_cursors[COGITO_CURSOR_GRAB] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_POINTER);
+    sdl3_cursors[COGITO_CURSOR_GRABBING] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_POINTER);
+    sdl3_cursors[COGITO_CURSOR_POINTER] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_POINTER);
+    sdl3_cursors[COGITO_CURSOR_TEXT] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_TEXT);
+}
+
+static void sdl3_set_cursor(CogitoCursorType cursor) {
+    if (cursor >= 0 && cursor < COGITO_CURSOR_COUNT && sdl3_cursors[cursor]) {
+        SDL_SetCursor(sdl3_cursors[cursor]);
+    }
+}
+
+// ============================================================================
 // Internal Types
 // ============================================================================
 
@@ -235,6 +255,9 @@ static bool sdl3_init(void) {
     
     // Initialize window registry
     cogito_window_registry_init(&window_registry);
+    
+    // Initialize cursors
+    sdl3_init_cursors();
     
     start_time = (double)SDL_GetTicks() / 1000.0;
     sdl3_initialized = true;
@@ -1739,6 +1762,7 @@ static CogitoBackend sdl3_backend = {
     .begin_scissor = sdl3_begin_scissor,
     .end_scissor = sdl3_end_scissor,
     .set_blend_mode = sdl3_set_blend_mode,
+    .set_cursor = sdl3_set_cursor,
     .window_set_hit_test_callback = sdl3_window_set_hit_test_callback,
     .window_set_borderless = sdl3_window_set_borderless,
     .window_is_borderless = sdl3_window_is_borderless,

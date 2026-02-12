@@ -402,6 +402,8 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
 
     #include "widgets/intrinsic/button.inc"
 
+    #include "widgets/intrinsic/carousel.inc"
+
     #include "widgets/intrinsic/iconbtn.inc"
 
     #include "widgets/intrinsic/image.inc"

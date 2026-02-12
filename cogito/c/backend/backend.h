@@ -20,6 +20,16 @@ typedef struct CogitoWindow CogitoWindow;
 typedef struct CogitoFont CogitoFont;
 typedef struct CogitoTexture CogitoTexture;
 
+// Cursor types for visual feedback
+typedef enum {
+    COGITO_CURSOR_DEFAULT = 0,
+    COGITO_CURSOR_GRAB,
+    COGITO_CURSOR_GRABBING,
+    COGITO_CURSOR_POINTER,
+    COGITO_CURSOR_TEXT,
+    COGITO_CURSOR_COUNT
+} CogitoCursorType;
+
 typedef struct {
     uint8_t r, g, b, a;
 } CogitoColor;
@@ -130,6 +140,9 @@ typedef struct CogitoBackend {
     
     // Blend modes
     void (*set_blend_mode)(int mode);
+    
+    // Cursor
+    void (*set_cursor)(CogitoCursorType cursor);
     
     // CSD (Client-Side Decorations)
     void (*window_set_hit_test_callback)(CogitoWindow* window, 

@@ -32,6 +32,24 @@ fixed
 scroller
   background: transparent
   color: #f2f2f7
+  padding: 0
+
+carousel
+  background: transparent
+  color: #f2f2f7
+  min-height: 240
+  min-width: 400
+
+carousel-item
+  background: #4f378b
+  color: #f2f2f7
+  border-radius: 16
+  padding: 16
+
+carousel-item-label
+  font-size: 18
+  font-weight: bold
+  color: #d0bcff
 
 dialogslot
   background: #00000066
@@ -375,6 +393,9 @@ appbar.view
   color: #f2f2f7
 
 appbar.sidebar
+  background: #1c1c1e
+
+scroller.sidebar
   background: #1c1c1e
 
 dialog

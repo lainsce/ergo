@@ -598,6 +598,7 @@ static bool cogito_sum_selector_kind(const char* sel, CogitoKind* out_kind, bool
   if (strcmp(s, "appbar") == 0) { if (out_kind) *out_kind = COGITO_APPBAR; return true; }
   if (strcmp(s, "bottom-nav") == 0 || strcmp(s, "bottom_nav") == 0) { if (out_kind) *out_kind = COGITO_BOTTOM_NAV; return true; }
   if (strcmp(s, "button") == 0) { if (out_kind) *out_kind = COGITO_BUTTON; return true; }
+  if (strcmp(s, "carousel") == 0) { if (out_kind) *out_kind = COGITO_CAROUSEL; return true; }
   if (strcmp(s, "checkbox") == 0) { if (out_kind) *out_kind = COGITO_CHECKBOX; return true; }
   if (strcmp(s, "chip") == 0) { if (out_kind) *out_kind = COGITO_CHIP; return true; }
   if (strcmp(s, "colorpicker") == 0) { if (out_kind) *out_kind = COGITO_COLORPICKER; return true; }

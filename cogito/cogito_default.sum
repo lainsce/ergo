@@ -32,6 +32,24 @@ fixed
 scroller
   background: transparent
   color: #222222
+  padding: 0
+
+carousel
+  background: transparent
+  color: #222222
+  min-height: 240
+  min-width: 400
+
+carousel-item
+  background: #e8def8
+  color: #222222
+  border-radius: 16
+  padding: 16
+
+carousel-item-label
+  font-size: 18
+  font-weight: bold
+  color: #6750a4
 
 dialogslot
   background: #00000066
@@ -579,6 +597,10 @@ switch .knob:active
 toast:selection
   background: #72dec2
 
+scroller.sidebar
+  background: #f5f5f5
+
+; Color tokens
 .primary-container
   background: #e8def8
   color: #1d1b20

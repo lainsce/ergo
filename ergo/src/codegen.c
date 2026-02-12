@@ -2869,6 +2869,42 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_carousel")) {
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_carousel_new();", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_carousel_set_active_index")) {
+                        GenExpr carousel, idx;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &carousel, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &idx, err)) { gen_expr_free(&carousel); return false; }
+                        w_line(&cg->w, "cogito_carousel_set_active_index(%s, %s);", carousel.tmp, idx.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", carousel.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", idx.tmp);
+                        gen_expr_release_except(cg, &carousel, carousel.tmp);
+                        gen_expr_release_except(cg, &idx, idx.tmp);
+                        gen_expr_free(&carousel);
+                        gen_expr_free(&idx);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_carousel_get_active_index")) {
+                        GenExpr carousel;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &carousel, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_carousel_get_active_index(%s);", t, carousel.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", carousel.tmp);
+                        gen_expr_release_except(cg, &carousel, carousel.tmp);
+                        gen_expr_free(&carousel);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_list")) {
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w, "ErgoVal %s = cogito_list_new();", t);

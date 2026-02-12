@@ -70,6 +70,7 @@ typedef enum {
   COGITO_APPBAR,
   COGITO_BOTTOM_NAV,
   COGITO_BUTTON,
+  COGITO_CAROUSEL,
   COGITO_CHECKBOX,
   COGITO_CHIP,
   COGITO_COLORPICKER,
@@ -561,6 +562,13 @@ typedef struct CogitoNode {
   size_t bottom_nav_len;
   size_t bottom_nav_cap;
   int bottom_nav_selected;
+  // Carousel-specific fields
+  bool carousel_dragging;
+  int carousel_scroll_x;
+  int carousel_drag_start_x;
+  int carousel_drag_start_scroll;
+  int carousel_active_index;
+  int carousel_item_count;
 } CogitoNode;
 
 typedef struct CogitoState {
@@ -614,6 +622,7 @@ static bool cogito_has_selection_text = false;
 static bool cogito_dialog_slot_force_draw = false;
 static bool cogito_toasts_force_draw = false;
 static CogitoNode* cogito_slider_active = NULL;
+static CogitoNode* cogito_carousel_active = NULL;
 static CogitoNode* cogito_colorpicker_active = NULL;
 static int cogito_colorpicker_channel = -1;
 static CogitoNode* cogito_pointer_capture = NULL;

@@ -51,6 +51,9 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_button_add_menu cogito_button_add_menu_ergo
 #define cogito_button_new cogito_button_new_ergo
 #define cogito_button_set_text cogito_button_set_text_ergo
+#define cogito_carousel_new cogito_carousel_new_ergo
+#define cogito_carousel_get_active_index cogito_carousel_get_active_index_ergo
+#define cogito_carousel_set_active_index cogito_carousel_set_active_index_ergo
 #define cogito_checkbox_get_checked cogito_checkbox_get_checked_ergo
 #define cogito_checkbox_new cogito_checkbox_new_ergo
 #define cogito_checkbox_on_change cogito_checkbox_on_change_ergo
@@ -131,6 +134,9 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_run cogito_run_ergo
 #define cogito_scroller_new cogito_scroller_new_ergo
 #define cogito_scroller_set_axes cogito_scroller_set_axes_ergo
+#define cogito_carousel_new cogito_carousel_new_ergo
+#define cogito_carousel_set_active_index cogito_carousel_set_active_index_ergo
+#define cogito_carousel_get_active_index cogito_carousel_get_active_index_ergo
 #define cogito_searchfield_get_text cogito_searchfield_get_text_ergo
 #define cogito_searchfield_new cogito_searchfield_new_ergo
 #define cogito_searchfield_on_change cogito_searchfield_on_change_ergo
@@ -219,6 +225,9 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_button_add_menu
 #undef cogito_button_new
 #undef cogito_button_set_text
+#undef cogito_carousel_new
+#undef cogito_carousel_get_active_index
+#undef cogito_carousel_set_active_index
 #undef cogito_checkbox_get_checked
 #undef cogito_checkbox_new
 #undef cogito_checkbox_on_change
@@ -598,6 +607,7 @@ static CogitoKind cogito_kind_from_public(cogito_node_kind kind) {
     case COGITO_NODE_TOASTS: return COGITO_TOASTS;
     case COGITO_NODE_TOAST: return COGITO_TOAST;
     case COGITO_NODE_BOTTOM_TOOLBAR: return COGITO_TOOLBAR;
+    case COGITO_NODE_CAROUSEL: return COGITO_CAROUSEL;
     case COGITO_NODE_DIALOG: return COGITO_DIALOG;
     case COGITO_NODE_DIALOG_SLOT: return COGITO_DIALOG_SLOT;
     case COGITO_NODE_TOOLTIP: return COGITO_TOOLTIP;
@@ -634,6 +644,26 @@ cogito_node* cogito_button_new(const char* text) {
   if (tv.tag == EVT_STR) ergo_release_val(tv);
   return cogito_from_val(v);
 }
+
+cogito_node* cogito_carousel_new(void) {
+  ErgoVal v = cogito_carousel_new_ergo();
+  return cogito_from_val(v);
+}
+
+int cogito_carousel_get_active_index(cogito_node* node) {
+  if (!node) return 0;
+  ErgoVal nv = EV_OBJ((void*)node);
+  ErgoVal v = cogito_carousel_get_active_index_ergo(nv);
+  return (int)ergo_as_int(v);
+}
+
+void cogito_carousel_set_active_index(cogito_node* node, int index) {
+  if (!node) return;
+  ErgoVal nv = EV_OBJ((void*)node);
+  ErgoVal iv = EV_INT((int64_t)index);
+  cogito_carousel_set_active_index_ergo(nv, iv);
+}
+
 
 cogito_node* cogito_iconbtn_new(const char* text) {
   ErgoVal tv = cogito_val_from_cstr(text);

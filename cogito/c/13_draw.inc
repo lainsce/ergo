@@ -979,6 +979,8 @@ static void cogito_draw_node(CogitoNode* n) {
 
     #include "widgets/draw/button.inc"
 
+    #include "widgets/draw/carousel.inc"
+
     #include "widgets/draw/iconbtn.inc"
 
     #include "widgets/draw/image.inc"
