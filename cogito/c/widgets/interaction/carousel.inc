@@ -30,7 +30,7 @@ static ErgoVal cogito_carousel_get_active_index(ErgoVal nodev) {
   return EV_INT((int64_t)n->carousel_active_index);
 }
 
-static CogitoNode* cogito_find_carousel(CogitoNode* n, int x, int y) {
+static inline CogitoNode* cogito_find_carousel(CogitoNode* n, int x, int y) {
   if (!n) return NULL;
   if (n->kind == COGITO_CAROUSEL && !cogito_hit_rect(x, y, n->x, n->y, n->w, n->h)) return NULL;
   if (n->kind == COGITO_VIEWSWITCHER) {

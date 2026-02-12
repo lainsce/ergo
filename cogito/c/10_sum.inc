@@ -1323,6 +1323,9 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "button.text:hover\n  background: %s12\n", p);
   cogito_sum_append(out, cap, &off, "button.text\n  background: transparent\n  color: %s\n  box-shadow: none\n  padding: 10 12\n", p);
   cogito_sum_append(out, cap, &off, "button\n  background: %s\n  color: %s\n  border-radius: 20\n  min-height: 40\n  padding: 10 24\n  transition: 180 standard\n", p, op);
+  cogito_sum_append(out, cap, &off, "carousel\n  background: transparent\n  color: %s\n  min-height: 240\n  min-width: 400\n  border-radius: 26\n", ons);
+  cogito_sum_append(out, cap, &off, "zstack.carousel-item\n  background: %s\n  color: %s\n  border-radius: 26\n  padding: 16\n", sc, ons);
+  cogito_sum_append(out, cap, &off, "label.carousel-item-label\n  font-size: 21\n  font-weight: bold\n  color: #ffffff\n");
   cogito_sum_append(out, cap, &off, "checkbox .box:active\n  border-color: %s\n", p);
   cogito_sum_append(out, cap, &off, "checkbox .box:hover\n  border-color: %s\n", ons);
   cogito_sum_append(out, cap, &off, "checkbox .box\n  background: transparent\n  border-radius: 4\n  border: 2 solid %s\n", outl);

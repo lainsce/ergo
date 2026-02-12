@@ -39,17 +39,18 @@ carousel
   color: #f2f2f7
   min-height: 240
   min-width: 400
+  border-radius: 26
 
-carousel-item
+zstack.carousel-item
   background: #4f378b
   color: #f2f2f7
-  border-radius: 16
+  border-radius: 26
   padding: 16
 
-carousel-item-label
-  font-size: 18
+label.carousel-item-label
+  font-size: 21
   font-weight: bold
-  color: #d0bcff
+  color: #ffffff
 
 dialogslot
   background: #00000066

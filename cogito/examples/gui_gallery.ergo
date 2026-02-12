@@ -7,7 +7,7 @@ fun build_buttons_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
-    vstack.set_gap(8)
+    vstack.set_gap(12)
     vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Button variants")
@@ -54,7 +54,7 @@ fun build_textfields_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
-    vstack.set_gap(8)
+    vstack.set_gap(12)
     vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Text input fields")
@@ -105,7 +105,7 @@ fun build_checkboxes_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
-    vstack.set_gap(8)
+    vstack.set_gap(12)
     vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Selection controls")
@@ -171,7 +171,7 @@ fun build_sliders_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
-    vstack.set_gap(8)
+    vstack.set_gap(12)
     vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Slider & Stepper")
@@ -207,7 +207,7 @@ fun build_pickers_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
-    vstack.set_gap(8)
+    vstack.set_gap(12)
     vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Date & Color pickers")
@@ -238,7 +238,7 @@ fun build_lists_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
-    vstack.set_gap(8)
+    vstack.set_gap(12)
     vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Lists & Grids")
@@ -285,7 +285,7 @@ fun build_controls_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
-    vstack.set_gap(8)
+    vstack.set_gap(12)
     vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Dropdown & Progress")
@@ -365,7 +365,7 @@ fun build_tabs_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
-    vstack.set_gap(8)
+    vstack.set_gap(12)
     vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Tabs & Segmented")
@@ -422,7 +422,7 @@ fun build_chips_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
-    vstack.set_gap(8)
+    vstack.set_gap(12)
     vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Chips & FAB")
@@ -477,7 +477,7 @@ fun build_carousel_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
-    vstack.set_gap(8)
+    vstack.set_gap(12)
     vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Carousel")
@@ -493,38 +493,58 @@ fun build_carousel_view() (( cogito.VStack )) {
     carousel.set_hexpand(true)
 
     -- Create carousel items with distinct backgrounds
-    let item1 = cogito.vstack()
+    let item1 = cogito.zstack()
+    item1.set_vexpand(true)
+    item1.set_hexpand(true)
     item1.set_class(@"carousel-item")
     let label1 = cogito.label(@"Item 1")
     label1.set_class(@"carousel-item-label")
+    label1.set_halign(0)  -- left
+    label1.set_valign(2)  -- bottom
     item1.add(label1)
     carousel.add(item1)
 
-    let item2 = cogito.vstack()
+    let item2 = cogito.zstack()
+    item2.set_vexpand(true)
+    item2.set_hexpand(true)
     item2.set_class(@"carousel-item")
     let label2 = cogito.label(@"Item 2")
     label2.set_class(@"carousel-item-label")
+    label2.set_halign(0)  -- left
+    label2.set_valign(2)  -- bottom
     item2.add(label2)
     carousel.add(item2)
 
-    let item3 = cogito.vstack()
+    let item3 = cogito.zstack()
+    item3.set_vexpand(true)
+    item3.set_hexpand(true)
     item3.set_class(@"carousel-item")
     let label3 = cogito.label(@"Item 3")
     label3.set_class(@"carousel-item-label")
+    label3.set_halign(0)  -- left
+    label3.set_valign(2)  -- bottom
     item3.add(label3)
     carousel.add(item3)
 
-    let item4 = cogito.vstack()
+    let item4 = cogito.zstack()
+    item4.set_vexpand(true)
+    item4.set_hexpand(true)
     item4.set_class(@"carousel-item")
     let label4 = cogito.label(@"Item 4")
     label4.set_class(@"carousel-item-label")
+    label4.set_halign(0)  -- left
+    label4.set_valign(2)  -- bottom
     item4.add(label4)
     carousel.add(item4)
 
-    let item5 = cogito.vstack()
+    let item5 = cogito.zstack()
+    item5.set_vexpand(true)
+    item5.set_hexpand(true)
     item5.set_class(@"carousel-item")
     let label5 = cogito.label(@"Item 5")
     label5.set_class(@"carousel-item-label")
+    label5.set_halign(0)  -- left
+    label5.set_valign(2)  -- bottom
     item5.add(label5)
     carousel.add(item5)
 
@@ -548,7 +568,7 @@ fun build_carousel_view() (( cogito.VStack )) {
 fun build_navrail_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
     vstack.set_vexpand(true)
-    vstack.set_gap(8)
+    vstack.set_gap(12)
     vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Navigation Rail")
@@ -584,7 +604,7 @@ fun build_dialogs_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
-    vstack.set_gap(8)
+    vstack.set_gap(12)
     vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Dialogs & Toasts")
@@ -642,7 +662,7 @@ fun build_tree_view(views = cogito.ViewSwitcher) (( cogito.VStack )) {
     let vstack = cogito.vstack()
     vstack.set_vexpand(true)
     vstack.set_hexpand(true)
-    vstack.set_gap(8)
+    vstack.set_gap(12)
     vstack.set_padding(0, 18, 0, 18)
 
     let subtitle = cogito.label(@"Tree View")
