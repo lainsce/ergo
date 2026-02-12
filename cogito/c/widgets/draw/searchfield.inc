@@ -2,32 +2,19 @@ case COGITO_SEARCHFIELD: {
   bool hover = false, active = false;
   cogito_node_hover_state(n, &hover, &active);
   bool focused = (cogito_focused == n && !n->disabled && n->editable);
-  CogitoStyle s = cogito_theme_resolve_node_state(n, hover || focused, active);
+  // Only apply focus styling when focused via keyboard (tab), not mouse click
+  bool focus_from_keyboard = focused && !active;
+  CogitoStyle s = cogito_theme_resolve_node_state(n, hover || focus_from_keyboard, false);
 
   // Draw rounded background
   CogitoColor bg = s.has_bg ? s.bg : n->bg;
   CogitoColor text_color = s.has_text ? s.text : n->text_color;
-  CogitoColor border_col = s.has_border ? s.border : n->border_color;
-  if (!s.has_border && !n->border_color_set) {
-    border_col.a = 0;
-  }
-  int border_w = s.has_border_width ? s.border_width : 0;
   int radius = s.has_radius ? s.radius : (n->h / 2);
 
   // Animate colors
-  cogito_anim_apply(n, &s, &bg, &text_color, &border_col, NULL);
-
-  // Override border for focus state
-  if (focused) {
-    CogitoColor sel = s.has_selection ? s.selection : text_color;
-    border_col = sel;
-    border_w = 2;
-  }
+  cogito_anim_apply(n, &s, &bg, &text_color, NULL, NULL);
 
   cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, radius);
-  if (border_w > 0) {
-    cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border_col, radius, border_w);
-  }
 
   // Draw search icon on the left
   int icon_size = 16;

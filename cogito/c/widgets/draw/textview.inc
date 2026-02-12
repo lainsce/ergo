@@ -2,28 +2,18 @@ case COGITO_TEXTVIEW: {
       bool hover = false;
       bool active = false;
       cogito_node_hover_state(n, &hover, &active);
-      CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
+      // Only apply focus styling when focused via keyboard (tab), not mouse click
+      CogitoStyle s = cogito_theme_resolve_node_state(n, hover, false);
       CogitoColor bg = n->bg;
-      CogitoColor border = n->border_color;
       CogitoColor text = n->text_color;
-      int border_w = n->border_width;
       int radius = n->border_radius;
       if (s.has_bg) bg = s.bg;
-      if (s.has_border) border = s.border;
-      if (s.has_border_width) border_w = s.border_width;
       if (s.has_radius) radius = s.radius;
       if (cogito_has_selection_text) text = cogito_selection_text;
       else if (s.has_text) text = s.text;
-      cogito_anim_apply(n, &s, &bg, &text, &border, NULL);
-      if (n->bg_set || border_w > 0) {
+      cogito_anim_apply(n, &s, &bg, &text, NULL, NULL);
+      if (n->bg_set) {
         cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, radius);
-        if (border_w > 0) {
-          cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border, radius, border_w);
-        }
-      }
-      if (cogito_focused == n && !n->disabled && n->editable) {
-        CogitoColor focus = s.has_selection ? s.selection : n->selection_color;
-        cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, focus, radius, border_w > 0 ? border_w : 2);
       }
       int pad = 8;
       int size = cogito_node_font_size(n);

@@ -581,9 +581,6 @@ switch .track:active
 button:focus, button.text:focus, button.outlined:focus, iconbtn:focus, fab:focus, chip:focus, checkbox:focus, radio:focus, slider:focus, stepper:focus, segmented:focus, dropdown:focus, datepicker:focus, colorpicker:focus, nav-rail:focus, bottom-nav:focus
   border: 2 solid @primary
 
-textfield:focus, searchfield:focus, textview:focus
-  border: 2 solid @primary
-
 switch .knob
   background: #ffffff
   min-width: 32
