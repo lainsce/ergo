@@ -211,7 +211,8 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
       n->kind == COGITO_DATEPICKER || n->kind == COGITO_COLORPICKER ||
       n->kind == COGITO_CHIP || n->kind == COGITO_FAB ||
       n->kind == COGITO_STEPPER || n->kind == COGITO_SEGMENTED ||
-      n->kind == COGITO_SEARCHFIELD) {
+      n->kind == COGITO_SEARCHFIELD ||
+      n->kind == COGITO_NAV_RAIL || n->kind == COGITO_BOTTOM_NAV) {
     if (cogito_hit_node(n, x, y)) return n;
   }
   return NULL;

@@ -473,6 +473,41 @@ fun build_chips_view() (( cogito.VStack )) {
     return vstack
 }
 
+fun build_navrail_view() (( cogito.VStack )) {
+    let vstack = cogito.vstack()
+    vstack.set_vexpand(true)
+    vstack.set_gap(8)
+    vstack.set_padding(0, 18, 0, 18)
+
+    let subtitle = cogito.label(@"Navigation Rail")
+    subtitle.set_class(@"subtitle")
+    vstack.add(subtitle)
+
+    let status = cogito.label(@"Click rail items to switch views.")
+    status.set_class(@"body")
+    status.set_wrap(true)
+    vstack.add(status)
+
+    let rail = cogito.nav_rail()
+    rail.set_vexpand(true)
+    rail.set_items([@"Home", @"Search", @"Profile", @"Settings"], [@"sf:star", @"sf:star", @"sf:star", @"sf:star"])
+    rail.on_change((idx) => {
+        let item = if idx == 0 {
+            @"Home"
+        } elif idx == 1 {
+            @"Search"
+        } elif idx == 2 {
+            @"Profile"
+        } else {
+            @"Settings"
+        }
+        status.set_text(@"Rail selected: $item")
+    })
+    vstack.add(rail)
+
+    return vstack
+}
+
 fun build_dialogs_view() (( cogito.VStack )) {
     let vstack = cogito.vstack()
     vstack.set_vexpand(true)
@@ -654,6 +689,10 @@ fun build_ui(win = cogito.Window) (( -- )) {
     cogito.set_id(chips_view, @"chips")
     views.add(chips_view)
 
+    let navrail_view = build_navrail_view()
+    cogito.set_id(navrail_view, @"navrail")
+    views.add(navrail_view)
+
     let dialogs_view = build_dialogs_view()
     cogito.set_id(dialogs_view, @"dialogs")
     views.add(dialogs_view)
@@ -678,6 +717,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
     sidebar_list.add(cogito.label(@"Controls"))
     sidebar_list.add(cogito.label(@"Tabs"))
     sidebar_list.add(cogito.label(@"Chips & FAB"))
+    sidebar_list.add(cogito.label(@"Nav Rail"))
     sidebar_list.add(cogito.label(@"Dialogs"))
     sidebar_list.add(cogito.label(@"Tree View"))
     sidebar_list.on_select((idx) => {
@@ -700,8 +740,10 @@ fun build_ui(win = cogito.Window) (( -- )) {
         } elif idx == 8 {
             @"chips"
         } elif idx == 9 {
-            @"dialogs"
+            @"navrail"
         } elif idx == 10 {
+            @"dialogs"
+        } elif idx == 11 {
             @"tree"
         } else {
             @"buttons"

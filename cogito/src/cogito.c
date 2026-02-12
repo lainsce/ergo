@@ -34,154 +34,154 @@ static const char* cogito_font_bold_path_active = NULL;
 
 // Rename internal Ergo-facing symbols to avoid conflicts with public C API.
 #define cogito_app_new cogito_app_new_ergo
-#define cogito_app_set_appid cogito_app_set_appid_ergo
-#define cogito_app_set_app_name cogito_app_set_app_name_ergo
 #define cogito_app_set_accent_color cogito_app_set_accent_color_ergo
-#define cogito_window_new cogito_window_new_ergo
-#define cogito_window_set_resizable cogito_window_set_resizable_ergo
-#define cogito_window_set_autosize cogito_window_set_autosize_ergo
-#define cogito_window_set_a11y_label cogito_window_set_a11y_label_ergo
-#define cogito_run cogito_run_ergo
-#define cogito_node_new cogito_node_new_ergo
-#define cogito_vstack_new cogito_vstack_new_ergo
-#define cogito_hstack_new cogito_hstack_new_ergo
-#define cogito_zstack_new cogito_zstack_new_ergo
-#define cogito_fixed_new cogito_fixed_new_ergo
-#define cogito_scroller_new cogito_scroller_new_ergo
-#define cogito_list_new cogito_list_new_ergo
-#define cogito_label_new cogito_label_new_ergo
-#define cogito_label_set_class cogito_label_set_class_ergo
-#define cogito_label_set_text cogito_label_set_text_ergo
-#define cogito_label_set_wrap cogito_label_set_wrap_ergo
-#define cogito_label_set_ellipsis cogito_label_set_ellipsis_ergo
-#define cogito_label_set_align cogito_label_set_align_ergo
-#define cogito_button_new cogito_button_new_ergo
-#define cogito_button_set_text cogito_button_set_text_ergo
-#define cogito_button_add_menu cogito_button_add_menu_ergo
-#define cogito_iconbtn_new cogito_iconbtn_new_ergo
-#define cogito_iconbtn_add_menu cogito_iconbtn_add_menu_ergo
-#define cogito_checkbox_new cogito_checkbox_new_ergo
-#define cogito_checkbox_set_checked cogito_checkbox_set_checked_ergo
-#define cogito_checkbox_get_checked cogito_checkbox_get_checked_ergo
-#define cogito_checkbox_on_change cogito_checkbox_on_change_ergo
-#define cogito_switch_new cogito_switch_new_ergo
-#define cogito_switch_set_checked cogito_switch_set_checked_ergo
-#define cogito_switch_get_checked cogito_switch_get_checked_ergo
-#define cogito_switch_on_change cogito_switch_on_change_ergo
-#define cogito_textfield_new cogito_textfield_new_ergo
-#define cogito_textfield_set_text cogito_textfield_set_text_ergo
-#define cogito_textfield_get_text cogito_textfield_get_text_ergo
-#define cogito_textfield_on_change cogito_textfield_on_change_ergo
-#define cogito_textview_new cogito_textview_new_ergo
-#define cogito_textview_set_text cogito_textview_set_text_ergo
-#define cogito_textview_get_text cogito_textview_get_text_ergo
-#define cogito_textview_on_change cogito_textview_on_change_ergo
-#define cogito_searchfield_new cogito_searchfield_new_ergo
-#define cogito_searchfield_set_text cogito_searchfield_set_text_ergo
-#define cogito_searchfield_get_text cogito_searchfield_get_text_ergo
-#define cogito_searchfield_on_change cogito_searchfield_on_change_ergo
-#define cogito_dropdown_new cogito_dropdown_new_ergo
-#define cogito_dropdown_set_items cogito_dropdown_set_items_ergo
-#define cogito_dropdown_set_selected cogito_dropdown_set_selected_ergo
-#define cogito_dropdown_get_selected cogito_dropdown_get_selected_ergo
-#define cogito_dropdown_on_change cogito_dropdown_on_change_ergo
-#define cogito_slider_new cogito_slider_new_ergo
-#define cogito_slider_set_value cogito_slider_set_value_ergo
-#define cogito_slider_get_value cogito_slider_get_value_ergo
-#define cogito_slider_on_change cogito_slider_on_change_ergo
-#define cogito_tabs_new cogito_tabs_new_ergo
-#define cogito_tabs_set_items cogito_tabs_set_items_ergo
-#define cogito_tabs_set_ids cogito_tabs_set_ids_ergo
-#define cogito_tabs_set_selected cogito_tabs_set_selected_ergo
-#define cogito_tabs_get_selected cogito_tabs_get_selected_ergo
-#define cogito_tabs_on_change cogito_tabs_on_change_ergo
-#define cogito_tabs_bind cogito_tabs_bind_ergo
-#define cogito_view_switcher_new cogito_view_switcher_new_ergo
-#define cogito_view_switcher_set_active cogito_view_switcher_set_active_ergo
-#define cogito_progress_new cogito_progress_new_ergo
-#define cogito_divider_new cogito_divider_new_ergo
-#define cogito_progress_set_value cogito_progress_set_value_ergo
-#define cogito_progress_get_value cogito_progress_get_value_ergo
-#define cogito_datepicker_new cogito_datepicker_new_ergo
-#define cogito_datepicker_on_change cogito_datepicker_on_change_ergo
-#define cogito_colorpicker_new cogito_colorpicker_new_ergo
-#define cogito_colorpicker_on_change cogito_colorpicker_on_change_ergo
-#define cogito_stepper_new cogito_stepper_new_ergo
-#define cogito_stepper_set_value cogito_stepper_set_value_ergo
-#define cogito_stepper_get_value cogito_stepper_get_value_ergo
-#define cogito_stepper_on_change cogito_stepper_on_change_ergo
-#define cogito_segmented_new cogito_segmented_new_ergo
-#define cogito_segmented_on_select cogito_segmented_on_select_ergo
-#define cogito_treeview_new cogito_treeview_new_ergo
-#define cogito_toasts_new cogito_toasts_new_ergo
-#define cogito_toast_new cogito_toast_new_ergo
-#define cogito_toast_set_text cogito_toast_set_text_ergo
-#define cogito_toast_on_click cogito_toast_on_click_ergo
-#define cogito_toast_set_action cogito_toast_set_action_ergo
-#define cogito_toolbar_new cogito_bottom_toolbar_new_ergo
-#define cogito_dialog_new cogito_dialog_new_ergo
-#define cogito_dialog_slot_new cogito_dialog_slot_new_ergo
-#define cogito_dialog_slot_show cogito_dialog_slot_show_ergo
-#define cogito_dialog_slot_clear cogito_dialog_slot_clear_ergo
-#define cogito_appbar_new cogito_appbar_new_ergo
+#define cogito_app_set_app_name cogito_app_set_app_name_ergo
+#define cogito_app_set_appid cogito_app_set_appid_ergo
 #define cogito_appbar_add_button cogito_appbar_add_button_ergo
+#define cogito_appbar_new cogito_appbar_new_ergo
 #define cogito_appbar_set_controls cogito_appbar_set_controls_ergo
-#define cogito_appbar_set_title cogito_appbar_set_title_ergo
 #define cogito_appbar_set_subtitle cogito_appbar_set_subtitle_ergo
-#define cogito_image_new cogito_image_new_ergo
-#define cogito_image_set_icon cogito_image_set_icon_ergo
-#define cogito_list_on_select cogito_list_on_select_ergo
-#define cogito_list_on_activate cogito_list_on_activate_ergo
-#define cogito_grid_on_select cogito_grid_on_select_ergo
-#define cogito_grid_on_activate cogito_grid_on_activate_ergo
-#define cogito_nav_rail_on_change cogito_nav_rail_on_change_ergo
-#define cogito_bottom_nav_on_change cogito_bottom_nav_on_change_ergo
-#define cogito_window_set_dialog cogito_window_set_dialog_ergo
-#define cogito_window_clear_dialog cogito_window_clear_dialog_ergo
-#define cogito_fixed_set_pos cogito_fixed_set_pos_ergo
-#define cogito_scroller_set_axes cogito_scroller_set_axes_ergo
-#define cogito_grid_set_gap cogito_grid_set_gap_ergo
-#define cogito_grid_set_span cogito_grid_set_span_ergo
-#define cogito_grid_set_align cogito_grid_set_align_ergo
-#define cogito_grid_new cogito_grid_new_ergo
-#define cogito_grid_new_with_cols cogito_grid_new_ergo
-#define cogito_chip_new cogito_chip_new_ergo
-#define cogito_chip_set_selected cogito_chip_set_selected_ergo
-#define cogito_chip_get_selected cogito_chip_get_selected_ergo
-#define cogito_chip_set_closable cogito_chip_set_closable_ergo
-#define cogito_chip_on_close cogito_chip_on_close_ergo
-#define cogito_fab_new cogito_fab_new_ergo
-#define cogito_fab_set_extended cogito_fab_set_extended_ergo
-#define cogito_fab_on_click cogito_fab_on_click_ergo
-#define cogito_nav_rail_new cogito_nav_rail_new_ergo
-#define cogito_nav_rail_set_items cogito_nav_rail_set_items_ergo
-#define cogito_nav_rail_set_selected cogito_nav_rail_set_selected_ergo
-#define cogito_nav_rail_get_selected cogito_nav_rail_get_selected_ergo
+#define cogito_appbar_set_title cogito_appbar_set_title_ergo
+#define cogito_bottom_nav_get_selected cogito_bottom_nav_get_selected_ergo
 #define cogito_bottom_nav_new cogito_bottom_nav_new_ergo
+#define cogito_bottom_nav_on_change cogito_bottom_nav_on_change_ergo
 #define cogito_bottom_nav_set_items cogito_bottom_nav_set_items_ergo
 #define cogito_bottom_nav_set_selected cogito_bottom_nav_set_selected_ergo
-#define cogito_bottom_nav_get_selected cogito_bottom_nav_get_selected_ergo
-#define cogito_pointer_capture cogito_pointer_capture_node
-#define cogito_node_window cogito_node_window_internal
-#define cogito_pointer_capture_set cogito_pointer_capture_set_ergo
-#define cogito_pointer_capture_clear cogito_pointer_capture_clear_ergo
 #define cogito_build cogito_build_ergo
-#define cogito_window_set_builder cogito_window_set_builder_ergo
-#define cogito_node_window_val cogito_node_window_val_ergo
-#define cogito_node_set_text cogito_node_set_text_ergo
-#define cogito_node_set_disabled cogito_node_set_disabled_ergo
-#define cogito_node_set_editable cogito_node_set_editable_ergo
-#define cogito_node_get_editable cogito_node_get_editable_ergo
-#define cogito_node_set_class cogito_node_set_class_ergo
-#define cogito_node_set_a11y_label cogito_node_set_a11y_label_ergo
-#define cogito_node_set_a11y_role cogito_node_set_a11y_role_ergo
-#define cogito_node_set_tooltip cogito_node_set_tooltip_ergo
-#define cogito_node_set_id cogito_node_set_id_ergo
+#define cogito_button_add_menu cogito_button_add_menu_ergo
+#define cogito_button_new cogito_button_new_ergo
+#define cogito_button_set_text cogito_button_set_text_ergo
+#define cogito_checkbox_get_checked cogito_checkbox_get_checked_ergo
+#define cogito_checkbox_new cogito_checkbox_new_ergo
+#define cogito_checkbox_on_change cogito_checkbox_on_change_ergo
+#define cogito_checkbox_set_checked cogito_checkbox_set_checked_ergo
+#define cogito_chip_get_selected cogito_chip_get_selected_ergo
+#define cogito_chip_new cogito_chip_new_ergo
+#define cogito_chip_on_close cogito_chip_on_close_ergo
+#define cogito_chip_set_closable cogito_chip_set_closable_ergo
+#define cogito_chip_set_selected cogito_chip_set_selected_ergo
+#define cogito_colorpicker_new cogito_colorpicker_new_ergo
+#define cogito_colorpicker_on_change cogito_colorpicker_on_change_ergo
+#define cogito_datepicker_new cogito_datepicker_new_ergo
+#define cogito_datepicker_on_change cogito_datepicker_on_change_ergo
+#define cogito_dialog_close cogito_dialog_close_ergo
+#define cogito_dialog_new cogito_dialog_new_ergo
+#define cogito_dialog_remove cogito_dialog_remove_ergo
+#define cogito_dialog_slot_clear cogito_dialog_slot_clear_ergo
+#define cogito_dialog_slot_new cogito_dialog_slot_new_ergo
+#define cogito_dialog_slot_show cogito_dialog_slot_show_ergo
+#define cogito_divider_new cogito_divider_new_ergo
+#define cogito_dropdown_get_selected cogito_dropdown_get_selected_ergo
+#define cogito_dropdown_new cogito_dropdown_new_ergo
+#define cogito_dropdown_on_change cogito_dropdown_on_change_ergo
+#define cogito_dropdown_set_items cogito_dropdown_set_items_ergo
+#define cogito_dropdown_set_selected cogito_dropdown_set_selected_ergo
+#define cogito_fab_new cogito_fab_new_ergo
+#define cogito_fab_on_click cogito_fab_on_click_ergo
+#define cogito_fab_set_extended cogito_fab_set_extended_ergo
+#define cogito_fixed_new cogito_fixed_new_ergo
+#define cogito_fixed_set_pos cogito_fixed_set_pos_ergo
+#define cogito_grid_new cogito_grid_new_ergo
+#define cogito_grid_new_with_cols cogito_grid_new_ergo
+#define cogito_grid_on_activate cogito_grid_on_activate_ergo
+#define cogito_grid_on_select cogito_grid_on_select_ergo
+#define cogito_grid_set_align cogito_grid_set_align_ergo
+#define cogito_grid_set_gap cogito_grid_set_gap_ergo
+#define cogito_grid_set_span cogito_grid_set_span_ergo
+#define cogito_hstack_new cogito_hstack_new_ergo
+#define cogito_iconbtn_add_menu cogito_iconbtn_add_menu_ergo
+#define cogito_iconbtn_new cogito_iconbtn_new_ergo
+#define cogito_image_new cogito_image_new_ergo
+#define cogito_image_set_icon cogito_image_set_icon_ergo
+#define cogito_label_new cogito_label_new_ergo
+#define cogito_label_set_align cogito_label_set_align_ergo
+#define cogito_label_set_class cogito_label_set_class_ergo
+#define cogito_label_set_ellipsis cogito_label_set_ellipsis_ergo
+#define cogito_label_set_text cogito_label_set_text_ergo
+#define cogito_label_set_wrap cogito_label_set_wrap_ergo
+#define cogito_list_new cogito_list_new_ergo
+#define cogito_list_on_activate cogito_list_on_activate_ergo
+#define cogito_list_on_select cogito_list_on_select_ergo
 #define cogito_load_sum cogito_load_sum_ergo
 #define cogito_load_sum_file cogito_load_sum_file_ergo
-#define cogito_dialog_close cogito_dialog_close_ergo
-#define cogito_dialog_remove cogito_dialog_remove_ergo
+#define cogito_nav_rail_get_selected cogito_nav_rail_get_selected_ergo
+#define cogito_nav_rail_new cogito_nav_rail_new_ergo
+#define cogito_nav_rail_on_change cogito_nav_rail_on_change_ergo
+#define cogito_nav_rail_set_items cogito_nav_rail_set_items_ergo
+#define cogito_nav_rail_set_selected cogito_nav_rail_set_selected_ergo
+#define cogito_node_get_editable cogito_node_get_editable_ergo
+#define cogito_node_new cogito_node_new_ergo
 #define cogito_node_parent cogito_node_parent_ergo
+#define cogito_node_set_a11y_label cogito_node_set_a11y_label_ergo
+#define cogito_node_set_a11y_role cogito_node_set_a11y_role_ergo
+#define cogito_node_set_class cogito_node_set_class_ergo
+#define cogito_node_set_disabled cogito_node_set_disabled_ergo
+#define cogito_node_set_editable cogito_node_set_editable_ergo
+#define cogito_node_set_id cogito_node_set_id_ergo
+#define cogito_node_set_text cogito_node_set_text_ergo
+#define cogito_node_set_tooltip cogito_node_set_tooltip_ergo
+#define cogito_node_window cogito_node_window_internal
+#define cogito_node_window_val cogito_node_window_val_ergo
+#define cogito_pointer_capture cogito_pointer_capture_node
+#define cogito_pointer_capture_clear cogito_pointer_capture_clear_ergo
+#define cogito_pointer_capture_set cogito_pointer_capture_set_ergo
+#define cogito_progress_get_value cogito_progress_get_value_ergo
+#define cogito_progress_new cogito_progress_new_ergo
+#define cogito_progress_set_value cogito_progress_set_value_ergo
+#define cogito_run cogito_run_ergo
+#define cogito_scroller_new cogito_scroller_new_ergo
+#define cogito_scroller_set_axes cogito_scroller_set_axes_ergo
+#define cogito_searchfield_get_text cogito_searchfield_get_text_ergo
+#define cogito_searchfield_new cogito_searchfield_new_ergo
+#define cogito_searchfield_on_change cogito_searchfield_on_change_ergo
+#define cogito_searchfield_set_text cogito_searchfield_set_text_ergo
+#define cogito_segmented_new cogito_segmented_new_ergo
+#define cogito_segmented_on_select cogito_segmented_on_select_ergo
+#define cogito_slider_get_value cogito_slider_get_value_ergo
+#define cogito_slider_new cogito_slider_new_ergo
+#define cogito_slider_on_change cogito_slider_on_change_ergo
+#define cogito_slider_set_value cogito_slider_set_value_ergo
+#define cogito_stepper_get_value cogito_stepper_get_value_ergo
+#define cogito_stepper_new cogito_stepper_new_ergo
+#define cogito_stepper_on_change cogito_stepper_on_change_ergo
+#define cogito_stepper_set_value cogito_stepper_set_value_ergo
+#define cogito_switch_get_checked cogito_switch_get_checked_ergo
+#define cogito_switch_new cogito_switch_new_ergo
+#define cogito_switch_on_change cogito_switch_on_change_ergo
+#define cogito_switch_set_checked cogito_switch_set_checked_ergo
+#define cogito_tabs_bind cogito_tabs_bind_ergo
+#define cogito_tabs_get_selected cogito_tabs_get_selected_ergo
+#define cogito_tabs_new cogito_tabs_new_ergo
+#define cogito_tabs_on_change cogito_tabs_on_change_ergo
+#define cogito_tabs_set_ids cogito_tabs_set_ids_ergo
+#define cogito_tabs_set_items cogito_tabs_set_items_ergo
+#define cogito_tabs_set_selected cogito_tabs_set_selected_ergo
+#define cogito_textfield_get_text cogito_textfield_get_text_ergo
+#define cogito_textfield_new cogito_textfield_new_ergo
+#define cogito_textfield_on_change cogito_textfield_on_change_ergo
+#define cogito_textfield_set_text cogito_textfield_set_text_ergo
+#define cogito_textview_get_text cogito_textview_get_text_ergo
+#define cogito_textview_new cogito_textview_new_ergo
+#define cogito_textview_on_change cogito_textview_on_change_ergo
+#define cogito_textview_set_text cogito_textview_set_text_ergo
+#define cogito_toast_new cogito_toast_new_ergo
+#define cogito_toast_on_click cogito_toast_on_click_ergo
+#define cogito_toast_set_action cogito_toast_set_action_ergo
+#define cogito_toast_set_text cogito_toast_set_text_ergo
+#define cogito_toasts_new cogito_toasts_new_ergo
+#define cogito_toolbar_new cogito_bottom_toolbar_new_ergo
+#define cogito_treeview_new cogito_treeview_new_ergo
+#define cogito_view_switcher_new cogito_view_switcher_new_ergo
+#define cogito_view_switcher_set_active cogito_view_switcher_set_active_ergo
+#define cogito_vstack_new cogito_vstack_new_ergo
+#define cogito_window_clear_dialog cogito_window_clear_dialog_ergo
+#define cogito_window_new cogito_window_new_ergo
+#define cogito_window_set_a11y_label cogito_window_set_a11y_label_ergo
+#define cogito_window_set_autosize cogito_window_set_autosize_ergo
+#define cogito_window_set_builder cogito_window_set_builder_ergo
+#define cogito_window_set_dialog cogito_window_set_dialog_ergo
+#define cogito_window_set_resizable cogito_window_set_resizable_ergo
+#define cogito_zstack_new cogito_zstack_new_ergo
 
 // Internal engine (same order as previous runtime include).
 #include "../c/00_core.inc"
@@ -202,154 +202,154 @@ static const char* cogito_font_bold_path_active = NULL;
 
 // Restore public names.
 #undef cogito_app_new
-#undef cogito_app_set_appid
-#undef cogito_app_set_app_name
 #undef cogito_app_set_accent_color
-#undef cogito_window_new
-#undef cogito_window_set_resizable
-#undef cogito_window_set_autosize
-#undef cogito_window_set_a11y_label
-#undef cogito_run
-#undef cogito_node_new
-#undef cogito_vstack_new
-#undef cogito_hstack_new
-#undef cogito_zstack_new
-#undef cogito_fixed_new
-#undef cogito_scroller_new
-#undef cogito_list_new
-#undef cogito_label_new
-#undef cogito_label_set_class
-#undef cogito_label_set_text
-#undef cogito_label_set_wrap
-#undef cogito_label_set_ellipsis
-#undef cogito_label_set_align
-#undef cogito_button_new
-#undef cogito_button_set_text
-#undef cogito_button_add_menu
-#undef cogito_iconbtn_new
-#undef cogito_iconbtn_add_menu
-#undef cogito_checkbox_new
-#undef cogito_checkbox_on_change
-#undef cogito_switch_new
-#undef cogito_switch_on_change
-#undef cogito_textfield_new
-#undef cogito_textfield_on_change
-#undef cogito_textview_new
-#undef cogito_textview_on_change
-#undef cogito_searchfield_new
-#undef cogito_searchfield_on_change
-#undef cogito_dropdown_new
-#undef cogito_dropdown_on_change
-#undef cogito_slider_new
-#undef cogito_slider_on_change
-#undef cogito_tabs_new
-#undef cogito_tabs_on_change
-#undef cogito_view_switcher_new
-#undef cogito_view_switcher_set_active
-#undef cogito_progress_new
-#undef cogito_divider_new
-#undef cogito_datepicker_new
-#undef cogito_datepicker_on_change
-#undef cogito_colorpicker_new
-#undef cogito_colorpicker_on_change
-#undef cogito_stepper_new
-#undef cogito_stepper_on_change
-#undef cogito_segmented_new
-#undef cogito_segmented_on_select
-#undef cogito_treeview_new
-#undef cogito_toasts_new
-#undef cogito_toast_new
-#undef cogito_toast_set_text
-#undef cogito_toast_on_click
-#undef cogito_toast_set_action
-#undef cogito_toolbar_new
-#undef cogito_dialog_new
-#undef cogito_dialog_slot_new
-#undef cogito_dialog_slot_show
-#undef cogito_dialog_slot_clear
-#undef cogito_appbar_new
+#undef cogito_app_set_app_name
+#undef cogito_app_set_appid
 #undef cogito_appbar_add_button
+#undef cogito_appbar_new
 #undef cogito_appbar_set_controls
-#undef cogito_appbar_set_title
 #undef cogito_appbar_set_subtitle
-#undef cogito_image_new
-#undef cogito_image_set_icon
-#undef cogito_node_set_text
-#undef cogito_node_set_disabled
-#undef cogito_node_set_editable
-#undef cogito_node_get_editable
-#undef cogito_node_set_class
-#undef cogito_node_set_a11y_label
-#undef cogito_node_set_a11y_role
-#undef cogito_node_set_tooltip
-#undef cogito_node_set_id
-#undef cogito_list_on_select
-#undef cogito_list_on_activate
-#undef cogito_grid_on_select
-#undef cogito_grid_on_activate
-#undef cogito_nav_rail_on_change
-#undef cogito_bottom_nav_on_change
-#undef cogito_window_set_dialog
-#undef cogito_window_clear_dialog
-#undef cogito_fixed_set_pos
-#undef cogito_scroller_set_axes
-#undef cogito_grid_set_gap
-#undef cogito_grid_set_span
-#undef cogito_grid_set_align
-#undef cogito_grid_new
-#undef cogito_grid_new_with_cols
-#undef cogito_chip_new
-#undef cogito_chip_set_selected
-#undef cogito_chip_get_selected
-#undef cogito_chip_set_closable
-#undef cogito_chip_on_close
-#undef cogito_fab_new
-#undef cogito_fab_set_extended
-#undef cogito_fab_on_click
-#undef cogito_nav_rail_new
-#undef cogito_nav_rail_set_items
-#undef cogito_nav_rail_set_selected
-#undef cogito_nav_rail_get_selected
+#undef cogito_appbar_set_title
+#undef cogito_bottom_nav_get_selected
 #undef cogito_bottom_nav_new
+#undef cogito_bottom_nav_on_change
 #undef cogito_bottom_nav_set_items
 #undef cogito_bottom_nav_set_selected
-#undef cogito_bottom_nav_get_selected
-#undef cogito_pointer_capture
-#undef cogito_node_window
-#undef cogito_pointer_capture_set
-#undef cogito_pointer_capture_clear
 #undef cogito_build
-#undef cogito_window_set_builder
-#undef cogito_node_window_val
+#undef cogito_button_add_menu
+#undef cogito_button_new
+#undef cogito_button_set_text
+#undef cogito_checkbox_get_checked
+#undef cogito_checkbox_new
+#undef cogito_checkbox_on_change
+#undef cogito_checkbox_set_checked
+#undef cogito_chip_get_selected
+#undef cogito_chip_new
+#undef cogito_chip_on_close
+#undef cogito_chip_set_closable
+#undef cogito_chip_set_selected
+#undef cogito_colorpicker_new
+#undef cogito_colorpicker_on_change
+#undef cogito_datepicker_new
+#undef cogito_datepicker_on_change
+#undef cogito_dialog_close
+#undef cogito_dialog_new
+#undef cogito_dialog_remove
+#undef cogito_dialog_slot_clear
+#undef cogito_dialog_slot_new
+#undef cogito_dialog_slot_show
+#undef cogito_divider_new
+#undef cogito_dropdown_get_selected
+#undef cogito_dropdown_new
+#undef cogito_dropdown_on_change
 #undef cogito_dropdown_set_items
 #undef cogito_dropdown_set_selected
-#undef cogito_dropdown_get_selected
-#undef cogito_tabs_set_items
-#undef cogito_tabs_set_ids
-#undef cogito_tabs_set_selected
-#undef cogito_tabs_get_selected
-#undef cogito_tabs_bind
-#undef cogito_slider_set_value
-#undef cogito_slider_get_value
-#undef cogito_checkbox_set_checked
-#undef cogito_checkbox_get_checked
-#undef cogito_switch_set_checked
-#undef cogito_switch_get_checked
-#undef cogito_textfield_set_text
-#undef cogito_textfield_get_text
-#undef cogito_textview_set_text
-#undef cogito_textview_get_text
-#undef cogito_searchfield_set_text
-#undef cogito_searchfield_get_text
-#undef cogito_progress_set_value
-#undef cogito_progress_get_value
-#undef cogito_stepper_set_value
-#undef cogito_stepper_get_value
+#undef cogito_fab_new
+#undef cogito_fab_on_click
+#undef cogito_fab_set_extended
+#undef cogito_fixed_new
+#undef cogito_fixed_set_pos
+#undef cogito_grid_new
+#undef cogito_grid_new_with_cols
+#undef cogito_grid_on_activate
+#undef cogito_grid_on_select
+#undef cogito_grid_set_align
+#undef cogito_grid_set_gap
+#undef cogito_grid_set_span
+#undef cogito_hstack_new
+#undef cogito_iconbtn_add_menu
+#undef cogito_iconbtn_new
+#undef cogito_image_new
+#undef cogito_image_set_icon
+#undef cogito_label_new
+#undef cogito_label_set_align
+#undef cogito_label_set_class
+#undef cogito_label_set_ellipsis
+#undef cogito_label_set_text
+#undef cogito_label_set_wrap
+#undef cogito_list_new
+#undef cogito_list_on_activate
+#undef cogito_list_on_select
 #undef cogito_load_sum
 #undef cogito_load_sum_file
-#undef cogito_dialog_close
-#undef cogito_dialog_remove
+#undef cogito_nav_rail_get_selected
+#undef cogito_nav_rail_new
+#undef cogito_nav_rail_on_change
+#undef cogito_nav_rail_set_items
+#undef cogito_nav_rail_set_selected
+#undef cogito_node_get_editable
+#undef cogito_node_new
 #undef cogito_node_parent
+#undef cogito_node_set_a11y_label
+#undef cogito_node_set_a11y_role
+#undef cogito_node_set_class
+#undef cogito_node_set_disabled
+#undef cogito_node_set_editable
+#undef cogito_node_set_id
+#undef cogito_node_set_text
+#undef cogito_node_set_tooltip
+#undef cogito_node_window
+#undef cogito_node_window_val
+#undef cogito_pointer_capture
+#undef cogito_pointer_capture_clear
+#undef cogito_pointer_capture_set
+#undef cogito_progress_get_value
+#undef cogito_progress_new
+#undef cogito_progress_set_value
+#undef cogito_run
+#undef cogito_scroller_new
+#undef cogito_scroller_set_axes
+#undef cogito_searchfield_get_text
+#undef cogito_searchfield_new
+#undef cogito_searchfield_on_change
+#undef cogito_searchfield_set_text
+#undef cogito_segmented_new
+#undef cogito_segmented_on_select
+#undef cogito_slider_get_value
+#undef cogito_slider_new
+#undef cogito_slider_on_change
+#undef cogito_slider_set_value
+#undef cogito_stepper_get_value
+#undef cogito_stepper_new
+#undef cogito_stepper_on_change
+#undef cogito_stepper_set_value
+#undef cogito_switch_get_checked
+#undef cogito_switch_new
+#undef cogito_switch_on_change
+#undef cogito_switch_set_checked
+#undef cogito_tabs_bind
+#undef cogito_tabs_get_selected
+#undef cogito_tabs_new
+#undef cogito_tabs_on_change
+#undef cogito_tabs_set_ids
+#undef cogito_tabs_set_items
+#undef cogito_tabs_set_selected
+#undef cogito_textfield_get_text
+#undef cogito_textfield_new
+#undef cogito_textfield_on_change
+#undef cogito_textfield_set_text
+#undef cogito_textview_get_text
+#undef cogito_textview_new
+#undef cogito_textview_on_change
+#undef cogito_textview_set_text
+#undef cogito_toast_new
+#undef cogito_toast_on_click
+#undef cogito_toast_set_action
+#undef cogito_toast_set_text
+#undef cogito_toasts_new
+#undef cogito_toolbar_new
+#undef cogito_treeview_new
+#undef cogito_view_switcher_new
+#undef cogito_view_switcher_set_active
+#undef cogito_vstack_new
+#undef cogito_window_clear_dialog
+#undef cogito_window_new
+#undef cogito_window_set_a11y_label
+#undef cogito_window_set_autosize
+#undef cogito_window_set_builder
+#undef cogito_window_set_dialog
+#undef cogito_window_set_resizable
+#undef cogito_zstack_new
 
 // Public C API implementations for node hierarchy (use internal functions)
 cogito_node* cogito_node_get_parent(cogito_node* node) {

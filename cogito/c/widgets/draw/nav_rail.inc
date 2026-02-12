@@ -13,13 +13,8 @@ case COGITO_NAV_RAIL: {
     }
   }
 
-  if (n->nav_rail_len == 0) {
-    if (fab) cogito_draw_node(fab);
-    break;
-  }
-
   int item_h = 56;  // Standard touch target
-  int icon_size = 24;
+  int icon_size = 16;
   int item_y = n->y + n->padding_top;
   if (fab && fab->w > 0 && fab->h > 0) {
     int min_item_y = fab->y + fab->h + 12;
@@ -40,16 +35,17 @@ case COGITO_NAV_RAIL: {
     }
 
     // Draw selection/hover background
+    int indicator_w = 64;  // Width of the button background
+    int indicator_h = 56;
+    int bg_x = n->x + (n->w - indicator_w) / 2;
+    int bg_y = item_y + (indicator_h - 32) / 2;
     if (selected || hover) {
       CogitoColor hover_tint = s.has_text ? s.text : n->text_color;
       CogitoColor item_bg = selected
         ? (s.has_selection ? s.selection : n->selection_color)
         : (s.has_bg ? cogito_mix(s.bg, hover_tint, 0.1f) : n->bg);
-      int indicator_w = selected ? 16 : 0;
-      int radius = 16;  // Fully rounded indicator
-      int bg_x = n->x + (n->w - indicator_w) / 2 - 32;
-      int bg_y = item_y + (item_h - 32) / 2;
-      cogito_draw_rect(bg_x, bg_y, 64, 32, item_bg, radius);
+      int radius = 16;
+      cogito_draw_rect(bg_x, bg_y, indicator_w, 32, item_bg, radius);
     }
 
     // Draw icon
@@ -61,8 +57,8 @@ case COGITO_NAV_RAIL: {
       } else if (hover) {
         icon_color = s.has_text ? s.text : n->text_color;
       }
-      int icon_x = n->x + (n->w - icon_size) / 2;
-      int icon_y = item_y + 8;
+      int icon_x = bg_x + (indicator_w - icon_size) / 2;
+      int icon_y = item_y + 14;
       cogito_draw_icon_fallback(n, n->nav_rail_icons[i]->data, icon_x, icon_y, icon_size, icon_color);
     }
 
@@ -73,10 +69,10 @@ case COGITO_NAV_RAIL: {
         CogitoColor sel_bg = s.has_selection ? s.selection : n->selection_color;
         text_color = cogito_on_color(sel_bg);
       }
-      int size = 11;  // Small label size
+      int size = 12;  // Small label size
       int label_w = cogito_text_width_size_node(n, n->nav_rail_labels[i]->data, size);
-      int label_x = n->x + (n->w - label_w) / 2;
-      int label_y = item_y + 32 + 4;
+      int label_x = bg_x + (indicator_w - label_w) / 2;
+      int label_y = item_y + 28;
       cogito_draw_text_size_node(n, label_x, label_y, n->nav_rail_labels[i]->data, text_color, size, false);
     }
 

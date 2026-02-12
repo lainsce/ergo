@@ -4638,10 +4638,144 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_nav_rail_set_items")) {
+                        GenExpr rail, labels, icons;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &rail, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &labels, err)) { gen_expr_free(&rail); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[2], &icons, err)) { gen_expr_free(&rail); gen_expr_free(&labels); return false; }
+                        w_line(&cg->w, "cogito_nav_rail_set_items(%s, %s, %s);", rail.tmp, labels.tmp, icons.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", rail.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", labels.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", icons.tmp);
+                        gen_expr_release_except(cg, &rail, rail.tmp);
+                        gen_expr_release_except(cg, &labels, labels.tmp);
+                        gen_expr_release_except(cg, &icons, icons.tmp);
+                        gen_expr_free(&rail);
+                        gen_expr_free(&labels);
+                        gen_expr_free(&icons);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_nav_rail_get_selected")) {
+                        GenExpr rail;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &rail, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_nav_rail_get_selected(%s);", t, rail.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", rail.tmp);
+                        gen_expr_release_except(cg, &rail, rail.tmp);
+                        gen_expr_free(&rail);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_nav_rail_set_selected")) {
+                        GenExpr rail, idx;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &rail, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &idx, err)) { gen_expr_free(&rail); return false; }
+                        w_line(&cg->w, "cogito_nav_rail_set_selected(%s, %s);", rail.tmp, idx.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", rail.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", idx.tmp);
+                        gen_expr_release_except(cg, &rail, rail.tmp);
+                        gen_expr_release_except(cg, &idx, idx.tmp);
+                        gen_expr_free(&rail);
+                        gen_expr_free(&idx);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_nav_rail_on_change")) {
+                        GenExpr rail, handler;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &rail, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &handler, err)) { gen_expr_free(&rail); return false; }
+                        w_line(&cg->w, "cogito_nav_rail_on_change(%s, %s);", rail.tmp, handler.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", rail.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", handler.tmp);
+                        gen_expr_release_except(cg, &rail, rail.tmp);
+                        gen_expr_release_except(cg, &handler, handler.tmp);
+                        gen_expr_free(&rail);
+                        gen_expr_free(&handler);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     // BottomNav
                     if (str_eq_c(fname, "__cogito_bottom_nav")) {
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w, "ErgoVal %s = cogito_bottom_nav_new();", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_bottom_nav_set_items")) {
+                        GenExpr nav, labels, icons;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &nav, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &labels, err)) { gen_expr_free(&nav); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[2], &icons, err)) { gen_expr_free(&nav); gen_expr_free(&labels); return false; }
+                        w_line(&cg->w, "cogito_bottom_nav_set_items(%s, %s, %s);", nav.tmp, labels.tmp, icons.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", nav.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", labels.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", icons.tmp);
+                        gen_expr_release_except(cg, &nav, nav.tmp);
+                        gen_expr_release_except(cg, &labels, labels.tmp);
+                        gen_expr_release_except(cg, &icons, icons.tmp);
+                        gen_expr_free(&nav);
+                        gen_expr_free(&labels);
+                        gen_expr_free(&icons);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_bottom_nav_get_selected")) {
+                        GenExpr nav;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &nav, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_bottom_nav_get_selected(%s);", t, nav.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", nav.tmp);
+                        gen_expr_release_except(cg, &nav, nav.tmp);
+                        gen_expr_free(&nav);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_bottom_nav_set_selected")) {
+                        GenExpr nav, idx;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &nav, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &idx, err)) { gen_expr_free(&nav); return false; }
+                        w_line(&cg->w, "cogito_bottom_nav_set_selected(%s, %s);", nav.tmp, idx.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", nav.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", idx.tmp);
+                        gen_expr_release_except(cg, &nav, nav.tmp);
+                        gen_expr_release_except(cg, &idx, idx.tmp);
+                        gen_expr_free(&nav);
+                        gen_expr_free(&idx);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_bottom_nav_on_change")) {
+                        GenExpr nav, handler;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &nav, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &handler, err)) { gen_expr_free(&nav); return false; }
+                        w_line(&cg->w, "cogito_bottom_nav_on_change(%s, %s);", nav.tmp, handler.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", nav.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", handler.tmp);
+                        gen_expr_release_except(cg, &nav, nav.tmp);
+                        gen_expr_release_except(cg, &handler, handler.tmp);
+                        gen_expr_free(&nav);
+                        gen_expr_free(&handler);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
                         gen_expr_add(out, t);
                         out->tmp = t;
                         return true;
