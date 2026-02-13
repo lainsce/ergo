@@ -18,7 +18,7 @@ ergo_c_sources = files(
   'src/diag.c',
 )
 
-ergo_c_includes = include_directories('src')
+ergo_c_includes = include_directories('src', '../cogito/ergo')
 
 ergo_exe = executable(
   'ergo',
@@ -31,6 +31,5 @@ ergo_exe = executable(
 install_data(
   'src/stdlib/stdr.ergo',
   'src/stdlib/math.ergo',
-  'src/stdlib/cogito.ergo',
   install_dir : get_option('datadir') / 'ergo' / 'stdlib'
 )

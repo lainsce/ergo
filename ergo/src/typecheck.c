@@ -1572,12 +1572,19 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
         Module *m = prog->mods[i];
         Str mod_name = cask_name_for_path(arena, m->path);
         if (m->has_declared_name && !str_eq(m->declared_name, mod_name)) {
-            set_errf(err, m->path, 1, 1,
-                     "%.*s: cask declaration '%.*s' must match file name '%.*s'",
-                     (int)m->path.len, m->path.data,
-                     (int)m->declared_name.len, m->declared_name.data,
-                     (int)mod_name.len, mod_name.data);
-            return NULL;
+            // The entry module (index 0) may declare a cask name that
+            // differs from its filename (e.g. main.ergo with "cask quilter")
+            // to set the project/app identity.  Other modules must match.
+            if (i == 0) {
+                mod_name = m->declared_name;
+            } else {
+                set_errf(err, m->path, 1, 1,
+                         "%.*s: cask declaration '%.*s' must match file name '%.*s'",
+                         (int)m->path.len, m->path.data,
+                         (int)m->declared_name.len, m->declared_name.data,
+                         (int)mod_name.len, mod_name.data);
+                return NULL;
+            }
         }
         env->cask_names[i].path = m->path;
         env->cask_names[i].name = mod_name;

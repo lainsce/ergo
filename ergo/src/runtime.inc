@@ -745,4 +745,4 @@ static ErgoVal ergo_call(ErgoVal fval, int argc, ErgoVal* argv) {
 }
 
 // ---- Cogito GUI (shared library bindings) ----
-// @include "cogito_bindings.inc"
+// @include "../../cogito/ergo/cogito_bindings.inc"

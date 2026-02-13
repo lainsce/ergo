@@ -7,6 +7,7 @@
 #include "file.h"
 #include "lexer.h"
 #include "parser.h"
+#include "platform.h"
 #include "str.h"
 
 typedef struct {
@@ -122,6 +123,34 @@ static const char *stdlib_dir_default(void) {
         }
     }
 
+    // Try relative to the executable (binary at <project>/ergo/build/ergo)
+    {
+        char *exe_dir = ergo_exe_dir();
+        if (exe_dir) {
+            static char stdlib_buf[512];
+            const char *exe_rel[] = {
+                "../src/stdlib",
+                "../../ergo/src/stdlib",
+            };
+            for (size_t i = 0; i < sizeof(exe_rel) / sizeof(exe_rel[0]); i++) {
+                char *dir = path_join(exe_dir, exe_rel[i]);
+                if (dir) {
+                    char *marker = path_join(dir, "stdr.ergo");
+                    if (marker && path_is_file(marker)) {
+                        snprintf(stdlib_buf, sizeof(stdlib_buf), "%s", dir);
+                        free(marker);
+                        free(dir);
+                        free(exe_dir);
+                        return stdlib_buf;
+                    }
+                    free(marker);
+                    free(dir);
+                }
+            }
+            free(exe_dir);
+        }
+    }
+
     // Check installed locations
     if (path_is_file("/usr/local/share/ergo/stdlib/stdr.ergo")) {
         return "/usr/local/share/ergo/stdlib";
@@ -156,6 +185,12 @@ static Module *load_file(const char *path,
     size_t len = 0;
     char *src = read_file_with_includes(abs_path, "-- @include", arena, &len, err);
     if (!src) {
+        // err->path may point into abs_path which we are about to free.
+        // Copy it into the arena so the diagnostic survives.
+        if (err && err->path) {
+            Str saved = arena_copy_str(arena, err->path);
+            if (saved.data) err->path = saved.data;
+        }
         free(abs_path);
         return NULL;
     }
@@ -238,43 +273,8 @@ static Module *load_file(const char *path,
             free(p);
             continue;
         }
-        if (str_eq_c(imp->name, "cogito")) {
-            // Try multiple locations for cogito.ergo
-            const char *cogito_paths[] = {
-                "cogito/cogito.ergo",
-                "cogito/_build/cogito.ergo",
-                "cogito/build/cogito.ergo",
-                "../cogito/cogito.ergo",
-                "../cogito/_build/cogito.ergo",
-                "../cogito/build/cogito.ergo",
-                "../../cogito/cogito.ergo",
-                "../../cogito/_build/cogito.ergo",
-                "../../cogito/build/cogito.ergo",
-                NULL  // Will try stdlib_dir as fallback
-            };
-            char *p = NULL;
-            for (size_t i = 0; i < sizeof(cogito_paths) / sizeof(cogito_paths[0]); i++) {
-                if (cogito_paths[i] == NULL) {
-                    p = path_join(stdlib_dir, "cogito.ergo");
-                } else {
-                    p = strdup(cogito_paths[i]);
-                }
-                if (p && path_is_file(p)) {
-                    if (!load_file(p, root_dir, stdlib_dir, arena, visited, hash, err)) {
-                        free(p);
-                        return NULL;
-                    }
-                    free(p);
-                    goto found_cogito;
-                }
-                free(p);
-                p = NULL;
-            }
-            set_err(err, abs_path, "Cogito GUI framework not found. Run 'cd cogito && meson setup build && ninja -C build' to build Cogito, or ensure cogito.ergo is in cogito/_build/, cogito/build/, or stdlib");
-            return NULL;
-        found_cogito:
-            continue;
-        }
+        // Cogito module resolution (lives in cogito/ergo/)
+#include "cogito_resolve.inc"
         char *name = str_to_c(imp->name);
         if (!name) {
             set_err(err, abs_path, "out of memory");

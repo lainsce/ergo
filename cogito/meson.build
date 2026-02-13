@@ -58,3 +58,9 @@ libcogito_dep = declare_dependency(
   include_directories : cogito_inc,
   link_with : libcogito,
 )
+
+# Install Cogito Ergo module into the Ergo stdlib
+install_data(
+  'cogito.ergo',
+  install_dir : get_option('datadir') / 'ergo' / 'stdlib'
+)
