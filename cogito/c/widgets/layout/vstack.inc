@@ -1,4 +1,77 @@
-case COGITO_VSTACK:
-      cogito_layout_vstack(n, x, y);
-      break;
-    
+static void cogito_layout_vstack(CogitoNode* n, int x, int y) {
+  int pad = n->gap;
+  int avail_w = n->w - n->padding_left - n->padding_right;
+  int avail_h = n->h - n->padding_top - n->padding_bottom;
+  if (avail_w < 0) avail_w = 0;
+  if (avail_h < 0) avail_h = 0;
+  size_t count = n->len;
+  if (count == 0) return;
+  int* intrinsic_w = (int*)calloc(count, sizeof(int));
+  int* intrinsic_h = (int*)calloc(count, sizeof(int));
+  int* assigned_h = (int*)calloc(count, sizeof(int));
+  bool* expand = (bool*)calloc(count, sizeof(bool));
+  if (!intrinsic_w || !intrinsic_h || !assigned_h || !expand) {
+    free(intrinsic_w);
+    free(intrinsic_h);
+    free(assigned_h);
+    free(expand);
+    return;
+  }
+  int total_margins = 0;
+  for (size_t i = 0; i < count; i++) {
+    CogitoNode* c = n->children[i];
+    int cw = 0;
+    int ch = 0;
+    cogito_intrinsic_size(c, &cw, &ch);
+    if (cw < 0) cw = 0;
+    if (ch < 0) ch = 0;
+    intrinsic_w[i] = cw;
+    intrinsic_h[i] = ch;
+    assigned_h[i] = ch;
+    expand[i] = c->vexpand;
+    total_margins += c->margin_top + c->margin_bottom;
+  }
+  int total_gaps = (count > 0) ? (int)(count - 1) * pad : 0;
+  int avail_content_h = avail_h - total_margins - total_gaps;
+  if (avail_content_h < 0) avail_content_h = 0;
+  cogito_distribute_axis_sizes(count, intrinsic_h, expand, avail_content_h, assigned_h);
+
+  int cy = y + n->padding_top;
+  for (size_t i = 0; i < count; i++) {
+    CogitoNode* c = n->children[i];
+    int cw = intrinsic_w[i];
+    int ch = assigned_h[i];
+    int slot_w = avail_w - c->margin_left - c->margin_right;
+    if (slot_w < 0) slot_w = 0;
+
+    bool is_chrome = (c->kind == COGITO_APPBAR || c->kind == COGITO_TOOLBAR ||
+                      c->kind == COGITO_NAV_RAIL || c->kind == COGITO_BOTTOM_NAV);
+    if (c->hexpand || is_chrome) {
+      cw = slot_w;
+      if (c->kind == COGITO_LABEL && c->text_wrap && !c->vexpand) {
+        ch = cogito_text_wrap_height(c, c->text ? c->text->data : "", cogito_node_font_size(c), slot_w);
+        if (ch <= 0) ch = cogito_text_height_size(cogito_node_font_size(c));
+      }
+    } else if (cw > slot_w) {
+      cw = slot_w;
+    }
+
+    int child_col = c->align % 3;
+    if (child_col < 0 || child_col > 2) child_col = 0;
+    int cx = x + n->padding_left;
+    int ox = 0;
+    if (child_col == 1) {
+      ox = (slot_w - cw) / 2;
+    } else if (child_col == 2) {
+      ox = slot_w - cw;
+    }
+    if (ox < 0) ox = 0;
+    cogito_layout_node(c, cx + ox + c->margin_left, cy + c->margin_top, cw, ch);
+    cy += ch + c->margin_top + c->margin_bottom;
+    if (i < count - 1) cy += pad;
+  }
+  free(intrinsic_w);
+  free(intrinsic_h);
+  free(assigned_h);
+  free(expand);
+}

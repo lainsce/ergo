@@ -6,7 +6,6 @@ case COGITO_CAROUSEL_ITEM: {
       CogitoColor bg = s.has_bg ? s.bg : n->bg;
       CogitoColor border = s.has_border ? s.border : n->border_color;
       int radius = s.has_radius ? s.radius : n->border_radius;
-      int border_w = s.has_border_width ? s.border_width : n->border_width;
       
       cogito_anim_apply(n, &s, &bg, NULL, &border, NULL);
       

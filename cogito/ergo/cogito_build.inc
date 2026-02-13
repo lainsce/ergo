@@ -249,28 +249,62 @@ static const char *cogito_default_ldflags(void) {
 #else
     const char *libname = "libcogito.so";
 #endif
-    static char buf[512];
-    const char *dirs[] = {
-        "cogito/_build",
-        "cogito/build",
-        "../cogito/_build",
-        "../cogito/build",
-        "../../cogito/_build",
-        "../../cogito/build",
-    };
-    for (size_t i = 0; i < sizeof(dirs) / sizeof(dirs[0]); i++) {
-        char path[512];
-        snprintf(path, sizeof(path), "%s/%s", dirs[i], libname);
-        if (path_is_file(path)) {
-#if defined(__APPLE__) || defined(__linux__)
-            snprintf(buf, sizeof(buf), "-L%s -lcogito -Wl,-rpath,%s", dirs[i], dirs[i]);
-#else
-            snprintf(buf, sizeof(buf), "-L%s -lcogito", dirs[i]);
+    static char buf[1024];
+
+    // 1) Check system install paths first (preferred for portable binaries)
+    {
+        const char *sys_dirs[] = {
+#if defined(__APPLE__)
+            "/opt/homebrew/lib",
+            "/usr/local/lib",
 #endif
-            return buf;
+            "/usr/lib",
+        };
+        for (size_t i = 0; i < sizeof(sys_dirs) / sizeof(sys_dirs[0]); i++) {
+            char path[512];
+            snprintf(path, sizeof(path), "%s/%s", sys_dirs[i], libname);
+            if (path_is_file(path)) {
+#if defined(__APPLE__) || defined(__linux__)
+                snprintf(buf, sizeof(buf), "-L%s -lcogito -Wl,-rpath,%s", sys_dirs[i], sys_dirs[i]);
+#else
+                snprintf(buf, sizeof(buf), "-L%s -lcogito", sys_dirs[i]);
+#endif
+                return buf;
+            }
         }
     }
-    // Try relative to executable (binary at <project>/ergo/build/ergo)
+
+    // 2) Fall back to development build directories (cwd-relative, resolved to absolute)
+    {
+        const char *dev_dirs[] = {
+            "cogito/_build",
+            "cogito/build",
+            "../cogito/_build",
+            "../cogito/build",
+            "../../cogito/_build",
+            "../../cogito/build",
+        };
+        for (size_t i = 0; i < sizeof(dev_dirs) / sizeof(dev_dirs[0]); i++) {
+            char path[512];
+            snprintf(path, sizeof(path), "%s/%s", dev_dirs[i], libname);
+            if (path_is_file(path)) {
+#if defined(__APPLE__) || defined(__linux__)
+                char *abs_dir = path_abs(dev_dirs[i]);
+                if (abs_dir) {
+                    snprintf(buf, sizeof(buf), "-L%s -lcogito -Wl,-rpath,%s", abs_dir, abs_dir);
+                    free(abs_dir);
+                } else {
+                    snprintf(buf, sizeof(buf), "-L%s -lcogito -Wl,-rpath,%s", dev_dirs[i], dev_dirs[i]);
+                }
+#else
+                snprintf(buf, sizeof(buf), "-L%s -lcogito", dev_dirs[i]);
+#endif
+                return buf;
+            }
+        }
+    }
+
+    // 3) Try relative to the executable (binary at <project>/ergo/build/ergo)
     {
         char *exe_dir = ergo_exe_dir();
         if (exe_dir) {
@@ -285,7 +319,10 @@ static const char *cogito_default_ldflags(void) {
                     snprintf(path, sizeof(path), "%s/%s", dir, libname);
                     if (path_is_file(path)) {
 #if defined(__APPLE__) || defined(__linux__)
-                        snprintf(buf, sizeof(buf), "-L%s -lcogito -Wl,-rpath,%s", dir, dir);
+                        char *abs_dir = path_abs(dir);
+                        const char *rpath_dir = abs_dir ? abs_dir : dir;
+                        snprintf(buf, sizeof(buf), "-L%s -lcogito -Wl,-rpath,%s", rpath_dir, rpath_dir);
+                        free(abs_dir);
 #else
                         snprintf(buf, sizeof(buf), "-L%s -lcogito", dir);
 #endif
@@ -299,5 +336,6 @@ static const char *cogito_default_ldflags(void) {
             free(exe_dir);
         }
     }
+
     return "-lcogito";
 }

@@ -947,22 +947,8 @@ static void cogito_draw_inspector_panel(CogitoNode* win) {
 
 static void cogito_draw_node(CogitoNode* n);
 
-static void cogito_draw_toasts_overlay(CogitoNode* n) {
-  if (!n) return;
-  if (n->kind == COGITO_TOASTS) {
-    cogito_toasts_force_draw = true;
-    cogito_draw_node(n);
-    cogito_toasts_force_draw = false;
-    return;
-  }
-  for (size_t i = 0; i < n->len; i++) {
-    cogito_draw_toasts_overlay(n->children[i]);
-  }
-  if ((n->kind == COGITO_WINDOW || n->kind == COGITO_DIALOG_SLOT) &&
-      n->dialog && n->dialog_open) {
-    cogito_draw_toasts_overlay(n->dialog);
-  }
-}
+#include "widgets/draw/toasts.inc"
+
 
 static void cogito_draw_node(CogitoNode* n) {
   if (!n) return;
@@ -1035,7 +1021,15 @@ static void cogito_draw_node(CogitoNode* n) {
 
     #include "widgets/draw/view_switcher.inc"
 
-    #include "widgets/draw/toasts.inc"
+case COGITO_TOASTS:
+      if (!cogito_toasts_force_draw) {
+        CogitoNode* win = cogito_node_window(n);
+        if (win) break;
+      }
+      for (size_t i = 0; i < n->len; i++) {
+        cogito_draw_node(n->children[i]);
+      }
+      break;
 
     #include "widgets/draw/vstack.inc"
 
