@@ -959,6 +959,10 @@ static ErgoVal __cogito_carousel_get_active_index(ErgoVal carouselv) {
   return EV_INT(idx);
 }
 
+static ErgoVal __cogito_carousel_item(void) {
+  return cogito_wrap_node(cogito_node_new(COGITO_NODE_CAROUSEL_ITEM), COGITO_HANDLE_NODE);
+}
+
 static ErgoVal __cogito_list(void) {
   return cogito_wrap_node(cogito_node_new(COGITO_NODE_LIST), COGITO_HANDLE_NODE);
 }
@@ -1665,6 +1669,7 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_fixed_new __cogito_fixed
 #define cogito_scroller_new __cogito_scroller
 #define cogito_carousel_new __cogito_carousel
+#define cogito_carousel_item_new __cogito_carousel_item
 #define cogito_carousel_set_active_index __cogito_carousel_set_active_index
 #define cogito_carousel_get_active_index __cogito_carousel_get_active_index
 #define cogito_list_new __cogito_list

@@ -52,6 +52,10 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_button_new cogito_button_new_ergo
 #define cogito_button_set_text cogito_button_set_text_ergo
 #define cogito_carousel_new cogito_carousel_new_ergo
+#define cogito_carousel_item_new cogito_carousel_item_new_ergo
+#define cogito_carousel_item_set_halign cogito_carousel_item_set_halign_ergo
+#define cogito_carousel_item_set_text cogito_carousel_item_set_text_ergo
+#define cogito_carousel_item_set_valign cogito_carousel_item_set_valign_ergo
 #define cogito_carousel_get_active_index cogito_carousel_get_active_index_ergo
 #define cogito_carousel_set_active_index cogito_carousel_set_active_index_ergo
 #define cogito_checkbox_get_checked cogito_checkbox_get_checked_ergo
@@ -226,6 +230,10 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_button_new
 #undef cogito_button_set_text
 #undef cogito_carousel_new
+#undef cogito_carousel_item_new
+#undef cogito_carousel_item_set_halign
+#undef cogito_carousel_item_set_text
+#undef cogito_carousel_item_set_valign
 #undef cogito_carousel_get_active_index
 #undef cogito_carousel_set_active_index
 #undef cogito_checkbox_get_checked
@@ -608,6 +616,7 @@ static CogitoKind cogito_kind_from_public(cogito_node_kind kind) {
     case COGITO_NODE_TOAST: return COGITO_TOAST;
     case COGITO_NODE_BOTTOM_TOOLBAR: return COGITO_TOOLBAR;
     case COGITO_NODE_CAROUSEL: return COGITO_CAROUSEL;
+    case COGITO_NODE_CAROUSEL_ITEM: return COGITO_CAROUSEL_ITEM;
     case COGITO_NODE_DIALOG: return COGITO_DIALOG;
     case COGITO_NODE_DIALOG_SLOT: return COGITO_DIALOG_SLOT;
     case COGITO_NODE_TOOLTIP: return COGITO_TOOLTIP;
@@ -647,6 +656,13 @@ cogito_node* cogito_button_new(const char* text) {
 
 cogito_node* cogito_carousel_new(void) {
   ErgoVal v = cogito_carousel_new_ergo();
+  return cogito_from_val(v);
+}
+
+// Wrapper for carousel_item - calls the internal ergo function
+#undef cogito_carousel_item_new
+cogito_node* cogito_carousel_item_new(void) {
+  ErgoVal v = cogito_carousel_item_new_ergo();
   return cogito_from_val(v);
 }
 

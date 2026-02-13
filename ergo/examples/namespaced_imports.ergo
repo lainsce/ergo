@@ -1,4 +1,4 @@
-module namespaced_imports
+cask namespaced_imports
 
 bring stdr
 bring math

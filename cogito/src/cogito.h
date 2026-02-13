@@ -64,6 +64,7 @@ typedef enum {
   COGITO_NODE_TOAST,
   COGITO_NODE_BOTTOM_TOOLBAR,
   COGITO_NODE_CAROUSEL,
+  COGITO_NODE_CAROUSEL_ITEM,
   COGITO_NODE_DIALOG,
   COGITO_NODE_DIALOG_SLOT,
   COGITO_NODE_TOOLTIP,
@@ -103,6 +104,7 @@ cogito_node* cogito_grid_new_with_cols(int cols);
 cogito_node* cogito_label_new(const char* text);
 cogito_node* cogito_button_new(const char* text);
 cogito_node* cogito_carousel_new(void);
+cogito_node* cogito_carousel_item_new(void);
 int cogito_carousel_get_active_index(cogito_node* node);
 void cogito_carousel_set_active_index(cogito_node* node, int index);
 cogito_node* cogito_iconbtn_new(const char* text);

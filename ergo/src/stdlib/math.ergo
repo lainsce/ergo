@@ -1,4 +1,4 @@
-module math
+cask math
 
 -- Ergo Standard Library: math.ergo
 

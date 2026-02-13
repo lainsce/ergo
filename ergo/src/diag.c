@@ -258,8 +258,8 @@ static const char *get_error_tip(const char *msg) {
     if (strstr(msg, "method") && strstr(msg, "must be called")) {
         return "Methods must be called with parentheses, e.g., obj.method() not obj.method.";
     }
-    if (strstr(msg, "module function") && strstr(msg, "must be called")) {
-        return "Module functions must be called with parentheses, e.g., mod.func() not mod.func.";
+    if (strstr(msg, "cask function") && strstr(msg, "must be called")) {
+        return "Cast functions must be called with parentheses, e.g., cst.func() not cst.func.";
     }
     if (strstr(msg, "cannot access field") && strstr(msg, "lock class")) {
         return "Fields of 'lock' classes can only be accessed within the same file or class methods.";
@@ -276,8 +276,8 @@ static const char *get_error_tip(const char *msg) {
     if (strstr(msg, "cannot mutate through immutable binding")) {
         return "To modify this value, the base variable must be declared with '?': 'let ?x = ...'.";
     }
-    if (strstr(msg, "shadows module")) {
-        return "This local variable has the same name as a module. Rename the variable to avoid confusion.";
+    if (strstr(msg, "shadows cask")) {
+        return "This local variable has the same name as a cask. Rename the variable to avoid confusion.";
     }
     if (strstr(msg, "out of memory")) {
         return "The compiler ran out of memory. Try simplifying your code or closing other programs.";
@@ -315,8 +315,8 @@ static const char *get_error_tip(const char *msg) {
     if (strstr(msg, "cannot infer type of empty array")) {
         return "Empty arrays need a type annotation. Use '[]: [num]' or provide at least one element.";
     }
-    if (strstr(msg, "module declaration") && strstr(msg, "must match file name")) {
-        return "Use 'module <name>' only when it matches the .ergo file basename.";
+    if (strstr(msg, "cask declaration") && strstr(msg, "must match file name")) {
+        return "Use 'cask <name>' only when it matches the .ergo file basename.";
     }
     if (strstr(msg, "foreach expects array or string")) {
         return "for (x in y) requires 'y' to be an array or string. Check the type of your iterable.";
@@ -358,13 +358,13 @@ static const char *get_error_tip(const char *msg) {
         return "You can only use [index] on arrays and strings.";
     }
     if (strstr(msg, "member access on non-object")) {
-        return "The '.' operator can only be used on class instances or modules.";
+        return "The '.' operator can only be used on class instances or casks.";
     }
     if (strstr(msg, "unknown member")) {
         return "This field or method doesn't exist on the class. Check for typos.";
     }
-    if (strstr(msg, "unknown module member")) {
-        return "This name doesn't exist in the module. Check for typos or missing exports.";
+    if (strstr(msg, "unknown cask member")) {
+        return "This name doesn't exist in the cask. Check for typos or missing exports.";
     }
     if (strstr(msg, "unknown class")) {
         return "This class is not defined. Check for typos or missing imports.";
@@ -378,8 +378,8 @@ static const char *get_error_tip(const char *msg) {
     if (strstr(msg, "unsupported call form")) {
         return "This expression cannot be called as a function. Check that you're calling a function value.";
     }
-    if (strstr(msg, "unknown name") && strstr(msg, "module not in scope")) {
-        return "This module is not imported. Add 'bring modulename;' at the top of your file.";
+    if (strstr(msg, "unknown name") && strstr(msg, "cask not in scope")) {
+        return "This cask is not imported. Add 'bring name;' at the top of your file.";
     }
     if (strstr(msg, "C compiler failed")) {
         return "The C compiler encountered an error. Check the generated C code or your C compiler setup.";

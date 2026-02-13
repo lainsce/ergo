@@ -1,4 +1,4 @@
-module truthiness_warning
+cask truthiness_warning
 
 bring stdr
 

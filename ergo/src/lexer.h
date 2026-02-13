@@ -53,7 +53,7 @@ typedef enum {
     TOK_RET_L,
     TOK_RET_R,
     TOK_RET_VOID,
-    TOK_KW_module,
+    TOK_KW_cask,
     TOK_KW_bring,
     TOK_KW_fun,
     TOK_KW_entry,

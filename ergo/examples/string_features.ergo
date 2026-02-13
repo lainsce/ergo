@@ -1,4 +1,4 @@
-module string_features
+cask string_features
 
 bring stdr
 

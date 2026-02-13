@@ -1,4 +1,4 @@
-module hello
+cask hello
 
 -- Ergo Example: Hello World
 

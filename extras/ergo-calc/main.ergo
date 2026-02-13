@@ -1,4 +1,4 @@
-module main
+cask main
 
 bring stdr
 bring cogito

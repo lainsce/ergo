@@ -1,4 +1,4 @@
-module gui_hello
+cask gui_hello
 
 bring stdr
 bring cogito

@@ -1,4 +1,4 @@
-module index_to_nonnull_assignment
+cask index_to_nonnull_assignment
 
 bring stdr
 

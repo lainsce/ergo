@@ -77,7 +77,7 @@ static const char *tok_name_default(TokKind kind) {
         case TOK_RET_L: return "((";
         case TOK_RET_R: return "))";
         case TOK_RET_VOID: return "--";
-        case TOK_KW_module: return "KW_module";
+        case TOK_KW_cask: return "KW_cask";
         case TOK_KW_bring: return "KW_bring";
         case TOK_KW_fun: return "KW_fun";
         case TOK_KW_entry: return "KW_entry";
@@ -164,7 +164,7 @@ const char *tok_kind_desc(TokKind kind) {
         case TOK_RET_VOID: return "'--'";
         
         // Keywords
-        case TOK_KW_module: return "'module'";
+        case TOK_KW_cask: return "'cask'";
         case TOK_KW_bring: return "'bring'";
         case TOK_KW_fun: return "'fun'";
         case TOK_KW_entry: return "'entry'";
@@ -979,7 +979,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             Str word = str_from_slice(&lx.src[start], end - start);
 
             TokKind kw = TOK_INVALID;
-            if (str_eq_c(word, "module")) kw = TOK_KW_module;
+            if (str_eq_c(word, "cask")) kw = TOK_KW_cask;
             else if (str_eq_c(word, "bring")) kw = TOK_KW_bring;
             else if (str_eq_c(word, "fun")) kw = TOK_KW_fun;
             else if (str_eq_c(word, "entry")) kw = TOK_KW_entry;

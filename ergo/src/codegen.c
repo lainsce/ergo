@@ -275,7 +275,7 @@ static bool codegen_try_text_literal(Expr *e, Str *out) {
     return true;
 }
 
-static char *codegen_read_literal_file(Arena *arena, Str module_path, Str literal_path, size_t *out_len) {
+static char *codegen_read_literal_file(Arena *arena, Str cask_path, Str literal_path, size_t *out_len) {
     if (!arena || !literal_path.data || literal_path.len == 0) {
         return NULL;
     }
@@ -288,14 +288,14 @@ static char *codegen_read_literal_file(Arena *arena, Str module_path, Str litera
     if (src) {
         return src;
     }
-    if (!module_path.data || module_path.len == 0) {
+    if (!cask_path.data || cask_path.len == 0) {
         return NULL;
     }
-    char *module_path_c = arena_strndup(arena, module_path.data, module_path.len);
-    if (!module_path_c) {
+    char *cask_path_c = arena_strndup(arena, cask_path.data, cask_path.len);
+    if (!cask_path_c) {
         return NULL;
     }
-    char *dir = path_dirname(module_path_c);
+    char *dir = path_dirname(cask_path_c);
     if (!dir) {
         return NULL;
     }
@@ -397,7 +397,7 @@ typedef struct {
 } LambdaInfo;
 
 typedef struct {
-    Str module;
+    Str cask;
     Str name;
     char *wrapper;
 } FunValInfo;
@@ -434,7 +434,7 @@ typedef struct {
 
     Locals ty_loc;
 
-    Str current_module;
+    Str current_cask;
     Str *current_imports;
     size_t current_imports_len;
     Str current_class;
@@ -555,7 +555,7 @@ static bool codegen_add_local(Codegen *cg, char *cname) {
     return true;
 }
 
-static ModuleGlobals *codegen_module_globals(Codegen *cg, Str module);
+static ModuleGlobals *codegen_cask_globals(Codegen *cg, Str cask);
 static GlobalVar *codegen_find_global(ModuleGlobals *mg, Str name);
 static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err);
 
@@ -568,10 +568,10 @@ static char *codegen_cname_of(Codegen *cg, Str name) {
             }
         }
     }
-    if (cg->current_module.len) {
-        ModuleGlobals *mg = codegen_module_globals(cg, cg->current_module);
+    if (cg->current_cask.len) {
+        ModuleGlobals *mg = codegen_cask_globals(cg, cg->current_cask);
         if (codegen_find_global(mg, name)) {
-            return mangle_global_var(cg->arena, cg->current_module, name);
+            return mangle_global_var(cg->arena, cg->current_cask, name);
         }
     }
     return NULL;
@@ -657,7 +657,7 @@ static LoopCtx *codegen_loop_current(Codegen *cg) {
 // Env helpers
 // -----------------
 
-static Str module_name_for_path(Arena *arena, Str path) {
+static Str cask_name_for_path(Arena *arena, Str path) {
     const char *p = path.data;
     size_t len = path.len;
     size_t start = 0;
@@ -677,19 +677,19 @@ static Str module_name_for_path(Arena *arena, Str path) {
     return out;
 }
 
-static Str codegen_module_name(Codegen *cg, Str path) {
-    for (size_t i = 0; i < cg->env->module_names_len; i++) {
-        if (str_eq(cg->env->module_names[i].path, path)) {
-            return cg->env->module_names[i].name;
+static Str codegen_cask_name(Codegen *cg, Str path) {
+    for (size_t i = 0; i < cg->env->cask_names_len; i++) {
+        if (str_eq(cg->env->cask_names[i].path, path)) {
+            return cg->env->cask_names[i].name;
         }
     }
-    return module_name_for_path(cg->arena, path);
+    return cask_name_for_path(cg->arena, path);
 }
 
-static ModuleImport *codegen_module_imports(Codegen *cg, Str module_name) {
-    for (size_t i = 0; i < cg->env->module_imports_len; i++) {
-        if (str_eq(cg->env->module_imports[i].module, module_name)) {
-            return &cg->env->module_imports[i];
+static ModuleImport *codegen_cask_imports(Codegen *cg, Str cask_name) {
+    for (size_t i = 0; i < cg->env->cask_imports_len; i++) {
+        if (str_eq(cg->env->cask_imports[i].cask, cask_name)) {
+            return &cg->env->cask_imports[i];
         }
     }
     return NULL;
@@ -713,28 +713,28 @@ static ClassInfo *codegen_class_info(Codegen *cg, Str qname) {
     return NULL;
 }
 
-static FunSig *codegen_fun_sig(Codegen *cg, Str module, Str name) {
+static FunSig *codegen_fun_sig(Codegen *cg, Str cask, Str name) {
     for (size_t i = 0; i < cg->env->funs_len; i++) {
-        if (str_eq(cg->env->funs[i].module, module) && str_eq(cg->env->funs[i].name, name)) {
+        if (str_eq(cg->env->funs[i].cask, cask) && str_eq(cg->env->funs[i].name, name)) {
             return &cg->env->funs[i];
         }
     }
     return NULL;
 }
 
-static ModuleConsts *codegen_module_consts(Codegen *cg, Str module) {
-    for (size_t i = 0; i < cg->env->module_consts_len; i++) {
-        if (str_eq(cg->env->module_consts[i].module, module)) {
-            return &cg->env->module_consts[i];
+static ModuleConsts *codegen_cask_consts(Codegen *cg, Str cask) {
+    for (size_t i = 0; i < cg->env->cask_consts_len; i++) {
+        if (str_eq(cg->env->cask_consts[i].cask, cask)) {
+            return &cg->env->cask_consts[i];
         }
     }
     return NULL;
 }
 
-static ModuleGlobals *codegen_module_globals(Codegen *cg, Str module) {
-    for (size_t i = 0; i < cg->env->module_globals_len; i++) {
-        if (str_eq(cg->env->module_globals[i].module, module)) {
-            return &cg->env->module_globals[i];
+static ModuleGlobals *codegen_cask_globals(Codegen *cg, Str cask) {
+    for (size_t i = 0; i < cg->env->cask_globals_len; i++) {
+        if (str_eq(cg->env->cask_globals[i].cask, cask)) {
+            return &cg->env->cask_globals[i];
         }
     }
     return NULL;
@@ -767,9 +767,9 @@ static bool is_stdr_prelude(Str name) {
 
 static Ctx codegen_ctx_for(Codegen *cg, Str path) {
     Ctx ctx;
-    ctx.module_path = path;
-    ctx.module_name = cg->current_module.len ? cg->current_module : codegen_module_name(cg, path);
-    ModuleImport *mi = codegen_module_imports(cg, ctx.module_name);
+    ctx.cask_path = path;
+    ctx.cask_name = cg->current_cask.len ? cg->current_cask : codegen_cask_name(cg, path);
+    ModuleImport *mi = codegen_cask_imports(cg, ctx.cask_name);
     ctx.imports = mi ? mi->imports : NULL;
     ctx.imports_len = mi ? mi->imports_len : 0;
     ctx.has_current_class = cg->has_current_class;
@@ -778,9 +778,9 @@ static Ctx codegen_ctx_for(Codegen *cg, Str path) {
     return ctx;
 }
 
-static bool codegen_module_in_scope(Codegen *cg, Str name) {
+static bool codegen_cask_in_scope(Codegen *cg, Str name) {
     if (locals_lookup(&cg->ty_loc, name)) return false;
-    if (str_eq(name, cg->current_module)) return true;
+    if (str_eq(name, cg->current_cask)) return true;
     for (size_t i = 0; i < cg->current_imports_len; i++) {
         if (str_eq(cg->current_imports[i], name)) return true;
     }
@@ -924,17 +924,17 @@ static bool codegen_add_lambda(Codegen *cg, Expr *lam, Str path) {
     return li->name != NULL;
 }
 
-static FunValInfo *codegen_funval_info(Codegen *cg, Str module, Str name) {
+static FunValInfo *codegen_funval_info(Codegen *cg, Str cask, Str name) {
     for (size_t i = 0; i < cg->funvals_len; i++) {
-        if (str_eq(cg->funvals[i].module, module) && str_eq(cg->funvals[i].name, name)) {
+        if (str_eq(cg->funvals[i].cask, cask) && str_eq(cg->funvals[i].name, name)) {
             return &cg->funvals[i];
         }
     }
     return NULL;
 }
 
-static bool codegen_add_funval(Codegen *cg, Str module, Str name) {
-    if (codegen_funval_info(cg, module, name)) return true;
+static bool codegen_add_funval(Codegen *cg, Str cask, Str name) {
+    if (codegen_funval_info(cg, cask, name)) return true;
     if (cg->funvals_len + 1 > cg->funvals_cap) {
         size_t next = cg->funvals_cap ? cg->funvals_cap * 2 : 8;
         FunValInfo *arr = (FunValInfo *)realloc(cg->funvals, next * sizeof(FunValInfo));
@@ -943,9 +943,9 @@ static bool codegen_add_funval(Codegen *cg, Str module, Str name) {
         cg->funvals_cap = next;
     }
     FunValInfo *fi = &cg->funvals[cg->funvals_len++];
-    fi->module = module;
+    fi->cask = cask;
     fi->name = name;
-    fi->wrapper = arena_printf(cg->arena, "__fnwrap_%s_%.*s", mangle_mod(cg->arena, module), (int)name.len, name.data);
+    fi->wrapper = arena_printf(cg->arena, "__fnwrap_%s_%.*s", mangle_mod(cg->arena, cask), (int)name.len, name.data);
     return fi->wrapper != NULL;
 }
 
@@ -964,10 +964,10 @@ static void collect_expr(Codegen *cg, Expr *e, Str path, bool allow_funval) {
     switch (e->kind) {
         case EXPR_IDENT:
             if (allow_funval) {
-                Str mod = codegen_module_name(cg, path);
+                Str mod = codegen_cask_name(cg, path);
                 FunSig *sig = codegen_fun_sig(cg, mod, e->as.ident.name);
                 if (sig) {
-                    codegen_add_funval(cg, sig->module, sig->name);
+                    codegen_add_funval(cg, sig->cask, sig->name);
                 } else if (is_stdr_prelude(e->as.ident.name)) {
                     codegen_add_funval(cg, str_from_c("stdr"), e->as.ident.name);
                 }
@@ -1490,9 +1490,9 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             char *t = codegen_new_tmp(cg);
             char *cname = codegen_cname_of(cg, e->as.ident.name);
             if (!cname) {
-                FunSig *sig = codegen_fun_sig(cg, cg->current_module, e->as.ident.name);
+                FunSig *sig = codegen_fun_sig(cg, cg->current_cask, e->as.ident.name);
                 if (!sig && is_stdr_prelude(e->as.ident.name)) {
-                    bool allow = str_eq_c(cg->current_module, "stdr");
+                    bool allow = str_eq_c(cg->current_cask, "stdr");
                     for (size_t i = 0; i < cg->current_imports_len && !allow; i++) {
                         if (str_eq_c(cg->current_imports[i], "stdr")) allow = true;
                     }
@@ -1503,7 +1503,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                 if (!sig) {
                     return cg_set_errf(err, path, e->line, e->col, "unknown local '%.*s'", (int)e->as.ident.name.len, e->as.ident.name.data);
                 }
-                FunValInfo *fi = codegen_funval_info(cg, sig->module, sig->name);
+                FunValInfo *fi = codegen_funval_info(cg, sig->cask, sig->name);
                 if (!fi || !fi->wrapper) {
                     return cg_set_err(err, path, "missing function wrapper (internal error)");
                 }
@@ -1521,7 +1521,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             Ty *base_ty = cg_tc_expr(cg, path, e->as.member.a, err);
             if (!base_ty) return false;
             if (base_ty->tag == TY_MOD) {
-                ModuleConsts *mc = codegen_module_consts(cg, base_ty->name);
+                ModuleConsts *mc = codegen_cask_consts(cg, base_ty->name);
                 ConstEntry *ce = mc ? codegen_find_const(mc, e->as.member.name) : NULL;
                 if (ce) {
                     char *t = codegen_new_tmp(cg);
@@ -1545,7 +1545,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     out->tmp = t;
                     return true;
                 }
-                ModuleGlobals *mg = codegen_module_globals(cg, base_ty->name);
+                ModuleGlobals *mg = codegen_cask_globals(cg, base_ty->name);
                 if (codegen_find_global(mg, e->as.member.name)) {
                     char *t = codegen_new_tmp(cg);
                     char *gname = mangle_global_var(cg->arena, base_ty->name, e->as.member.name);
@@ -1554,7 +1554,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     out->tmp = t;
                     return true;
                 }
-                return cg_set_errf(err, path, e->line, e->col, "unknown module member '%.*s.%.*s'", (int)base_ty->name.len, base_ty->name.data, (int)e->as.member.name.len, e->as.member.name.data);
+                return cg_set_errf(err, path, e->line, e->col, "unknown cask member '%.*s.%.*s'", (int)base_ty->name.len, base_ty->name.data, (int)e->as.member.name.len, e->as.member.name.data);
             }
             if (base_ty->tag == TY_CLASS) {
                 GenExpr ge;
@@ -1682,7 +1682,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             Capture **caps = NULL;
             for (size_t fi = 0; fi < free_vars.len; fi++) {
                 Str name = free_vars.data[fi];
-                // Check local scopes only (not module globals/functions - those are always accessible)
+                // Check local scopes only (not cask globals/functions - those are always accessible)
                 char *cname = NULL;
                 for (size_t si = cg->scopes_len; si-- > 0;) {
                     NameScope *ns = &cg->scopes[si];
@@ -1727,12 +1727,12 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             Str name = e->as.new_expr.name;
             Str qname = name;
             if (!memchr(name.data, '.', name.len)) {
-                size_t len = cg->current_module.len + 1 + name.len;
+                size_t len = cg->current_cask.len + 1 + name.len;
                 char *buf = (char *)arena_alloc(cg->arena, len + 1);
                 if (!buf) return cg_set_err(err, path, "out of memory");
-                memcpy(buf, cg->current_module.data, cg->current_module.len);
-                buf[cg->current_module.len] = '.';
-                memcpy(buf + cg->current_module.len + 1, name.data, name.len);
+                memcpy(buf, cg->current_cask.data, cg->current_cask.len);
+                buf[cg->current_cask.len] = '.';
+                memcpy(buf + cg->current_cask.len + 1, name.data, name.len);
                 buf[len] = '\0';
                 qname.data = buf;
                 qname.len = len;
@@ -1740,7 +1740,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                 size_t dot = 0;
                 while (dot < name.len && name.data[dot] != '.') dot++;
                 Str mod = { name.data, dot };
-                if (!codegen_module_in_scope(cg, mod)) {
+                if (!codegen_cask_in_scope(cg, mod)) {
                     return cg_set_errf(err, path, e->line, e->col, "unknown class '%.*s'", (int)name.len, name.data);
                 }
             }
@@ -2182,10 +2182,10 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
         }
         case EXPR_CALL: {
             Expr *fn = e->as.call.fn;
-            // module-qualified calls
+            // cask-qualified calls
             if (fn && fn->kind == EXPR_MEMBER && fn->as.member.a && fn->as.member.a->kind == EXPR_IDENT) {
                 Str mod = fn->as.member.a->as.ident.name;
-                if (codegen_module_in_scope(cg, mod)) {
+                if (codegen_cask_in_scope(cg, mod)) {
                     Str name = fn->as.member.name;
                     FunSig *sig = codegen_fun_sig(cg, mod, name);
                     if (!sig) {
@@ -2872,6 +2872,13 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     if (str_eq_c(fname, "__cogito_carousel")) {
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w, "ErgoVal %s = cogito_carousel_new();", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_carousel_item")) {
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_carousel_item_new();", t);
                         gen_expr_add(out, t);
                         out->tmp = t;
                         return true;
@@ -4841,9 +4848,9 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
-                    FunSig *sig = codegen_fun_sig(cg, cg->current_module, fname);
+                    FunSig *sig = codegen_fun_sig(cg, cg->current_cask, fname);
                     if (!sig && is_stdr_prelude(fname)) {
-                        bool allow = str_eq_c(cg->current_module, "stdr");
+                        bool allow = str_eq_c(cg->current_cask, "stdr");
                         for (size_t i = 0; i < cg->current_imports_len && !allow; i++) {
                             if (str_eq_c(cg->current_imports[i], "stdr")) allow = true;
                         }
@@ -4859,7 +4866,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                             gen_expr_free(&ge);
                         }
                         bool ret_void = sig->ret && sig->ret->tag == TY_VOID;
-                        char *mangled = mangle_global(cg->arena, sig->module, fname);
+                        char *mangled = mangle_global(cg->arena, sig->cask, fname);
                         if (ret_void) {
                             StrBuf line; sb_init(&line);
                             sb_appendf(&line, "%s(", mangled);
@@ -5290,13 +5297,13 @@ static bool gen_method(Codegen *cg, Str path, ClassDecl *cls, FunDecl *fn, Diag 
     codegen_push_scope(cg);
 
     Str qname = cls->name;
-    if (cg->current_module.len) {
-        size_t len = cg->current_module.len + 1 + cls->name.len;
+    if (cg->current_cask.len) {
+        size_t len = cg->current_cask.len + 1 + cls->name.len;
         char *buf = (char *)arena_alloc(cg->arena, len + 1);
         if (!buf) return cg_set_err(err, path, "out of memory");
-        memcpy(buf, cg->current_module.data, cg->current_module.len);
-        buf[cg->current_module.len] = '.';
-        memcpy(buf + cg->current_module.len + 1, cls->name.data, cls->name.len);
+        memcpy(buf, cg->current_cask.data, cg->current_cask.len);
+        buf[cg->current_cask.len] = '.';
+        memcpy(buf + cg->current_cask.len + 1, cls->name.data, cls->name.len);
         buf[len] = '\0';
         qname.data = buf;
         qname.len = len;
@@ -5340,7 +5347,7 @@ static bool gen_method(Codegen *cg, Str path, ClassDecl *cls, FunDecl *fn, Diag 
     bool ret_void = fn->ret.is_void;
     const char *ret_ty = ret_void ? "void" : "ErgoVal";
     char *params = c_params(fn->params_len > 0 ? fn->params_len - 1 : 0, true);
-    char *mangled = mangle_method(cg->arena, cg->current_module, cls->name, fn->name);
+    char *mangled = mangle_method(cg->arena, cg->current_cask, cls->name, fn->name);
     w_line(&cg->w, "static %s %s(ErgoVal self%s) {", ret_ty, mangled, params ? params : "");
     cg->w.indent++;
     if (!ret_void) {
@@ -5373,7 +5380,7 @@ static bool gen_fun(Codegen *cg, Str path, FunDecl *fn, Diag *err) {
     codegen_push_scope(cg);
     cg->has_current_class = false;
 
-    FunSig *sig = codegen_fun_sig(cg, cg->current_module, fn->name);
+    FunSig *sig = codegen_fun_sig(cg, cg->current_cask, fn->name);
 
     for (size_t i = 0; i < fn->params_len; i++) {
         Param *p = fn->params[i];
@@ -5387,7 +5394,7 @@ static bool gen_fun(Codegen *cg, Str path, FunDecl *fn, Diag *err) {
     bool ret_void = fn->ret.is_void;
     const char *ret_ty = ret_void ? "void" : "ErgoVal";
     char *params = c_params(fn->params_len, false);
-    char *mangled = mangle_global(cg->arena, cg->current_module, fn->name);
+    char *mangled = mangle_global(cg->arena, cg->current_cask, fn->name);
     w_line(&cg->w, "static %s %s(%s) {", ret_ty, mangled, params ? params : "void");
     cg->w.indent++;
     if (!ret_void) {
@@ -5434,9 +5441,9 @@ static bool gen_entry(Codegen *cg, Diag *err) {
     codegen_push_scope(cg);
 
     if (entry_path.data) {
-        Str mod_name = codegen_module_name(cg, entry_path);
-        cg->current_module = mod_name;
-        ModuleImport *mi = codegen_module_imports(cg, mod_name);
+        Str mod_name = codegen_cask_name(cg, entry_path);
+        cg->current_cask = mod_name;
+        ModuleImport *mi = codegen_cask_imports(cg, mod_name);
         cg->current_imports = mi ? mi->imports : NULL;
         cg->current_imports_len = mi ? mi->imports_len : 0;
     }
@@ -5445,8 +5452,8 @@ static bool gen_entry(Codegen *cg, Diag *err) {
     cg->w.indent++;
     for (size_t i = 0; i < cg->prog->mods_len; i++) {
         Module *m = cg->prog->mods[i];
-        Str mod_name = codegen_module_name(cg, m->path);
-        ModuleGlobals *mg = codegen_module_globals(cg, mod_name);
+        Str mod_name = codegen_cask_name(cg, m->path);
+        ModuleGlobals *mg = codegen_cask_globals(cg, mod_name);
         if (mg && mg->len > 0) {
             char *init_name = mangle_global_init(cg->arena, mod_name);
             w_line(&cg->w, "%s();", init_name);
@@ -5483,7 +5490,7 @@ static bool codegen_init(Codegen *cg, Program *prog, Arena *arena, Diag *err) {
     // build class decl map
     for (size_t i = 0; i < prog->mods_len; i++) {
         Module *m = prog->mods[i];
-        Str mod_name = codegen_module_name(cg, m->path);
+        Str mod_name = codegen_cask_name(cg, m->path);
         for (size_t j = 0; j < m->decls_len; j++) {
             Decl *d = m->decls[j];
             if (d->kind == DECL_CLASS) {
@@ -5566,11 +5573,11 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
     }
     arena_free(&tmp_arena);
 
-    w_line(&cg->w, "// ---- module globals ----");
+    w_line(&cg->w, "// ---- cask globals ----");
     for (size_t i = 0; i < cg->prog->mods_len; i++) {
         Module *m = cg->prog->mods[i];
-        Str mod_name = codegen_module_name(cg, m->path);
-        ModuleGlobals *mg = codegen_module_globals(cg, mod_name);
+        Str mod_name = codegen_cask_name(cg, m->path);
+        ModuleGlobals *mg = codegen_cask_globals(cg, mod_name);
         if (!mg || mg->len == 0) continue;
         for (size_t j = 0; j < m->decls_len; j++) {
             Decl *d = m->decls[j];
@@ -5604,7 +5611,7 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
     w_line(&cg->w, "// ---- forward decls ----");
     for (size_t i = 0; i < cg->prog->mods_len; i++) {
         Module *m = cg->prog->mods[i];
-        Str mod_name = codegen_module_name(cg, m->path);
+        Str mod_name = codegen_cask_name(cg, m->path);
         for (size_t j = 0; j < m->decls_len; j++) {
             Decl *d = m->decls[j];
             if (d->kind == DECL_CLASS) {
@@ -5625,7 +5632,7 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
                 if (params) free(params);
             }
         }
-        ModuleGlobals *mg = codegen_module_globals(cg, mod_name);
+        ModuleGlobals *mg = codegen_cask_globals(cg, mod_name);
         if (mg && mg->len > 0) {
             char *init_name = mangle_global_init(cg->arena, mod_name);
             w_line(&cg->w, "static void %s(void);", init_name);
@@ -5638,7 +5645,7 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
         w_line(&cg->w, "// ---- function value defs ----");
         for (size_t i = 0; i < cg->funvals_len; i++) {
             FunValInfo *fi = &cg->funvals[i];
-            FunSig *sig = codegen_fun_sig(cg, fi->module, fi->name);
+            FunSig *sig = codegen_fun_sig(cg, fi->cask, fi->name);
             if (!sig) continue;
             w_line(&cg->w, "static ErgoVal %s(void* env, int argc, ErgoVal* argv) {", fi->wrapper);
             cg->w.indent++;
@@ -5648,7 +5655,7 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
                 w_line(&cg->w, "ErgoVal arg%zu = argv[%zu];", p, p);
             }
             bool ret_void = sig->ret && sig->ret->tag == TY_VOID;
-            char *mangled = mangle_global(cg->arena, sig->module, sig->name);
+            char *mangled = mangle_global(cg->arena, sig->cask, sig->name);
             if (ret_void) {
                 StrBuf line; sb_init(&line);
                 sb_appendf(&line, "%s(", mangled);
@@ -5677,20 +5684,20 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
         w_line(&cg->w, "");
     }
 
-    w_line(&cg->w, "// ---- module global init ----");
+    w_line(&cg->w, "// ---- cask global init ----");
     for (size_t i = 0; i < cg->prog->mods_len; i++) {
         Module *m = cg->prog->mods[i];
-        Str mod_name = codegen_module_name(cg, m->path);
-        ModuleGlobals *mg = codegen_module_globals(cg, mod_name);
+        Str mod_name = codegen_cask_name(cg, m->path);
+        ModuleGlobals *mg = codegen_cask_globals(cg, mod_name);
         if (!mg || mg->len == 0) continue;
         char *init_name = mangle_global_init(cg->arena, mod_name);
         w_line(&cg->w, "static void %s(void) {", init_name);
         cg->w.indent++;
-        Str saved_mod = cg->current_module;
+        Str saved_mod = cg->current_cask;
         Str *saved_imports = cg->current_imports;
         size_t saved_imports_len = cg->current_imports_len;
-        cg->current_module = mod_name;
-        ModuleImport *mi = codegen_module_imports(cg, mod_name);
+        cg->current_cask = mod_name;
+        ModuleImport *mi = codegen_cask_imports(cg, mod_name);
         cg->current_imports = mi ? mi->imports : NULL;
         cg->current_imports_len = mi ? mi->imports_len : 0;
 
@@ -5705,7 +5712,7 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
             gen_expr_free(&ge);
         }
 
-        cg->current_module = saved_mod;
+        cg->current_cask = saved_mod;
         cg->current_imports = saved_imports;
         cg->current_imports_len = saved_imports_len;
         cg->w.indent--;
@@ -5716,9 +5723,9 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
     w_line(&cg->w, "// ---- compiled functions ----");
     for (size_t i = 0; i < cg->prog->mods_len; i++) {
         Module *m = cg->prog->mods[i];
-        Str mod_name = codegen_module_name(cg, m->path);
-        cg->current_module = mod_name;
-        ModuleImport *mi = codegen_module_imports(cg, mod_name);
+        Str mod_name = codegen_cask_name(cg, m->path);
+        cg->current_cask = mod_name;
+        ModuleImport *mi = codegen_cask_imports(cg, mod_name);
         cg->current_imports = mi ? mi->imports : NULL;
         cg->current_imports_len = mi ? mi->imports_len : 0;
         cg->has_current_class = false;
@@ -5751,7 +5758,7 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
         size_t saved_locals_len = cg->scope_locals_len;
         size_t saved_locals_cap = cg->scope_locals_cap;
         Locals saved_ty = cg->ty_loc;
-        Str saved_mod = cg->current_module;
+        Str saved_mod = cg->current_cask;
         Str *saved_imports = cg->current_imports;
         size_t saved_imports_len = cg->current_imports_len;
         Str saved_class = cg->current_class;
@@ -5768,10 +5775,10 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
         codegen_push_scope(cg);
         cg->w.indent = 0;
 
-        // set module context
-        Str mod_name = codegen_module_name(cg, li->path);
-        cg->current_module = mod_name;
-        ModuleImport *mi = codegen_module_imports(cg, mod_name);
+        // set cask context
+        Str mod_name = codegen_cask_name(cg, li->path);
+        cg->current_cask = mod_name;
+        ModuleImport *mi = codegen_cask_imports(cg, mod_name);
         cg->current_imports = mi ? mi->imports : NULL;
         cg->current_imports_len = mi ? mi->imports_len : 0;
         cg->has_current_class = false;
@@ -5803,7 +5810,7 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
             codegen_add_name(cg, param->name, cname);
             Ty *pty = NULL;
             if (param->typ) {
-                pty = cg_ty_from_type_ref(cg, param->typ, cg->current_module, cg->current_imports, cg->current_imports_len, err);
+                pty = cg_ty_from_type_ref(cg, param->typ, cg->current_cask, cg->current_imports, cg->current_imports_len, err);
             } else {
                 pty = cg_ty_gen(cg, param->name);
             }
@@ -5844,7 +5851,7 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
         cg->scope_locals_len = saved_locals_len;
         cg->scope_locals_cap = saved_locals_cap;
         cg->ty_loc = saved_ty;
-        cg->current_module = saved_mod;
+        cg->current_cask = saved_mod;
         cg->current_imports = saved_imports;
         cg->current_imports_len = saved_imports_len;
         cg->current_class = saved_class;

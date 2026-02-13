@@ -37,7 +37,7 @@ static void parser_set_error(Parser *p, Tok *t, const char *fmt, ...) {
     vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
     
-    // Copy path to arena so it persists after parse_module returns
+    // Copy path to arena so it persists after parse_cask returns
     if (p->path && p->path[0]) {
         size_t path_len = strlen(p->path);
         char *path_copy = (char *)arena_alloc(p->arena, path_len + 1);
@@ -1397,7 +1397,7 @@ static Expr *parse_array_lit(Parser *p) {
     return e;
 }
 
-Module *parse_module(Tok *toks, size_t len, const char *path, Arena *arena, Diag *err) {
+Module *parse_cask(Tok *toks, size_t len, const char *path, Arena *arena, Diag *err) {
     Parser p;
     p.toks = toks;
     p.len = len;
@@ -1413,8 +1413,8 @@ Module *parse_module(Tok *toks, size_t len, const char *path, Arena *arena, Diag
     bool has_declared_name = false;
 
     skip_semi(&p);
-    if (at(&p, TOK_KW_module)) {
-        eat(&p, TOK_KW_module);
+    if (at(&p, TOK_KW_cask)) {
+        eat(&p, TOK_KW_cask);
         Tok *name_tok = eat(&p, TOK_IDENT);
         if (!p.ok) return NULL;
         declared_name = name_tok->val.ident;

@@ -175,7 +175,7 @@ static Module *load_file(const char *path,
         return NULL;
     }
 
-    Module *mod = parse_module(toks.data, toks.len, abs_path, arena, err);
+    Module *mod = parse_cask(toks.data, toks.len, abs_path, arena, err);
     free(toks.data);
     if (!mod) {
         free(abs_path);
@@ -301,7 +301,7 @@ static Module *load_file(const char *path,
         char *child = path_join(root_dir, name);
         free(name);
         if (!child || !path_is_file(child)) {
-            set_err(err, abs_path, "bring expects stdr/math/cogito or a valid user module (file)");
+            set_err(err, abs_path, "bring expects stdr/math/cogito or a valid user cask (file)");
             free(child);
             return NULL;
         }
@@ -354,7 +354,7 @@ bool load_project(const char *entry_path, Arena *arena, Program **out_prog, uint
         }
     }
     if (entry_count != 1) {
-        // Use module path which is already in arena
+        // Use cask path which is already in arena
         const char *err_path = init_mod->path.data ? init_mod->path.data : "entry file";
         set_err(err, err_path, "init.ergo must contain exactly one entry() decl");
         free(entry_abs);
@@ -374,8 +374,8 @@ bool load_project(const char *entry_path, Arena *arena, Program **out_prog, uint
         }
         for (size_t j = 0; j < mod->decls_len; j++) {
             if (mod->decls[j]->kind == DECL_ENTRY) {
-                // Use module path which is already in arena
-                const char *err_path = mod->path.data ? mod->path.data : "module file";
+                // Use cask path which is already in arena
+                const char *err_path = mod->path.data ? mod->path.data : "cask file";
                 set_err(err, err_path, "entry() is only allowed in init.ergo");
                 free(entry_abs);
                 free(root_dir);

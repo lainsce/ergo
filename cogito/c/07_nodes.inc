@@ -275,7 +275,7 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->align = 0;
   // Layout widgets default to 0 gap, content widgets default to 8 for natural spacing
   bool is_layout = (kind == COGITO_VSTACK || kind == COGITO_HSTACK || kind == COGITO_ZSTACK ||
-                    kind == COGITO_FIXED || kind == COGITO_SCROLLER);
+                    kind == COGITO_FIXED || kind == COGITO_SCROLLER || kind == COGITO_LIST);
   n->gap = is_layout ? 0 : 8;
   n->auto_size = false;
   n->margin_set = false;
@@ -403,6 +403,8 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
     #include "widgets/intrinsic/button.inc"
 
     #include "widgets/intrinsic/carousel.inc"
+
+    #include "widgets/intrinsic/carousel_item.inc"
 
     #include "widgets/intrinsic/iconbtn.inc"
 

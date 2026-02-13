@@ -1,4 +1,4 @@
-module writef_demo
+cask writef_demo
 
 bring stdr
 

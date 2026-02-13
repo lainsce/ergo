@@ -1,4 +1,4 @@
-module feature_smoke
+cask feature_smoke
 
 bring stdr
 bring math

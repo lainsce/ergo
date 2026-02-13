@@ -599,6 +599,7 @@ static bool cogito_sum_selector_kind(const char* sel, CogitoKind* out_kind, bool
   if (strcmp(s, "bottom-nav") == 0 || strcmp(s, "bottom_nav") == 0) { if (out_kind) *out_kind = COGITO_BOTTOM_NAV; return true; }
   if (strcmp(s, "button") == 0) { if (out_kind) *out_kind = COGITO_BUTTON; return true; }
   if (strcmp(s, "carousel") == 0) { if (out_kind) *out_kind = COGITO_CAROUSEL; return true; }
+  if (strcmp(s, "carousel_item") == 0) { if (out_kind) *out_kind = COGITO_CAROUSEL_ITEM; return true; }
   if (strcmp(s, "checkbox") == 0) { if (out_kind) *out_kind = COGITO_CHECKBOX; return true; }
   if (strcmp(s, "chip") == 0) { if (out_kind) *out_kind = COGITO_CHIP; return true; }
   if (strcmp(s, "colorpicker") == 0) { if (out_kind) *out_kind = COGITO_COLORPICKER; return true; }
@@ -699,10 +700,8 @@ static bool cogito_sum_selector_has_class(const char* sel, const char* name) {
 static CogitoCustomClassStyle* cogito_get_or_create_custom_class(const char* name, CogitoKind kind) {
   if (!name || !name[0]) return NULL;
   for (int i = 0; i < cogito_theme.custom_class_count; i++) {
-    if (strcmp(cogito_theme.custom_classes[i].name, name) == 0) {
-      if (cogito_theme.custom_classes[i].kind == COGITO_WINDOW && kind != COGITO_WINDOW) {
-        cogito_theme.custom_classes[i].kind = kind;
-      }
+    if (strcmp(cogito_theme.custom_classes[i].name, name) == 0 &&
+        cogito_theme.custom_classes[i].kind == kind) {
       return &cogito_theme.custom_classes[i];
     }
   }

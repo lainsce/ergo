@@ -21,9 +21,9 @@ It is intended as an implementation-facing reference, not a future design docume
 
 Current reserved words:
 
-`module`, `bring`, `fun`, `entry`, `class`, `struct`, `enum`, `pub`, `lock`, `seal`, `def`, `let`, `const`, `if`, `elif`, `else`, `for`, `match`, `return`, `true`, `false`, `null`, `new`, `in`, `break`, `continue`
+`cask`, `bring`, `fun`, `entry`, `class`, `struct`, `enum`, `pub`, `lock`, `seal`, `def`, `let`, `const`, `if`, `elif`, `else`, `for`, `match`, `return`, `true`, `false`, `null`, `new`, `in`, `break`, `continue`
 
-`module` is an optional top-level declaration used to assert module identity.
+`cask` is an optional top-level declaration used to assert module identity.
 
 ### 2.3 Comments
 
@@ -73,10 +73,10 @@ bring utils.ergo
 Current behavior:
 
 - Imports are namespaced (`math.sin(...)`, `utils.fn(...)`).
-- Built-in module names include `stdr`, `math`, and `cogito`.
-- `bring name` resolves to `name.ergo` for user modules.
+- Built-in cask names include `stdr`, `math`, and `cogito`.
+- `bring name` resolves to `name.ergo` for user casks.
 - `bring name.ergo` is accepted.
-- `stdr` is required in non-stdlib modules.
+- `stdr` is required in non-stdlib casks.
 - Legacy `.e` imports are rejected.
 
 ### 4.2 Module Naming
@@ -85,10 +85,10 @@ Current behavior:
 - Optional declaration form:
 
 ```ergo
-module mymod
+cask mymod
 ```
 
-- If present, declared module name must match the file basename.
+- If present, declared cask name must match the file basename.
 
 ### 4.3 Entry Constraints
 

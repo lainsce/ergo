@@ -1,4 +1,4 @@
-module guard_example
+cask guard_example
 
 bring stdr
 

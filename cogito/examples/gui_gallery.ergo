@@ -1,4 +1,4 @@
-module gui_gallery
+cask gui_gallery
 
 bring stdr
 bring cogito
@@ -491,12 +491,11 @@ fun build_carousel_view() (( cogito.VStack )) {
 
     let carousel = cogito.carousel()
     carousel.set_hexpand(true)
+    carousel.set_vexpand(true)
 
-    -- Create carousel items with distinct backgrounds
-    let item1 = cogito.zstack()
+    let item1 = cogito.carousel_item()
     item1.set_vexpand(true)
     item1.set_hexpand(true)
-    item1.set_class(@"carousel-item")
     let label1 = cogito.label(@"Item 1")
     label1.set_class(@"carousel-item-label")
     label1.set_halign(0)  -- left
@@ -504,10 +503,9 @@ fun build_carousel_view() (( cogito.VStack )) {
     item1.add(label1)
     carousel.add(item1)
 
-    let item2 = cogito.zstack()
+    let item2 = cogito.carousel_item()
     item2.set_vexpand(true)
     item2.set_hexpand(true)
-    item2.set_class(@"carousel-item")
     let label2 = cogito.label(@"Item 2")
     label2.set_class(@"carousel-item-label")
     label2.set_halign(0)  -- left
@@ -515,10 +513,9 @@ fun build_carousel_view() (( cogito.VStack )) {
     item2.add(label2)
     carousel.add(item2)
 
-    let item3 = cogito.zstack()
+    let item3 = cogito.carousel_item()
     item3.set_vexpand(true)
     item3.set_hexpand(true)
-    item3.set_class(@"carousel-item")
     let label3 = cogito.label(@"Item 3")
     label3.set_class(@"carousel-item-label")
     label3.set_halign(0)  -- left
@@ -526,10 +523,9 @@ fun build_carousel_view() (( cogito.VStack )) {
     item3.add(label3)
     carousel.add(item3)
 
-    let item4 = cogito.zstack()
+    let item4 = cogito.carousel_item()
     item4.set_vexpand(true)
     item4.set_hexpand(true)
-    item4.set_class(@"carousel-item")
     let label4 = cogito.label(@"Item 4")
     label4.set_class(@"carousel-item-label")
     label4.set_halign(0)  -- left
@@ -537,10 +533,9 @@ fun build_carousel_view() (( cogito.VStack )) {
     item4.add(label4)
     carousel.add(item4)
 
-    let item5 = cogito.zstack()
+    let item5 = cogito.carousel_item()
     item5.set_vexpand(true)
     item5.set_hexpand(true)
-    item5.set_class(@"carousel-item")
     let label5 = cogito.label(@"Item 5")
     label5.set_class(@"carousel-item-label")
     label5.set_halign(0)  -- left
@@ -799,6 +794,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
 
     -- Sidebar
     let sidebar = cogito.vstack()
+    cogito.set_class(sidebar, @"sidebar")
     sidebar.set_vexpand(true)
     sidebar.add(bar)
 

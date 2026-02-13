@@ -105,6 +105,11 @@ static struct CogitoSDL3Window* g_current_window = NULL;
 static CogitoWindowRegistry window_registry = {0};
 static CogitoDebugFlags debug_flags = {0};
 
+// Scissor stack for nested clipping support
+#define MAX_SCISSOR_STACK 16
+static int scissor_stack_count = 0;
+static SDL_Rect scissor_stack[MAX_SCISSOR_STACK];
+
 // Vertex buffer for quad rendering (max 1024 quads per frame)
 #define MAX_VERTICES 4096
 static SDL_GPUBuffer* vertex_buffer = NULL;
@@ -553,6 +558,7 @@ static void sdl3_begin_frame(CogitoWindow* window) {
     g_render_state.window_width = w;
     g_render_state.window_height = h;
     SDL_SetRenderClipRect(g_current_renderer, NULL);
+    scissor_stack_count = 0;  // Reset scissor stack for new frame
 }
 
 static void sdl3_end_frame(CogitoWindow* window) {
@@ -1514,13 +1520,40 @@ static void sdl3_draw_texture_pro(CogitoTexture* tex, CogitoRect src, CogitoRect
 
 static void sdl3_begin_scissor(int x, int y, int w, int h) {
     if (!g_current_renderer) return;
+    
+    // Save current scissor to stack for nested clipping
+    SDL_Rect current_clip;
+    bool has_current = SDL_GetRenderClipRect(g_current_renderer, &current_clip);
+    
+    // Push current scissor to stack if it exists
+    if (has_current && scissor_stack_count < MAX_SCISSOR_STACK) {
+        scissor_stack[scissor_stack_count++] = current_clip;
+    } else if (!has_current && scissor_stack_count < MAX_SCISSOR_STACK) {
+        // No current scissor - push a "null" sentinel (width=0 means no clipping)
+        scissor_stack[scissor_stack_count++] = (SDL_Rect){0, 0, 0, 0};
+    }
+    
+    // Set new scissor
     SDL_Rect r = { x, y, w, h };
     SDL_SetRenderClipRect(g_current_renderer, &r);
 }
 
 static void sdl3_end_scissor(void) {
     if (!g_current_renderer) return;
-    SDL_SetRenderClipRect(g_current_renderer, NULL);
+    
+    // Pop previous scissor from stack
+    if (scissor_stack_count > 0) {
+        SDL_Rect prev = scissor_stack[--scissor_stack_count];
+        // If width is 0, it means "no clipping" (sentinel value)
+        if (prev.w == 0 && prev.h == 0) {
+            SDL_SetRenderClipRect(g_current_renderer, NULL);
+        } else {
+            SDL_SetRenderClipRect(g_current_renderer, &prev);
+        }
+    } else {
+        // Stack empty - remove all clipping
+        SDL_SetRenderClipRect(g_current_renderer, NULL);
+    }
 }
 
 static void sdl3_set_blend_mode(int mode) {

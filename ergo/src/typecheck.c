@@ -958,7 +958,7 @@ static void ty_desc(Ty *t, char *buf, size_t cap) {
             snprintf(buf, cap, "null");
             return;
         case TY_MOD:
-            snprintf(buf, cap, "module");
+            snprintf(buf, cap, "cask");
             return;
         case TY_FN:
             snprintf(buf, cap, "fn");
@@ -1261,7 +1261,7 @@ static Str qualify_class_name(Arena *arena, Str mod, Str name) {
     return out;
 }
 
-static Str module_name_for_path(Arena *arena, Str path) {
+static Str cask_name_for_path(Arena *arena, Str path) {
     const char *p = path.data;
     size_t len = path.len;
     size_t start = 0;
@@ -1301,37 +1301,37 @@ static ClassInfo *find_class(GlobalEnv *env, Str qname) {
     return NULL;
 }
 
-static FunSig *find_fun(GlobalEnv *env, Str module, Str name) {
+static FunSig *find_fun(GlobalEnv *env, Str cask, Str name) {
     for (size_t i = 0; i < env->funs_len; i++) {
-        if (str_eq(env->funs[i].module, module) && str_eq(env->funs[i].name, name)) {
+        if (str_eq(env->funs[i].cask, cask) && str_eq(env->funs[i].name, name)) {
             return &env->funs[i];
         }
     }
     return NULL;
 }
 
-static ModuleImport *find_imports(GlobalEnv *env, Str module) {
-    for (size_t i = 0; i < env->module_imports_len; i++) {
-        if (str_eq(env->module_imports[i].module, module)) {
-            return &env->module_imports[i];
+static ModuleImport *find_imports(GlobalEnv *env, Str cask) {
+    for (size_t i = 0; i < env->cask_imports_len; i++) {
+        if (str_eq(env->cask_imports[i].cask, cask)) {
+            return &env->cask_imports[i];
         }
     }
     return NULL;
 }
 
-static ModuleConsts *find_module_consts(GlobalEnv *env, Str module) {
-    for (size_t i = 0; i < env->module_consts_len; i++) {
-        if (str_eq(env->module_consts[i].module, module)) {
-            return &env->module_consts[i];
+static ModuleConsts *find_cask_consts(GlobalEnv *env, Str cask) {
+    for (size_t i = 0; i < env->cask_consts_len; i++) {
+        if (str_eq(env->cask_consts[i].cask, cask)) {
+            return &env->cask_consts[i];
         }
     }
     return NULL;
 }
 
-static ModuleGlobals *find_module_globals(GlobalEnv *env, Str module) {
-    for (size_t i = 0; i < env->module_globals_len; i++) {
-        if (str_eq(env->module_globals[i].module, module)) {
-            return &env->module_globals[i];
+static ModuleGlobals *find_cask_globals(GlobalEnv *env, Str cask) {
+    for (size_t i = 0; i < env->cask_globals_len; i++) {
+        if (str_eq(env->cask_globals[i].cask, cask)) {
+            return &env->cask_globals[i];
         }
     }
     return NULL;
@@ -1387,7 +1387,7 @@ static Ty *ty_from_type_ref(GlobalEnv *env, TypeRef *tref, Str ctx_mod, Str *imp
         return ty_prim(env->arena, "any");
     }
     if (memchr(n.data, '.', n.len)) {
-        // module-qualified class
+        // cask-qualified class
         size_t dot = 0;
         for (; dot < n.len; dot++) {
             if (n.data[dot] == '.') break;
@@ -1557,48 +1557,48 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
     memset(env, 0, sizeof(GlobalEnv));
     env->arena = arena;
 
-    env->module_names_len = prog->mods_len;
-    env->module_names = (ModuleName *)arena_array(arena, prog->mods_len, sizeof(ModuleName));
-    env->module_imports_len = prog->mods_len;
-    env->module_imports = (ModuleImport *)arena_array(arena, prog->mods_len, sizeof(ModuleImport));
-    env->module_globals_len = prog->mods_len;
-    env->module_globals = (ModuleGlobals *)arena_array(arena, prog->mods_len, sizeof(ModuleGlobals));
-    if (!env->module_names || !env->module_imports || !env->module_globals) {
+    env->cask_names_len = prog->mods_len;
+    env->cask_names = (ModuleName *)arena_array(arena, prog->mods_len, sizeof(ModuleName));
+    env->cask_imports_len = prog->mods_len;
+    env->cask_imports = (ModuleImport *)arena_array(arena, prog->mods_len, sizeof(ModuleImport));
+    env->cask_globals_len = prog->mods_len;
+    env->cask_globals = (ModuleGlobals *)arena_array(arena, prog->mods_len, sizeof(ModuleGlobals));
+    if (!env->cask_names || !env->cask_imports || !env->cask_globals) {
         set_err(err, "out of memory");
         return NULL;
     }
 
     for (size_t i = 0; i < prog->mods_len; i++) {
         Module *m = prog->mods[i];
-        Str mod_name = module_name_for_path(arena, m->path);
+        Str mod_name = cask_name_for_path(arena, m->path);
         if (m->has_declared_name && !str_eq(m->declared_name, mod_name)) {
             set_errf(err, m->path, 1, 1,
-                     "%.*s: module declaration '%.*s' must match file name '%.*s'",
+                     "%.*s: cask declaration '%.*s' must match file name '%.*s'",
                      (int)m->path.len, m->path.data,
                      (int)m->declared_name.len, m->declared_name.data,
                      (int)mod_name.len, mod_name.data);
             return NULL;
         }
-        env->module_names[i].path = m->path;
-        env->module_names[i].name = mod_name;
-        env->module_imports[i].module = mod_name;
-        env->module_imports[i].imports_len = m->imports_len;
+        env->cask_names[i].path = m->path;
+        env->cask_names[i].name = mod_name;
+        env->cask_imports[i].cask = mod_name;
+        env->cask_imports[i].imports_len = m->imports_len;
         if (m->imports_len > 0) {
-            env->module_imports[i].imports = (Str *)arena_array(arena, m->imports_len, sizeof(Str));
-            if (!env->module_imports[i].imports) {
+            env->cask_imports[i].imports = (Str *)arena_array(arena, m->imports_len, sizeof(Str));
+            if (!env->cask_imports[i].imports) {
                 set_err(err, "out of memory");
                 return NULL;
             }
             for (size_t j = 0; j < m->imports_len; j++) {
-                env->module_imports[i].imports[j] = normalize_import_name(arena, m->imports[j]->name);
+                env->cask_imports[i].imports[j] = normalize_import_name(arena, m->imports[j]->name);
             }
         }
-        env->module_globals[i].module = mod_name;
-        env->module_globals[i].vars = NULL;
-        env->module_globals[i].len = 0;
+        env->cask_globals[i].cask = mod_name;
+        env->cask_globals[i].vars = NULL;
+        env->cask_globals[i].len = 0;
     }
 
-    // module globals (def)
+    // cask globals (def)
     for (size_t i = 0; i < prog->mods_len; i++) {
         Module *m = prog->mods[i];
         size_t def_count = 0;
@@ -1606,7 +1606,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
             if (m->decls[j]->kind == DECL_DEF) def_count++;
         }
         if (def_count == 0) continue;
-        ModuleGlobals *mg = &env->module_globals[i];
+        ModuleGlobals *mg = &env->cask_globals[i];
         mg->vars = (GlobalVar *)arena_array(arena, def_count, sizeof(GlobalVar));
         if (!mg->vars) {
             set_err(err, "out of memory");
@@ -1651,24 +1651,24 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
         return NULL;
     }
 
-    // module consts
-    env->module_consts_len = 0;
-    env->module_consts = (ModuleConsts *)arena_array(arena, prog->mods_len, sizeof(ModuleConsts));
-    if (prog->mods_len && !env->module_consts) {
+    // cask consts
+    env->cask_consts_len = 0;
+    env->cask_consts = (ModuleConsts *)arena_array(arena, prog->mods_len, sizeof(ModuleConsts));
+    if (prog->mods_len && !env->cask_consts) {
         set_err(err, "out of memory");
         return NULL;
     }
 
     for (size_t i = 0; i < prog->mods_len; i++) {
         Module *m = prog->mods[i];
-        Str mod_name = env->module_names[i].name;
+        Str mod_name = env->cask_names[i].name;
         size_t const_count = 0;
         for (size_t j = 0; j < m->decls_len; j++) {
             if (m->decls[j]->kind == DECL_CONST) const_count++;
         }
         if (const_count == 0) continue;
-        ModuleConsts *mc = &env->module_consts[env->module_consts_len++];
-        mc->module = mod_name;
+        ModuleConsts *mc = &env->cask_consts[env->cask_consts_len++];
+        mc->cask = mod_name;
         mc->len = const_count;
         mc->entries = const_count ? (ConstEntry *)arena_array(arena, const_count, sizeof(ConstEntry)) : NULL;
         size_t idx = 0;
@@ -1696,7 +1696,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
     size_t cidx = 0;
     for (size_t i = 0; i < prog->mods_len; i++) {
         Module *m = prog->mods[i];
-        Str mod_name = env->module_names[i].name;
+        Str mod_name = env->cask_names[i].name;
         for (size_t j = 0; j < m->decls_len; j++) {
             Decl *d = m->decls[j];
             if (d->kind != DECL_CLASS) continue;
@@ -1711,19 +1711,19 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
             ClassInfo *ci = &env->classes[cidx++];
             memset(ci, 0, sizeof(ClassInfo));
             ci->name = d->as.class_decl.name;
-            ci->module = mod_name;
+            ci->cask = mod_name;
             ci->qname = qname;
             ci->vis = d->as.class_decl.vis;
             ci->is_seal = d->as.class_decl.is_seal;
             ci->kind = d->as.class_decl.kind;
-            ci->module_path = m->path;
+            ci->cask_path = m->path;
         }
     }
 
     // fill class fields + methods
     for (size_t i = 0; i < prog->mods_len; i++) {
         Module *m = prog->mods[i];
-        Str mod_name = env->module_names[i].name;
+        Str mod_name = env->cask_names[i].name;
         ModuleImport *imps = find_imports(env, mod_name);
         for (size_t j = 0; j < m->decls_len; j++) {
             Decl *d = m->decls[j];
@@ -1799,7 +1799,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
                     return NULL;
                 }
                 sig->name = md->name;
-                sig->module = mod_name;
+                sig->cask = mod_name;
                 sig->params = param_types;
                 sig->params_len = param_count;
                 sig->param_names = param_names;
@@ -1808,7 +1808,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
                 sig->is_method = true;
                 sig->recv_mut = recv_mut;
                 sig->owner_class = ci->qname;
-                sig->module_path = m->path;
+                sig->cask_path = m->path;
 
                 // check duplicate method name
                 for (size_t k = 0; k < m_i; k++) {
@@ -1832,7 +1832,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
     env->entry = NULL;
     for (size_t i = 0; i < prog->mods_len; i++) {
         Module *m = prog->mods[i];
-        Str mod_name = env->module_names[i].name;
+        Str mod_name = env->cask_names[i].name;
         ModuleImport *imps = find_imports(env, mod_name);
         (void)imps;
         for (size_t j = 0; j < m->decls_len; j++) {
@@ -1848,7 +1848,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
                 }
                 // duplicate check
                 for (size_t k = 0; k < findex; k++) {
-                    if (str_eq(env->funs[k].module, mod_name) && str_eq(env->funs[k].name, fd->name)) {
+                    if (str_eq(env->funs[k].cask, mod_name) && str_eq(env->funs[k].name, fd->name)) {
                         set_errf(err, m->path, d->line, d->col,
                                  "%.*s: duplicate function '%.*s'",
                                  (int)m->path.len, m->path.data,
@@ -1884,7 +1884,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
                     pnames[p] = pp->name;
                 }
                 env->funs[findex].name = fd->name;
-                env->funs[findex].module = mod_name;
+                env->funs[findex].cask = mod_name;
                 env->funs[findex].params = params;
                 env->funs[findex].params_len = pcount;
                 env->funs[findex].param_names = pnames;
@@ -1894,7 +1894,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
                 env->funs[findex].recv_mut = false;
                 env->funs[findex].owner_class.data = NULL;
                 env->funs[findex].owner_class.len = 0;
-                env->funs[findex].module_path = m->path;
+                env->funs[findex].cask_path = m->path;
                 findex++;
             }
             if (d->kind == DECL_ENTRY) {
@@ -1903,12 +1903,12 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
         }
     }
 
-    // typecheck module globals after functions/classes are registered
+    // typecheck cask globals after functions/classes are registered
     for (size_t i = 0; i < prog->mods_len; i++) {
         Module *m = prog->mods[i];
-        ModuleGlobals *mg = &env->module_globals[i];
+        ModuleGlobals *mg = &env->cask_globals[i];
         if (!mg->len) continue;
-        Str mod_name = env->module_names[i].name;
+        Str mod_name = env->cask_names[i].name;
         ModuleImport *imps = find_imports(env, mod_name);
         Str *imports = imps ? imps->imports : NULL;
         size_t imports_len = imps ? imps->imports_len : 0;
@@ -1932,21 +1932,21 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
     return env;
 }
 
-static bool module_in_scope(Str name, Ctx *ctx, Locals *loc) {
+static bool cask_in_scope(Str name, Ctx *ctx, Locals *loc) {
     if (locals_lookup(loc, name)) return false;
-    if (str_eq(name, ctx->module_name)) return true;
+    if (str_eq(name, ctx->cask_name)) return true;
     for (size_t i = 0; i < ctx->imports_len; i++) {
         if (str_eq(ctx->imports[i], name)) return true;
     }
     return false;
 }
 
-static Str shadowed_module_name(Expr *base, Ctx *ctx, Locals *loc) {
+static Str shadowed_cask_name(Expr *base, Ctx *ctx, Locals *loc) {
     Str empty = {"", 0};
     if (!base || base->kind != EXPR_IDENT) return empty;
     Str name = base->as.ident.name;
     if (!locals_lookup(loc, name)) return empty;
-    if (str_eq(name, ctx->module_name)) return name;
+    if (str_eq(name, ctx->cask_name)) return name;
     for (size_t i = 0; i < ctx->imports_len; i++) {
         if (str_eq(ctx->imports[i], name)) return name;
     }
@@ -1958,7 +1958,7 @@ static bool is_mut_lvalue(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env) {
     if (e->kind == EXPR_IDENT) {
         Binding *b = locals_lookup(loc, e->as.ident.name);
         if (b) return b->is_mut && !b->is_const;
-        ModuleGlobals *mg = find_module_globals(env, ctx->module_name);
+        ModuleGlobals *mg = find_cask_globals(env, ctx->cask_name);
         GlobalVar *gv = find_global(mg, e->as.ident.name);
         return gv && gv->is_mut;
     }
@@ -2037,22 +2037,22 @@ static Ty *tc_call(Expr *call_expr, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag 
     size_t argc = call_expr->as.call.args_len;
     Expr **args = call_expr->as.call.args;
 
-    // module-qualified calls
+    // cask-qualified calls
     if (fn && fn->kind == EXPR_MEMBER && fn->as.member.a && fn->as.member.a->kind == EXPR_IDENT) {
         Str mod = fn->as.member.a->as.ident.name;
-        if (module_in_scope(mod, ctx, loc)) {
+        if (cask_in_scope(mod, ctx, loc)) {
             Str name = fn->as.member.name;
             FunSig *sig = find_fun(env, mod, name);
             if (!sig) {
-                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: unknown %.*s.%.*s",
-                         (int)ctx->module_path.len, ctx->module_path.data,
+                set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: unknown %.*s.%.*s",
+                         (int)ctx->cask_path.len, ctx->cask_path.data,
                          (int)mod.len, mod.data,
                          (int)name.len, name.data);
                 return NULL;
             }
             if (argc != sig->params_len) {
-                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: '%.*s.%.*s' expects %zu args",
-                         (int)ctx->module_path.len, ctx->module_path.data,
+                set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: '%.*s.%.*s' expects %zu args",
+                         (int)ctx->cask_path.len, ctx->cask_path.data,
                          (int)mod.len, mod.data,
                          (int)name.len, name.data,
                          sig->params_len);
@@ -2061,11 +2061,11 @@ static Ty *tc_call(Expr *call_expr, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag 
             Subst subst = subst_init();
             for (size_t i = 0; i < argc; i++) {
                 Ty *at = tc_expr_inner(args[i], ctx, loc, env, err);
-                if (!ensure_assignable(env->arena, sig->params[i], at, ctx->module_path, "arg", err)) {
+                if (!ensure_assignable(env->arena, sig->params[i], at, ctx->cask_path, "arg", err)) {
                     subst_free(&subst);
                     return NULL;
                 }
-                unify(env->arena, sig->params[i], at, ctx->module_path, "arg", &subst, err);
+                unify(env->arena, sig->params[i], at, ctx->cask_path, "arg", &subst, err);
                 if (err && err->message) {
                     subst_free(&subst);
                     return NULL;
@@ -2076,14 +2076,14 @@ static Ty *tc_call(Expr *call_expr, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag 
             return ret;
         }
         if (!locals_lookup(loc, mod)) {
-            ModuleGlobals *mg = find_module_globals(env, ctx->module_name);
+            ModuleGlobals *mg = find_cask_globals(env, ctx->cask_name);
             GlobalVar *gv = mg ? find_global(mg, mod) : NULL;
             if (gv) {
                 // treat as method call on a global value
                 goto method_call;
             }
-            set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: unknown name '%.*s' (module not in scope)",
-                     (int)ctx->module_path.len, ctx->module_path.data,
+            set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: unknown name '%.*s' (cask not in scope)",
+                     (int)ctx->cask_path.len, ctx->cask_path.data,
                      (int)mod.len, mod.data);
             return NULL;
         }
@@ -2096,7 +2096,7 @@ method_call:
         Ty *base_ty = tc_expr_inner(base, ctx, loc, env, err);
         if (!base_ty) return NULL;
         if (ty_is_nullable(base_ty)) {
-            set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: call on nullable value", (int)ctx->module_path.len, ctx->module_path.data);
+            set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: call on nullable value", (int)ctx->cask_path.len, ctx->cask_path.data);
             return NULL;
         }
         base_ty = ty_strip_nullable(base_ty);
@@ -2105,39 +2105,39 @@ method_call:
         if (base_ty->tag == TY_ARRAY && base_ty->elem) {
             if (str_eq_c(mname, "add")) {
                 if (argc != 1) {
-                    set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: array.add expects 1 arg", (int)ctx->module_path.len, ctx->module_path.data);
+                    set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: array.add expects 1 arg", (int)ctx->cask_path.len, ctx->cask_path.data);
                     return NULL;
                 }
                 if (!is_mut_lvalue(base, ctx, loc, env)) {
-                    set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: array.add requires mutable binding", (int)ctx->module_path.len, ctx->module_path.data);
+                    set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: array.add requires mutable binding", (int)ctx->cask_path.len, ctx->cask_path.data);
                     return NULL;
                 }
                 Ty *ta = tc_expr_inner(args[0], ctx, loc, env, err);
-                ensure_assignable(env->arena, base_ty->elem, ta, ctx->module_path, "array.add", err);
-                unify(env->arena, base_ty->elem, ta, ctx->module_path, "array.add", NULL, err);
+                ensure_assignable(env->arena, base_ty->elem, ta, ctx->cask_path, "array.add", err);
+                unify(env->arena, base_ty->elem, ta, ctx->cask_path, "array.add", NULL, err);
                 return ty_void(env->arena);
             }
             if (str_eq_c(mname, "remove")) {
                 if (argc != 1) {
-                    set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: array.remove expects 1 arg", (int)ctx->module_path.len, ctx->module_path.data);
+                    set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: array.remove expects 1 arg", (int)ctx->cask_path.len, ctx->cask_path.data);
                     return NULL;
                 }
                 if (!is_mut_lvalue(base, ctx, loc, env)) {
-                    set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: array.remove requires mutable binding", (int)ctx->module_path.len, ctx->module_path.data);
+                    set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: array.remove requires mutable binding", (int)ctx->cask_path.len, ctx->cask_path.data);
                     return NULL;
                 }
                 Ty *ti = tc_expr_inner(args[0], ctx, loc, env, err);
-                unify(env->arena, ti, ty_prim(env->arena, "num"), ctx->module_path, "array.remove index", NULL, err);
+                unify(env->arena, ti, ty_prim(env->arena, "num"), ctx->cask_path, "array.remove index", NULL, err);
                 return base_ty->elem;
             }
-            set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: unknown array method '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)mname.len, mname.data);
+            set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: unknown array method '%.*s'", (int)ctx->cask_path.len, ctx->cask_path.data, (int)mname.len, mname.data);
             return NULL;
         }
 
         if (base_ty->tag == TY_PRIM && (str_eq_c(base_ty->name, "bool") || str_eq_c(base_ty->name, "num"))) {
             if (str_eq_c(mname, "to_string")) {
                 if (argc != 0) {
-                    set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: to_string takes no args", (int)ctx->module_path.len, ctx->module_path.data);
+                    set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: to_string takes no args", (int)ctx->cask_path.len, ctx->cask_path.data);
                     return NULL;
                 }
                 return ty_prim(env->arena, "string");
@@ -2155,23 +2155,23 @@ method_call:
                 }
             }
             if (!method) {
-                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: '%.*s' has no method '%.*s'",
-                         (int)ctx->module_path.len, ctx->module_path.data,
+                set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: '%.*s' has no method '%.*s'",
+                         (int)ctx->cask_path.len, ctx->cask_path.data,
                          (int)ci->name.len, ci->name.data,
                          (int)mname.len, mname.data);
                 return NULL;
             }
             FunSig *sig = method->sig;
             if (sig->recv_mut && !is_mut_lvalue(base, ctx, loc, env)) {
-                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: method '%.*s.%.*s' requires mutable receiver",
-                         (int)ctx->module_path.len, ctx->module_path.data,
+                set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: method '%.*s.%.*s' requires mutable receiver",
+                         (int)ctx->cask_path.len, ctx->cask_path.data,
                          (int)ci->name.len, ci->name.data,
                          (int)mname.len, mname.data);
                 return NULL;
             }
             if (argc != sig->params_len) {
-                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: '%.*s.%.*s' expects %zu args",
-                         (int)ctx->module_path.len, ctx->module_path.data,
+                set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: '%.*s.%.*s' expects %zu args",
+                         (int)ctx->cask_path.len, ctx->cask_path.data,
                          (int)ci->name.len, ci->name.data,
                          (int)mname.len, mname.data,
                          sig->params_len);
@@ -2180,11 +2180,11 @@ method_call:
             Subst subst = subst_init();
             for (size_t i = 0; i < argc; i++) {
                 Ty *at = tc_expr_inner(args[i], ctx, loc, env, err);
-                if (!ensure_assignable(env->arena, sig->params[i], at, ctx->module_path, "arg", err)) {
+                if (!ensure_assignable(env->arena, sig->params[i], at, ctx->cask_path, "arg", err)) {
                     subst_free(&subst);
                     return NULL;
                 }
-                unify(env->arena, sig->params[i], at, ctx->module_path, "arg", &subst, err);
+                unify(env->arena, sig->params[i], at, ctx->cask_path, "arg", &subst, err);
                 if (err && err->message) {
                     subst_free(&subst);
                     return NULL;
@@ -2195,15 +2195,15 @@ method_call:
             return ret;
         }
 
-        Str shadow = shadowed_module_name(base, ctx, loc);
+        Str shadow = shadowed_cask_name(base, ctx, loc);
         if (shadow.len) {
-            set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: '%.*s' is a local binding that shadows module '%.*s'",
-                     (int)ctx->module_path.len, ctx->module_path.data,
+            set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: '%.*s' is a local binding that shadows cask '%.*s'",
+                     (int)ctx->cask_path.len, ctx->cask_path.data,
                      (int)shadow.len, shadow.data,
                      (int)shadow.len, shadow.data);
             return NULL;
         }
-        set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: cannot call member on value", (int)ctx->module_path.len, ctx->module_path.data);
+        set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: cannot call member on value", (int)ctx->cask_path.len, ctx->cask_path.data);
         return NULL;
     }
 
@@ -2213,43 +2213,43 @@ method_call:
         if (b) {
             Ty *fn_ty = tc_expr_inner(fn, ctx, loc, env, err);
             if (!fn_ty || fn_ty->tag != TY_FN) {
-                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: unknown function '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)fname.len, fname.data);
+                set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: unknown function '%.*s'", (int)ctx->cask_path.len, ctx->cask_path.data, (int)fname.len, fname.data);
                 return NULL;
             }
             if (argc != fn_ty->params_len) {
-                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: call expects %zu args", (int)ctx->module_path.len, ctx->module_path.data, fn_ty->params_len);
+                set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: call expects %zu args", (int)ctx->cask_path.len, ctx->cask_path.data, fn_ty->params_len);
                 return NULL;
             }
             Subst subst = subst_init();
             for (size_t i = 0; i < argc; i++) {
                 Ty *at = tc_expr_inner(args[i], ctx, loc, env, err);
-                unify(env->arena, fn_ty->params[i], at, ctx->module_path, "fn value call", &subst, err);
+                unify(env->arena, fn_ty->params[i], at, ctx->cask_path, "fn value call", &subst, err);
             }
             Ty *ret = ty_apply_subst(env->arena, fn_ty->ret, &subst);
             subst_free(&subst);
             return ret;
         }
 
-        ModuleGlobals *mg = find_module_globals(env, ctx->module_name);
+        ModuleGlobals *mg = find_cask_globals(env, ctx->cask_name);
         GlobalVar *gv = find_global(mg, fname);
         if (gv) {
             if (!gv->ty) {
-                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: global '%.*s' used before definition",
-                         (int)ctx->module_path.len, ctx->module_path.data, (int)fname.len, fname.data);
+                set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: global '%.*s' used before definition",
+                         (int)ctx->cask_path.len, ctx->cask_path.data, (int)fname.len, fname.data);
                 return NULL;
             }
             if (gv->ty->tag != TY_FN) {
-                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: unknown function '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)fname.len, fname.data);
+                set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: unknown function '%.*s'", (int)ctx->cask_path.len, ctx->cask_path.data, (int)fname.len, fname.data);
                 return NULL;
             }
             if (argc != gv->ty->params_len) {
-                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: call expects %zu args", (int)ctx->module_path.len, ctx->module_path.data, gv->ty->params_len);
+                set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: call expects %zu args", (int)ctx->cask_path.len, ctx->cask_path.data, gv->ty->params_len);
                 return NULL;
             }
             Subst subst = subst_init();
             for (size_t i = 0; i < argc; i++) {
                 Ty *at = tc_expr_inner(args[i], ctx, loc, env, err);
-                unify(env->arena, gv->ty->params[i], at, ctx->module_path, "fn value call", &subst, err);
+                unify(env->arena, gv->ty->params[i], at, ctx->cask_path, "fn value call", &subst, err);
             }
             Ty *ret = ty_apply_subst(env->arena, gv->ty->ret, &subst);
             subst_free(&subst);
@@ -2258,16 +2258,16 @@ method_call:
 
         if (str_eq_c(fname, "str")) {
             if (argc != 1) {
-                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: str expects 1 arg", (int)ctx->module_path.len, ctx->module_path.data);
+                set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: str expects 1 arg", (int)ctx->cask_path.len, ctx->cask_path.data);
                 return NULL;
             }
             tc_expr_inner(args[0], ctx, loc, env, err);
             return ty_prim(env->arena, "string");
         }
 
-        FunSig *sig = find_fun(env, ctx->module_name, fname);
+        FunSig *sig = find_fun(env, ctx->cask_name, fname);
         if (!sig && is_stdr_prelude(fname)) {
-            bool allow = str_eq_c(ctx->module_name, "stdr");
+            bool allow = str_eq_c(ctx->cask_name, "stdr");
             for (size_t i = 0; i < ctx->imports_len && !allow; i++) {
                 if (str_eq_c(ctx->imports[i], "stdr")) allow = true;
             }
@@ -2278,17 +2278,17 @@ method_call:
         if (!sig) {
             Ty *fn_ty = tc_expr_inner(fn, ctx, loc, env, err);
             if (!fn_ty || fn_ty->tag != TY_FN) {
-                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: unknown function '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)fname.len, fname.data);
+                set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: unknown function '%.*s'", (int)ctx->cask_path.len, ctx->cask_path.data, (int)fname.len, fname.data);
                 return NULL;
             }
             if (argc != fn_ty->params_len) {
-                set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: call expects %zu args", (int)ctx->module_path.len, ctx->module_path.data, fn_ty->params_len);
+                set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: call expects %zu args", (int)ctx->cask_path.len, ctx->cask_path.data, fn_ty->params_len);
                 return NULL;
             }
             Subst subst = subst_init();
             for (size_t i = 0; i < argc; i++) {
                 Ty *at = tc_expr_inner(args[i], ctx, loc, env, err);
-                unify(env->arena, fn_ty->params[i], at, ctx->module_path, "fn value call", &subst, err);
+                unify(env->arena, fn_ty->params[i], at, ctx->cask_path, "fn value call", &subst, err);
             }
             Ty *ret = ty_apply_subst(env->arena, fn_ty->ret, &subst);
             subst_free(&subst);
@@ -2296,18 +2296,18 @@ method_call:
         }
 
         if (argc != sig->params_len) {
-            set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: '%.*s' expects %zu args",
-                     (int)ctx->module_path.len, ctx->module_path.data, (int)fname.len, fname.data, sig->params_len);
+            set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: '%.*s' expects %zu args",
+                     (int)ctx->cask_path.len, ctx->cask_path.data, (int)fname.len, fname.data, sig->params_len);
             return NULL;
         }
         Subst subst = subst_init();
         for (size_t i = 0; i < argc; i++) {
             Ty *at = tc_expr_inner(args[i], ctx, loc, env, err);
-            if (!ensure_assignable(env->arena, sig->params[i], at, ctx->module_path, "arg", err)) {
+            if (!ensure_assignable(env->arena, sig->params[i], at, ctx->cask_path, "arg", err)) {
                 subst_free(&subst);
                 return NULL;
             }
-            unify(env->arena, sig->params[i], at, ctx->module_path, "arg", &subst, err);
+            unify(env->arena, sig->params[i], at, ctx->cask_path, "arg", &subst, err);
         }
         Ty *ret = ty_apply_subst(env->arena, sig->ret, &subst);
         subst_free(&subst);
@@ -2316,17 +2316,17 @@ method_call:
 
     Ty *fn_ty = tc_expr_inner(fn, ctx, loc, env, err);
     if (!fn_ty || fn_ty->tag != TY_FN) {
-        set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: unsupported call form", (int)ctx->module_path.len, ctx->module_path.data);
+        set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: unsupported call form", (int)ctx->cask_path.len, ctx->cask_path.data);
         return NULL;
     }
     if (argc != fn_ty->params_len) {
-        set_errf(err, ctx->module_path, fn->line, fn->col, "%.*s: call expects %zu args", (int)ctx->module_path.len, ctx->module_path.data, fn_ty->params_len);
+        set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: call expects %zu args", (int)ctx->cask_path.len, ctx->cask_path.data, fn_ty->params_len);
         return NULL;
     }
     Subst subst = subst_init();
     for (size_t i = 0; i < argc; i++) {
         Ty *at = tc_expr_inner(args[i], ctx, loc, env, err);
-        unify(env->arena, fn_ty->params[i], at, ctx->module_path, "fn value call", &subst, err);
+        unify(env->arena, fn_ty->params[i], at, ctx->cask_path, "fn value call", &subst, err);
     }
     Ty *ret = ty_apply_subst(env->arena, fn_ty->ret, &subst);
     subst_free(&subst);
@@ -2357,23 +2357,23 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
         case EXPR_IDENT: {
             Binding *b = locals_lookup(loc, e->as.ident.name);
             if (b) return b->ty;
-            if (module_in_scope(e->as.ident.name, ctx, loc)) {
+            if (cask_in_scope(e->as.ident.name, ctx, loc)) {
                 return ty_mod(env->arena, e->as.ident.name);
             }
-            ModuleGlobals *mg = find_module_globals(env, ctx->module_name);
+            ModuleGlobals *mg = find_cask_globals(env, ctx->cask_name);
             GlobalVar *gv = find_global(mg, e->as.ident.name);
             if (gv) {
                 if (!gv->ty) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: global '%.*s' used before definition",
-                             (int)ctx->module_path.len, ctx->module_path.data,
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: global '%.*s' used before definition",
+                             (int)ctx->cask_path.len, ctx->cask_path.data,
                              (int)e->as.ident.name.len, e->as.ident.name.data);
                     return NULL;
                 }
                 return gv->ty;
             }
-            FunSig *sig = find_fun(env, ctx->module_name, e->as.ident.name);
+            FunSig *sig = find_fun(env, ctx->cask_name, e->as.ident.name);
             if (!sig && is_stdr_prelude(e->as.ident.name)) {
-                bool allow = str_eq_c(ctx->module_name, "stdr");
+                bool allow = str_eq_c(ctx->cask_name, "stdr");
                 for (size_t i = 0; i < ctx->imports_len && !allow; i++) {
                     if (str_eq_c(ctx->imports[i], "stdr")) allow = true;
                 }
@@ -2382,21 +2382,21 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
             if (sig) {
                 return ty_fn(env->arena, sig->params, sig->params_len, sig->ret);
             }
-            set_errf(err, ctx->module_path, e->line, e->col, "%.*s: unknown name '%.*s'",
-                     (int)ctx->module_path.len, ctx->module_path.data,
+            set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: unknown name '%.*s'",
+                     (int)ctx->cask_path.len, ctx->cask_path.data,
                      (int)e->as.ident.name.len, e->as.ident.name.data);
             return NULL;
         }
         case EXPR_ARRAY: {
             if (e->as.array_lit.items_len == 0) {
                 if (!e->as.array_lit.annot) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: cannot infer type of empty array []", (int)ctx->module_path.len, ctx->module_path.data);
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: cannot infer type of empty array []", (int)ctx->cask_path.len, ctx->cask_path.data);
                     return NULL;
                 }
-                Ty *annot = ty_from_type_ref(env, e->as.array_lit.annot, ctx->module_name, ctx->imports, ctx->imports_len, err);
+                Ty *annot = ty_from_type_ref(env, e->as.array_lit.annot, ctx->cask_name, ctx->imports, ctx->imports_len, err);
                 if (!annot) return NULL;
                 if (annot->tag != TY_ARRAY || !annot->elem) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: empty array annotation must be array type like [num]", (int)ctx->module_path.len, ctx->module_path.data);
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: empty array annotation must be array type like [num]", (int)ctx->cask_path.len, ctx->cask_path.data);
                     return NULL;
                 }
                 return annot;
@@ -2404,16 +2404,16 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
             Ty *t0 = tc_expr_inner(e->as.array_lit.items[0], ctx, loc, env, err);
             for (size_t i = 1; i < e->as.array_lit.items_len; i++) {
                 Ty *ti = tc_expr_inner(e->as.array_lit.items[i], ctx, loc, env, err);
-                t0 = unify(env->arena, t0, ti, ctx->module_path, "array literal", NULL, err);
+                t0 = unify(env->arena, t0, ti, ctx->cask_path, "array literal", NULL, err);
             }
             if (e->as.array_lit.annot) {
-                Ty *annot = ty_from_type_ref(env, e->as.array_lit.annot, ctx->module_name, ctx->imports, ctx->imports_len, err);
+                Ty *annot = ty_from_type_ref(env, e->as.array_lit.annot, ctx->cask_name, ctx->imports, ctx->imports_len, err);
                 if (!annot) return NULL;
                 if (annot->tag != TY_ARRAY || !annot->elem) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: array annotation must be array type like [num]", (int)ctx->module_path.len, ctx->module_path.data);
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: array annotation must be array type like [num]", (int)ctx->cask_path.len, ctx->cask_path.data);
                     return NULL;
                 }
-                t0 = unify(env->arena, t0, annot->elem, ctx->module_path, "array annotation", NULL, err);
+                t0 = unify(env->arena, t0, annot->elem, ctx->cask_path, "array annotation", NULL, err);
             }
             return ty_array(env->arena, t0);
         }
@@ -2421,32 +2421,32 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
             Ty *tx = tc_expr_inner(e->as.unary.x, ctx, loc, env, err);
             if (e->as.unary.op == TOK_BANG) {
                 if (ty_is_nullable(tx)) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: ! on nullable value", (int)ctx->module_path.len, ctx->module_path.data);
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: ! on nullable value", (int)ctx->cask_path.len, ctx->cask_path.data);
                     return NULL;
                 }
-                unify(env->arena, tx, ty_prim(env->arena, "bool"), ctx->module_path, "!", NULL, err);
+                unify(env->arena, tx, ty_prim(env->arena, "bool"), ctx->cask_path, "!", NULL, err);
                 return ty_prim(env->arena, "bool");
             }
             if (e->as.unary.op == TOK_MINUS) {
                 if (ty_is_nullable(tx)) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: unary - on nullable value", (int)ctx->module_path.len, ctx->module_path.data);
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: unary - on nullable value", (int)ctx->cask_path.len, ctx->cask_path.data);
                     return NULL;
                 }
                 if (!ty_is_numeric(ty_strip_nullable(tx))) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: unary - expects numeric", (int)ctx->module_path.len, ctx->module_path.data);
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: unary - expects numeric", (int)ctx->cask_path.len, ctx->cask_path.data);
                     return NULL;
                 }
                 return ty_prim(env->arena, "num");
             }
             if (e->as.unary.op == TOK_HASH) {
                 if (ty_is_nullable(tx)) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: # on nullable value", (int)ctx->module_path.len, ctx->module_path.data);
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: # on nullable value", (int)ctx->cask_path.len, ctx->cask_path.data);
                     return NULL;
                 }
                 if (tx->tag == TY_ARRAY || (tx->tag == TY_PRIM && str_eq_c(tx->name, "string"))) {
                     return ty_prim(env->arena, "num");
                 }
-                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: # expects array or string", (int)ctx->module_path.len, ctx->module_path.data);
+                set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: # expects array or string", (int)ctx->cask_path.len, ctx->cask_path.data);
                 return NULL;
             }
             return tx;
@@ -2457,45 +2457,45 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
             TokKind op = e->as.binary.op;
             if (op == TOK_QQ) {
                 if (ty_is_void(ta) || ty_is_void(tb)) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: ?? operands cannot be void", (int)ctx->module_path.len, ctx->module_path.data);
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: ?? operands cannot be void", (int)ctx->cask_path.len, ctx->cask_path.data);
                     return NULL;
                 }
                 if (ty_is_null(ta)) return tb;
                 if (ty_is_nullable(ta)) {
-                    return unify(env->arena, ty_strip_nullable(ta), tb, ctx->module_path, "??", NULL, err);
+                    return unify(env->arena, ty_strip_nullable(ta), tb, ctx->cask_path, "??", NULL, err);
                 }
-                return unify(env->arena, ta, tb, ctx->module_path, "??", NULL, err);
+                return unify(env->arena, ta, tb, ctx->cask_path, "??", NULL, err);
             }
             if (op == TOK_PLUS || op == TOK_MINUS || op == TOK_STAR || op == TOK_SLASH || op == TOK_PERCENT) {
                 if (ty_is_nullable(ta) || ty_is_nullable(tb)) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "operator on nullable value");
+                    set_errf(err, ctx->cask_path, e->line, e->col, "operator on nullable value");
                     return NULL;
                 }
-                return numeric_result(env->arena, ty_strip_nullable(ta), ty_strip_nullable(tb), ctx->module_path, e->line, e->col, tok_kind_name(op), err);
+                return numeric_result(env->arena, ty_strip_nullable(ta), ty_strip_nullable(tb), ctx->cask_path, e->line, e->col, tok_kind_name(op), err);
             }
             if (op == TOK_LT || op == TOK_LTE || op == TOK_GT || op == TOK_GTE) {
                 if (ty_is_nullable(ta) || ty_is_nullable(tb)) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: comparison on nullable value", (int)ctx->module_path.len, ctx->module_path.data);
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: comparison on nullable value", (int)ctx->cask_path.len, ctx->cask_path.data);
                     return NULL;
                 }
                 if (!ty_is_numeric(ty_strip_nullable(ta)) || !ty_is_numeric(ty_strip_nullable(tb))) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: comparison expects numeric types", (int)ctx->module_path.len, ctx->module_path.data);
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: comparison expects numeric types", (int)ctx->cask_path.len, ctx->cask_path.data);
                     return NULL;
                 }
                 return ty_prim(env->arena, "bool");
             }
             if (op == TOK_ANDAND || op == TOK_OROR) {
                 if (ty_is_void(ta) || ty_is_void(tb)) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: logical op on void value", (int)ctx->module_path.len, ctx->module_path.data);
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: logical op on void value", (int)ctx->cask_path.len, ctx->cask_path.data);
                     return NULL;
                 }
                 return ty_prim(env->arena, "bool");
             }
             if (op == TOK_EQEQ || op == TOK_NEQ) {
-                unify(env->arena, ta, tb, ctx->module_path, tok_kind_name(op), NULL, err);
+                unify(env->arena, ta, tb, ctx->cask_path, tok_kind_name(op), NULL, err);
                 return ty_prim(env->arena, "bool");
             }
-            set_errf(err, ctx->module_path, e->line, e->col, "%.*s: unknown binary op", (int)ctx->module_path.len, ctx->module_path.data);
+            set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: unknown binary op", (int)ctx->cask_path.len, ctx->cask_path.data);
             return NULL;
         }
         case EXPR_ASSIGN: {
@@ -2504,91 +2504,91 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                 Binding *b = locals_lookup(loc, e->as.assign.target->as.ident.name);
                 if (b) {
                     if (b->is_const) {
-                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: cannot assign to const '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
+                        set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: cannot assign to const '%.*s'", (int)ctx->cask_path.len, ctx->cask_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
                         return NULL;
                     }
                     if (!b->is_mut) {
-                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: cannot assign to immutable '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
+                        set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: cannot assign to immutable '%.*s'", (int)ctx->cask_path.len, ctx->cask_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
                         return NULL;
                     }
                     Ty *tv = tc_expr_inner(e->as.assign.value, ctx, loc, env, err);
-                    Ty *new_ty = tc_assignment_result(env->arena, b->ty, tv, op, ctx->module_path, e->line, e->col, err);
+                    Ty *new_ty = tc_assignment_result(env->arena, b->ty, tv, op, ctx->cask_path, e->line, e->col, err);
                     if (!new_ty) {
                         return NULL;
                     }
                     b->ty = new_ty;
                     return new_ty;
                 }
-                ModuleGlobals *mg = find_module_globals(env, ctx->module_name);
+                ModuleGlobals *mg = find_cask_globals(env, ctx->cask_name);
                 GlobalVar *gv = find_global(mg, e->as.assign.target->as.ident.name);
                 if (gv) {
                     if (!gv->is_mut) {
-                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: cannot assign to immutable '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
+                        set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: cannot assign to immutable '%.*s'", (int)ctx->cask_path.len, ctx->cask_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
                         return NULL;
                     }
                     if (!gv->ty) {
-                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: global '%.*s' used before definition", (int)ctx->module_path.len, ctx->module_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
+                        set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: global '%.*s' used before definition", (int)ctx->cask_path.len, ctx->cask_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
                         return NULL;
                     }
                     Ty *tv = tc_expr_inner(e->as.assign.value, ctx, loc, env, err);
-                    return tc_assignment_result(env->arena, gv->ty, tv, op, ctx->module_path, e->line, e->col, err);
+                    return tc_assignment_result(env->arena, gv->ty, tv, op, ctx->cask_path, e->line, e->col, err);
                 }
-                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: assign to unknown '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
+                set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: assign to unknown '%.*s'", (int)ctx->cask_path.len, ctx->cask_path.data, (int)e->as.assign.target->as.ident.name.len, e->as.assign.target->as.ident.name.data);
                 return NULL;
             }
             if (e->as.assign.target->kind == EXPR_MEMBER || e->as.assign.target->kind == EXPR_INDEX) {
                 Expr *base = (e->as.assign.target->kind == EXPR_MEMBER) ? e->as.assign.target->as.member.a : e->as.assign.target->as.index.a;
                 if (!is_mut_lvalue(base, ctx, loc, env)) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: cannot mutate through immutable binding", (int)ctx->module_path.len, ctx->module_path.data);
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: cannot mutate through immutable binding", (int)ctx->cask_path.len, ctx->cask_path.data);
                     return NULL;
                 }
                 Ty *tt = tc_expr_inner(e->as.assign.target, ctx, loc, env, err);
                 Ty *tv = tc_expr_inner(e->as.assign.value, ctx, loc, env, err);
-                return tc_assignment_result(env->arena, tt, tv, op, ctx->module_path, e->line, e->col, err);
+                return tc_assignment_result(env->arena, tt, tv, op, ctx->cask_path, e->line, e->col, err);
             }
-            set_errf(err, ctx->module_path, e->line, e->col, "%.*s: invalid assignment target", (int)ctx->module_path.len, ctx->module_path.data);
+            set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: invalid assignment target", (int)ctx->cask_path.len, ctx->cask_path.data);
             return NULL;
         }
         case EXPR_MEMBER: {
             Ty *ta = tc_expr_inner(e->as.member.a, ctx, loc, env, err);
             if (ty_is_nullable(ta)) {
-                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: member access on nullable value", (int)ctx->module_path.len, ctx->module_path.data);
+                set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: member access on nullable value", (int)ctx->cask_path.len, ctx->cask_path.data);
                 return NULL;
             }
             ta = ty_strip_nullable(ta);
             if (ta->tag == TY_MOD) {
-                ModuleConsts *mc = find_module_consts(env, ta->name);
+                ModuleConsts *mc = find_cask_consts(env, ta->name);
                 if (mc) {
                     ConstEntry *ce = find_const(mc, e->as.member.name);
                     if (ce) return ce->val.ty;
                 }
-                ModuleGlobals *mg = find_module_globals(env, ta->name);
+                ModuleGlobals *mg = find_cask_globals(env, ta->name);
                 GlobalVar *gv = find_global(mg, e->as.member.name);
                 if (gv) {
                     if (!gv->ty) {
-                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: global '%.*s' used before definition",
-                                 (int)ctx->module_path.len, ctx->module_path.data,
+                        set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: global '%.*s' used before definition",
+                                 (int)ctx->cask_path.len, ctx->cask_path.data,
                                  (int)e->as.member.name.len, e->as.member.name.data);
                         return NULL;
                     }
                     return gv->ty;
                 }
                 if (find_fun(env, ta->name, e->as.member.name)) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: module function '%.*s.%.*s' must be called", (int)ctx->module_path.len, ctx->module_path.data, (int)ta->name.len, ta->name.data, (int)e->as.member.name.len, e->as.member.name.data);
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: cask function '%.*s.%.*s' must be called", (int)ctx->cask_path.len, ctx->cask_path.data, (int)ta->name.len, ta->name.data, (int)e->as.member.name.len, e->as.member.name.data);
                     return NULL;
                 }
-                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: unknown module member '%.*s.%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)ta->name.len, ta->name.data, (int)e->as.member.name.len, e->as.member.name.data);
+                set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: unknown cask member '%.*s.%.*s'", (int)ctx->cask_path.len, ctx->cask_path.data, (int)ta->name.len, ta->name.data, (int)e->as.member.name.len, e->as.member.name.data);
                 return NULL;
             }
             if (ta->tag == TY_CLASS) {
                 ClassInfo *ci = find_class(env, ta->name);
                 if (!ci) return NULL;
                 if (str_eq_c(ci->vis, "lock")) {
-                    bool in_same_file = str_eq(ctx->module_path, ci->module_path);
+                    bool in_same_file = str_eq(ctx->cask_path, ci->cask_path);
                     bool in_own_method = ctx->has_current_class && str_eq(ctx->current_class, ci->qname);
                     if (!(in_same_file || in_own_method)) {
-                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: cannot access field '%.*s' of lock class '%.*s'",
-                                 (int)ctx->module_path.len, ctx->module_path.data,
+                        set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: cannot access field '%.*s' of lock class '%.*s'",
+                                 (int)ctx->cask_path.len, ctx->cask_path.data,
                                  (int)e->as.member.name.len, e->as.member.name.data,
                                  (int)ci->name.len, ci->name.data);
                         return NULL;
@@ -2601,27 +2601,27 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                 }
                 for (size_t i = 0; i < ci->methods_len; i++) {
                     if (str_eq(ci->methods[i].name, e->as.member.name)) {
-                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: method '%.*s' must be called", (int)ctx->module_path.len, ctx->module_path.data, (int)e->as.member.name.len, e->as.member.name.data);
+                        set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: method '%.*s' must be called", (int)ctx->cask_path.len, ctx->cask_path.data, (int)e->as.member.name.len, e->as.member.name.data);
                         return NULL;
                     }
                 }
-                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: unknown member '%.*s' on class", (int)ctx->module_path.len, ctx->module_path.data, (int)e->as.member.name.len, e->as.member.name.data);
+                set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: unknown member '%.*s' on class", (int)ctx->cask_path.len, ctx->cask_path.data, (int)e->as.member.name.len, e->as.member.name.data);
                 return NULL;
             }
-            Str shadow = shadowed_module_name(e->as.member.a, ctx, loc);
+            Str shadow = shadowed_cask_name(e->as.member.a, ctx, loc);
             if (shadow.len) {
-                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: '%.*s' shadows module '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)shadow.len, shadow.data, (int)shadow.len, shadow.data);
+                set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: '%.*s' shadows cask '%.*s'", (int)ctx->cask_path.len, ctx->cask_path.data, (int)shadow.len, shadow.data, (int)shadow.len, shadow.data);
                 return NULL;
             }
-            set_errf(err, ctx->module_path, e->line, e->col, "%.*s: member access on non-object", (int)ctx->module_path.len, ctx->module_path.data);
+            set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: member access on non-object", (int)ctx->cask_path.len, ctx->cask_path.data);
             return NULL;
         }
         case EXPR_INDEX: {
             Ty *ta = tc_expr_inner(e->as.index.a, ctx, loc, env, err);
             Ty *ti = tc_expr_inner(e->as.index.i, ctx, loc, env, err);
-            unify(env->arena, ti, ty_prim(env->arena, "num"), ctx->module_path, "index", NULL, err);
+            unify(env->arena, ti, ty_prim(env->arena, "num"), ctx->cask_path, "index", NULL, err);
             if (ty_is_nullable(ta)) {
-                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: indexing nullable value", (int)ctx->module_path.len, ctx->module_path.data);
+                set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: indexing nullable value", (int)ctx->cask_path.len, ctx->cask_path.data);
                 return NULL;
             }
             ta = ty_strip_nullable(ta);
@@ -2630,27 +2630,27 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                 if (e->as.index.i->kind == EXPR_INT) {
                     long long idx = e->as.index.i->as.int_lit.v;
                     if (idx < 0 || (size_t)idx >= ta->items_len) {
-                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: tuple index out of range", (int)ctx->module_path.len, ctx->module_path.data);
+                        set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: tuple index out of range", (int)ctx->cask_path.len, ctx->cask_path.data);
                         return NULL;
                     }
                     return ta->items[idx];
                 }
-                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: tuple index must be integer literal", (int)ctx->module_path.len, ctx->module_path.data);
+                set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: tuple index must be integer literal", (int)ctx->cask_path.len, ctx->cask_path.data);
                 return NULL;
             }
             if (ta->tag == TY_PRIM && str_eq_c(ta->name, "string")) return ty_prim(env->arena, "string");
-            set_errf(err, ctx->module_path, e->line, e->col, "%.*s: indexing requires array or string", (int)ctx->module_path.len, ctx->module_path.data);
+            set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: indexing requires array or string", (int)ctx->cask_path.len, ctx->cask_path.data);
             return NULL;
         }
         case EXPR_TERNARY: {
             Ty *tc = tc_expr_inner(e->as.ternary.cond, ctx, loc, env, err);
             if (ty_is_void(tc)) {
-                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: ternary condition cannot be void", (int)ctx->module_path.len, ctx->module_path.data);
+                set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: ternary condition cannot be void", (int)ctx->cask_path.len, ctx->cask_path.data);
                 return NULL;
             }
             Ty *ta = tc_expr_inner(e->as.ternary.then_expr, ctx, loc, env, err);
             Ty *tb = tc_expr_inner(e->as.ternary.else_expr, ctx, loc, env, err);
-            return unify(env->arena, ta, tb, ctx->module_path, "ternary", NULL, err);
+            return unify(env->arena, ta, tb, ctx->cask_path, "ternary", NULL, err);
         }
         case EXPR_MATCH: {
             Ty *scrut_ty = tc_expr_inner(e->as.match_expr.scrut, ctx, loc, env, err);
@@ -2660,10 +2660,10 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                 tc_pat(e->as.match_expr.arms[i]->pat, scrut_ty, ctx, &arm_loc, env, err);
                 Ty *t = tc_expr_inner(e->as.match_expr.arms[i]->expr, ctx, &arm_loc, env, err);
                 locals_free(&arm_loc);
-                arm_ty = arm_ty ? unify(env->arena, arm_ty, t, ctx->module_path, "match", NULL, err) : t;
+                arm_ty = arm_ty ? unify(env->arena, arm_ty, t, ctx->cask_path, "match", NULL, err) : t;
             }
             if (!arm_ty) {
-                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: match requires at least one arm", (int)ctx->module_path.len, ctx->module_path.data);
+                set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: match requires at least one arm", (int)ctx->cask_path.len, ctx->cask_path.data);
                 return NULL;
             }
             return arm_ty;
@@ -2676,7 +2676,7 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
             for (size_t i = 0; i < n; i++) {
                 Param *p = e->as.lambda.params[i];
                 if (p->is_this) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: lambda params cannot be this", (int)ctx->module_path.len, ctx->module_path.data);
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: lambda params cannot be this", (int)ctx->cask_path.len, ctx->cask_path.data);
                     locals_free(&lambda_loc);
                     return NULL;
                 }
@@ -2688,7 +2688,7 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                     Str gen = arena_str_copy(env->arena, buf, strlen(buf));
                     ty = ty_gen(env->arena, gen);
                 } else {
-                    ty = ty_from_type_ref(env, p->typ, ctx->module_name, ctx->imports, ctx->imports_len, err);
+                    ty = ty_from_type_ref(env, p->typ, ctx->cask_name, ctx->imports, ctx->imports_len, err);
                 }
                 Binding b = { ty, p->is_mut, false };
                 locals_define(&lambda_loc, p->name, b);
@@ -2711,17 +2711,17 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                 if (arm->cond) {
                     Ty *ct = tc_expr_inner(arm->cond, ctx, loc, env, err);
                     if (ty_is_void(ct)) {
-                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: if condition cannot be void", (int)ctx->module_path.len, ctx->module_path.data);
+                        set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: if condition cannot be void", (int)ctx->cask_path.len, ctx->cask_path.data);
                         return NULL;
                     }
                 } else {
                     saw_else = true;
                 }
                 Ty *vt = tc_expr_inner(arm->value, ctx, loc, env, err);
-                arm_ty = arm_ty ? unify(env->arena, arm_ty, vt, ctx->module_path, "if expression", NULL, err) : vt;
+                arm_ty = arm_ty ? unify(env->arena, arm_ty, vt, ctx->cask_path, "if expression", NULL, err) : vt;
             }
             if (!saw_else) {
-                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: if expression requires else branch", (int)ctx->module_path.len, ctx->module_path.data);
+                set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: if expression requires else branch", (int)ctx->cask_path.len, ctx->cask_path.data);
                 return NULL;
             }
             return arm_ty ? arm_ty : ty_null(env->arena);
@@ -2730,21 +2730,21 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
             Str name = e->as.new_expr.name;
             Str qname = name;
             if (!memchr(name.data, '.', name.len)) {
-                qname = qualify_class_name(env->arena, ctx->module_name, name);
+                qname = qualify_class_name(env->arena, ctx->cask_name, name);
             } else {
                 size_t dot = 0;
                 for (; dot < name.len; dot++) if (name.data[dot] == '.') break;
                 Str mod = str_slice(name, 0, dot);
-                bool ok = str_eq(mod, ctx->module_name);
+                bool ok = str_eq(mod, ctx->cask_name);
                 for (size_t i = 0; i < ctx->imports_len && !ok; i++) if (str_eq(ctx->imports[i], mod)) ok = true;
                 if (!ok) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: unknown class '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)name.len, name.data);
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: unknown class '%.*s'", (int)ctx->cask_path.len, ctx->cask_path.data, (int)name.len, name.data);
                     return NULL;
                 }
             }
             ClassInfo *ci = find_class(env, qname);
             if (!ci) {
-                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: unknown class '%.*s'", (int)ctx->module_path.len, ctx->module_path.data, (int)name.len, name.data);
+                set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: unknown class '%.*s'", (int)ctx->cask_path.len, ctx->cask_path.data, (int)name.len, name.data);
                 return NULL;
             }
             MethodEntry *init = NULL;
@@ -2763,7 +2763,7 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                 else has_positional = true;
             }
             if (has_named && has_positional) {
-                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: constructor cannot mix named and positional args", (int)ctx->module_path.len, ctx->module_path.data);
+                set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: constructor cannot mix named and positional args", (int)ctx->cask_path.len, ctx->cask_path.data);
                 return NULL;
             }
 
@@ -2784,17 +2784,17 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                     }
                     if (fidx == ci->fields_len) {
                         free(seen);
-                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: unknown field '%.*s' in constructor", (int)ctx->module_path.len, ctx->module_path.data, (int)aname.len, aname.data);
+                        set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: unknown field '%.*s' in constructor", (int)ctx->cask_path.len, ctx->cask_path.data, (int)aname.len, aname.data);
                         return NULL;
                     }
                     if (seen[fidx]) {
                         free(seen);
-                        set_errf(err, ctx->module_path, e->line, e->col, "%.*s: duplicate field '%.*s' in constructor", (int)ctx->module_path.len, ctx->module_path.data, (int)aname.len, aname.data);
+                        set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: duplicate field '%.*s' in constructor", (int)ctx->cask_path.len, ctx->cask_path.data, (int)aname.len, aname.data);
                         return NULL;
                     }
                     seen[fidx] = true;
                     Ty *at = tc_expr_inner(e->as.new_expr.args[i], ctx, loc, env, err);
-                    ensure_assignable(env->arena, ci->fields[fidx].ty, at, ctx->module_path, "field init", err);
+                    ensure_assignable(env->arena, ci->fields[fidx].ty, at, ctx->cask_path, "field init", err);
                 }
                 free(seen);
                 return ty_class(env->arena, qname);
@@ -2803,31 +2803,31 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
             if (init) {
                 FunSig *sig = init->sig;
                 if (e->as.new_expr.args_len != sig->params_len) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: '%.*s.init' expects %zu args", (int)ctx->module_path.len, ctx->module_path.data, (int)ci->name.len, ci->name.data, sig->params_len);
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: '%.*s.init' expects %zu args", (int)ctx->cask_path.len, ctx->cask_path.data, (int)ci->name.len, ci->name.data, sig->params_len);
                     return NULL;
                 }
                 Subst subst = subst_init();
                 for (size_t i = 0; i < e->as.new_expr.args_len; i++) {
                     Ty *at = tc_expr_inner(e->as.new_expr.args[i], ctx, loc, env, err);
-                    ensure_assignable(env->arena, sig->params[i], at, ctx->module_path, "arg", err);
-                    unify(env->arena, sig->params[i], at, ctx->module_path, "arg", &subst, err);
+                    ensure_assignable(env->arena, sig->params[i], at, ctx->cask_path, "arg", err);
+                    unify(env->arena, sig->params[i], at, ctx->cask_path, "arg", &subst, err);
                 }
                 subst_free(&subst);
                 if (!ty_is_void(sig->ret)) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: '%.*s.init' must return void", (int)ctx->module_path.len, ctx->module_path.data, (int)ci->name.len, ci->name.data);
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: '%.*s.init' must return void", (int)ctx->cask_path.len, ctx->cask_path.data, (int)ci->name.len, ci->name.data);
                     return NULL;
                 }
             } else if ((ci->kind == CLASS_KIND_STRUCT || ci->kind == CLASS_KIND_ENUM) && e->as.new_expr.args_len > 0) {
                 if (e->as.new_expr.args_len != ci->fields_len) {
-                    set_errf(err, ctx->module_path, e->line, e->col, "%.*s: '%.*s' expects %zu args", (int)ctx->module_path.len, ctx->module_path.data, (int)ci->name.len, ci->name.data, ci->fields_len);
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: '%.*s' expects %zu args", (int)ctx->cask_path.len, ctx->cask_path.data, (int)ci->name.len, ci->name.data, ci->fields_len);
                     return NULL;
                 }
                 for (size_t i = 0; i < e->as.new_expr.args_len; i++) {
                     Ty *at = tc_expr_inner(e->as.new_expr.args[i], ctx, loc, env, err);
-                    ensure_assignable(env->arena, ci->fields[i].ty, at, ctx->module_path, "field init", err);
+                    ensure_assignable(env->arena, ci->fields[i].ty, at, ctx->cask_path, "field init", err);
                 }
             } else if (e->as.new_expr.args_len > 0) {
-                set_errf(err, ctx->module_path, e->line, e->col, "%.*s: class '%.*s' has no init method", (int)ctx->module_path.len, ctx->module_path.data, (int)ci->name.len, ci->name.data);
+                set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: class '%.*s' has no init method", (int)ctx->cask_path.len, ctx->cask_path.data, (int)ci->name.len, ci->name.data);
                 return NULL;
             }
             return ty_class(env->arena, qname);
@@ -2852,22 +2852,22 @@ static void tc_pat(Pat *pat, Ty *scrut_ty, Ctx *ctx, Locals *loc, GlobalEnv *env
         return;
     }
     if (pat->kind == PAT_INT) {
-        unify(env->arena, scrut_ty, ty_prim(env->arena, "num"), ctx->module_path, "match pattern", NULL, err);
+        unify(env->arena, scrut_ty, ty_prim(env->arena, "num"), ctx->cask_path, "match pattern", NULL, err);
         return;
     }
     if (pat->kind == PAT_STR) {
-        unify(env->arena, scrut_ty, ty_prim(env->arena, "string"), ctx->module_path, "match pattern", NULL, err);
+        unify(env->arena, scrut_ty, ty_prim(env->arena, "string"), ctx->cask_path, "match pattern", NULL, err);
         return;
     }
     if (pat->kind == PAT_BOOL) {
-        unify(env->arena, scrut_ty, ty_prim(env->arena, "bool"), ctx->module_path, "match pattern", NULL, err);
+        unify(env->arena, scrut_ty, ty_prim(env->arena, "bool"), ctx->cask_path, "match pattern", NULL, err);
         return;
     }
     if (pat->kind == PAT_NULL) {
-        unify(env->arena, scrut_ty, ty_null(env->arena), ctx->module_path, "match pattern", NULL, err);
+        unify(env->arena, scrut_ty, ty_null(env->arena), ctx->cask_path, "match pattern", NULL, err);
         return;
     }
-    set_errf(err, ctx->module_path, pat->line, pat->col, "%.*s: unsupported match pattern", (int)ctx->module_path.len, ctx->module_path.data);
+    set_errf(err, ctx->cask_path, pat->line, pat->col, "%.*s: unsupported match pattern", (int)ctx->cask_path.len, ctx->cask_path.data);
 }
 
 static void tc_stmt_inner(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *ret_ty, Diag *err) {
@@ -2891,18 +2891,18 @@ static void tc_stmt_inner(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *re
         case STMT_RETURN: {
             if (ty_is_void(ret_ty)) {
                 if (s->as.ret_s.expr) {
-                    set_errf(err, ctx->module_path, s->line, s->col, "%.*s: return value in void function", (int)ctx->module_path.len, ctx->module_path.data);
+                    set_errf(err, ctx->cask_path, s->line, s->col, "%.*s: return value in void function", (int)ctx->cask_path.len, ctx->cask_path.data);
                     return;
                 }
                 return;
             }
             if (!s->as.ret_s.expr) {
-                set_errf(err, ctx->module_path, s->line, s->col, "%.*s: missing return value", (int)ctx->module_path.len, ctx->module_path.data);
+                set_errf(err, ctx->cask_path, s->line, s->col, "%.*s: missing return value", (int)ctx->cask_path.len, ctx->cask_path.data);
                 return;
             }
             Ty *t = tc_expr_inner(s->as.ret_s.expr, ctx, loc, env, err);
-            ensure_assignable(env->arena, ret_ty, t, ctx->module_path, "return", err);
-            unify(env->arena, ret_ty, t, ctx->module_path, "return", NULL, err);
+            ensure_assignable(env->arena, ret_ty, t, ctx->cask_path, "return", err);
+            unify(env->arena, ret_ty, t, ctx->cask_path, "return", NULL, err);
             return;
         }
         case STMT_IF: {
@@ -2912,7 +2912,7 @@ static void tc_stmt_inner(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *re
                 if (arm->cond) {
                     Ty *ct = tc_expr_inner(arm->cond, ctx, &arm_loc, env, err);
                     if (ty_is_void(ct)) {
-                        set_errf(err, ctx->module_path, s->line, s->col, "%.*s: if condition cannot be void", (int)ctx->module_path.len, ctx->module_path.data);
+                        set_errf(err, ctx->cask_path, s->line, s->col, "%.*s: if condition cannot be void", (int)ctx->cask_path.len, ctx->cask_path.data);
                     }
                 }
                 tc_stmt_inner(arm->body, ctx, &arm_loc, env, ret_ty, err);
@@ -2922,12 +2922,12 @@ static void tc_stmt_inner(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *re
         }
         case STMT_BREAK:
             if (ctx->loop_depth <= 0) {
-                set_errf(err, ctx->module_path, s->line, s->col, "%.*s: break used outside loop", (int)ctx->module_path.len, ctx->module_path.data);
+                set_errf(err, ctx->cask_path, s->line, s->col, "%.*s: break used outside loop", (int)ctx->cask_path.len, ctx->cask_path.data);
             }
             return;
         case STMT_CONTINUE:
             if (ctx->loop_depth <= 0) {
-                set_errf(err, ctx->module_path, s->line, s->col, "%.*s: continue used outside loop", (int)ctx->module_path.len, ctx->module_path.data);
+                set_errf(err, ctx->cask_path, s->line, s->col, "%.*s: continue used outside loop", (int)ctx->cask_path.len, ctx->cask_path.data);
             }
             return;
         case STMT_FOR: {
@@ -2938,7 +2938,7 @@ static void tc_stmt_inner(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *re
             if (s->as.for_s.cond) {
                 Ty *ct = tc_expr_inner(s->as.for_s.cond, ctx, loc, env, err);
                 if (ty_is_void(ct)) {
-                    set_errf(err, ctx->module_path, s->line, s->col, "%.*s: for condition cannot be void", (int)ctx->module_path.len, ctx->module_path.data);
+                    set_errf(err, ctx->cask_path, s->line, s->col, "%.*s: for condition cannot be void", (int)ctx->cask_path.len, ctx->cask_path.data);
                 }
             }
             if (s->as.for_s.step) {
@@ -2959,7 +2959,7 @@ static void tc_stmt_inner(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *re
             } else if (it && it->tag == TY_PRIM && str_eq_c(it->name, "string")) {
                 elem = ty_prim(env->arena, "string");
             } else {
-                set_errf(err, ctx->module_path, s->line, s->col, "%.*s: foreach expects array or string", (int)ctx->module_path.len, ctx->module_path.data);
+                set_errf(err, ctx->cask_path, s->line, s->col, "%.*s: foreach expects array or string", (int)ctx->cask_path.len, ctx->cask_path.data);
                 return;
             }
             locals_push(loc);
@@ -2984,10 +2984,10 @@ static void tc_stmt_inner(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *re
     }
 }
 
-Ty *tc_expr(Expr *e, GlobalEnv *env, Str module_path, Str module_name, Str *imports, size_t imports_len, Diag *err) {
+Ty *tc_expr(Expr *e, GlobalEnv *env, Str cask_path, Str cask_name, Str *imports, size_t imports_len, Diag *err) {
     Ctx ctx;
-    ctx.module_path = module_path;
-    ctx.module_name = module_name;
+    ctx.cask_path = cask_path;
+    ctx.cask_name = cask_name;
     ctx.imports = imports;
     ctx.imports_len = imports_len;
     ctx.has_current_class = false;
@@ -3121,7 +3121,7 @@ static void lint_check_index_flow(Expr *value_expr, Ctx *ctx, LintState *ls, con
     snprintf(msg, sizeof(msg),
              "indexing expression may yield null when used as %s",
              context_desc ? context_desc : "a non-null value");
-    lint_emit(ls, ctx->module_path, value_expr->line, value_expr->col, msg,
+    lint_emit(ls, ctx->cask_path, value_expr->line, value_expr->col, msg,
               "use ??, an explicit null check, or match to handle null.");
 }
 
@@ -3135,7 +3135,7 @@ static void lint_check_truthiness(Expr *cond, Ctx *ctx, Locals *loc, GlobalEnv *
     ty_desc(ct, tdesc, sizeof(tdesc));
     char msg[320];
     snprintf(msg, sizeof(msg), "implicit truthiness in %s condition (type %s)", where, tdesc);
-    lint_emit(ls, ctx->module_path, cond->line, cond->col, msg,
+    lint_emit(ls, ctx->cask_path, cond->line, cond->col, msg,
               "use an explicit comparison or null check.");
 }
 
@@ -3242,9 +3242,9 @@ static void lint_call_args(Expr *call, Ctx *ctx, Locals *loc, GlobalEnv *env, Li
             params = b->ty->params;
             params_len = b->ty->params_len;
         } else {
-            FunSig *sig = find_fun(env, ctx->module_name, fn->as.ident.name);
+            FunSig *sig = find_fun(env, ctx->cask_name, fn->as.ident.name);
             if (!sig && is_stdr_prelude(fn->as.ident.name)) {
-                bool allow = str_eq_c(ctx->module_name, "stdr");
+                bool allow = str_eq_c(ctx->cask_name, "stdr");
                 for (size_t i = 0; i < ctx->imports_len && !allow; i++) {
                     if (str_eq_c(ctx->imports[i], "stdr")) allow = true;
                 }
@@ -3259,7 +3259,7 @@ static void lint_call_args(Expr *call, Ctx *ctx, Locals *loc, GlobalEnv *env, Li
         Expr *base = fn->as.member.a;
         if (base && base->kind == EXPR_IDENT) {
             Str mod = base->as.ident.name;
-            if (module_in_scope(mod, ctx, loc)) {
+            if (cask_in_scope(mod, ctx, loc)) {
                 FunSig *sig = find_fun(env, mod, fn->as.member.name);
                 if (sig) {
                     params = sig->params;
@@ -3473,7 +3473,7 @@ bool lint_program(Program *prog, Arena *arena, ErgoLintMode mode, int *warning_c
 
     for (size_t i = 0; i < prog->mods_len; i++) {
         Module *m = prog->mods[i];
-        Str mod_name = env->module_names[i].name;
+        Str mod_name = env->cask_names[i].name;
         ModuleImport *imps = find_imports(env, mod_name);
         Str *imports = imps ? imps->imports : NULL;
         size_t imports_len = imps ? imps->imports_len : 0;
@@ -3484,8 +3484,8 @@ bool lint_program(Program *prog, Arena *arena, ErgoLintMode mode, int *warning_c
                 Locals loc;
                 locals_init(&loc);
                 Ctx ctx;
-                ctx.module_path = m->path;
-                ctx.module_name = mod_name;
+                ctx.cask_path = m->path;
+                ctx.cask_name = mod_name;
                 ctx.imports = imports;
                 ctx.imports_len = imports_len;
                 ctx.has_current_class = false;
@@ -3517,8 +3517,8 @@ bool lint_program(Program *prog, Arena *arena, ErgoLintMode mode, int *warning_c
                     Locals loc;
                     locals_init(&loc);
                     Ctx ctx;
-                    ctx.module_path = m->path;
-                    ctx.module_name = mod_name;
+                    ctx.cask_path = m->path;
+                    ctx.cask_name = mod_name;
                     ctx.imports = imports;
                     ctx.imports_len = imports_len;
                     ctx.has_current_class = true;
@@ -3549,8 +3549,8 @@ bool lint_program(Program *prog, Arena *arena, ErgoLintMode mode, int *warning_c
                 Locals loc;
                 locals_init(&loc);
                 Ctx ctx;
-                ctx.module_path = m->path;
-                ctx.module_name = mod_name;
+                ctx.cask_path = m->path;
+                ctx.cask_name = mod_name;
                 ctx.imports = imports;
                 ctx.imports_len = imports_len;
                 ctx.has_current_class = false;
@@ -3583,7 +3583,7 @@ bool typecheck_program(Program *prog, Arena *arena, Diag *err) {
     // typecheck functions
     for (size_t i = 0; i < prog->mods_len; i++) {
         Module *m = prog->mods[i];
-        Str mod_name = env->module_names[i].name;
+        Str mod_name = env->cask_names[i].name;
         ModuleImport *imps = find_imports(env, mod_name);
         Str *imports = imps ? imps->imports : NULL;
         size_t imports_len = imps ? imps->imports_len : 0;
@@ -3594,8 +3594,8 @@ bool typecheck_program(Program *prog, Arena *arena, Diag *err) {
                 Locals loc;
                 locals_init(&loc);
                 Ctx ctx;
-                ctx.module_path = m->path;
-                ctx.module_name = mod_name;
+                ctx.cask_path = m->path;
+                ctx.cask_name = mod_name;
                 ctx.imports = imports;
                 ctx.imports_len = imports_len;
                 ctx.has_current_class = false;
@@ -3634,8 +3634,8 @@ bool typecheck_program(Program *prog, Arena *arena, Diag *err) {
                     Locals loc;
                     locals_init(&loc);
                     Ctx ctx;
-                    ctx.module_path = m->path;
-                    ctx.module_name = mod_name;
+                    ctx.cask_path = m->path;
+                    ctx.cask_name = mod_name;
                     ctx.imports = imports;
                     ctx.imports_len = imports_len;
                     ctx.has_current_class = true;
@@ -3657,8 +3657,8 @@ bool typecheck_program(Program *prog, Arena *arena, Diag *err) {
                 Locals loc;
                 locals_init(&loc);
                 Ctx ctx;
-                ctx.module_path = m->path;
-                ctx.module_name = mod_name;
+                ctx.cask_path = m->path;
+                ctx.cask_name = mod_name;
                 ctx.imports = imports;
                 ctx.imports_len = imports_len;
                 ctx.has_current_class = false;

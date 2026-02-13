@@ -1,4 +1,4 @@
-module safe_return
+cask safe_return
 
 bring stdr
 

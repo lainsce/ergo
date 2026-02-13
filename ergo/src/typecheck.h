@@ -59,8 +59,8 @@ typedef struct {
 } Locals;
 
 typedef struct {
-    Str module_path;
-    Str module_name;
+    Str cask_path;
+    Str cask_name;
     Str *imports;
     size_t imports_len;
     Str current_class;
@@ -83,7 +83,7 @@ typedef struct {
 } ConstEntry;
 
 typedef struct {
-    Str module;
+    Str cask;
     ConstEntry *entries;
     size_t len;
 } ModuleConsts;
@@ -95,7 +95,7 @@ typedef struct {
 } GlobalVar;
 
 typedef struct {
-    Str module;
+    Str cask;
     GlobalVar *vars;
     size_t len;
 } ModuleGlobals;
@@ -114,7 +114,7 @@ typedef struct {
 
 struct FunSig {
     Str name;
-    Str module;
+    Str cask;
     Ty **params;
     size_t params_len;
     Str *param_names;
@@ -123,17 +123,17 @@ struct FunSig {
     bool is_method;
     bool recv_mut;
     Str owner_class;
-    Str module_path;
+    Str cask_path;
 };
 
 typedef struct {
     Str name;
-    Str module;
+    Str cask;
     Str qname;
     Str vis;
     bool is_seal;
     ClassKind kind;
-    Str module_path;
+    Str cask_path;
     FieldEntry *fields;
     size_t fields_len;
     MethodEntry *methods;
@@ -146,7 +146,7 @@ typedef struct {
 } ModuleName;
 
 typedef struct {
-    Str module;
+    Str cask;
     Str *imports;
     size_t imports_len;
 } ModuleImport;
@@ -157,14 +157,14 @@ typedef struct {
     FunSig *funs;
     size_t funs_len;
     EntryDecl *entry;
-    ModuleName *module_names;
-    size_t module_names_len;
-    ModuleImport *module_imports;
-    size_t module_imports_len;
-    ModuleConsts *module_consts;
-    size_t module_consts_len;
-    ModuleGlobals *module_globals;
-    size_t module_globals_len;
+    ModuleName *cask_names;
+    size_t cask_names_len;
+    ModuleImport *cask_imports;
+    size_t cask_imports_len;
+    ModuleConsts *cask_consts;
+    size_t cask_consts_len;
+    ModuleGlobals *cask_globals;
+    size_t cask_globals_len;
     Arena *arena;
 } GlobalEnv;
 
@@ -178,7 +178,7 @@ bool typecheck_program(Program *prog, Arena *arena, Diag *err);
 bool lint_program(Program *prog, Arena *arena, ErgoLintMode mode, int *warning_count, int *error_count);
 
 GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err);
-Ty *tc_expr(Expr *e, GlobalEnv *env, Str module_path, Str module_name, Str *imports, size_t imports_len, Diag *err);
+Ty *tc_expr(Expr *e, GlobalEnv *env, Str cask_path, Str cask_name, Str *imports, size_t imports_len, Diag *err);
 Ty *tc_expr_ctx(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *err);
 
 void locals_init(Locals *loc);

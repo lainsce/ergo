@@ -186,7 +186,7 @@
         },
         {
           "name": "keyword.declaration.ergo",
-          "match": "\\b(?:module|bring|fun|entry|class|struct|enum|pub|lock|seal|def|let|const)\\b"
+          "match": "\\b(?:cask|bring|fun|entry|class|struct|enum|pub|lock|seal|def|let|const)\\b"
         }
       ]
     },

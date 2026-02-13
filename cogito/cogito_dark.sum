@@ -30,8 +30,12 @@ fixed
   color: #f2f2f7
 
 scroller
-  background: transparent
+  background: #f5f5f5
   color: #f2f2f7
+  padding: 0
+
+scroller.sidebar
+  background: #111111
   padding: 0
 
 carousel
@@ -41,10 +45,10 @@ carousel
   min-width: 400
   border-radius: 26
 
-zstack.carousel-item
+carousel_item
   background: #4f378b
   color: #f2f2f7
-  border-radius: 26
+  border-radius: 16
   padding: 16
 
 label.carousel-item-label

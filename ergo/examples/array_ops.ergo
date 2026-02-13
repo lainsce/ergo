@@ -1,4 +1,4 @@
-module array_ops
+cask array_ops
 
 bring stdr
 

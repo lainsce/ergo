@@ -720,6 +720,7 @@ static const char* cogito_kind_name(CogitoKind kind) {
     case COGITO_BOTTOM_NAV: return "bottom-nav";
     case COGITO_BUTTON: return "button";
     case COGITO_CAROUSEL: return "carousel";
+    case COGITO_CAROUSEL_ITEM: return "carousel_item";
     case COGITO_CHECKBOX: return "checkbox";
     case COGITO_CHIP: return "chip";
     case COGITO_COLORPICKER: return "colorpicker";

@@ -8,6 +8,6 @@
 #include "diag.h"
 #include "lexer.h"
 
-Module *parse_module(Tok *toks, size_t len, const char *path, Arena *arena, Diag *err);
+Module *parse_cask(Tok *toks, size_t len, const char *path, Arena *arena, Diag *err);
 
 #endif

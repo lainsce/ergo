@@ -1,4 +1,4 @@
-module short_circuit
+cask short_circuit
 
 bring stdr
 

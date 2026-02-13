@@ -1306,9 +1306,9 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "appbar .window-min:active\n  background: %s\n", secc);
   cogito_sum_append(out, cap, &off, "appbar .window-min:hover\n  background: %s\n", secc);
   cogito_sum_append(out, cap, &off, "appbar .window-min\n  background: %s\n", secc);
-  cogito_sum_append(out, cap, &off, "appbar.sidebar\n  background: %s\n  color: %s\n  transition: 220 standard\n", surf, ons);
-  cogito_sum_append(out, cap, &off, "appbar.view\n  background: %s\n  color: %s\n  transition: 220 standard\n", bg, ons);
-  cogito_sum_append(out, cap, &off, "appbar\n  background: %s\n  color: %s\n  transition: 220 standard\n", bg, ons);
+  cogito_sum_append(out, cap, &off, "appbar.sidebar\n  background: %s\n  color: %s\n", surf, ons);
+  cogito_sum_append(out, cap, &off, "appbar.view\n  background: %s\n  color: %s\n", bg, ons);
+  cogito_sum_append(out, cap, &off, "appbar\n  background: %s\n  color: %s\n", bg, ons);
   cogito_sum_append(out, cap, &off, "bottom-nav:selection\n  background: %s\n", bottomsel);
   cogito_sum_append(out, cap, &off, "bottom-nav\n  background: %s\n  color: %s\n  min-height: 80\n  padding: 0 8\n  transition: 220 standard\n", bottombg, ons);
   cogito_sum_append(out, cap, &off, "button:active\n  background: %s\n  color: %s\n", pa, op);
@@ -1324,7 +1324,7 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "button.text\n  background: transparent\n  color: %s\n  box-shadow: none\n  padding: 10 12\n", p);
   cogito_sum_append(out, cap, &off, "button\n  background: %s\n  color: %s\n  border-radius: 20\n  min-height: 40\n  padding: 10 24\n  transition: 180 standard\n", p, op);
   cogito_sum_append(out, cap, &off, "carousel\n  background: transparent\n  color: %s\n  min-height: 240\n  min-width: 400\n  border-radius: 26\n", ons);
-  cogito_sum_append(out, cap, &off, "zstack.carousel-item\n  background: %s\n  color: %s\n  border-radius: 26\n  padding: 16\n", sc, ons);
+  cogito_sum_append(out, cap, &off, "carousel_item\n  background: %s\n  color: %s\n  border-radius: 26\n  padding: 16\n", sc, ons);
   cogito_sum_append(out, cap, &off, "label.carousel-item-label\n  font-size: 21\n  font-weight: bold\n  color: #ffffff\n");
   cogito_sum_append(out, cap, &off, "checkbox .box:active\n  border-color: %s\n", p);
   cogito_sum_append(out, cap, &off, "checkbox .box:hover\n  border-color: %s\n", ons);
@@ -1383,8 +1383,8 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "radio:checked .check\n  color: %s\n", ons);
   cogito_sum_append(out, cap, &off, "radio:checked\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, "radio\n  color: %s\n  min-height: 24\n  min-width: 24\n  transition: 120 standard\n", ons);
-  cogito_sum_append(out, cap, &off, "scroller\n  background: transparent\n  color: %s\n", ons);
-  cogito_sum_append(out, cap, &off, "scroller.sidebar\n  background: %s\n  color: %s\n  transition: 220 standard\n", surf, ons);
+  cogito_sum_append(out, cap, &off, "scroller\n  background: %s\n  color: %s\n", bg, ons);
+  cogito_sum_append(out, cap, &off, "scroller.sidebar\n  background: %s\n  color: %s\n", surf, ons);
   cogito_sum_append(out, cap, &off, "searchfield:active\n  border-color: %s\n  border-width: 2\n", p);
   cogito_sum_append(out, cap, &off, "searchfield:focus\n  border: 2 solid %s\n", p);
   cogito_sum_append(out, cap, &off, "searchfield:hover\n  background: %s\n  border-color: %s\n", surfth, ons);
@@ -1428,6 +1428,7 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "treeview\n  background: %s\n  color: %s\n  border-radius: 8\n  min-height: 180\n  min-width: 200\n  padding: 8\n", surf, ons);
   cogito_sum_append(out, cap, &off, "viewswitcher\n  background: %s\n  color: %s\n", surf, ons);
   cogito_sum_append(out, cap, &off, "vstack\n  background: %s\n  color: %s\n", bg, ons);
+  cogito_sum_append(out, cap, &off, "vstack.sidebar\n  background: %s\n  color: %s\n", surf, ons);
   cogito_sum_append(out, cap, &off, "zstack\n  background: %s\n  color: %s\n", bg, ons);
   // token utility classes
   cogito_sum_append(out, cap, &off, ".primary-container\n  background: %s\n  color: %s\n", pc, opc);

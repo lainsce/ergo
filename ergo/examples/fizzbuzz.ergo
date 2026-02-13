@@ -1,4 +1,4 @@
-module fizzbuzz
+cask fizzbuzz
 
 bring stdr
 

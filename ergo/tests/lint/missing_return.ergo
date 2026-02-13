@@ -1,4 +1,4 @@
-module missing_return
+cask missing_return
 
 bring stdr
 

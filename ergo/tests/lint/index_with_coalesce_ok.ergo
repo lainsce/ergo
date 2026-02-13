@@ -1,4 +1,4 @@
-module index_with_coalesce_ok
+cask index_with_coalesce_ok
 
 bring stdr
 

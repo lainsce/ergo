@@ -89,6 +89,7 @@ static void cogito_container_remove_child(CogitoNode* parent, CogitoNode* child)
 
 #include "widgets/interaction/button.inc"
 #include "widgets/interaction/carousel.inc"
+#include "widgets/interaction/carousel_item.inc"
 #include "widgets/interaction/checkbox.inc"
 #include "widgets/interaction/chip.inc"
 #include "widgets/interaction/colorpicker.inc"
@@ -249,6 +250,7 @@ static bool cogito_node_focusable(const CogitoNode* n) {
     #include "widgets/interaction/focusable/slider.inc"
     #include "widgets/interaction/focusable/button.inc"
     #include "widgets/interaction/focusable/carousel.inc"
+    #include "widgets/interaction/focusable/carousel_item.inc"
     #include "widgets/interaction/focusable/iconbtn.inc"
     #include "widgets/interaction/focusable/checkbox.inc"
     #include "widgets/interaction/focusable/chip.inc"

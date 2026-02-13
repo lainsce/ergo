@@ -1,4 +1,4 @@
-module stdr
+cask stdr
 
 -- Ergo Standard Library: stdr.ergo
 
