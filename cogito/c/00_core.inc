@@ -639,6 +639,7 @@ static bool cogito_dialog_slot_force_draw = false;
 static bool cogito_toasts_force_draw = false;
 static CogitoNode* cogito_slider_active = NULL;
 static CogitoNode* cogito_carousel_active = NULL;
+static int cogito_carousel_animating_count = 0;  // Track number of animating carousels globally
 static CogitoNode* cogito_colorpicker_active = NULL;
 static int cogito_colorpicker_channel = -1;
 static CogitoNode* cogito_pointer_capture = NULL;
@@ -979,10 +980,6 @@ static float cogito_anim_float(CogitoNode* n, float target, float* cur, float* f
   *cur = *from + (float)e * (*tgt - *from);
   return *cur;
 }
-
-// Apply opacity to a color by multiplying its alpha channel
-// Use backend.h implementation
-#define cogito_apply_opacity cogito_color_apply_opacity
 
 static void cogito_anim_apply(CogitoNode* n, const CogitoStyle* s, CogitoColor* bg, CogitoColor* text, CogitoColor* border, CogitoColor* selection) {
   if (!n || !s) return;

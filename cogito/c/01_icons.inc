@@ -245,19 +245,51 @@ static int cogito_icon_match_score(const CogitoIconDir* d, int size) {
   return abs(size - d->size);
 }
 
+// --- Icon theme cache: avoids re-parsing index.theme from disk every lookup ---
+#define COGITO_ICON_THEME_CACHE_MAX 4
+static CogitoIconTheme cogito_icon_theme_cache_data[COGITO_ICON_THEME_CACHE_MAX];
+static bool cogito_icon_theme_cache_valid[COGITO_ICON_THEME_CACHE_MAX] = {false, false, false, false};
+static int cogito_icon_theme_cache_len = 0;
+
+static bool cogito_icon_theme_load_cached(const char* theme_name, CogitoIconTheme** out) {
+  if (!theme_name || !out) return false;
+  // Check cache first
+  for (int i = 0; i < cogito_icon_theme_cache_len; i++) {
+    if (cogito_icon_theme_cache_valid[i] &&
+        strcmp(cogito_icon_theme_cache_data[i].theme, theme_name) == 0) {
+      *out = &cogito_icon_theme_cache_data[i];
+      return true;
+    }
+  }
+  // Load from disk into cache
+  int slot;
+  if (cogito_icon_theme_cache_len < COGITO_ICON_THEME_CACHE_MAX) {
+    slot = cogito_icon_theme_cache_len++;
+  } else {
+    slot = 0; // Evict oldest entry
+  }
+  if (cogito_icon_theme_load(theme_name, &cogito_icon_theme_cache_data[slot])) {
+    cogito_icon_theme_cache_valid[slot] = true;
+    *out = &cogito_icon_theme_cache_data[slot];
+    return true;
+  }
+  cogito_icon_theme_cache_valid[slot] = false;
+  return false;
+}
+
 static bool cogito_icon_find_in_theme(const char* theme_name, const char* icon, int size, char* out_path, size_t cap, bool* out_svg) {
-  CogitoIconTheme theme;
-  if (!cogito_icon_theme_load(theme_name, &theme)) return false;
+  CogitoIconTheme* theme = NULL;
+  if (!cogito_icon_theme_load_cached(theme_name, &theme) || !theme) return false;
   int best_score = 100000;
   bool best_svg = false;
   char best_path[PATH_MAX] = {0};
-  for (int i = 0; i < theme.dir_count; i++) {
-    CogitoIconDir* d = &theme.dirs[i];
+  for (int i = 0; i < theme->dir_count; i++) {
+    CogitoIconDir* d = &theme->dirs[i];
     int score = cogito_icon_match_score(d, size);
     char svg_path[PATH_MAX];
     char png_path[PATH_MAX];
-    snprintf(svg_path, sizeof(svg_path), "%s/%s/%s.svg", theme.base, d->name, icon);
-    snprintf(png_path, sizeof(png_path), "%s/%s/%s.png", theme.base, d->name, icon);
+    snprintf(svg_path, sizeof(svg_path), "%s/%s/%s.svg", theme->base, d->name, icon);
+    snprintf(png_path, sizeof(png_path), "%s/%s/%s.png", theme->base, d->name, icon);
     bool has_svg = cogito_file_exists(svg_path);
     bool has_png = cogito_file_exists(png_path);
     if (!has_svg && !has_png) continue;
@@ -282,10 +314,10 @@ static bool cogito_icon_find_in_theme(const char* theme_name, const char* icon, 
 
 static bool cogito_icon_find_file(const char* theme_name, const char* icon, int size, char* out_path, size_t cap, bool* out_svg) {
   if (theme_name && theme_name[0] && cogito_icon_find_in_theme(theme_name, icon, size, out_path, cap, out_svg)) return true;
-  CogitoIconTheme theme;
-  if (theme_name && theme_name[0] && cogito_icon_theme_load(theme_name, &theme)) {
-    for (int i = 0; i < theme.inherit_count; i++) {
-      if (cogito_icon_find_in_theme(theme.inherits[i], icon, size, out_path, cap, out_svg)) return true;
+  CogitoIconTheme* theme = NULL;
+  if (theme_name && theme_name[0] && cogito_icon_theme_load_cached(theme_name, &theme) && theme) {
+    for (int i = 0; i < theme->inherit_count; i++) {
+      if (cogito_icon_find_in_theme(theme->inherits[i], icon, size, out_path, cap, out_svg)) return true;
     }
   }
   if (!theme_name || strcmp(theme_name, "Adwaita") != 0) {
@@ -631,6 +663,11 @@ static void cogito_icon_cache_clear(void) {
     }
   }
   cogito_icon_cache_len = 0;
+  // Clear theme cache
+  for (int i = 0; i < COGITO_ICON_THEME_CACHE_MAX; i++) {
+    cogito_icon_theme_cache_valid[i] = false;
+  }
+  cogito_icon_theme_cache_len = 0;
 }
 
 // Image loading (preserves original colors, path resolution)

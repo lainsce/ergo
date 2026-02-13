@@ -23,16 +23,15 @@ static void cogito_distribute_axis_sizes(size_t count, const int* min_sizes, con
       if (expand_flags && expand_flags[i]) expand_count++;
     }
     if (expand_count == 0) return;
-    while (extra > 0) {
-      bool changed = false;
-      for (size_t i = 0; i < count && extra > 0; i++) {
-        if (expand_flags && expand_flags[i]) {
-          out_sizes[i]++;
-          extra--;
-          changed = true;
-        }
+    // Distribute extra space evenly via division (O(n) instead of O(n*pixels))
+    int per = extra / (int)expand_count;
+    int rem = extra % (int)expand_count;
+    int r = 0;
+    for (size_t i = 0; i < count; i++) {
+      if (expand_flags && expand_flags[i]) {
+        out_sizes[i] += per + (r < rem ? 1 : 0);
+        r++;
       }
-      if (!changed) break;
     }
     return;
   }
@@ -45,29 +44,52 @@ static void cogito_distribute_axis_sizes(size_t count, const int* min_sizes, con
       break;
     }
   }
+  // Shrink expandable items first, then all items, using division (O(n) per pass)
   if (has_expand) {
     while (overflow > 0) {
-      bool changed = false;
-      for (size_t i = 0; i < count && overflow > 0; i++) {
+      size_t sc = 0;
+      for (size_t i = 0; i < count; i++) {
+        if (expand_flags && expand_flags[i] && out_sizes[i] > 0) sc++;
+      }
+      if (sc == 0) break;
+      int per = overflow / (int)sc;
+      if (per < 1) per = 1;
+      int rem = (per > 1) ? overflow % (int)sc : 0;
+      int r = 0, removed = 0;
+      for (size_t i = 0; i < count && removed < overflow; i++) {
         if (expand_flags && expand_flags[i] && out_sizes[i] > 0) {
-          out_sizes[i]--;
-          overflow--;
-          changed = true;
+          int take = per + (r < rem ? 1 : 0);
+          r++;
+          if (take > out_sizes[i]) take = out_sizes[i];
+          out_sizes[i] -= take;
+          removed += take;
         }
       }
-      if (!changed) break;
+      overflow -= removed;
+      if (removed == 0) break;
     }
   }
   while (overflow > 0) {
-    bool changed = false;
-    for (size_t i = 0; i < count && overflow > 0; i++) {
+    size_t sc = 0;
+    for (size_t i = 0; i < count; i++) {
+      if (out_sizes[i] > 0) sc++;
+    }
+    if (sc == 0) break;
+    int per = overflow / (int)sc;
+    if (per < 1) per = 1;
+    int rem = (per > 1) ? overflow % (int)sc : 0;
+    int r = 0, removed = 0;
+    for (size_t i = 0; i < count && removed < overflow; i++) {
       if (out_sizes[i] > 0) {
-        out_sizes[i]--;
-        overflow--;
-        changed = true;
+        int take = per + (r < rem ? 1 : 0);
+        r++;
+        if (take > out_sizes[i]) take = out_sizes[i];
+        out_sizes[i] -= take;
+        removed += take;
       }
     }
-    if (!changed) break;
+    overflow -= removed;
+    if (removed == 0) break;
   }
 }
 

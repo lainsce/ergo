@@ -392,12 +392,11 @@ static void cogito_draw_node(CogitoNode* n);
 
 static void cogito_draw_node(CogitoNode* n) {
   if (!n) return;
+  // Use the cached main pointer position (set once per frame in the event loop)
+  // instead of calling get_mouse_position per-node which is a backend API call.
   if (n->tooltip && n->tooltip->data && n->tooltip->data[0] && !n->disabled) {
-    int mx = 0, my = 0;
-    if (cogito_backend && cogito_backend->get_mouse_position) {
-      cogito_backend->get_mouse_position(&mx, &my);
-    }
-    if (cogito_hit_node(n, mx, my)) {
+    if (cogito_main_pointer_valid &&
+        cogito_hit_node(n, cogito_main_pointer_x, cogito_main_pointer_y)) {
       cogito_tooltip_hovered = n;
     }
   }

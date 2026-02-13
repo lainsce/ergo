@@ -149,9 +149,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
   }
 
-  // Show window
-  cogito_backend->window_show(window);
-  
   if (win->auto_size) {
     int dw = 0;
     int dh = 0;
@@ -227,6 +224,18 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
 
   #include "widgets/util/carousel_anim.inc"
 
+  // Render the first frame before showing the window so the user never
+  // sees a bare black framebuffer while layout/setup is finishing.
+  {
+    CogitoColor win_bg = win->bg_set ? win->bg : cogito_rgba(245, 245, 245, 255);
+    cogito_backend->begin_frame(window);
+    cogito_backend->clear(win_bg);
+    cogito_draw_node(win);
+    cogito_backend->end_frame(window);
+    cogito_backend->present(window);
+  }
+  cogito_backend->window_show(window);
+
   // Main event loop
   while (!cogito_backend->window_should_close(window) && !win->should_close) {
     // Poll events
@@ -240,16 +249,19 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     if (cogito_active_app) {
       cogito_update_system_theme(cogito_active_app);
     }
-    cogito_appbar_button_metrics(&inspector_traffic_btn, &inspector_traffic_gap, &inspector_traffic_pad_top, &inspector_traffic_pad_x);
-    if (inspector_traffic_btn < 2) inspector_traffic_btn = 2;
-    if (inspector_traffic_gap < 0) inspector_traffic_gap = 0;
-    if (inspector_traffic_pad_top < 0) inspector_traffic_pad_top = 0;
-    if (inspector_traffic_pad_x < 0) inspector_traffic_pad_x = 0;
-    if (inspector_hit_test_params) {
-      inspector_hit_test_params[2] = inspector_traffic_btn;
-      inspector_hit_test_params[3] = inspector_traffic_gap;
-      inspector_hit_test_params[4] = inspector_traffic_pad_x;
-      inspector_hit_test_params[5] = inspector_traffic_pad_top;
+    // Only update inspector button metrics when the inspector is actually open
+    if (cogito_inspector_open && inspector_window) {
+      cogito_appbar_button_metrics(&inspector_traffic_btn, &inspector_traffic_gap, &inspector_traffic_pad_top, &inspector_traffic_pad_x);
+      if (inspector_traffic_btn < 2) inspector_traffic_btn = 2;
+      if (inspector_traffic_gap < 0) inspector_traffic_gap = 0;
+      if (inspector_traffic_pad_top < 0) inspector_traffic_pad_top = 0;
+      if (inspector_traffic_pad_x < 0) inspector_traffic_pad_x = 0;
+      if (inspector_hit_test_params) {
+        inspector_hit_test_params[2] = inspector_traffic_btn;
+        inspector_hit_test_params[3] = inspector_traffic_gap;
+        inspector_hit_test_params[4] = inspector_traffic_pad_x;
+        inspector_hit_test_params[5] = inspector_traffic_pad_top;
+      }
     }
     if (inspector_window && cogito_backend->window_should_close(inspector_window)) {
       cogito_backend->window_destroy(inspector_window);
@@ -495,6 +507,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           carousel->carousel_anim_from = carousel->carousel_scroll_xf;
           carousel->carousel_anim_to = (double)snap_sx;
           carousel->carousel_anim_start = cogito_backend->get_time();
+          if (!carousel->carousel_animating) cogito_carousel_animating_count++;
           carousel->carousel_animating = true;
           carousel->carousel_active_index = snap_idx;
         }
@@ -685,6 +698,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         cr->carousel_anim_from = cr->carousel_scroll_xf;
         cr->carousel_anim_to = (double)snap_sx;
         cr->carousel_anim_start = cogito_backend->get_time();
+        if (!cr->carousel_animating) cogito_carousel_animating_count++;
         cr->carousel_animating = true;
         cr->carousel_active_index = snap_idx;
         
@@ -1123,10 +1137,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
 
     // --- Carousel animation tick ---
-    // Animate any carousel that has carousel_animating == true.
-    {
-      // Walk the tree to find animating carousels (typically 0 or 1).
-      // Use a simple stack-based traversal.
+    // Only traverse the tree when at least one carousel is animating.
+    if (cogito_carousel_animating_count > 0) {
       CogitoNode* _stk[64];
       int _sp = 0;
       _stk[_sp++] = win;
@@ -1140,6 +1152,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           if (t >= 1.0) {
             t = 1.0;
             _cn->carousel_animating = false;
+            cogito_carousel_animating_count--;
           }
           // ease-out quad: t * (2 - t)
           double et = t * (2.0 - t);
@@ -1158,6 +1171,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       if (_carousel_did_relayout) {
         cogito_window_relayout(win);
       }
+      // Safety: clamp to zero if counter drifted
+      if (cogito_carousel_animating_count < 0) cogito_carousel_animating_count = 0;
     }
 
     // Rendering

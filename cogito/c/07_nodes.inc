@@ -74,6 +74,18 @@ static void cogito_node_drop(ErgoObj* o) {
     ergo_release_val(EV_FN(n->builder));
     n->builder = NULL;
   }
+  if (n->on_action) {
+    ergo_release_val(EV_FN(n->on_action));
+    n->on_action = NULL;
+  }
+  if (n->action_text) {
+    ergo_release_val(EV_STR(n->action_text));
+    n->action_text = NULL;
+  }
+  if (n->class_name) {
+    ergo_release_val(EV_STR(n->class_name));
+    n->class_name = NULL;
+  }
   if (n->group.tag != EVT_NULL) {
     ergo_release_val(n->group);
     n->group = EV_NULLV;
@@ -172,8 +184,10 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->on_change = NULL;
   n->on_select = NULL;
   n->on_activate = NULL;
+  n->on_action = NULL;
   n->builder = NULL;
   n->group = EV_NULLV;
+  n->action_text = NULL;
   n->checked = false;
   n->x = 0;
   n->y = 0;
@@ -228,6 +242,10 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->dialog = NULL;
   n->view_switcher = NULL;
   n->dialog_open = false;
+  n->popover = NULL;
+  n->popover_anchor = NULL;
+  n->popover_open = false;
+  n->class_name = NULL;
   n->resizable = true;
   n->fixed_pos_set = false;
   n->text_wrap = false;
@@ -300,8 +318,15 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->anim_h_start = 0.0;
   n->anim_layout_active = false;
   n->active_latch_until = 0.0;
+  n->opacity = 1.0f;
+  n->opacity_from = 1.0f;
+  n->opacity_target = 1.0f;
   n->opacity_start = 0.0;
+  n->has_opacity = false;
+  n->opacity_set = false;
   n->progress_value = 0.0;
+  n->stepper_hit_minus = false;
+  n->stepper_hit_plus = false;
   n->margin_left = 0;
   n->margin_top = 0;
   n->margin_right = 0;
@@ -311,6 +336,8 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->padding_right = 0;
   n->padding_bottom = 0;
   n->align = 0;
+  n->hexpand = false;
+  n->vexpand = false;
   // Layout widgets default to 0 gap, content widgets default to 8 for natural spacing
   bool is_layout = (kind == COGITO_VSTACK || kind == COGITO_HSTACK || kind == COGITO_ZSTACK ||
                     kind == COGITO_FIXED || kind == COGITO_SCROLLER || kind == COGITO_LIST);
@@ -359,6 +386,46 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->image_w = 0;
   n->image_h = 0;
   n->image_loaded = false;
+  n->image_avg_lum = 0.5f;
+  n->carousel_dragging = false;
+  n->carousel_scroll_x = 0;
+  n->carousel_drag_start_x = 0;
+  n->carousel_drag_start_scroll = 0;
+  n->carousel_active_index = 0;
+  n->carousel_item_count = 0;
+  n->carousel_velocity = 0.0f;
+  n->carousel_scroll_xf = 0.0;
+  n->carousel_anim_start = 0.0;
+  n->carousel_anim_from = 0.0;
+  n->carousel_anim_to = 0.0;
+  n->carousel_animating = false;
+  n->carousel_drag_last_time = 0.0;
+  n->carousel_drag_last_xf = 0.0;
+  n->border_style = COGITO_BORDER_NONE;
+  n->border_style_set = false;
+  n->radius_tl = 0;
+  n->radius_tr = 0;
+  n->radius_br = 0;
+  n->radius_bl = 0;
+  n->radius_tl_set = false;
+  n->radius_tr_set = false;
+  n->radius_br_set = false;
+  n->radius_bl_set = false;
+  n->font_family[0] = 0;
+  n->font_family_set = false;
+  n->box_shadow = (CogitoBoxShadow){0};
+  n->box_shadow_set = false;
+  n->track_height = 0;
+  n->track_height_set = false;
+  n->button_outlined = false;
+  n->button_text = false;
+  n->chip_selected = false;
+  n->chip_has_close = false;
+  n->fab_extended = false;
+  n->action_button_x = 0;
+  n->action_button_y = 0;
+  n->action_button_w = 0;
+  n->action_button_h = 0;
   cogito_apply_style_to_node(n);
   return n;
 }

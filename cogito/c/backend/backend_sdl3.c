@@ -110,18 +110,6 @@ static CogitoDebugFlags debug_flags = {0};
 static int scissor_stack_count = 0;
 static SDL_Rect scissor_stack[MAX_SCISSOR_STACK];
 
-// Vertex buffer for quad rendering (max 1024 quads per frame)
-#define MAX_VERTICES 4096
-static SDL_GPUBuffer* vertex_buffer = NULL;
-static float* vertex_data = NULL;
-static int vertex_count = 0;
-
-// Simple shader for colored primitives
-// TODO: Implement GPU pipelines when shader system is ready
-// static SDL_GPUGraphicsPipeline* color_pipeline = NULL;
-// static SDL_GPUGraphicsPipeline* texture_pipeline = NULL;
-// static SDL_GPUSampler* texture_sampler = NULL;
-
 // Input state
 static int mouse_x = 0, mouse_y = 0;
 static bool mouse_buttons[3] = {false};
@@ -188,44 +176,6 @@ CogitoColor cogito_color_on_color(CogitoColor bg) {
 // ============================================================================
 // Lifecycle
 // ============================================================================
-
-// Helper: Create GPU buffer
-static SDL_GPUBuffer* create_buffer(SDL_GPUDevice* device, uint32_t size, SDL_GPUBufferUsageFlags usage) {
-    SDL_GPUBufferCreateInfo info = {
-        .usage = usage,
-        .size = size,
-        .props = 0
-    };
-    return SDL_CreateGPUBuffer(device, &info);
-}
-
-// Helper: Upload data to GPU buffer
-static void upload_buffer_data(SDL_GPUDevice* device, SDL_GPUBuffer* buffer, const void* data, uint32_t size) {
-    SDL_GPUTransferBufferCreateInfo transfer_info = {
-        .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-        .size = size,
-        .props = 0
-    };
-    SDL_GPUTransferBuffer* transfer = SDL_CreateGPUTransferBuffer(device, &transfer_info);
-    if (!transfer) return;
-    
-    void* map = SDL_MapGPUTransferBuffer(device, transfer, false);
-    if (map) {
-        memcpy(map, data, size);
-        SDL_UnmapGPUTransferBuffer(device, transfer);
-    }
-    
-    SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device);
-    SDL_GPUCopyPass* pass = SDL_BeginGPUCopyPass(cmd);
-    
-    SDL_GPUTransferBufferLocation src = { .transfer_buffer = transfer, .offset = 0 };
-    SDL_GPUBufferRegion dst = { .buffer = buffer, .offset = 0, .size = size };
-    SDL_UploadToGPUBuffer(pass, &src, &dst, false);
-    
-    SDL_EndGPUCopyPass(pass);
-    SDL_SubmitGPUCommandBuffer(cmd);
-    SDL_ReleaseGPUTransferBuffer(device, transfer);
-}
 
 static bool sdl3_init(void) {
     if (sdl3_initialized) return true;
@@ -842,36 +792,8 @@ static SDL_Renderer* sdl3_active_renderer(void) {
 }
 
 // ============================================================================
-// Drawing (GPU Implementation)
+// Drawing
 // ============================================================================
-
-// Helper: Add quad vertices to buffer
-static void add_quad(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4,
-                     float r, float g, float b, float a) {
-    if (vertex_count + 6 > MAX_VERTICES) return;
-    
-    float* v = &vertex_data[vertex_count * 8]; // 4 floats per vertex (x, y, r, g, b, a, u, v)
-    
-    // Triangle 1
-    v[0] = x1; v[1] = y1; v[2] = r; v[3] = g; v[4] = b; v[5] = a; v[6] = 0; v[7] = 0;
-    v[8] = x2; v[9] = y2; v[10] = r; v[11] = g; v[12] = b; v[13] = a; v[14] = 1; v[15] = 0;
-    v[16] = x3; v[17] = y3; v[18] = r; v[19] = g; v[20] = b; v[21] = a; v[22] = 1; v[23] = 1;
-    
-    // Triangle 2
-    v[24] = x1; v[25] = y1; v[26] = r; v[27] = g; v[28] = b; v[29] = a; v[30] = 0; v[31] = 0;
-    v[32] = x3; v[33] = y3; v[34] = r; v[35] = g; v[36] = b; v[37] = a; v[38] = 1; v[39] = 1;
-    v[40] = x4; v[41] = y4; v[42] = r; v[43] = g; v[44] = b; v[45] = a; v[46] = 0; v[47] = 1;
-    
-    vertex_count += 6;
-}
-
-static float px_to_ndc_x(int x, int width) {
-    return (2.0f * x / width) - 1.0f;
-}
-
-static float px_to_ndc_y(int y, int height) {
-    return 1.0f - (2.0f * y / height);
-}
 
 static void sdl3_draw_rect(int x, int y, int w, int h, CogitoColor color) {
     if (!g_current_renderer || w <= 0 || h <= 0) return;
@@ -900,19 +822,6 @@ static void sdl3_draw_hspan_aa(int y, float left, float right, CogitoColor color
         return;
     }
 
-    SDL_SetRenderDrawColor(g_current_renderer, color.r, color.g, color.b, color.a);
-    SDL_RenderLine(g_current_renderer, (float)full_l, (float)y, (float)full_r, (float)y);
-}
-
-static void sdl3_draw_hspan_mixed(int y, float left, float right, CogitoColor color, bool aa_left, bool aa_right) {
-    (void)aa_left;
-    (void)aa_right;
-    if (!g_current_renderer || color.a == 0) return;
-    if (right < left) return;
-    int full_l = (int)ceilf(left);
-    int full_r = (int)floorf(right);
-
-    if (full_l > full_r) return;
     SDL_SetRenderDrawColor(g_current_renderer, color.r, color.g, color.b, color.a);
     SDL_RenderLine(g_current_renderer, (float)full_l, (float)y, (float)full_r, (float)y);
 }

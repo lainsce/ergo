@@ -182,9 +182,17 @@ static void cogito_node_set_class(ErgoVal nodev, ErgoVal classv) {
     } else {
       // Store custom class name
       if (cs) {
-        n->class_name = cs;
-        ergo_retain_val(EV_STR(cs));
-        temp = false; // Don't release if we retained it
+        if (temp) {
+          // stdr_to_string created this string (refcount 1).
+          // Transfer ownership directly to the node -- no retain needed,
+          // and suppress the temp release at the end.
+          n->class_name = cs;
+          temp = false;
+        } else {
+          // String owned by caller -- retain a separate reference for the node.
+          n->class_name = cs;
+          ergo_retain_val(EV_STR(cs));
+        }
       }
     }
   }
