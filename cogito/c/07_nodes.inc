@@ -1,3 +1,37 @@
+static bool cogito_val_equal(ErgoVal a, ErgoVal b) {
+  if (a.tag != b.tag) return false;
+  switch (a.tag) {
+    case EVT_NULL: return true;
+    case EVT_INT: return a.as.i == b.as.i;
+    case EVT_FLOAT: return a.as.f == b.as.f;
+    case EVT_BOOL: return a.as.b == b.as.b;
+    case EVT_STR:
+    case EVT_ARR:
+    case EVT_OBJ:
+    case EVT_FN:
+      return a.as.p == b.as.p;
+  }
+  return false;
+}
+
+static bool cogito_group_match(ErgoVal a, ErgoVal b) {
+  if (a.tag != b.tag) return false;
+  if (a.tag == EVT_STR) {
+    ErgoStr* sa = (ErgoStr*)a.as.p;
+    ErgoStr* sb = (ErgoStr*)b.as.p;
+    if (!sa || !sb) return false;
+    if (sa->len != sb->len) return false;
+    return memcmp(sa->data, sb->data, sa->len) == 0;
+  }
+  return cogito_val_equal(a, b);
+}
+
+static bool cogito_str_eq(const ErgoStr* a, const ErgoStr* b) {
+  if (!a || !b) return false;
+  if (a->len != b->len) return false;
+  return memcmp(a->data, b->data, a->len) == 0;
+}
+
 static void cogito_node_drop(ErgoObj* o) {
   CogitoNode* n = (CogitoNode*)o;
   if (n->text) {

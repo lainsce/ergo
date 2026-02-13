@@ -1321,12 +1321,53 @@ static CogitoFont* sdl3_font_load(const char* path, int size) {
     return (CogitoFont*)font;
 }
 
+static CogitoFont* sdl3_font_load_face(const char* path, int size, int face_index) {
+    if (!path || !path[0] || size <= 0) return NULL;
+    
+    SDL_PropertiesID props = SDL_CreateProperties();
+    if (!props) return NULL;
+    
+    SDL_SetStringProperty(props, TTF_PROP_FONT_CREATE_FILENAME_STRING, path);
+    SDL_SetFloatProperty(props, TTF_PROP_FONT_CREATE_SIZE_FLOAT, (float)size);
+    SDL_SetNumberProperty(props, TTF_PROP_FONT_CREATE_FACE_NUMBER, (Sint64)face_index);
+    
+    TTF_Font* ttf = TTF_OpenFontWithProperties(props);
+    SDL_DestroyProperties(props);
+    
+    if (!ttf) return NULL;
+    
+    CogitoSDL3Font* font = calloc(1, sizeof(CogitoSDL3Font));
+    if (!font) {
+        TTF_CloseFont(ttf);
+        return NULL;
+    }
+    
+    font->path = strdup(path);
+    font->size = size;
+    font->ttf_font = ttf;
+    TTF_SetFontKerning(ttf, true);
+    TTF_SetFontHinting(ttf, TTF_HINTING_LIGHT_SUBPIXEL);
+    font->ascent = TTF_GetFontAscent(ttf);
+    font->descent = TTF_GetFontDescent(ttf);
+    font->height = TTF_GetFontHeight(ttf);
+    
+    return (CogitoFont*)font;
+}
+
 static void sdl3_font_unload(CogitoFont* font) {
     CogitoSDL3Font* f = (CogitoSDL3Font*)font;
     if (!f) return;
     if (f->ttf_font) TTF_CloseFont(f->ttf_font);
     free(f->path);
     free(f);
+}
+
+static void* sdl3_font_get_internal_face(CogitoFont* font) {
+    CogitoSDL3Font* f = (CogitoSDL3Font*)font;
+    if (!f || !f->ttf_font) return NULL;
+    SDL_PropertiesID props = TTF_GetFontProperties(f->ttf_font);
+    if (!props) return NULL;
+    return SDL_GetPointerProperty(props, "SDL_ttf.font.face", NULL);
 }
 
 static void sdl3_font_get_metrics(CogitoFont* font, int* ascent, int* descent, int* height) {
@@ -1782,8 +1823,10 @@ static CogitoBackend sdl3_backend = {
     .draw_circle = sdl3_draw_circle,
     .draw_circle_lines = sdl3_draw_circle_lines,
     .font_load = sdl3_font_load,
+    .font_load_face = sdl3_font_load_face,
     .font_unload = sdl3_font_unload,
     .font_get_metrics = sdl3_font_get_metrics,
+    .font_get_internal_face = sdl3_font_get_internal_face,
     .text_measure_width = sdl3_text_measure_width,
     .text_measure_height = sdl3_text_measure_height,
     .draw_text = sdl3_draw_text,

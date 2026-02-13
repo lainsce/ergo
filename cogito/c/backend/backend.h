@@ -121,8 +121,10 @@ typedef struct CogitoBackend {
     
     // Text
     CogitoFont* (*font_load)(const char* path, int size);
+    CogitoFont* (*font_load_face)(const char* path, int size, int face_index);
     void (*font_unload)(CogitoFont* font);
     void (*font_get_metrics)(CogitoFont* font, int* ascent, int* descent, int* height);
+    void* (*font_get_internal_face)(CogitoFont* font);
     int (*text_measure_width)(CogitoFont* font, const char* text, int size);
     int (*text_measure_height)(CogitoFont* font, int size);
     void (*draw_text)(CogitoFont* font, const char* text, int x, int y, int size, CogitoColor color);

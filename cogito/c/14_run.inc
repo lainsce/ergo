@@ -1,206 +1,8 @@
 #include <SDL3/SDL.h>
 
 static CogitoNode* cogito_find_stepper_hit(CogitoNode* n, int x, int y);
-static int cogito_inspector_hit_test(CogitoWindow* win, int x, int y, void* user) {
-  (void)win;
-  const int* params = (const int*)user;
-  int appbar_h = (params && params[0] > 0) ? params[0] : 52;
-  int margin = (params && params[1] > 0) ? params[1] : 0;
-  int btn = (params && params[2] > 0) ? params[2] : 14;
-  int gap = (params && params[3] > 0) ? params[3] : 9;
-  int pad_x = (params && params[4] > 0) ? params[4] : 9;
-  int pad_top = (params && params[5] >= 0) ? params[5] : 9;
-  int by = margin + pad_top;
-  if (by + btn > margin + appbar_h) by = margin + (appbar_h - btn) / 2;
-  int close_x = margin + pad_x;
-  int min_x = close_x + btn + gap;
-  int max_x = min_x + btn + gap;
-  if (cogito_hit_rect(x, y, close_x, by, btn, btn) ||
-      cogito_hit_rect(x, y, min_x, by, btn, btn) ||
-      cogito_hit_rect(x, y, max_x, by, btn, btn)) {
-    return 0; // normal, so clicks on traffic lights are delivered to UI handlers.
-  }
-  // Cogito hit-test enum values: 0 = normal, 1 = draggable.
-  return (y >= margin && y < (margin + appbar_h) && x >= margin) ? 1 : 0;
-}
 
-static int cogito_utf8_prev_index(const char* text, int len, int idx) {
-  if (!text || len <= 0 || idx <= 0) return 0;
-  if (idx > len) idx = len;
-  idx--;
-  while (idx > 0 && ((unsigned char)text[idx] & 0xC0) == 0x80) idx--;
-  return idx;
-}
-
-static int cogito_utf8_next_index(const char* text, int len, int idx) {
-  if (!text || len <= 0) return 0;
-  if (idx < 0) idx = 0;
-  if (idx >= len) return len;
-  idx++;
-  while (idx < len && ((unsigned char)text[idx] & 0xC0) == 0x80) idx++;
-  return idx;
-}
-
-static bool cogito_text_move_caret_h(CogitoNode* n, int dir) {
-  if (!n) return false;
-  const char* text = n->text ? n->text->data : "";
-  int len = (int)(n->text ? n->text->len : 0);
-  int old_caret = n->caret;
-  if (old_caret < 0) old_caret = 0;
-  if (old_caret > len) old_caret = len;
-
-  if (n->sel_start != n->sel_end) {
-    int a = n->sel_start;
-    int b = n->sel_end;
-    if (a > b) { int t = a; a = b; b = t; }
-    n->caret = (dir < 0) ? a : b;
-  } else {
-    n->caret = (dir < 0)
-      ? cogito_utf8_prev_index(text, len, old_caret)
-      : cogito_utf8_next_index(text, len, old_caret);
-  }
-
-  if (n->caret < 0) n->caret = 0;
-  if (n->caret > len) n->caret = len;
-  n->sel_start = n->caret;
-  n->sel_end = n->caret;
-  n->selecting = false;
-  return n->caret != old_caret;
-}
-
-static bool cogito_textview_move_caret_v(CogitoNode* n, int dir) {
-  if (!n || n->kind != COGITO_TEXTVIEW || dir == 0) return false;
-  const char* t = n->text ? n->text->data : "";
-  int len = (int)strlen(t);
-  int caret = n->caret;
-  if (caret < 0) caret = 0;
-  if (caret > len) caret = len;
-  int old_caret = caret;
-
-  if (n->sel_start != n->sel_end) {
-    int a = n->sel_start;
-    int b = n->sel_end;
-    if (a > b) { int tmp = a; a = b; b = tmp; }
-    caret = (dir < 0) ? a : b;
-  }
-
-  int pad = 8;
-  int size = cogito_node_font_size(n);
-  int max_w = n->w - pad * 2;
-  if (max_w < 1) max_w = 1;
-
-  int idx = 0;
-  int prev_start = -1;
-  int prev_len = 0;
-  while (idx <= len) {
-    int line_start = idx;
-    int line_len = 0;
-    int last_space = -1;
-    for (int i = idx; i < len; i++) {
-      char c = t[i];
-      if (c == '\n') {
-        line_len = i - idx;
-        idx = i + 1;
-        break;
-      }
-      int w = cogito_text_width_size_n_node(n, t + idx, i - idx + 1, size);
-      if (c == ' ') last_space = i;
-      if (w > max_w) {
-        if (last_space >= idx) {
-          line_len = last_space - idx;
-          idx = last_space + 1;
-        } else {
-          line_len = i - idx;
-          idx = i;
-        }
-        break;
-      }
-      if (i == len - 1) {
-        line_len = i - idx + 1;
-        idx = len;
-      }
-    }
-
-    int line_end = line_start + line_len;
-    if (caret >= line_start && caret <= line_end) {
-      int local = caret - line_start;
-      int target_x = cogito_text_width_size_n_node(n, t + line_start, local, size);
-
-      if (dir < 0) {
-        if (prev_start < 0) {
-          n->caret = line_start;
-        } else {
-          int prev_local = cogito_text_index_from_x(n, t + prev_start, size, target_x);
-          if (prev_local > prev_len) prev_local = prev_len;
-          n->caret = prev_start + prev_local;
-        }
-      } else {
-        int next_start = idx;
-        int next_len = 0;
-        if (next_start >= len) {
-          if (len > 0 && t[len - 1] == '\n') {
-            n->caret = len;
-          } else {
-            n->caret = line_end;
-          }
-        } else {
-          int next_last_space = -1;
-          for (int i = next_start; i < len; i++) {
-            char c = t[i];
-            if (c == '\n') {
-              next_len = i - next_start;
-              break;
-            }
-            int w = cogito_text_width_size_n_node(n, t + next_start, i - next_start + 1, size);
-            if (c == ' ') next_last_space = i;
-            if (w > max_w) {
-              if (next_last_space >= next_start) {
-                next_len = next_last_space - next_start;
-              } else {
-                next_len = i - next_start;
-              }
-              break;
-            }
-            if (i == len - 1) {
-              next_len = i - next_start + 1;
-            }
-          }
-          int next_local = cogito_text_index_from_x(n, t + next_start, size, target_x);
-          if (next_local > next_len) next_local = next_len;
-          n->caret = next_start + next_local;
-        }
-      }
-      break;
-    }
-
-    prev_start = line_start;
-    prev_len = line_len;
-    if (idx >= len) {
-      if (caret == len && len > 0 && t[len - 1] == '\n') {
-        if (dir < 0) {
-          int target_x = 0;
-          if (prev_start >= 0) {
-            int prev_local = cogito_text_index_from_x(n, t + prev_start, size, target_x);
-            if (prev_local > prev_len) prev_local = prev_len;
-            n->caret = prev_start + prev_local;
-          } else {
-            n->caret = 0;
-          }
-        } else {
-          n->caret = len;
-        }
-      }
-      break;
-    }
-  }
-
-  if (n->caret < 0) n->caret = 0;
-  if (n->caret > len) n->caret = len;
-  n->sel_start = n->caret;
-  n->sel_end = n->caret;
-  n->selecting = false;
-  return n->caret != old_caret;
-}
+#include "widgets/util/text_editing.inc"
 
 static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (appv.tag != EVT_OBJ) ergo_trap("cogito.run expects app");
@@ -280,7 +82,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   bool macos_app_name_pending = false;
 #endif
 
-  // Font loading (stubbed for Phase 2)
   const char* font_path = getenv("COGITO_FONT");
   if (!font_path || !font_path[0]) {
     font_path = cogito_default_font_path();
@@ -291,10 +92,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     if (sz > 6) cogito_font_size_value = sz;
   }
   
-  // Phase 2: Load fonts via backend
   if (font_path && font_path[0]) {
-    cogito_font = cogito_backend->font_load(font_path, cogito_font_size());
-    if (cogito_font) {
+    if (cogito_load_font_file(&cogito_font, font_path, cogito_font_size(), cogito_font_weight_normal())) {
       cogito_font_ready = true;
       cogito_font_loaded_size = cogito_font_size();
       cogito_font_from_env = true;
@@ -303,7 +102,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   }
   
   if (!cogito_font_ready) {
-    // Use stub font - Phase 2 will implement default font
     cogito_font_ready = true;
     cogito_font_loaded_size = cogito_font_size();
     cogito_font_from_env = false;
@@ -316,8 +114,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     mono_font_path = cogito_guess_mono_font_path(font_path);
   }
   if (mono_font_path && mono_font_path[0]) {
-    cogito_font_mono = cogito_backend->font_load(mono_font_path, cogito_font_size());
-    if (cogito_font_mono) {
+    if (cogito_load_font_file(&cogito_font_mono, mono_font_path, cogito_font_size(), cogito_font_weight_normal())) {
       cogito_font_mono_ready = true;
       cogito_font_mono_loaded_size = cogito_font_size();
       cogito_font_mono_from_env = true;
@@ -336,13 +133,19 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
   }
   if (bold_font_path && bold_font_path[0]) {
-    cogito_font_bold = cogito_backend->font_load(bold_font_path, cogito_font_size());
-    if (cogito_font_bold) {
+    bool weight_applied = false;
+    int bold_weight = bold_from_regular ? cogito_font_weight_bold() : 0;
+    if (cogito_load_font_file_ex(&cogito_font_bold, bold_font_path, cogito_font_size(), bold_weight, &weight_applied)) {
+      if (bold_from_regular && !weight_applied) {
+        // Variable font weight not applied -- fall back to faux bold
+        cogito_font_bold_variable = true;
+      } else {
+        cogito_font_bold_variable = false;
+      }
       cogito_font_bold_ready = true;
       cogito_font_bold_loaded_size = cogito_font_size();
       cogito_font_bold_from_env = true;
       cogito_font_bold_path_active = bold_font_path;
-      cogito_font_bold_variable = bold_from_regular;
     }
   }
 
@@ -422,44 +225,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
   }
 
-  // --- Carousel animation helpers ---
-  // Compute max_scroll for a carousel node (must match layout formula).
-  #define CAROUSEL_MAX_SCROLL(cr, out_max) do { \
-    int _iw = (cr)->w - (cr)->padding_left - (cr)->padding_right; \
-    if (_iw < 0) _iw = 0; \
-    int _gaps = ((int)(cr)->len >= 3) ? 2 : ((int)(cr)->len - 1); \
-    if (_gaps < 0) _gaps = 0; \
-    int _avail = _iw - (_gaps * 8); \
-    if (_avail < 0) _avail = 0; \
-    int _ers = ((int)(cr)->len >= 3) ? ((int)(cr)->len + 5) : 7; \
-    int _ecw = _ers * _avail / 7 + ((int)(cr)->len - 1) * 8; \
-    (out_max) = _ecw - _iw; \
-    if ((out_max) < 0) (out_max) = 0; \
-  } while(0)
-
-  // Compute the snap scroll_x for a given item index.
-  #define CAROUSEL_SNAP_SCROLL(cr, idx, max_scr, out_sx) do { \
-    int _cnt = (int)(cr)->len; \
-    if (_cnt > 1) { \
-      (out_sx) = (int)((double)(idx) / (double)(_cnt - 1) * (double)(max_scr) + 0.5); \
-      if ((out_sx) < 0) (out_sx) = 0; \
-      if ((out_sx) > (max_scr)) (out_sx) = (max_scr); \
-    } else { \
-      (out_sx) = 0; \
-    } \
-  } while(0)
-
-  // Snap-to-nearest-item: given a float scroll position, return the nearest index.
-  #define CAROUSEL_NEAREST_INDEX(cr, scroll_xf, max_scr, out_idx) do { \
-    double _prog = ((max_scr) > 0) ? (scroll_xf) / (double)(max_scr) : 0.0; \
-    if (_prog < 0.0) _prog = 0.0; \
-    if (_prog > 1.0) _prog = 1.0; \
-    (out_idx) = (int)(_prog * (double)((int)(cr)->len - 1) + 0.5); \
-    if ((out_idx) < 0) (out_idx) = 0; \
-    if ((out_idx) >= (int)(cr)->len) (out_idx) = (int)(cr)->len - 1; \
-  } while(0)
-
-  #define CAROUSEL_ANIM_DURATION 0.35
+  #include "widgets/util/carousel_anim.inc"
 
   // Main event loop
   while (!cogito_backend->window_should_close(window) && !win->should_close) {
@@ -1499,6 +1265,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   
   // Cleanup
   cogito_font_cache_clear();
+  cogito_ft_library_done();
   cogito_icon_cache_clear();
   cogito_hit_test_cleanup();
   if (cogito_font_ready && cogito_font_from_env && cogito_font) {

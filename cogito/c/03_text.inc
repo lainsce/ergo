@@ -1,11 +1,41 @@
-// Cogito Text Rendering - Phase 1 Stub
-// Full SDL_ttf implementation in Phase 2
+// Cogito Text Rendering
+// Font loading, measurement, editing, and variable font support via FreeType
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_MULTIPLE_MASTERS_H
 
 static bool cogito_node_bold(const CogitoNode* n);
+
+// Lazy-init FreeType library for variable font operations
+static FT_Library cogito_ft_lib = NULL;
+static bool cogito_ft_lib_inited = false;
+
+static FT_Library cogito_ft_library(void) {
+  if (!cogito_ft_lib_inited) {
+    cogito_ft_lib_inited = true;
+    FT_Init_FreeType(&cogito_ft_lib);
+  }
+  return cogito_ft_lib;
+}
+
+static void cogito_ft_library_done(void) {
+  if (cogito_ft_lib) {
+    FT_Done_FreeType(cogito_ft_lib);
+    cogito_ft_lib = NULL;
+  }
+  cogito_ft_lib_inited = false;
+}
+
+static int cogito_utf8_codepoint_count(const char* s) {
+  if (!s) return 0;
+  int count = 0;
+  while (*s) {
+    if ((*s & 0xC0) != 0x80) count++;
+    s++;
+  }
+  return count;
+}
 
 static int cogito_font_parse_int_env(const char* name, int fallback) {
   if (!name) return fallback;
@@ -35,7 +65,6 @@ static int cogito_default_codepoints(int* out, int cap) {
   return count;
 }
 
-__attribute__((unused))
 static bool cogito_freetype_set_weight(FT_Library lib, FT_Face face, int weight, bool* out_applied) {
   if (!face || weight <= 0) return false;
   if (!(face->face_flags & FT_FACE_FLAG_MULTIPLE_MASTERS)) return false;
@@ -72,18 +101,97 @@ static bool cogito_freetype_set_weight(FT_Library lib, FT_Face face, int weight,
   return true;
 }
 
-// Stub: Font loading via backend
+// Find a named instance in a variable font whose weight axis matches target.
+// Returns the FreeType face_index encoding, or -1 if none found.
+static int cogito_find_named_instance_for_weight(const char* path, int target_weight) {
+  FT_Library lib = cogito_ft_library();
+  if (!lib) return -1;
+
+  FT_Face face;
+  if (FT_New_Face(lib, path, 0, &face) != 0) return -1;
+
+  if (!(face->face_flags & FT_FACE_FLAG_MULTIPLE_MASTERS)) {
+    FT_Done_Face(face);
+    return -1;
+  }
+
+  FT_MM_Var* mm = NULL;
+  if (FT_Get_MM_Var(face, &mm) != 0 || !mm) {
+    FT_Done_Face(face);
+    return -1;
+  }
+
+  int weight_axis = -1;
+  for (FT_UInt i = 0; i < mm->num_axis; i++) {
+    if (mm->axis[i].tag == FT_MAKE_TAG('w', 'g', 'h', 't')) {
+      weight_axis = (int)i;
+      break;
+    }
+  }
+
+  if (weight_axis < 0 || mm->num_namedstyles == 0) {
+    FT_Done_MM_Var(lib, mm);
+    FT_Done_Face(face);
+    return -1;
+  }
+
+  int best_instance = -1;
+  FT_Fixed best_diff = (FT_Fixed)INT_MAX;
+  FT_Fixed target = (FT_Fixed)((long)target_weight << 16);
+
+  for (FT_UInt i = 0; i < mm->num_namedstyles; i++) {
+    FT_Fixed inst_weight = mm->namedstyle[i].coords[weight_axis];
+    FT_Fixed diff = inst_weight > target ? inst_weight - target : target - inst_weight;
+    if (diff < best_diff) {
+      best_diff = diff;
+      best_instance = (int)i;
+    }
+  }
+
+  FT_Done_MM_Var(lib, mm);
+  FT_Done_Face(face);
+
+  // Only accept if the match is within 50 weight units
+  if (best_instance < 0 || best_diff > ((FT_Fixed)50 << 16)) return -1;
+
+  // FreeType named-instance face index: base_face | ((instance + 1) << 16)
+  return (0 | ((best_instance + 1) << 16));
+}
+
 static bool cogito_load_font_file_ex(CogitoFont** out, const char* path, int size, int weight, bool* out_weight_applied) {
   if (out_weight_applied) *out_weight_applied = false;
   if (!out || !path || !path[0]) return false;
-  
-  // Phase 2: Use backend font loading
-  if (cogito_backend && cogito_backend->font_load) {
-    *out = cogito_backend->font_load(path, size);
-    return *out != NULL;
+  if (!cogito_backend || !cogito_backend->font_load) return false;
+
+  // Strategy 1: Load a named instance whose weight matches
+  if (weight > 0 && cogito_backend->font_load_face) {
+    int face_index = cogito_find_named_instance_for_weight(path, weight);
+    if (face_index >= 0) {
+      *out = cogito_backend->font_load_face(path, size, face_index);
+      if (*out) {
+        if (out_weight_applied) *out_weight_applied = true;
+        return true;
+      }
+    }
   }
-  
-  return false;
+
+  // Strategy 2: Load normally, then set the weight axis via internal face
+  *out = cogito_backend->font_load(path, size);
+  if (!*out) return false;
+
+  if (weight > 0 && cogito_backend->font_get_internal_face) {
+    FT_Face face = (FT_Face)cogito_backend->font_get_internal_face(*out);
+    if (face) {
+      FT_Library lib = cogito_ft_library();
+      if (lib) {
+        bool applied = false;
+        cogito_freetype_set_weight(lib, face, weight, &applied);
+        if (applied && out_weight_applied) *out_weight_applied = true;
+      }
+    }
+  }
+
+  return true;
 }
 
 static bool cogito_load_font_file(CogitoFont** out, const char* path, int size, int weight) {
@@ -91,7 +199,9 @@ static bool cogito_load_font_file(CogitoFont** out, const char* path, int size, 
 }
 
 static bool cogito_load_font_file_tabular(CogitoFont** out, const char* path, int size, int weight) {
-  // Phase 2: Implement tabular digit font loading
+  // Tabular figures (tnum) require HarfBuzz OpenType feature activation,
+  // which SDL_ttf does not currently expose. Load the font normally;
+  // tabular digit spacing is simulated at the measurement layer.
   return cogito_load_font_file(out, path, size, weight);
 }
 
@@ -130,7 +240,6 @@ static CogitoFont* cogito_font_resolve_size(CogitoFont* f, int size) {
   return f;
 }
 
-// Stub: Font cache using backend fonts
 static CogitoFont* cogito_font_cache_get(CogitoFontCacheEntry* cache, int cap, const char* path, int size, int weight) {
   if (!cache || cap <= 0 || !path || !path[0] || size <= 0) return NULL;
   
@@ -198,10 +307,7 @@ __attribute__((unused))
 static CogitoFont* cogito_font_for_size(CogitoFont* f, int size) {
   if (!f) return f;
   if (size <= 0) size = cogito_font_size();
-  
-  // Phase 2: Implement font scaling
-  // For now, return the same font
-  return f;
+  return cogito_font_resolve_size(f, size);
 }
 
 static CogitoFont* cogito_font_tabular_for(CogitoFont* f, int size) {
@@ -251,7 +357,6 @@ static void cogito_font_cache_clear(void) {
   }
 }
 
-// Stub: Text measurement using backend
 static int cogito_text_width(const char* s) {
   if (!s) return 0;
   if (!cogito_backend_ready || !cogito_font_ready) return (int)strlen(s) * 8;
@@ -261,7 +366,7 @@ static int cogito_text_width(const char* s) {
     return cogito_backend->text_measure_width(f ? f : cogito_font, s, cogito_font_size());
   }
   
-  return (int)strlen(s) * 8;  // Fallback estimate
+  return (int)strlen(s) * 8;
 }
 
 static int cogito_text_width_size(const char* s, int size) {
@@ -306,19 +411,27 @@ static void cogito_node_set_text(CogitoNode* n, ErgoStr* s);
 static int cogito_text_width_size_n(const char* s, int len, int size);
 
 static int cogito_text_width_size_font_spaced(CogitoFont* f, const char* s, int size, float spacing) {
-  (void)spacing;  // Phase 2: Implement letter spacing
   if (!s) return 0;
   if (size <= 0) size = cogito_font_size();
   f = cogito_font_resolve_size(f, size);
+
+  int base;
   if (!cogito_backend_ready || !cogito_font_ready || !f) {
-    return (int)strlen(s) * (size / 2);
+    base = (int)strlen(s) * (size / 2);
+  } else if (cogito_backend && cogito_backend->text_measure_width) {
+    base = cogito_backend->text_measure_width(f, s, size);
+  } else {
+    base = (int)strlen(s) * (size / 2);
   }
-  
-  if (cogito_backend && cogito_backend->text_measure_width) {
-    return cogito_backend->text_measure_width(f, s, size);
+
+  if (spacing != 0.0f) {
+    int cp_count = cogito_utf8_codepoint_count(s);
+    if (cp_count > 1) {
+      base += (int)(spacing * (float)(cp_count - 1));
+    }
   }
-  
-  return (int)strlen(s) * (size / 2);
+
+  return base;
 }
 
 static int cogito_text_width_size_font(CogitoFont* f, const char* s, int size) {
@@ -522,4 +635,169 @@ static int cogito_text_line_index_from_pos(const CogitoNode* n, const char* text
 __attribute__((unused))
 static int cogito_text_width_size_n(const char* s, int len, int size) {
   return cogito_text_width_size_n_font(cogito_font, s, len, size);
+}
+
+// Node-aware text drawing
+
+static int cogito_text_wrap_height(const CogitoNode* n, const char* text, int size, int max_w) {
+  if (!text || max_w <= 0) return 0;
+  if (size <= 0) size = cogito_font_size();
+  int line_h = cogito_text_height_size(size);
+  int lines = 0;
+  const char* p = text;
+  while (*p) {
+    while (*p == '\n') { lines++; p++; }
+    if (!*p) break;
+    int line_len = 0;
+    int line_w = 0;
+    int last_space = -1;
+    int last_space_w = 0;
+    const char* start = p;
+    while (*p && *p != '\n') {
+      int w = cogito_text_width_size_n_node(n, start, line_len + 1, size);
+      if (*p == ' ' || *p == '\t') {
+        last_space = line_len;
+        last_space_w = w;
+      }
+      if (w > max_w && line_len > 0) {
+        if (last_space >= 0) {
+          line_len = last_space;
+          line_w = last_space_w;
+          p = start + line_len + 1;
+        } else {
+          line_w = cogito_text_width_size_n_node(n, start, line_len, size);
+        }
+        break;
+      }
+      line_len++;
+      line_w = w;
+      p++;
+    }
+    if (*p == '\n') p++;
+    (void)line_w;
+    lines++;
+  }
+  if (lines == 0) lines = 1;
+  return lines * line_h;
+}
+
+static void cogito_draw_text_size_node(const CogitoNode* n, int x, int y, const char* text, CogitoColor color, int size, bool bold) {
+  if (!text || !n) return;
+  if (size <= 0) size = cogito_font_size();
+  CogitoFont* f = cogito_font_for_node(n);
+  if (bold && f == cogito_font && cogito_font_bold_ready) {
+    f = cogito_font_bold;
+  }
+  if (n && n->font_tabular) {
+    f = cogito_font_tabular_for(f, size);
+  }
+  f = cogito_font_resolve_size(f, size);
+  bool faux_bold = bold && (
+    (f == cogito_font && !cogito_font_bold_ready) ||
+    (f == cogito_font_bold && cogito_font_bold_variable)
+  );
+  if (cogito_backend && cogito_backend->draw_text) {
+    cogito_backend->draw_text(f, text, x, y, size, color);
+    if (faux_bold) {
+      CogitoColor c2 = color;
+      c2.a = (unsigned char)((float)c2.a * 0.72f);
+      cogito_backend->draw_text(f, text, x + 1, y, size, c2);
+    }
+  }
+}
+
+__attribute__((unused))
+static void cogito_draw_text_node(const CogitoNode* n, int x, int y, const char* text, CogitoColor color) {
+  if (!text || !n) return;
+  int size = cogito_node_font_size(n);
+  bool bold = cogito_node_bold(n);
+  cogito_draw_text_size_node(n, x, y, text, color, size, bold);
+}
+
+static void cogito_draw_text_ellipsis(const CogitoNode* n, int x, int y, int w, const char* text, CogitoColor color, int size, bool bold, int align) {
+  if (!text || w <= 0) return;
+  if (size <= 0) size = cogito_font_size();
+  int len = (int)strlen(text);
+  int full_w = cogito_text_width_size_node(n, text, size);
+  if (full_w <= w) {
+    int tx = x;
+    if (align == 1) tx = x + (w - full_w) / 2;
+    else if (align == 2) tx = x + (w - full_w);
+    cogito_draw_text_size_node(n, tx, y, text, color, size, bold);
+    return;
+  }
+  const char* dots = "...";
+  int dots_w = cogito_text_width_size_node(n, dots, size);
+  int max_w = w - dots_w;
+  if (max_w < 0) max_w = 0;
+  int cut = len;
+  for (int i = 0; i < len; i++) {
+    int ww = cogito_text_width_size_n_node(n, text, i + 1, size);
+    if (ww > max_w) { cut = i; break; }
+  }
+  if (cut < 0) cut = 0;
+  char buf[1024];
+  if (cut > 1000) cut = 1000;
+  memcpy(buf, text, (size_t)cut);
+  buf[cut] = '\0';
+  int line_w = cogito_text_width_size_node(n, buf, size) + dots_w;
+  int tx = x;
+  if (align == 1) tx = x + (w - line_w) / 2;
+  else if (align == 2) tx = x + (w - line_w);
+  cogito_draw_text_size_node(n, tx, y, buf, color, size, bold);
+  cogito_draw_text_size_node(n, tx + cogito_text_width_size_node(n, buf, size), y, dots, color, size, bold);
+}
+
+static int cogito_draw_text_wrapped(const CogitoNode* n, int x, int y, int w, const char* text, CogitoColor color, int size, bool bold, int align, bool draw) {
+  if (!text || w <= 0) return 0;
+  if (size <= 0) size = cogito_font_size();
+  int line_h = cogito_text_height_size(size);
+  int lines = 0;
+  const char* p = text;
+  while (*p) {
+    while (*p == '\n') { if (draw) { lines++; } else { lines++; } p++; }
+    if (!*p) break;
+    int line_len = 0;
+    int last_space = -1;
+    int last_space_w = 0;
+    const char* start = p;
+    int line_w = 0;
+    while (*p && *p != '\n') {
+      int wcur = cogito_text_width_size_n_node(n, start, line_len + 1, size);
+      if (*p == ' ' || *p == '\t') {
+        last_space = line_len;
+        last_space_w = wcur;
+      }
+      if (wcur > w && line_len > 0) {
+        if (last_space >= 0) {
+          line_len = last_space;
+          line_w = last_space_w;
+          p = start + line_len + 1;
+        } else {
+          line_w = cogito_text_width_size_n_node(n, start, line_len, size);
+        }
+        break;
+      }
+      line_len++;
+      line_w = wcur;
+      p++;
+    }
+    if (line_len > 0) {
+      int tx = x;
+      if (align == 1) tx = x + (w - line_w) / 2;
+      else if (align == 2) tx = x + (w - line_w);
+      if (draw) {
+        char buf[1024];
+        int len_n = line_len;
+        if (len_n > 1000) len_n = 1000;
+        memcpy(buf, start, (size_t)len_n);
+        buf[len_n] = '\0';
+        cogito_draw_text_size_node(n, tx, y + lines * line_h, buf, color, size, bold);
+      }
+    }
+    if (*p == '\n') p++;
+    lines++;
+  }
+  if (lines == 0) lines = 1;
+  return lines * line_h;
 }

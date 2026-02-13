@@ -1016,6 +1016,11 @@ static void cogito_style_clear(CogitoStyle* s) {
   memset(s, 0, sizeof(*s));
 }
 
+static bool cogito_debug_enabled(void) {
+  const char* v = getenv("COGITO_DEBUG");
+  return v && v[0] && v[0] != '0';
+}
+
 static void cogito_draw_rect(int x, int y, int w, int h, CogitoColor bg, int radius);
 static bool cogito_hit_rect(int x, int y, int rx, int ry, int rw, int rh);
 static CogitoNode* cogito_node_window(CogitoNode* n);
