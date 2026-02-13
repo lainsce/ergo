@@ -245,10 +245,6 @@ iconbtn
   min-width: 42
   min-height: 42
 
-image
-  min-width: 20
-  min-height: 20
-
 label
   color: #f2f2f7
 

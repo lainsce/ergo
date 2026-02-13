@@ -16,6 +16,10 @@ static void cogito_node_drop(ErgoObj* o) {
     ergo_release_val(EV_STR(n->icon));
     n->icon = NULL;
   }
+  if (n->image_texture && cogito_backend && cogito_backend->texture_destroy) {
+    cogito_backend->texture_destroy(n->image_texture);
+    n->image_texture = NULL;
+  }
   if (n->on_click) {
     ergo_release_val(EV_FN(n->on_click));
     n->on_click = NULL;
@@ -317,6 +321,10 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->max_w = 0;
   n->max_h = 0;
   n->shadow_level = 0;
+  n->image_texture = NULL;
+  n->image_w = 0;
+  n->image_h = 0;
+  n->image_loaded = false;
   cogito_apply_style_to_node(n);
   return n;
 }

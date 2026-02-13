@@ -588,7 +588,21 @@ static void cogito_layout_carousel(CogitoNode* n, int x, int y) {
   // This is approximately (count - 1) * (dominant - secondary) * unit_w
   // = (count - 1) * 2 * unit_w
   
-  int max_scroll = (count > 1) ? (int)(count - 1) * 2 * unit_w : 0;
+  // Total content width = sum of all item widths + gaps between them
+  // Each item width = item_ratios[i] * available_for_items / total_ratio
+  // But ratios aren't computed yet; pre-compute total ratio sum for active_idx=count-1
+  // to find how far we need to scroll.  Use a simpler correct formula:
+  // total_content = total_ratio_sum_for_current_active * (available_for_items / total_ratio) + (count-1)*item_gap
+  // max_scroll = total_content - inner_w
+  // However active_idx changes with scroll, so we use the worst-case (most content):
+  // For any active index, ratio_sum = dominant + 2*secondary + (count-3)*tertiary (when count>=3)
+  //                                 = 4 + 2*2 + (count-3)*1 = count + 5
+  // total_content = (count+5) * available_for_items / 7 + (count-1)*item_gap  (for count>=3)
+  // max_scroll = total_content - inner_w
+  int est_ratio_sum = (count >= 3) ? (int)(count + 5) : total_ratio;
+  int est_content_w = est_ratio_sum * available_for_items / total_ratio + (int)(count - 1) * item_gap;
+  int max_scroll = est_content_w - inner_w;
+  if (max_scroll < 0) max_scroll = 0;
   
   // Clamp scroll position
   if (n->carousel_scroll_x < 0) n->carousel_scroll_x = 0;
@@ -733,6 +747,7 @@ static void cogito_layout_carousel(CogitoNode* n, int x, int y) {
 static void cogito_layout_carousel_item(CogitoNode* n, int x, int y) {
   // CarouselItem is laid out by its parent carousel with specific dimensions
   // Layout children using zstack-like behavior (stacked on top of each other)
+  // Images are laid out flush to item edges; labels get padding + alignment.
   int inner_x = x + n->padding_left;
   int inner_y = y + n->padding_top;
   int inner_w = n->w - n->padding_left - n->padding_right;
@@ -747,6 +762,13 @@ static void cogito_layout_carousel_item(CogitoNode* n, int x, int y) {
   
   for (size_t i = 0; i < n->len; i++) {
     CogitoNode* c = n->children[i];
+    
+    // Images are laid out flush to carousel item edges (no padding)
+    if (c->kind == COGITO_IMAGE) {
+      cogito_layout_node(c, x, y, n->w, n->h);
+      continue;
+    }
+    
     int cw = 0;
     int ch = 0;
     int ox = 0;

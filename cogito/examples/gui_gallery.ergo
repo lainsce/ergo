@@ -351,11 +351,14 @@ fun build_controls_view() (( cogito.VStack )) {
     vstack.add(row)
 
     let img_label_container = cogito.hstack()
-    let img_label = cogito.label(@"Image")
+    let img_label = cogito.label(@"Image (with corner radius)")
     img_label_container.add(img_label)
     vstack.add(img_label_container)
 
-    let img = cogito.image(@"photo")
+    let img = cogito.image(@"")
+    img.set_source(@"cogito/examples/assets/photo.png")
+    img.set_size(360, 360)
+    img.set_radius(12)
     vstack.add(img)
 
     return vstack
@@ -496,51 +499,71 @@ fun build_carousel_view() (( cogito.VStack )) {
     let item1 = cogito.carousel_item()
     item1.set_vexpand(true)
     item1.set_hexpand(true)
-    let label1 = cogito.label(@"Item 1")
-    label1.set_class(@"carousel-item-label")
-    label1.set_halign(0)  -- left
-    label1.set_valign(2)  -- bottom
-    item1.add(label1)
+    item1.set_text(@"Mountain View")
+    item1.set_halign(0)  -- left
+    item1.set_valign(2)  -- bottom
+    let img1 = cogito.image(@"")
+    img1.set_source(@"cogito/examples/assets/photo.png")
+    img1.set_hexpand(true)
+    img1.set_vexpand(true)
+    img1.set_radius(26)
+    item1.add(img1)
     carousel.add(item1)
 
     let item2 = cogito.carousel_item()
     item2.set_vexpand(true)
     item2.set_hexpand(true)
-    let label2 = cogito.label(@"Item 2")
-    label2.set_class(@"carousel-item-label")
-    label2.set_halign(0)  -- left
-    label2.set_valign(2)  -- bottom
-    item2.add(label2)
+    item2.set_text(@"Lakeside")
+    item2.set_halign(0)  -- left
+    item2.set_valign(2)  -- bottom
+    let img2 = cogito.image(@"")
+    img2.set_source(@"cogito/examples/assets/photo.png")
+    img2.set_hexpand(true)
+    img2.set_vexpand(true)
+    img2.set_radius(26)
+    item2.add(img2)
     carousel.add(item2)
 
     let item3 = cogito.carousel_item()
     item3.set_vexpand(true)
     item3.set_hexpand(true)
-    let label3 = cogito.label(@"Item 3")
-    label3.set_class(@"carousel-item-label")
-    label3.set_halign(0)  -- left
-    label3.set_valign(2)  -- bottom
-    item3.add(label3)
+    item3.set_text(@"Sunset")
+    item3.set_halign(0)  -- left
+    item3.set_valign(2)  -- bottom
+    let img3 = cogito.image(@"")
+    img3.set_source(@"cogito/examples/assets/photo.png")
+    img3.set_hexpand(true)
+    img3.set_vexpand(true)
+    img3.set_radius(26)
+    item3.add(img3)
     carousel.add(item3)
 
     let item4 = cogito.carousel_item()
     item4.set_vexpand(true)
     item4.set_hexpand(true)
-    let label4 = cogito.label(@"Item 4")
-    label4.set_class(@"carousel-item-label")
-    label4.set_halign(0)  -- left
-    label4.set_valign(2)  -- bottom
-    item4.add(label4)
+    item4.set_text(@"Forest Trail")
+    item4.set_halign(0)  -- left
+    item4.set_valign(2)  -- bottom
+    let img4 = cogito.image(@"")
+    img4.set_source(@"cogito/examples/assets/photo.png")
+    img4.set_hexpand(true)
+    img4.set_vexpand(true)
+    img4.set_radius(26)
+    item4.add(img4)
     carousel.add(item4)
 
     let item5 = cogito.carousel_item()
     item5.set_vexpand(true)
     item5.set_hexpand(true)
-    let label5 = cogito.label(@"Item 5")
-    label5.set_class(@"carousel-item-label")
-    label5.set_halign(0)  -- left
-    label5.set_valign(2)  -- bottom
-    item5.add(label5)
+    item5.set_text(@"Ocean Breeze")
+    item5.set_halign(0)  -- left
+    item5.set_valign(2)  -- bottom
+    let img5 = cogito.image(@"")
+    img5.set_source(@"cogito/examples/assets/photo.png")
+    img5.set_hexpand(true)
+    img5.set_vexpand(true)
+    img5.set_radius(26)
+    item5.add(img5)
     carousel.add(item5)
 
     vstack.add(carousel)

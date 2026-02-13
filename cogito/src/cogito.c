@@ -100,6 +100,9 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_iconbtn_new cogito_iconbtn_new_ergo
 #define cogito_image_new cogito_image_new_ergo
 #define cogito_image_set_icon cogito_image_set_icon_ergo
+#define cogito_image_set_source cogito_image_set_source_ergo
+#define cogito_image_set_size cogito_image_set_size_ergo
+#define cogito_image_set_radius cogito_image_set_radius_ergo
 #define cogito_label_new cogito_label_new_ergo
 #define cogito_label_set_align cogito_label_set_align_ergo
 #define cogito_label_set_class cogito_label_set_class_ergo
@@ -278,6 +281,9 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_iconbtn_new
 #undef cogito_image_new
 #undef cogito_image_set_icon
+#undef cogito_image_set_source
+#undef cogito_image_set_size
+#undef cogito_image_set_radius
 #undef cogito_label_new
 #undef cogito_label_set_align
 #undef cogito_label_set_class
@@ -664,6 +670,26 @@ cogito_node* cogito_carousel_new(void) {
 cogito_node* cogito_carousel_item_new(void) {
   ErgoVal v = cogito_carousel_item_new_ergo();
   return cogito_from_val(v);
+}
+
+#undef cogito_carousel_item_set_text
+void cogito_carousel_item_set_text(cogito_node* item, const char* text) {
+  if (!item) return;
+  ErgoVal tv = cogito_val_from_cstr(text);
+  cogito_carousel_item_set_text_ergo(EV_OBJ(item), tv);
+  if (tv.tag == EVT_STR) ergo_release_val(tv);
+}
+
+#undef cogito_carousel_item_set_halign
+void cogito_carousel_item_set_halign(cogito_node* item, int align) {
+  if (!item) return;
+  cogito_carousel_item_set_halign_ergo(EV_OBJ(item), EV_INT(align));
+}
+
+#undef cogito_carousel_item_set_valign
+void cogito_carousel_item_set_valign(cogito_node* item, int align) {
+  if (!item) return;
+  cogito_carousel_item_set_valign_ergo(EV_OBJ(item), EV_INT(align));
 }
 
 int cogito_carousel_get_active_index(cogito_node* node) {
@@ -1232,6 +1258,23 @@ void cogito_image_set_icon(cogito_node* image, const char* icon) {
   ErgoVal iv = cogito_val_from_cstr(icon);
   cogito_image_set_icon_ergo(EV_OBJ(image), iv);
   if (iv.tag == EVT_STR) ergo_release_val(iv);
+}
+
+void cogito_image_set_source(cogito_node* image, const char* source) {
+  if (!image) return;
+  ErgoVal sv = cogito_val_from_cstr(source);
+  cogito_image_set_source_ergo(EV_OBJ(image), sv);
+  if (sv.tag == EVT_STR) ergo_release_val(sv);
+}
+
+void cogito_image_set_size(cogito_node* image, int w, int h) {
+  if (!image) return;
+  cogito_image_set_size_ergo(EV_OBJ(image), EV_INT(w), EV_INT(h));
+}
+
+void cogito_image_set_radius(cogito_node* image, int radius) {
+  if (!image) return;
+  cogito_image_set_radius_ergo(EV_OBJ(image), EV_INT(radius));
 }
 
 cogito_node* cogito_appbar_add_button(cogito_node* appbar, const char* icon, cogito_node_fn fn, void* user) {

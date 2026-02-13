@@ -135,6 +135,9 @@
 #undef cogito_node_window
 #undef cogito_find_parent
 #undef cogito_find_children
+#undef cogito_carousel_item_set_text
+#undef cogito_carousel_item_set_halign
+#undef cogito_carousel_item_set_valign
 
 static bool cogito_debug_enabled(void) {
   const char* env = getenv("COGITO_DEBUG");
@@ -577,6 +580,19 @@ static void __cogito_image_set_icon(ErgoVal imgv, ErgoVal iconv) {
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
 
+static void __cogito_image_set_size(ErgoVal imgv, ErgoVal wv, ErgoVal hv) {
+  cogito_node* n = cogito_node_from_val(imgv);
+  int w = (int)ergo_as_int(wv);
+  int h = (int)ergo_as_int(hv);
+  cogito_image_set_size(n, w, h);
+}
+
+static void __cogito_image_set_radius(ErgoVal imgv, ErgoVal rv) {
+  cogito_node* n = cogito_node_from_val(imgv);
+  int r = (int)ergo_as_int(rv);
+  cogito_image_set_radius(n, r);
+}
+
 static ErgoVal __cogito_appbar(ErgoVal titlev, ErgoVal subtitlev) {
   ErgoStr* ttmp = NULL;
   ErgoStr* stmp = NULL;
@@ -960,7 +976,25 @@ static ErgoVal __cogito_carousel_get_active_index(ErgoVal carouselv) {
 }
 
 static ErgoVal __cogito_carousel_item(void) {
-  return cogito_wrap_node(cogito_node_new(COGITO_NODE_CAROUSEL_ITEM), COGITO_HANDLE_NODE);
+  return cogito_wrap_node(cogito_carousel_item_new(), COGITO_HANDLE_NODE);
+}
+
+static void __cogito_carousel_item_set_text(ErgoVal itemv, ErgoVal textv) {
+  cogito_node* item = cogito_node_from_val(itemv);
+  ErgoStr* tmp = NULL;
+  const char* text = cogito_required_cstr(textv, &tmp);
+  cogito_carousel_item_set_text(item, text);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
+static void __cogito_carousel_item_set_halign(ErgoVal itemv, ErgoVal alignv) {
+  cogito_node* item = cogito_node_from_val(itemv);
+  cogito_carousel_item_set_halign(item, (int)ergo_as_int(alignv));
+}
+
+static void __cogito_carousel_item_set_valign(ErgoVal itemv, ErgoVal alignv) {
+  cogito_node* item = cogito_node_from_val(itemv);
+  cogito_carousel_item_set_valign(item, (int)ergo_as_int(alignv));
 }
 
 static ErgoVal __cogito_list(void) {
@@ -1615,6 +1649,13 @@ static void __cogito_load_sum(ErgoVal pathv) {
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
 
+static void __cogito_set_script_dir(ErgoVal dirv) {
+  ErgoStr* tmp = NULL;
+  const char* dir = cogito_optional_cstr(dirv, &tmp);
+  if (dir && dir[0]) cogito_set_script_dir(dir);  // Call the actual cogito library function
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
 static ErgoVal __cogito_open_url(ErgoVal urlv) {
   ErgoStr* tmp = NULL;
   const char* url = cogito_optional_cstr(urlv, &tmp);
@@ -1670,6 +1711,9 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_scroller_new __cogito_scroller
 #define cogito_carousel_new __cogito_carousel
 #define cogito_carousel_item_new __cogito_carousel_item
+#define cogito_carousel_item_set_text __cogito_carousel_item_set_text
+#define cogito_carousel_item_set_halign __cogito_carousel_item_set_halign
+#define cogito_carousel_item_set_valign __cogito_carousel_item_set_valign
 #define cogito_carousel_set_active_index __cogito_carousel_set_active_index
 #define cogito_carousel_get_active_index __cogito_carousel_get_active_index
 #define cogito_list_new __cogito_list
@@ -1760,6 +1804,8 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_state_set __cogito_state_set
 #define cogito_button_set_text __cogito_button_set_text
 #define cogito_image_set_icon __cogito_image_set_icon
+#define cogito_image_set_size __cogito_image_set_size
+#define cogito_image_set_radius __cogito_image_set_radius
 #define cogito_checkbox_set_checked __cogito_checkbox_set_checked
 #define cogito_checkbox_get_checked __cogito_checkbox_get_checked
 #define cogito_switch_set_checked __cogito_switch_set_checked
@@ -1789,3 +1835,5 @@ void __cogito_button_on_click(ErgoVal btn, ErgoVal handler);
 #define cogito_iconbtn_add_menu __cogito_iconbtn_add_menu
 #define cogito_run __cogito_run
 #define cogito_load_sum __cogito_load_sum
+#define cogito_set_script_dir __cogito_set_script_dir
+// cogito_set_script_dir is provided by the cogito library

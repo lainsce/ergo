@@ -105,6 +105,9 @@ cogito_node* cogito_label_new(const char* text);
 cogito_node* cogito_button_new(const char* text);
 cogito_node* cogito_carousel_new(void);
 cogito_node* cogito_carousel_item_new(void);
+void cogito_carousel_item_set_text(cogito_node* item, const char* text);
+void cogito_carousel_item_set_halign(cogito_node* item, int align);
+void cogito_carousel_item_set_valign(cogito_node* item, int align);
 int cogito_carousel_get_active_index(cogito_node* node);
 void cogito_carousel_set_active_index(cogito_node* node, int index);
 cogito_node* cogito_iconbtn_new(const char* text);
@@ -225,6 +228,8 @@ void cogito_segmented_on_select(cogito_node* seg, cogito_node_fn fn, void* user)
 // Theming
 void cogito_load_sum_file(const char* path);
 void cogito_load_sum_inline(const char* src);
+void cogito_set_script_dir(const char* dir);
+const char* cogito_get_script_dir(void);
 bool cogito_debug_style(void);
 void cogito_style_dump(cogito_node* node);
 void cogito_style_dump_tree(cogito_node* root, int depth);
@@ -241,6 +246,9 @@ void cogito_label_set_align(cogito_node* label, int align);
 
 // Image helpers
 void cogito_image_set_icon(cogito_node* image, const char* icon);
+void cogito_image_set_source(cogito_node* image, const char* source);
+void cogito_image_set_size(cogito_node* image, int w, int h);
+void cogito_image_set_radius(cogito_node* image, int radius);
 
 // Appbar helpers
 cogito_node* cogito_appbar_add_button(cogito_node* appbar, const char* icon, cogito_node_fn fn, void* user);

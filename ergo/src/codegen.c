@@ -9,6 +9,7 @@
 
 #include "arena.h"
 #include "file.h"
+#include "platform.h"
 #include "str.h"
 #include "typecheck.h"
 #include "vec.h"
@@ -439,6 +440,8 @@ typedef struct {
     size_t current_imports_len;
     Str current_class;
     bool has_current_class;
+    
+    Str entry_path;  // Path to the entry script file
 
     LambdaInfo *lambdas;
     size_t lambdas_len;
@@ -455,6 +458,8 @@ typedef struct {
     LoopCtx *loop_stack;
     size_t loop_stack_len;
     size_t loop_stack_cap;
+    
+    bool uses_cogito;
 } Codegen;
 
 static char *codegen_c_class_name(Codegen *cg, Str qname) {
@@ -2912,6 +2917,57 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_carousel_item_set_text")) {
+                        GenExpr item, text;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &item, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &text, err)) { gen_expr_free(&item); return false; }
+                        w_line(&cg->w, "cogito_carousel_item_set_text(%s, %s);", item.tmp, text.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", item.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", text.tmp);
+                        gen_expr_release_except(cg, &item, item.tmp);
+                        gen_expr_release_except(cg, &text, text.tmp);
+                        gen_expr_free(&item);
+                        gen_expr_free(&text);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_carousel_item_set_halign")) {
+                        GenExpr item, align;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &item, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &align, err)) { gen_expr_free(&item); return false; }
+                        w_line(&cg->w, "cogito_carousel_item_set_halign(%s, %s);", item.tmp, align.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", item.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", align.tmp);
+                        gen_expr_release_except(cg, &item, item.tmp);
+                        gen_expr_release_except(cg, &align, align.tmp);
+                        gen_expr_free(&item);
+                        gen_expr_free(&align);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_carousel_item_set_valign")) {
+                        GenExpr item, align;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &item, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &align, err)) { gen_expr_free(&item); return false; }
+                        w_line(&cg->w, "cogito_carousel_item_set_valign(%s, %s);", item.tmp, align.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", item.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", align.tmp);
+                        gen_expr_release_except(cg, &item, item.tmp);
+                        gen_expr_release_except(cg, &align, align.tmp);
+                        gen_expr_free(&item);
+                        gen_expr_free(&align);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_list")) {
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w, "ErgoVal %s = cogito_list_new();", t);
@@ -4182,6 +4238,44 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_image_set_size")) {
+                        GenExpr img, w, h;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &img, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &w, err)) { gen_expr_free(&img); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[2], &h, err)) { gen_expr_free(&img); gen_expr_free(&w); return false; }
+                        w_line(&cg->w, "cogito_image_set_size(%s, %s, %s);", img.tmp, w.tmp, h.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", img.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", w.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", h.tmp);
+                        gen_expr_release_except(cg, &img, img.tmp);
+                        gen_expr_release_except(cg, &w, w.tmp);
+                        gen_expr_release_except(cg, &h, h.tmp);
+                        gen_expr_free(&img);
+                        gen_expr_free(&w);
+                        gen_expr_free(&h);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_image_set_radius")) {
+                        GenExpr img, r;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &img, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &r, err)) { gen_expr_free(&img); return false; }
+                        w_line(&cg->w, "cogito_image_set_radius(%s, %s);", img.tmp, r.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", img.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", r.tmp);
+                        gen_expr_release_except(cg, &img, img.tmp);
+                        gen_expr_release_except(cg, &r, r.tmp);
+                        gen_expr_free(&img);
+                        gen_expr_free(&r);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_checkbox_set_checked")) {
                         GenExpr cb, checked;
                         if (!gen_expr(cg, path, e->as.call.args[0], &cb, err)) return false;
@@ -5432,6 +5526,9 @@ static bool gen_entry(Codegen *cg, Diag *err) {
     if (!entry_decl) {
         return cg_set_err(err, (Str){NULL, 0}, "missing entry()");
     }
+    
+    // Store entry path for use in main()
+    cg->entry_path = entry_path;
 
     cg->scopes_len = 0;
     cg->scope_locals_len = 0;
@@ -5542,6 +5639,7 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
     codegen_collect_lambdas(cg);
 
     const char *runtime_path = getenv("ERGO_RUNTIME");
+    char *exe_runtime_path = NULL;  // heap-allocated, freed below
     if (!runtime_path || !runtime_path[0]) {
         const char *runtime_candidates[] = {
             "src/runtime.inc",
@@ -5550,12 +5648,37 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
             "../ergo/src/runtime.inc",
             "../../ergo/src/runtime.inc",
         };
-        runtime_path = "ergo/src/runtime.inc";
+        runtime_path = NULL;
         for (size_t i = 0; i < sizeof(runtime_candidates) / sizeof(runtime_candidates[0]); i++) {
             if (path_is_file(runtime_candidates[i])) {
                 runtime_path = runtime_candidates[i];
                 break;
             }
+        }
+        // If not found via cwd-relative paths, try relative to the executable.
+        // The binary is typically at <project>/ergo/build/ergo, so
+        // runtime.inc is at <exe_dir>/../src/runtime.inc.
+        if (!runtime_path) {
+            char *exe_dir = ergo_exe_dir();
+            if (exe_dir) {
+                const char *exe_rel[] = {
+                    "../src/runtime.inc",
+                    "../../ergo/src/runtime.inc",
+                };
+                for (size_t i = 0; i < sizeof(exe_rel) / sizeof(exe_rel[0]); i++) {
+                    char *candidate = path_join(exe_dir, exe_rel[i]);
+                    if (candidate && path_is_file(candidate)) {
+                        exe_runtime_path = candidate;
+                        runtime_path = exe_runtime_path;
+                        break;
+                    }
+                    free(candidate);
+                }
+                free(exe_dir);
+            }
+        }
+        if (!runtime_path) {
+            runtime_path = "ergo/src/runtime.inc";  // last resort fallback for error message
         }
     }
     Arena tmp_arena;
@@ -5565,6 +5688,7 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
     char *runtime_src = read_file_with_includes(runtime_path, "// @include", &tmp_arena, &runtime_len, &rerr);
     if (!runtime_src) {
         arena_free(&tmp_arena);
+        free(exe_runtime_path);
         return cg_set_err(err, (Str){runtime_path, runtime_path ? strlen(runtime_path) : 0}, "failed to read runtime.inc");
     }
     w_raw(&cg->w, runtime_src);
@@ -5572,6 +5696,8 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
         sb_append_char(&cg->out, '\n');
     }
     arena_free(&tmp_arena);
+    free(exe_runtime_path);
+    exe_runtime_path = NULL;
 
     w_line(&cg->w, "// ---- cask globals ----");
     for (size_t i = 0; i < cg->prog->mods_len; i++) {
@@ -5866,11 +5992,51 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
     w_line(&cg->w, "@autoreleasepool {");
     cg->w.indent++;
     w_line(&cg->w, "ergo_runtime_init();");
+    // Set script directory for cogito image path resolution
+    fprintf(stderr, "DEBUG codegen: uses_cogito=%d entry_path.data=%s\n", cg->uses_cogito, cg->entry_path.data ? cg->entry_path.data : "NULL");
+    // Always set script directory when entry_path is available
+    if (cg->entry_path.data && cg->entry_path.len > 0) {
+        // Find the directory of the entry script
+        const char *path = cg->entry_path.data;
+        size_t len = cg->entry_path.len;
+        const char *last_slash = NULL;
+        for (size_t i = 0; i < len; i++) {
+            if (path[i] == '/' || path[i] == '\\') last_slash = path + i;
+        }
+        if (last_slash) {
+            size_t dir_len = (size_t)(last_slash - path);
+            char *dir = arena_alloc(cg->arena, dir_len + 1);
+            memcpy(dir, path, dir_len);
+            dir[dir_len] = 0;
+            fprintf(stderr, "DEBUG codegen: setting script dir to: '%s' (path='%s' len=%zu)\n", dir, path, len);
+            w_line(&cg->w, "__cogito_set_script_dir(\"%s\");", dir);
+        } else {
+            fprintf(stderr, "DEBUG codegen: no slash found in path '%s'\n", path);
+        }
+    } else {
+        fprintf(stderr, "DEBUG codegen: NOT generating script_dir call - no entry_path\n");
+    }
     w_line(&cg->w, "ergo_entry();");
     cg->w.indent--;
     w_line(&cg->w, "}");
     w_line(&cg->w, "#else");
     w_line(&cg->w, "ergo_runtime_init();");
+    // Set script directory for cogito image path resolution
+    if (cg->uses_cogito && cg->entry_path.data) {
+        const char *path = cg->entry_path.data;
+        size_t len = cg->entry_path.len;
+        const char *last_slash = NULL;
+        for (size_t i = 0; i < len; i++) {
+            if (path[i] == '/' || path[i] == '\\') last_slash = path + i;
+        }
+        if (last_slash) {
+            size_t dir_len = (size_t)(last_slash - path);
+            char *dir = arena_alloc(cg->arena, dir_len + 1);
+            memcpy(dir, path, dir_len);
+            dir[dir_len] = 0;
+            w_line(&cg->w, "__cogito_set_script_dir(\"%s\");", dir);
+        }
+    }
     w_line(&cg->w, "ergo_entry();");
     w_line(&cg->w, "#endif");
     w_line(&cg->w, "return 0;");
@@ -5878,7 +6044,6 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
     w_line(&cg->w, "}");
     return true;
 }
-
 bool emit_c(Program *prog, const char *out_path, bool uses_cogito, Diag *err) {
     if (!prog || !out_path) {
         return cg_set_err(err, (Str){NULL, 0}, "emit_c: missing program or output path");

@@ -537,7 +537,6 @@ static void cogito_apply_style_to_node(CogitoNode* n) {
   if (s.has_border_width) { n->border_width = s.border_width; n->border_width_set = true; }
   else { n->border_width = 0; n->border_width_set = false; }
   if (s.has_radius) { n->border_radius = s.radius; n->radius_set = true; }
-  else { n->border_radius = 0; n->radius_set = false; }
   if (s.has_selection) { n->selection_color = s.selection; n->selection_set = true; }
   else { n->selection_set = false; }
   if (s.has_track) { n->track_color = s.track; n->track_set = true; }
@@ -568,14 +567,11 @@ static void cogito_apply_style_to_node(CogitoNode* n) {
   if (s.has_font_mono) {
     n->font_mono = s.font_mono;
   }
+  // Only apply theme size constraints; never clear user-set values
   if (s.has_min_w) { n->min_w = s.min_w; n->min_w_set = true; }
-  else { n->min_w_set = false; }
   if (s.has_min_h) { n->min_h = s.min_h; n->min_h_set = true; }
-  else { n->min_h_set = false; }
   if (s.has_max_w) { n->max_w = s.max_w; n->max_w_set = true; }
-  else { n->max_w_set = false; }
   if (s.has_max_h) { n->max_h = s.max_h; n->max_h_set = true; }
-  else { n->max_h_set = false; }
   if (s.has_shadow) { n->shadow_level = s.shadow_level; n->shadow_set = true; }
   else { n->shadow_set = false; }
   if (s.has_border_style) { n->border_style = s.border_style; n->border_style_set = true; }

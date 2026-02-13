@@ -570,6 +570,21 @@ typedef struct CogitoNode {
   int carousel_drag_start_scroll;
   int carousel_active_index;
   int carousel_item_count;
+  // Carousel animation
+  float carousel_velocity;         // px/sec, for momentum after drag release
+  double carousel_scroll_xf;       // float version of scroll_x for smooth animation
+  double carousel_anim_start;      // timestamp when snap animation began
+  double carousel_anim_from;       // scroll_xf at animation start
+  double carousel_anim_to;         // target scroll_xf
+  bool   carousel_animating;       // true while snap/momentum animation is active
+  double carousel_drag_last_time;  // timestamp of last drag sample
+  double carousel_drag_last_xf;    // scroll_xf at last drag sample
+  // Image-specific fields
+  CogitoTexture* image_texture;
+  int image_w;
+  int image_h;
+  bool image_loaded;
+  float image_avg_lum;  // 0.0–1.0 average luminance, computed at load time
 } CogitoNode;
 
 typedef struct CogitoState {

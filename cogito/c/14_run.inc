@@ -360,6 +360,11 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
   }
   cogito_layout_window(win);
+  // Second layout pass: images loaded during the first pass now have their
+  // real dimensions available for intrinsic sizing.  This replaces the old
+  // recursive cogito_window_relayout calls that used to happen inside the
+  // layout pass (one per image), collapsing O(N) nested passes into two.
+  cogito_layout_window(win);
   CogitoWindow* inspector_window = NULL;
   const int inspector_w = 520;
   const int inspector_h = 680;
@@ -416,6 +421,45 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       cogito_inspector_open = false;
     }
   }
+
+  // --- Carousel animation helpers ---
+  // Compute max_scroll for a carousel node (must match layout formula).
+  #define CAROUSEL_MAX_SCROLL(cr, out_max) do { \
+    int _iw = (cr)->w - (cr)->padding_left - (cr)->padding_right; \
+    if (_iw < 0) _iw = 0; \
+    int _gaps = ((int)(cr)->len >= 3) ? 2 : ((int)(cr)->len - 1); \
+    if (_gaps < 0) _gaps = 0; \
+    int _avail = _iw - (_gaps * 8); \
+    if (_avail < 0) _avail = 0; \
+    int _ers = ((int)(cr)->len >= 3) ? ((int)(cr)->len + 5) : 7; \
+    int _ecw = _ers * _avail / 7 + ((int)(cr)->len - 1) * 8; \
+    (out_max) = _ecw - _iw; \
+    if ((out_max) < 0) (out_max) = 0; \
+  } while(0)
+
+  // Compute the snap scroll_x for a given item index.
+  #define CAROUSEL_SNAP_SCROLL(cr, idx, max_scr, out_sx) do { \
+    int _cnt = (int)(cr)->len; \
+    if (_cnt > 1) { \
+      (out_sx) = (int)((double)(idx) / (double)(_cnt - 1) * (double)(max_scr) + 0.5); \
+      if ((out_sx) < 0) (out_sx) = 0; \
+      if ((out_sx) > (max_scr)) (out_sx) = (max_scr); \
+    } else { \
+      (out_sx) = 0; \
+    } \
+  } while(0)
+
+  // Snap-to-nearest-item: given a float scroll position, return the nearest index.
+  #define CAROUSEL_NEAREST_INDEX(cr, scroll_xf, max_scr, out_idx) do { \
+    double _prog = ((max_scr) > 0) ? (scroll_xf) / (double)(max_scr) : 0.0; \
+    if (_prog < 0.0) _prog = 0.0; \
+    if (_prog > 1.0) _prog = 1.0; \
+    (out_idx) = (int)(_prog * (double)((int)(cr)->len - 1) + 0.5); \
+    if ((out_idx) < 0) (out_idx) = 0; \
+    if ((out_idx) >= (int)(cr)->len) (out_idx) = (int)(cr)->len - 1; \
+  } while(0)
+
+  #define CAROUSEL_ANIM_DURATION 0.35
 
   // Main event loop
   while (!cogito_backend->window_should_close(window) && !win->should_close) {
@@ -663,6 +707,31 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         if (horiz) scroller->scroll_x -= delta;
         else scroller->scroll_y -= delta;
         cogito_window_relayout(win);
+      } else {
+        // Check if mouse is over a carousel — scroll it horizontally
+        CogitoNode* carousel = cogito_find_carousel(root, mx, my);
+        if (carousel && (int)carousel->len > 1) {
+          int max_scroll = 0;
+          CAROUSEL_MAX_SCROLL(carousel, max_scroll);
+          
+          // Use wheel delta to scroll (horizontal or vertical wheel both work)
+          double target_xf = carousel->carousel_scroll_xf - (double)(wheel * 80.0f);
+          if (target_xf < 0.0) target_xf = 0.0;
+          if (target_xf > (double)max_scroll) target_xf = (double)max_scroll;
+          
+          // Snap to nearest item
+          int snap_idx = 0;
+          CAROUSEL_NEAREST_INDEX(carousel, target_xf, max_scroll, snap_idx);
+          int snap_sx = 0;
+          CAROUSEL_SNAP_SCROLL(carousel, snap_idx, max_scroll, snap_sx);
+          
+          // Start snap animation
+          carousel->carousel_anim_from = carousel->carousel_scroll_xf;
+          carousel->carousel_anim_to = (double)snap_sx;
+          carousel->carousel_anim_start = cogito_backend->get_time();
+          carousel->carousel_animating = true;
+          carousel->carousel_active_index = snap_idx;
+        }
       }
     }
 
@@ -794,42 +863,71 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       }
     }
 
-    // Carousel active handling (drag-to-scroll)
+    // Carousel active handling (drag-to-scroll with velocity tracking)
     if (cogito_carousel_active) {
       if (cogito_backend->is_mouse_button_down(0)) {
         CogitoNode* cr = cogito_carousel_active;
         int dx = mx - cr->carousel_drag_start_x;
-        int new_scroll = cr->carousel_drag_start_scroll - dx;
+        double new_xf = (double)cr->carousel_drag_start_scroll - (double)dx;
         
-        // Calculate max scroll
-        int min_visible = 3;
-        if (cr->len < (size_t)min_visible) min_visible = (int)cr->len;
-        int base_item_w = cr->w / min_visible;
-        if (base_item_w < 1) base_item_w = 1;
-        int max_scroll = (int)(cr->len - min_visible) * base_item_w;
-        if (max_scroll < 0) max_scroll = 0;
+        int max_scroll = 0;
+        CAROUSEL_MAX_SCROLL(cr, max_scroll);
         
-        // Clamp scroll position
-        if (new_scroll < 0) new_scroll = 0;
-        if (new_scroll > max_scroll) new_scroll = max_scroll;
+        if (new_xf < 0.0) new_xf = 0.0;
+        if (new_xf > (double)max_scroll) new_xf = (double)max_scroll;
         
+        // Track velocity: compare with last sample
+        double now = cogito_backend->get_time();
+        double dt = now - cr->carousel_drag_last_time;
+        if (dt > 0.001) {
+          double dxf = new_xf - cr->carousel_drag_last_xf;
+          // Exponential smoothing of velocity (px/sec)
+          float inst_vel = (float)(dxf / dt);
+          cr->carousel_velocity = cr->carousel_velocity * 0.6f + inst_vel * 0.4f;
+          cr->carousel_drag_last_time = now;
+          cr->carousel_drag_last_xf = new_xf;
+        }
+        
+        cr->carousel_scroll_xf = new_xf;
+        int new_scroll = (int)(new_xf + 0.5);
         if (new_scroll != cr->carousel_scroll_x) {
           cr->carousel_scroll_x = new_scroll;
           cogito_window_relayout(win);
         }
         
-        // Set cursor to grabbing during drag
         if (cogito_backend && cogito_backend->set_cursor) {
           cogito_backend->set_cursor(COGITO_CURSOR_GRABBING);
         }
       } else {
-        if (cogito_pointer_capture == cogito_carousel_active) {
+        // --- Release: start momentum + snap animation ---
+        CogitoNode* cr = cogito_carousel_active;
+        int max_scroll = 0;
+        CAROUSEL_MAX_SCROLL(cr, max_scroll);
+        
+        // Project where momentum would carry us (velocity * decay_time)
+        double projected = cr->carousel_scroll_xf + (double)cr->carousel_velocity * 0.4;
+        if (projected < 0.0) projected = 0.0;
+        if (projected > (double)max_scroll) projected = (double)max_scroll;
+        
+        // Snap to nearest item
+        int snap_idx = 0;
+        CAROUSEL_NEAREST_INDEX(cr, projected, max_scroll, snap_idx);
+        int snap_sx = 0;
+        CAROUSEL_SNAP_SCROLL(cr, snap_idx, max_scroll, snap_sx);
+        
+        // Start animation from current position to snap target
+        cr->carousel_anim_from = cr->carousel_scroll_xf;
+        cr->carousel_anim_to = (double)snap_sx;
+        cr->carousel_anim_start = cogito_backend->get_time();
+        cr->carousel_animating = true;
+        cr->carousel_active_index = snap_idx;
+        
+        if (cogito_pointer_capture == cr) {
           cogito_pointer_capture = NULL;
         }
-        cogito_carousel_active->carousel_dragging = false;
+        cr->carousel_dragging = false;
         cogito_carousel_active = NULL;
         
-        // Reset cursor
         if (cogito_backend && cogito_backend->set_cursor) {
           cogito_backend->set_cursor(COGITO_CURSOR_DEFAULT);
         }
@@ -1140,8 +1238,12 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             cogito_carousel_active = hit;
             cogito_pointer_capture = hit;
             hit->carousel_dragging = true;
+            hit->carousel_animating = false;
             hit->carousel_drag_start_x = mx;
             hit->carousel_drag_start_scroll = hit->carousel_scroll_x;
+            hit->carousel_velocity = 0.0f;
+            hit->carousel_drag_last_time = cogito_backend->get_time();
+            hit->carousel_drag_last_xf = hit->carousel_scroll_xf;
             // Set cursor to grab
             if (cogito_backend && cogito_backend->set_cursor) {
               cogito_backend->set_cursor(COGITO_CURSOR_GRAB);
@@ -1251,6 +1353,44 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         } else {
           cogito_handle_click(win, mx, my, true);
         }
+      }
+    }
+
+    // --- Carousel animation tick ---
+    // Animate any carousel that has carousel_animating == true.
+    {
+      // Walk the tree to find animating carousels (typically 0 or 1).
+      // Use a simple stack-based traversal.
+      CogitoNode* _stk[64];
+      int _sp = 0;
+      _stk[_sp++] = win;
+      bool _carousel_did_relayout = false;
+      double _now = cogito_backend->get_time();
+      while (_sp > 0) {
+        CogitoNode* _cn = _stk[--_sp];
+        if (!_cn) continue;
+        if (_cn->kind == COGITO_CAROUSEL && _cn->carousel_animating) {
+          double t = (_now - _cn->carousel_anim_start) / CAROUSEL_ANIM_DURATION;
+          if (t >= 1.0) {
+            t = 1.0;
+            _cn->carousel_animating = false;
+          }
+          // ease-out quad: t * (2 - t)
+          double et = t * (2.0 - t);
+          double sx = _cn->carousel_anim_from + (_cn->carousel_anim_to - _cn->carousel_anim_from) * et;
+          _cn->carousel_scroll_xf = sx;
+          int isx = (int)(sx + 0.5);
+          if (isx != _cn->carousel_scroll_x) {
+            _cn->carousel_scroll_x = isx;
+            _carousel_did_relayout = true;
+          }
+        }
+        for (size_t _ci = 0; _ci < _cn->len && _sp < 63; _ci++) {
+          _stk[_sp++] = _cn->children[_ci];
+        }
+      }
+      if (_carousel_did_relayout) {
+        cogito_window_relayout(win);
       }
     }
 

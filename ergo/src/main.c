@@ -465,6 +465,7 @@ static const char *raylib_default_ldflags(void) {
 #endif
 
 static const char *cogito_default_cflags(void) {
+    // Try cwd-relative paths first
     if (path_is_file("cogito/src/cogito.h")) {
         return "-Icogito/src";
     }
@@ -482,6 +483,31 @@ static const char *cogito_default_cflags(void) {
     }
     if (path_is_file("../../cogito/include/cogito.h")) {
         return "-I../../cogito/include";
+    }
+    // Try relative to executable (binary at <project>/ergo/build/ergo)
+    char *exe_dir = ergo_exe_dir();
+    if (exe_dir) {
+        static char cflag_buf[512];
+        const char *rel[] = {
+            "../../cogito/src/cogito.h",
+            "../../cogito/include/cogito.h",
+        };
+        for (size_t i = 0; i < sizeof(rel) / sizeof(rel[0]); i++) {
+            char *p = path_join(exe_dir, rel[i]);
+            if (p && path_is_file(p)) {
+                char *dir = path_dirname(p);
+                if (dir) {
+                    snprintf(cflag_buf, sizeof(cflag_buf), "-I%s", dir);
+                    free(dir);
+                    free(p);
+                    free(exe_dir);
+                    return cflag_buf;
+                }
+                free(dir);
+            }
+            free(p);
+        }
+        free(exe_dir);
     }
     return "";
 }
@@ -513,6 +539,35 @@ static const char *cogito_default_ldflags(void) {
             snprintf(buf, sizeof(buf), "-L%s -lcogito", dirs[i]);
 #endif
             return buf;
+        }
+    }
+    // Try relative to executable (binary at <project>/ergo/build/ergo)
+    {
+        char *exe_dir = ergo_exe_dir();
+        if (exe_dir) {
+            const char *rel_dirs[] = {
+                "../../cogito/_build",
+                "../../cogito/build",
+            };
+            for (size_t i = 0; i < sizeof(rel_dirs) / sizeof(rel_dirs[0]); i++) {
+                char *dir = path_join(exe_dir, rel_dirs[i]);
+                if (dir) {
+                    char path[512];
+                    snprintf(path, sizeof(path), "%s/%s", dir, libname);
+                    if (path_is_file(path)) {
+#if defined(__APPLE__) || defined(__linux__)
+                        snprintf(buf, sizeof(buf), "-L%s -lcogito -Wl,-rpath,%s", dir, dir);
+#else
+                        snprintf(buf, sizeof(buf), "-L%s -lcogito", dir);
+#endif
+                        free(dir);
+                        free(exe_dir);
+                        return buf;
+                    }
+                    free(dir);
+                }
+            }
+            free(exe_dir);
         }
     }
     return "-lcogito";

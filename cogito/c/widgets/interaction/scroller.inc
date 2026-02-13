@@ -29,3 +29,15 @@ static CogitoNode* cogito_find_scroller(CogitoNode* n, int x, int y) {
   if (n->kind == COGITO_SCROLLER && cogito_hit_rect(x, y, n->x, n->y, n->w, n->h)) return n;
   return NULL;
 }
+
+// Find the deepest COGITO_CAROUSEL under the cursor (for wheel scrolling).
+static CogitoNode* cogito_find_carousel(CogitoNode* n, int x, int y) {
+  if (!n) return NULL;
+  if (n->kind == COGITO_CAROUSEL && !cogito_hit_rect(x, y, n->x, n->y, n->w, n->h)) return NULL;
+  for (size_t i = 0; i < n->len; i++) {
+    CogitoNode* child = cogito_find_carousel(n->children[i], x, y);
+    if (child) return child;
+  }
+  if (n->kind == COGITO_CAROUSEL && cogito_hit_rect(x, y, n->x, n->y, n->w, n->h)) return n;
+  return NULL;
+}

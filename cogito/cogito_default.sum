@@ -48,7 +48,7 @@ carousel
 carousel_item
   background: #e8def8
   color: #222222
-  border-radius: 16
+  border-radius: 26
   padding: 16
 
 label.carousel-item-label
@@ -289,10 +289,6 @@ iconbtn
   border-radius: 99
   min-width: 42
   min-height: 42
-
-image
-  min-width: 20
-  min-height: 20
 
 label
   color: #222222
