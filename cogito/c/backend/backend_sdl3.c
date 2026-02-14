@@ -292,7 +292,7 @@ static SDL_Renderer* sdl3_create_renderer_for_window(SDL_Window* window) {
 // Window Management
 // ============================================================================
 
-static CogitoWindow* sdl3_window_create(const char* title, int w, int h, bool resizable, bool borderless) {
+static CogitoWindow* sdl3_window_create(const char* title, int w, int h, bool resizable, bool borderless, bool initially_hidden) {
     if (!sdl3_initialized) return NULL;
     
     CogitoSDL3Window* win = calloc(1, sizeof(CogitoSDL3Window));
@@ -300,6 +300,7 @@ static CogitoWindow* sdl3_window_create(const char* title, int w, int h, bool re
     
     SDL_WindowFlags flags = SDL_WINDOW_HIGH_PIXEL_DENSITY;
     if (resizable) flags |= SDL_WINDOW_RESIZABLE;
+    if (initially_hidden) flags |= SDL_WINDOW_HIDDEN;
     bool try_transparent = false;
     if (borderless) {
         flags |= SDL_WINDOW_BORDERLESS;
@@ -389,6 +390,12 @@ static void sdl3_window_get_size(CogitoWindow* window, int* w, int* h) {
         if (w) *w = 0;
         if (h) *h = 0;
         return;
+    }
+    if (win->sdl_window) {
+        int tw, th;
+        SDL_GetWindowSize(win->sdl_window, &tw, &th);
+        win->width = tw;
+        win->height = th;
     }
     if (w) *w = win->width;
     if (h) *h = win->height;
@@ -535,7 +542,7 @@ static void sdl3_clear(CogitoColor color) {
 // Event Loop
 // ============================================================================
 
-static void process_events(void) {
+static bool process_events(void) {
     // Reset per-frame state
     for (int i = 0; i < 3; i++) {
         mouse_buttons_pressed[i] = false;
@@ -547,8 +554,10 @@ static void process_events(void) {
     }
     mouse_wheel = 0.0f;
     
+    bool had_any = false;
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
+        had_any = true;
         switch (event.type) {
             case SDL_EVENT_QUIT:
                 // Mark all windows for close
@@ -662,10 +671,19 @@ static void process_events(void) {
             }
         }
     }
+    return had_any;
 }
 
-static void sdl3_poll_events(void) {
-    process_events();
+static bool sdl3_poll_events(void) {
+    return process_events();
+}
+
+// Block until an event is available or timeout_ms elapses. Used when idle to avoid busy-loop CPU use.
+static void sdl3_wait_event_timeout(uint32_t timeout_ms) {
+    SDL_Event event;
+    if (SDL_WaitEventTimeout(&event, (int)timeout_ms)) {
+        SDL_PushEvent(&event);
+    }
 }
 
 static bool sdl3_window_should_close(CogitoWindow* window) {
@@ -1711,6 +1729,7 @@ static CogitoBackend sdl3_backend = {
     .present = sdl3_present,
     .clear = sdl3_clear,
     .poll_events = sdl3_poll_events,
+    .wait_event_timeout = sdl3_wait_event_timeout,
     .window_should_close = sdl3_window_should_close,
     .get_mouse_position = sdl3_get_mouse_position,
     .get_mouse_position_in_window = sdl3_get_mouse_position_in_window,

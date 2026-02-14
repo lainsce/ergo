@@ -67,7 +67,7 @@ typedef struct CogitoBackend {
     void (*shutdown)(void);
     
     // Window management
-    CogitoWindow* (*window_create)(const char* title, int w, int h, bool resizable, bool borderless);
+    CogitoWindow* (*window_create)(const char* title, int w, int h, bool resizable, bool borderless, bool initially_hidden);
     void (*window_destroy)(CogitoWindow* window);
     void (*window_set_size)(CogitoWindow* window, int w, int h);
     void (*window_get_size)(CogitoWindow* window, int* w, int* h);
@@ -91,7 +91,8 @@ typedef struct CogitoBackend {
     void (*clear)(CogitoColor color);
     
     // Event loop
-    void (*poll_events)(void);
+    bool (*poll_events)(void);  // true if at least one event was processed
+    void (*wait_event_timeout)(uint32_t ms);  // block until event or timeout (when idle, avoids busy loop)
     bool (*window_should_close)(CogitoWindow* window);
     
     // Input

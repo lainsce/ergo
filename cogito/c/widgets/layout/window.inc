@@ -183,5 +183,7 @@ static void cogito_window_desired_size(CogitoNode* win, int* out_w, int* out_h) 
 
 static void cogito_window_relayout(CogitoNode* win) {
   if (!win) return;
+  cogito_layout_begin();
   cogito_layout_window(win);
+  if (cogito_layout_changed()) cogito_queue_draw(win);
 }

@@ -54,7 +54,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
 #if defined(__APPLE__)
   borderless = false;  // macOS uses native decorations
 #endif
-  CogitoWindow* window = cogito_backend->window_create(title, win->w, win->h, win->resizable, borderless);
+  CogitoWindow* window = cogito_backend->window_create(title, win->w, win->h, win->resizable, borderless, true);
   if (!window) {
     ergo_trap("Failed to create window");
   }
@@ -206,7 +206,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       inspector_w + inspector_shadow_margin * 2,
       inspector_h + inspector_shadow_margin * 2,
       true,
-      true
+      true,
+      false
     );
     if (inspector_window) {
       cogito_backend->window_show(inspector_window);
@@ -238,8 +239,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
 
   // Main event loop
   while (!cogito_backend->window_should_close(window) && !win->should_close) {
-    // Poll events
-    cogito_backend->poll_events();
+    // Poll events (true if any event was processed; used to decide if we need to redraw)
+    bool had_events = cogito_backend->poll_events();
 #if defined(__APPLE__)
     if (macos_app_name_pending) {
       macos_app_name_pending = !cogito_macos_apply_app_name(app_name);
@@ -284,7 +285,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             inspector_w + inspector_shadow_margin * 2,
             inspector_h + inspector_shadow_margin * 2,
             true,
-            true
+            true,
+            false
           );
           if (inspector_window) {
             cogito_backend->window_show(inspector_window);
@@ -313,12 +315,15 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     
     // Get window size
     int sw, sh;
+    bool window_resized = false;
     cogito_backend->window_get_size(window, &sw, &sh);
     if (sw != win->w || sh != win->h) {
       win->w = sw;
       win->h = sh;
       cogito_window_relayout(win);
+      window_resized = true;
     }
+    if (had_events || window_resized) cogito_queue_draw(win);
 
     // Get mouse position in the main window coordinate space.
     int mx = 0;
@@ -1175,14 +1180,13 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       if (cogito_carousel_animating_count < 0) cogito_carousel_animating_count = 0;
     }
 
+    // Only redraw when something requested it (queue_draw) or continuous updates needed.
+    // Do not redraw during window drag — we only move the window; no present() needed, so we wait for events and avoid CPU spike.
+    bool need_redraw = cogito_draw_pending(win) || (cogito_carousel_animating_count > 0)
+        || cogito_menu.open || cogito_inspector_open;
+
+    if (need_redraw) {
     // Rendering
-    if (cogito_drag_active) {
-      cogito_backend->begin_frame(window);
-      cogito_backend->end_frame(window);
-      cogito_backend->present(window);
-      continue;
-    }
-    
     cogito_backend->begin_frame(window);
     
     CogitoColor win_bg = win->bg_set ? win->bg : cogito_rgba(245, 245, 245, 255);
@@ -1218,6 +1222,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     
     cogito_backend->end_frame(window);
     cogito_backend->present(window);
+    cogito_draw_clear_pending(win);
 
     if (cogito_inspector_open && inspector_window) {
       int iw = 0;
@@ -1275,6 +1280,9 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       cogito_inspector_view_h = 0;
       cogito_backend->end_frame(inspector_window);
       cogito_backend->present(inspector_window);
+    }
+    } else {
+      cogito_backend->wait_event_timeout(100);
     }
   }
   

@@ -1,3 +1,5 @@
+#include "widgets/util/draw_queue.inc"
+
 static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h);
 static void cogito_window_relayout(CogitoNode* win);
 static void cogito_dialog_close_rect(CogitoNode* n, int* out_x, int* out_y, int* out_w, int* out_h);
@@ -108,11 +110,13 @@ static void cogito_distribute_axis_sizes(size_t count, const int* min_sizes, con
 #include "widgets/layout/window.inc"
 
 static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h) {
+  bool changed = (n->x != x || n->y != y || n->w != w || n->h != h);
   n->x = x;
   n->y = y;
   n->w = w;
   n->h = h;
   cogito_apply_size_constraints(n, &n->w, &n->h);
+  if (changed || n->w != w || n->h != h) cogito_layout_mark_changed();
   switch (n->kind) {
 
     #include "widgets/layout/appbar.inc"
