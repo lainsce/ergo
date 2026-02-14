@@ -41,7 +41,7 @@ static void cogito_inspector_panel_rect(CogitoNode* win, int* out_x, int* out_y,
   int x = view_x + view_w - panel_w;
   if (x < 0) x = 0;
   int y = view_y;
-  int h = view_h;
+  int h = view_h > COGITO_INSPECTOR_STATUS_H ? view_h - COGITO_INSPECTOR_STATUS_H : view_h;
   int tree_w = (panel_w * 45) / 100;
   if (tree_w < 170) tree_w = panel_w / 2;
   if (tree_w > panel_w - 120) tree_w = panel_w - 120;
@@ -129,6 +129,29 @@ static CogitoNode* cogito_inspector_pick_node_recursive(CogitoNode* n, int x, in
   return n;
 }
 
+/* Returns true if wheel was consumed (scrolled widget tree). local_x, local_y are in inspector content coords. */
+static bool cogito_inspector_handle_wheel(CogitoNode* win, int local_x, int local_y, float wheel_delta) {
+  if (!cogito_inspector_open || !win || wheel_delta == 0.0f) return false;
+  int px = 0, py = 0, pw = 0, ph = 0, tree_w = 0;
+  cogito_inspector_panel_rect(win, &px, &py, &pw, &ph, &tree_w);
+  int header_h = 0;
+  int row_h = 0;
+  int pad = 0;
+  cogito_inspector_tree_metrics(&header_h, &row_h, &pad);
+  int list_y = py + header_h + 4;
+  int list_h = ph - (header_h + 8);
+  if (list_h < 0) list_h = 0;
+  if (!cogito_hit_rect(local_x, local_y, px, list_y, tree_w, list_h)) return false;
+  cogito_inspector_rebuild_tree(win);
+  int total_tree_h = cogito_inspector_node_count * row_h;
+  int max_scroll = total_tree_h > list_h ? total_tree_h - list_h : 0;
+  int delta = (int)(wheel_delta * 32.0f);
+  cogito_inspector_tree_scroll_y -= delta;
+  if (cogito_inspector_tree_scroll_y > max_scroll) cogito_inspector_tree_scroll_y = max_scroll;
+  if (cogito_inspector_tree_scroll_y < 0) cogito_inspector_tree_scroll_y = 0;
+  return true;
+}
+
 static bool cogito_inspector_handle_click(CogitoNode* win, int x, int y) {
   if (!cogito_inspector_open || !win) return false;
   int px = 0, py = 0, pw = 0, ph = 0, tree_w = 0;
@@ -142,8 +165,13 @@ static bool cogito_inspector_handle_click(CogitoNode* win, int x, int y) {
   cogito_inspector_tree_metrics(&header_h, &row_h, &pad);
   int list_y = py + header_h + 4;
   int list_h = ph - (header_h + 8);
+  if (list_h < 0) list_h = 0;
+  int total_tree_h = cogito_inspector_node_count * row_h;
+  int max_scroll = total_tree_h > list_h ? total_tree_h - list_h : 0;
+  if (cogito_inspector_tree_scroll_y > max_scroll) cogito_inspector_tree_scroll_y = max_scroll;
+  if (cogito_inspector_tree_scroll_y < 0) cogito_inspector_tree_scroll_y = 0;
   if (cogito_hit_rect(x, y, px, list_y, tree_w, list_h)) {
-    int row = (y - list_y) / row_h;
+    int row = (y - list_y + cogito_inspector_tree_scroll_y) / row_h;
     if (row >= 0 && row < cogito_inspector_node_count) {
       CogitoNode* n = cogito_inspector_nodes[row];
       int depth = cogito_inspector_depths[row];
@@ -296,21 +324,37 @@ static void cogito_draw_inspector_panel(CogitoNode* win) {
   CogitoColor prop_row_bg_alt = cogito_rgba(32, 37, 46, 255);
   CogitoColor prop_row_border = cogito_rgba(75, 82, 95, 128);
 
-  cogito_draw_rect(px, py, pw, ph, bg, 0);
-  cogito_draw_rect(px, py, tree_w, ph, panel, 0);
-  cogito_draw_line(px + tree_w, py, px + tree_w, py + ph, border);
+  int status_y = py + ph;
+  int status_h = COGITO_INSPECTOR_STATUS_H;
+  cogito_draw_rect(px, py, pw, ph + status_h, bg, 0);
+  cogito_draw_rect(px, py, tree_w, ph + status_h, panel, 0);
+  cogito_draw_line(px + tree_w, py, px + tree_w, py + ph + status_h, border);
   cogito_draw_line(px, py + header_h, px + pw, py + header_h, border);
+  cogito_draw_rect(px, status_y, pw, status_h, prop_row_bg, 0);
+  cogito_draw_line(px, status_y, px + pw, status_y, border);
+  cogito_draw_text_size_node(win, px + pad, status_y + (status_h - cogito_text_height_size(12)) / 2, COGITO_USER_VERSION, muted, 12, false);
 
   cogito_draw_text_size_node(win, px + pad, py + header_h - 16, "Widget Tree", muted, 13, false);
   cogito_draw_text_size_node(win, px + tree_w + pad, py + header_h - 16, "Selected Node", muted, 13, false);
 
   int list_y = py + header_h + 4;
-  int visible_rows = (ph - (header_h + 8)) / row_h;
+  int list_h = ph - (header_h + 8);
+  if (list_h < 0) list_h = 0;
+  int visible_rows = list_h / row_h + 2;
   if (visible_rows < 0) visible_rows = 0;
-  for (int i = 0; i < cogito_inspector_node_count && i < visible_rows; i++) {
-    int row_y = list_y + i * row_h;
-    CogitoNode* n = cogito_inspector_nodes[i];
-    int depth = cogito_inspector_depths[i];
+  int total_tree_h = cogito_inspector_node_count * row_h;
+  int max_scroll = total_tree_h > list_h ? total_tree_h - list_h : 0;
+  if (cogito_inspector_tree_scroll_y > max_scroll) cogito_inspector_tree_scroll_y = max_scroll;
+  if (cogito_inspector_tree_scroll_y < 0) cogito_inspector_tree_scroll_y = 0;
+  int first_row = cogito_inspector_tree_scroll_y / row_h;
+  int y_offset = cogito_inspector_tree_scroll_y % row_h;
+  for (int i = 0; i < visible_rows; i++) {
+    int row_index = first_row + i;
+    if (row_index >= cogito_inspector_node_count) break;
+    int row_y = list_y - y_offset + i * row_h;
+    if (row_y + row_h < list_y || row_y >= list_y + list_h) continue;
+    CogitoNode* n = cogito_inspector_nodes[row_index];
+    int depth = cogito_inspector_depths[row_index];
     if (n == cogito_inspector_selected) {
       cogito_draw_rect(px + 1, row_y, tree_w - 2, row_h, selected_bg, 0);
     }
@@ -334,12 +378,28 @@ static void cogito_draw_inspector_panel(CogitoNode* win) {
     if (label_x > px + tree_w - 60) label_x = px + tree_w - 60;
     cogito_draw_text_size_node(win, label_x, row_y + 2, label, text, text_size, false);
   }
+  /* Vertical scrollbar for widget tree */
+  if (max_scroll > 0 && list_h > 0) {
+    int sb_x = px + tree_w - 8;
+    int sb_w = 6;
+    int thumb_h = list_h * list_h / total_tree_h;
+    if (thumb_h < 20) thumb_h = 20;
+    if (thumb_h > list_h) thumb_h = list_h;
+    int thumb_y = list_y + (int)((long)(list_h - thumb_h) * (long)cogito_inspector_tree_scroll_y / (long)(max_scroll > 0 ? max_scroll : 1));
+    if (thumb_y < list_y) thumb_y = list_y;
+    if (thumb_y + thumb_h > list_y + list_h) thumb_y = list_y + list_h - thumb_h;
+    cogito_draw_rect(sb_x, list_y, sb_w, list_h, prop_row_bg, 2);
+    cogito_draw_rect(sb_x, thumb_y, sb_w, thumb_h, border, 2);
+  }
 
   CogitoNode* s = cogito_inspector_selected;
   if (!s) return;
   int rx = px + tree_w + pad;
   int rw = pw - tree_w - pad * 2;
   if (rw < 40) rw = 40;
+  if (cogito_backend && cogito_backend->begin_scissor) {
+    cogito_backend->begin_scissor(px + tree_w, py, rw + pad, ph);
+  }
   int ry = py + header_h + 6;
   const int row_pad = 6;
   bool row_alt = false;
@@ -424,4 +484,7 @@ static void cogito_draw_inspector_panel(CogitoNode* win) {
     hover, active, focused, disabled,
     text, muted
   );
+  if (cogito_backend && cogito_backend->end_scissor) {
+    cogito_backend->end_scissor();
+  }
 }

@@ -385,6 +385,9 @@ static void cogito_draw_icon_fallback(CogitoNode* n, const char* icon, int x, in
 // Inspector panel (debug overlay)
 #include "widgets/util/inspector.inc"
 
+// Scrollbar geometry and hit-test (overlay scrollbars)
+#include "widgets/util/scrollbar.inc"
+
 static void cogito_draw_node(CogitoNode* n);
 
 #include "widgets/draw/toasts.inc"

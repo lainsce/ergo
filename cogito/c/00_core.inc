@@ -53,6 +53,10 @@ static void cogito_apply_theme(bool dark, CogitoColor accent);
 #define cogito_mix cogito_color_mix
 #define cogito_on_color cogito_color_on_color
 
+// Versioning: numeric for build/config, user-visible string for titles and UI
+#define COGITO_VERSION "1.0"
+#define COGITO_USER_VERSION "v1 B-17 BOMBER"
+
 typedef struct CogitoApp {
   ErgoObj base;
   void* native;
@@ -379,6 +383,8 @@ typedef struct CogitoNode {
   int scroll_content_h;
   bool scroll_horz;
   bool scroll_vert;
+  uint8_t scrollbar_alpha;  /* overlay scrollbar opacity (0–255), fades when cursor not over scrollbar */
+  double scrollbar_hover_until; /* time (get_time()) when fade may start; 0 = cursor over scrollbar */
   int selected;
   bool tree_collapsed;
   int margin_left;
@@ -688,6 +694,16 @@ static int cogito_inspector_node_count = 0;
 static CogitoNode* cogito_inspector_collapsed_nodes[COGITO_INSPECTOR_MAX_NODES];
 static bool cogito_inspector_collapsed_values[COGITO_INSPECTOR_MAX_NODES];
 static int cogito_inspector_collapsed_count = 0;
+static int cogito_inspector_tree_scroll_y = 0;
+#define COGITO_INSPECTOR_STATUS_H 24
+
+/* Scrollbar thumb drag (one at a time) */
+static CogitoNode* cogito_scrollbar_drag_scroller = NULL;
+static bool cogito_scrollbar_drag_vert = false;
+static int cogito_scrollbar_drag_start_mouse = 0;
+static int cogito_scrollbar_drag_start_scroll = 0;
+static int cogito_scrollbar_drag_max = 0;   /* max scroll (max_y or max_x) */
+static int cogito_scrollbar_drag_travel = 1; /* track length minus thumb (pixels) */
 
 static CogitoWindow* cogito_backend_window_for_node(CogitoNode* node) {
   if (!node || !cogito_active_window || !cogito_active_backend_window) return NULL;
@@ -794,7 +810,7 @@ static void cogito_macos_set_window_shadow(CogitoWindow* backend_window, bool en
 }
 
 static void cogito_macos_set_process_name(const char* name) {
-  const char* process_name = (name && name[0]) ? name : "Cogito";
+  const char* process_name = (name && name[0]) ? name : COGITO_USER_VERSION;
   setprogname(process_name);
   Class nsprocess = (Class)objc_getClass("NSProcessInfo");
   if (!nsprocess) return;
@@ -807,7 +823,7 @@ static void cogito_macos_set_process_name(const char* name) {
 }
 
 static bool cogito_macos_apply_app_name(const char* name) {
-  const char* app_name = (name && name[0]) ? name : "Cogito";
+  const char* app_name = (name && name[0]) ? name : COGITO_USER_VERSION;
   cogito_macos_set_process_name(app_name);
 
   Class nsapp = (Class)objc_getClass("NSApplication");

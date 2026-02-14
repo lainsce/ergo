@@ -9,7 +9,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (winv.tag != EVT_OBJ) ergo_trap("cogito.run expects window");
   CogitoApp* app = (CogitoApp*)appv.as.p;
   CogitoNode* win = (CogitoNode*)winv.as.p;
-  const char* title = (win->text && win->text->data && win->text->data[0]) ? win->text->data : "Cogito";
+  const char* title = (win->text && win->text->data && win->text->data[0]) ? win->text->data : COGITO_USER_VERSION;
   const char* app_id = (app && app->app_id && app->app_id->data && app->app_id->data[0]) ? app->app_id->data : NULL;
   const char* app_name = (app && app->app_name && app->app_name->data && app->app_name->data[0]) ? app->app_name->data : title;
   cogito_active_window = win;
@@ -202,7 +202,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   int inspector_drag_start_wy = 0;
   if (cogito_inspector_open) {
     inspector_window = cogito_backend->window_create(
-      "Cogito Inspector",
+      "Inspector",
       inspector_w + inspector_shadow_margin * 2,
       inspector_h + inspector_shadow_margin * 2,
       true,
@@ -281,7 +281,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       if (cogito_inspector_open) {
         if (!inspector_window) {
           inspector_window = cogito_backend->window_create(
-            "Cogito Inspector",
+            "Inspector",
             inspector_w + inspector_shadow_margin * 2,
             inspector_h + inspector_shadow_margin * 2,
             true,
@@ -517,6 +517,25 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           carousel->carousel_active_index = snap_idx;
         }
       }
+    }
+
+    /* Inspector window: wheel scrolls widget tree when cursor over panel */
+    if (inspector_window && wheel != 0.0f && inspector_mouse_in_frame && imy >= inspector_frame_y + inspector_appbar_h) {
+      int appbar_h = inspector_appbar_h;
+      if (appbar_h > inspector_frame_h) appbar_h = inspector_frame_h;
+      cogito_inspector_view_x = inspector_frame_x;
+      cogito_inspector_view_y = inspector_frame_y + appbar_h;
+      cogito_inspector_view_w = inspector_frame_w;
+      cogito_inspector_view_h = inspector_frame_h - appbar_h - inspector_corner_r;
+      if (cogito_inspector_view_h < 0) cogito_inspector_view_h = 0;
+      if (cogito_inspector_handle_wheel(win, imx, imy, wheel)) {
+        wheel = 0.0f;
+        cogito_queue_draw(win);
+      }
+      cogito_inspector_view_x = 0;
+      cogito_inspector_view_y = 0;
+      cogito_inspector_view_w = 0;
+      cogito_inspector_view_h = 0;
     }
 
     // Tab key navigation
@@ -773,6 +792,82 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       }
       if (cogito_backend->is_mouse_button_released(0)) {
         cogito_focused->selecting = false;
+      }
+    }
+
+    /* Scrollbar thumb drag and track click (overlay scrollbars) */
+    if (cogito_scrollbar_drag_scroller) {
+      if (!left_down) {
+        cogito_scrollbar_drag_scroller = NULL;
+      } else {
+        CogitoNode* sc = cogito_scrollbar_drag_scroller;
+        int cur = cogito_scrollbar_drag_vert ? my : mx;
+        int delta = cur - cogito_scrollbar_drag_start_mouse;
+        int new_scroll = cogito_scrollbar_drag_start_scroll + (int)((long)delta * (long)cogito_scrollbar_drag_max / (long)cogito_scrollbar_drag_travel);
+        if (new_scroll < 0) new_scroll = 0;
+        if (new_scroll > cogito_scrollbar_drag_max) new_scroll = cogito_scrollbar_drag_max;
+        if (cogito_scrollbar_drag_vert) sc->scroll_y = new_scroll;
+        else sc->scroll_x = new_scroll;
+        cogito_window_relayout(win);
+        cogito_queue_draw(win);
+      }
+    } else if (left_pressed && route_main_pointer) {
+      CogitoNode* slot = (win->dialog && win->dialog->kind == COGITO_DIALOG_SLOT && win->dialog->dialog_open && win->dialog->dialog)
+        ? win->dialog
+        : cogito_find_dialog_slot(win);
+      CogitoNode* root = (slot && slot->dialog) ? slot->dialog : win;
+      CogitoNode* sc = cogito_find_scroller(root, mx, my);
+      if (sc) {
+        CogitoScrollbarHit hit = cogito_scroller_hit_scrollbar(sc, mx, my, COGITO_SCROLLBAR_WIDTH_WIDE, COGITO_SCROLLBAR_WIDTH_WIDE);
+        if (hit == COGITO_SCROLLBAR_HIT_VERT_THUMB) {
+          int max_s = 0, travel = 1;
+          if (cogito_scroller_vert_drag_params(sc, &max_s, &travel)) {
+            cogito_scrollbar_drag_scroller = sc;
+            cogito_scrollbar_drag_vert = true;
+            cogito_scrollbar_drag_start_mouse = my;
+            cogito_scrollbar_drag_start_scroll = sc->scroll_y;
+            cogito_scrollbar_drag_max = max_s;
+            cogito_scrollbar_drag_travel = travel;
+            click = false;
+          }
+        } else if (hit == COGITO_SCROLLBAR_HIT_HORZ_THUMB) {
+          int max_s = 0, travel = 1;
+          if (cogito_scroller_horz_drag_params(sc, &max_s, &travel)) {
+            cogito_scrollbar_drag_scroller = sc;
+            cogito_scrollbar_drag_vert = false;
+            cogito_scrollbar_drag_start_mouse = mx;
+            cogito_scrollbar_drag_start_scroll = sc->scroll_x;
+            cogito_scrollbar_drag_max = max_s;
+            cogito_scrollbar_drag_travel = travel;
+            click = false;
+          }
+        } else if (hit == COGITO_SCROLLBAR_HIT_VERT_TRACK) {
+          int vtx, vty, vtw, vth, vux, vuy, vuw, vuh;
+          if (cogito_scroller_vert_scrollbar_rects(sc, COGITO_SCROLLBAR_WIDTH_WIDE, &vtx, &vty, &vtw, &vth, &vux, &vuy, &vuw, &vuh)) {
+            int max_s = 0, travel = 1;
+            if (cogito_scroller_vert_drag_params(sc, &max_s, &travel)) {
+              sc->scroll_y = cogito_scroller_track_to_scroll(my, vty, vth, vuh, max_s);
+              if (sc->scroll_y < 0) sc->scroll_y = 0;
+              if (sc->scroll_y > max_s) sc->scroll_y = max_s;
+              cogito_window_relayout(win);
+              cogito_queue_draw(win);
+              click = false;
+            }
+          }
+        } else if (hit == COGITO_SCROLLBAR_HIT_HORZ_TRACK) {
+          int htx, hty, htw, hth, hux, huy, huw, huh;
+          if (cogito_scroller_horz_scrollbar_rects(sc, COGITO_SCROLLBAR_WIDTH_WIDE, &htx, &hty, &htw, &hth, &hux, &huy, &huw, &huh)) {
+            int max_s = 0, travel = 1;
+            if (cogito_scroller_horz_drag_params(sc, &max_s, &travel)) {
+              sc->scroll_x = cogito_scroller_track_to_scroll(mx, htx, htw, huw, max_s);
+              if (sc->scroll_x < 0) sc->scroll_x = 0;
+              if (sc->scroll_x > max_s) sc->scroll_x = max_s;
+              cogito_window_relayout(win);
+              cogito_queue_draw(win);
+              click = false;
+            }
+          }
+        }
       }
     }
 

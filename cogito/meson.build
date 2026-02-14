@@ -1,4 +1,4 @@
-project('cogito', 'c', version : '0.1.0')
+project('cogito', 'c', version : '1.0')
 
 cogito_inc = include_directories('src', 'c/backend')
 
