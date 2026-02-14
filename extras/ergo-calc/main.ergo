@@ -10,6 +10,14 @@ def ?stored_value = 0.0
 def ?pending_op = @""
 def ?reset_input = true
 def ?has_error = false
+def ?showing_converter = false
+def conv_input = cogito.textfield(@"Input")
+def conv_output = cogito.textfield(@"Output")
+def ?conv_from_idx = 0
+def ?conv_to_idx = 1
+def conv_from_dd = cogito.dropdown()
+def conv_to_dd = cogito.dropdown()
+def ?conv_category = 0
 def ABOUT_MORE_INFO_URL = @"https://github.com/lainsce/ergo"
 def ABOUT_REPORT_BUG_URL = @"https://github.com/lainsce/ergo/issues"
 
@@ -179,6 +187,240 @@ fun spacer() (( cogito.Label )) {
     return s
 }
 
+fun aton(s = string) (( num )) {
+    let ?result = 0.0
+    let ?i = 0
+    let ?neg = false
+    let slen = len(s)
+    if slen == 0 {
+        return 0.0
+    }
+    if s[0] == @"-" {
+        neg = true
+        i = 1
+    }
+    let ?frac = false
+    let ?frac_div = 1.0
+    let ?done = false
+    for (; i < slen && !done; i += 1) {
+        let c = s[i]
+        let ?d = 0 - 1
+        if c == @"." {
+            frac = true
+        } elif c == @"0" { d = 0 }
+        elif c == @"1" { d = 1 }
+        elif c == @"2" { d = 2 }
+        elif c == @"3" { d = 3 }
+        elif c == @"4" { d = 4 }
+        elif c == @"5" { d = 5 }
+        elif c == @"6" { d = 6 }
+        elif c == @"7" { d = 7 }
+        elif c == @"8" { d = 8 }
+        elif c == @"9" { d = 9 }
+        else { done = true }
+        if d >= 0 {
+            if frac {
+                frac_div *= 10.0
+                result += d / frac_div
+            } else {
+                result = result * 10 + d
+            }
+        }
+    }
+    if neg {
+        result = 0 - result
+    }
+    return result
+}
+
+fun conv_unit_names() (( [string] )) {
+    if conv_category == 0 {
+        return [@"Meter", @"Kilometer", @"Centimeter", @"Millimeter", @"Mile", @"Yard", @"Foot", @"Inch"]
+    } elif conv_category == 1 {
+        return [@"Kilogram", @"Gram", @"Milligram", @"Pound", @"Ounce", @"Ton"]
+    } elif conv_category == 2 {
+        return [@"Celsius", @"Fahrenheit", @"Kelvin"]
+    } else {
+        return [@"Liter", @"Milliliter", @"Gallon", @"Quart", @"Cup", @"Fluid Oz"]
+    }
+}
+
+fun conv_to_base(value = num, idx = num) (( num )) {
+    if conv_category == 0 {
+        if idx == 0 { return value }
+        elif idx == 1 { return value * 1000 }
+        elif idx == 2 { return value / 100 }
+        elif idx == 3 { return value / 1000 }
+        elif idx == 4 { return value * 1609.344 }
+        elif idx == 5 { return value * 0.9144 }
+        elif idx == 6 { return value * 0.3048 }
+        else { return value * 0.0254 }
+    } elif conv_category == 1 {
+        if idx == 0 { return value }
+        elif idx == 1 { return value / 1000 }
+        elif idx == 2 { return value / 1000000 }
+        elif idx == 3 { return value * 0.453592 }
+        elif idx == 4 { return value * 0.0283495 }
+        else { return value * 907.185 }
+    } elif conv_category == 2 {
+        if idx == 0 { return value }
+        elif idx == 1 { return (value - 32) * 5 / 9 }
+        else { return value - 273.15 }
+    } else {
+        if idx == 0 { return value }
+        elif idx == 1 { return value / 1000 }
+        elif idx == 2 { return value * 3.78541 }
+        elif idx == 3 { return value * 0.946353 }
+        elif idx == 4 { return value * 0.236588 }
+        else { return value * 0.0295735 }
+    }
+}
+
+fun conv_from_base(value = num, idx = num) (( num )) {
+    if conv_category == 0 {
+        if idx == 0 { return value }
+        elif idx == 1 { return value / 1000 }
+        elif idx == 2 { return value * 100 }
+        elif idx == 3 { return value * 1000 }
+        elif idx == 4 { return value / 1609.344 }
+        elif idx == 5 { return value / 0.9144 }
+        elif idx == 6 { return value / 0.3048 }
+        else { return value / 0.0254 }
+    } elif conv_category == 1 {
+        if idx == 0 { return value }
+        elif idx == 1 { return value * 1000 }
+        elif idx == 2 { return value * 1000000 }
+        elif idx == 3 { return value / 0.453592 }
+        elif idx == 4 { return value / 0.0283495 }
+        else { return value / 907.185 }
+    } elif conv_category == 2 {
+        if idx == 0 { return value }
+        elif idx == 1 { return value * 9 / 5 + 32 }
+        else { return value + 273.15 }
+    } else {
+        if idx == 0 { return value }
+        elif idx == 1 { return value * 1000 }
+        elif idx == 2 { return value / 3.78541 }
+        elif idx == 3 { return value / 0.946353 }
+        elif idx == 4 { return value / 0.236588 }
+        else { return value / 0.0295735 }
+    }
+}
+
+fun do_convert() (( -- )) {
+    let input_text = conv_input.text()
+    let input_val = aton(input_text)
+    let base = conv_to_base(input_val, conv_from_idx)
+    let result = conv_from_base(base, conv_to_idx)
+    conv_output.set_text(str(result))
+}
+
+fun swap_conv() (( -- )) {
+    let old_from = conv_from_idx
+    let old_to = conv_to_idx
+    conv_from_idx = old_to
+    conv_to_idx = old_from
+    conv_from_dd.set_selected(conv_from_idx)
+    conv_to_dd.set_selected(conv_to_idx)
+    let old_input = conv_input.text()
+    let old_output = conv_output.text()
+    conv_input.set_text(old_output)
+    conv_output.set_text(old_input)
+}
+
+fun refresh_conv_units() (( -- )) {
+    let names = conv_unit_names()
+    conv_from_dd.set_items(names)
+    conv_to_dd.set_items(names)
+    conv_from_idx = 0
+    conv_to_idx = 1
+    conv_from_dd.set_selected(0)
+    conv_to_dd.set_selected(1)
+    conv_input.set_text(@"1")
+    do_convert()
+}
+
+fun build_converter_ui() (( cogito.VStack )) {
+    let panel = cogito.vstack()
+    panel.set_hexpand(true)
+    panel.set_vexpand(true)
+    panel.set_gap(12)
+    cogito.set_class(panel, @"conv-panel")
+
+    let cat_dd = cogito.dropdown()
+    cat_dd.set_items([@"Length", @"Weight", @"Temperature", @"Volume"])
+    cat_dd.set_selected(0)
+    cat_dd.set_hexpand(true)
+    cogito.set_class(cat_dd, @"conv-category")
+    cat_dd.on_change((dd = cogito.Dropdown) => {
+        conv_category = dd.selected()
+        refresh_conv_units()
+    })
+    panel.add(cat_dd)
+
+    let from_row = cogito.vstack()
+    from_row.set_hexpand(true)
+    from_row.set_gap(6)
+
+    let from_label = cogito.label(@"From")
+    cogito.set_class(from_label, @"conv-label")
+    from_row.add(from_label)
+
+    let names = conv_unit_names()
+    conv_from_dd.set_items(names)
+    conv_from_dd.set_selected(0)
+    conv_from_dd.set_hexpand(true)
+    conv_from_dd.on_change((dd = cogito.Dropdown) => {
+        conv_from_idx = dd.selected()
+        do_convert()
+    })
+    from_row.add(conv_from_dd)
+
+    conv_input.set_hexpand(true)
+    cogito.set_class(conv_input, @"conv-input")
+    conv_input.on_change((tf = cogito.TextField) => {
+        do_convert()
+    })
+    from_row.add(conv_input)
+    panel.add(from_row)
+
+    let swap_row = cogito.hstack()
+    swap_row.align_center()
+    let swap_btn = cogito.iconbtn(@"sf:arrow.up.arrow.down")
+    cogito.set_class(swap_btn, @"conv-swap")
+    swap_btn.on_click((b = cogito.Button) => {
+        swap_conv()
+    })
+    swap_row.add(swap_btn)
+    panel.add(swap_row)
+
+    let to_row = cogito.vstack()
+    to_row.set_hexpand(true)
+    to_row.set_gap(6)
+
+    let to_label = cogito.label(@"To")
+    cogito.set_class(to_label, @"conv-label")
+    to_row.add(to_label)
+
+    conv_to_dd.set_items(names)
+    conv_to_dd.set_selected(1)
+    conv_to_dd.set_hexpand(true)
+    conv_to_dd.on_change((dd = cogito.Dropdown) => {
+        conv_to_idx = dd.selected()
+        do_convert()
+    })
+    to_row.add(conv_to_dd)
+
+    conv_output.set_hexpand(true)
+    conv_output.set_editable(false)
+    cogito.set_class(conv_output, @"conv-output")
+    to_row.add(conv_output)
+    panel.add(to_row)
+
+    do_convert()
+    return panel
+}
+
 fun show_about_window(win = cogito.Window) (( -- )) {
     let dlg = cogito.dialog(@"")
     let root = cogito.vstack()
@@ -230,13 +472,30 @@ fun build_ui(win = cogito.Window) (( -- )) {
     let root = cogito.vstack()
     cogito.set_class(root, @"calc-root")
 
+    let switcher = cogito.view_switcher()
+
     let bar = cogito.appbar(@"", @"")
     bar.set_hexpand(true)
     let about_btn = bar.add_button(@"sf:questionmark", (b = cogito.Button) => {
         show_about_window(win)
     })
     cogito.set_tooltip(about_btn, @"About ErgoCalc")
+    let toggle_btn = bar.add_button(@"sf:arrow.left.arrow.right", (b = cogito.Button) => {
+        showing_converter = !showing_converter
+        if showing_converter {
+            switcher.set_active(@"converter")
+        } else {
+            switcher.set_active(@"calculator")
+        }
+    })
+    cogito.set_tooltip(toggle_btn, @"Unit Converter")
     root.add(bar)
+
+    -- Calculator view
+    let calc_view = cogito.vstack()
+    calc_view.set_hexpand(true)
+    calc_view.set_vexpand(true)
+    cogito.set_id(calc_view, @"calculator")
 
     let display_box = cogito.vstack()
     display_box.set_hexpand(true)
@@ -253,7 +512,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
     cogito.set_class(display_working, @"calc-display-working")
     display_box.add(display_working)
 
-    root.add(display_box)
+    calc_view.add(display_box)
 
     let keypad = cogito.grid(5)
     keypad.set_hexpand(true)
@@ -286,7 +545,19 @@ fun build_ui(win = cogito.Window) (( -- )) {
     keypad.add(eq)
     keypad.set_span(eq, 2, 1)
 
-    root.add(keypad)
+    calc_view.add(keypad)
+
+    -- Converter view
+    let conv_view = build_converter_ui()
+    cogito.set_id(conv_view, @"converter")
+
+    switcher.add(calc_view)
+    switcher.add(conv_view)
+    switcher.set_active(@"calculator")
+    switcher.set_hexpand(true)
+    switcher.set_vexpand(true)
+
+    root.add(switcher)
     win.add(root)
 
     clear_all()

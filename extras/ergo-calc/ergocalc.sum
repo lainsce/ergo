@@ -1,12 +1,22 @@
 ; ErgoCalc SUM theme
 @diagnostics: warn
+
 @primary: #8C56BF
 @primary-container: #D7C5E9
 @primary-hover: #F1EAF7
 @primary-active: #BEA0DB
+@bg: #f5f5f5
 @surface: #ffffff
 @text: #2D2D2D
 @muted: #6A6A6A
+@pink: #F1ACC1
+@pink-hover: #F8D8E2
+@pink-active: #EA80A0
+@dark-bg: #121212
+@dark-surface: #1c1c1c
+@dark-keypad: #1a1a1a
+@dark-text: #f2f2f7
+@dark-muted: #bbbbbb
 
 *
   color: @text
@@ -18,11 +28,11 @@ window
 vstack
 hstack
 zstack
-  background: #ffffff00
+  background: transparent
   color: @text
 
 appbar
-  background: #f5f5f5
+  background: @bg
   color: @text
   min-height: 46
   padding: 6 10
@@ -39,9 +49,6 @@ appbar .iconbtn:active
   background: @primary-active
   border-radius: 10
 
-vstack.calc-root
-  padding: 18 18 18 18
-
 vstack.calc-display
   border-radius: 12
   min-height: 92
@@ -49,20 +56,20 @@ vstack.calc-display
 
 label.calc-display-working
   color: @text
-  background: #ffffff00
+  background: transparent
   font-size: 34
   padding: 6 18
   font-variant-numeric: tabular-nums
 
 label.calc-display-expression
   color: @muted
-  background: #ffffff00
+  background: transparent
   font-size: 18
   padding: 6 18
   font-variant-numeric: tabular-nums
 
 grid.calc-keypad
-  background: #ffffff
+  background: @surface
   border-radius: 16
   padding: 12 18 18
   gap: 12
@@ -75,7 +82,7 @@ button
   padding: 8 12
 
 label.calc-spacer
-  color: #00000000
+  color: transparent
 
 button:hover
   background: @primary-hover
@@ -106,18 +113,18 @@ button.outlined:active
   border-radius: 21
 
 button.text
-  background: #F1ACC1
-  color: #6A6A6A
+  background: @pink
+  color: @muted
   border-radius: 10
   padding: 8 12
 
 button.text:hover
-  background: #F8D8E2
-  color: #6A6A6A
+  background: @pink-hover
+  color: @muted
 
 button.text:active
-  background: #EA80A0
-  color: #6A6A6A
+  background: @pink-active
+  color: @muted
   border-radius: 21
 
 button.text:focus
@@ -125,61 +132,92 @@ button.text:focus
 
 button.calc-equals
   background: @primary
-  color: #ffffff
+  color: @surface
   border: 0 none #000
 
 button.calc-equals:hover
-  background: #BEA0DB
-  color: #ffffff
+  background: @primary-active
+  color: @surface
 
 button.calc-equals:active
   background: mix(@primary, #000000, 18%)
-  color: #ffffff
+  color: @surface
   border-radius: 21
 
 button.calc-equals:focus
-  border: 2 solid #ffffff
+  border: 2 solid @surface
 
 iconbtn:focus
   border: 2 solid @primary
 
 dialog
-  background: #ffffff
-  color: #2D2D2D
+  background: @surface
+  color: @text
   border-radius: 18
   padding: 20
 
 label.about-window-title
-  color: #2D2D2D
+  color: @text
 
 label.about-window-license
-  color: #6A6A6A
+  color: @muted
 
 hstack.about-window-actions
-  background: #ffffff00
+  background: transparent
   gap: 10
 
 tooltip
   background: @text
-  color: #F5F5F5
+  color: @bg
   border-radius: 8
   padding: 6 8
 
+vstack.conv-panel
+  background: @surface
+  padding: 18 18
+  border-radius: 16
+
+label.conv-label
+  color: @muted
+  font-size: 12
+  background: transparent
+
+textfield.conv-input
+textfield.conv-output
+  font-size: 22
+  border-radius: 10
+  padding: 10 12
+
+iconbtn.conv-swap
+  background: @primary-container
+  color: @primary
+  border-radius: 21
+
+iconbtn.conv-swap:hover
+  background: @primary-hover
+
+iconbtn.conv-swap:active
+  background: @primary-active
+
 @when dark
   window
-    background: #121212
+    background: @dark-bg
   appbar
-    background: #1c1c1c
+    background: @dark-surface
   grid.calc-keypad
-    background: #1a1a1a
+    background: @dark-keypad
   dialog
-    background: #1c1c1c
-    color: #f2f2f7
+    background: @dark-surface
+    color: @dark-text
   label.about-window-title
-    color: #f2f2f7
+    color: @dark-text
   label.about-window-license
-    color: #bbbbbb
+    color: @dark-muted
   label.calc-display-working
-    color: #f1f1f1
+    color: @dark-text
   label.calc-display-expression
-    color: #bbbbbb
+    color: @dark-muted
+  vstack.conv-panel
+    background: @dark-keypad
+  label.conv-label
+    color: @dark-muted
