@@ -59,7 +59,28 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     ergo_trap("Failed to create window");
   }
   cogito_active_backend_window = window;
-  
+
+  // Set window icon: explicit app icon or auto-detect from script dir
+  if (cogito_backend->window_set_icon) {
+    const char* icon_path = cogito_app_get_icon_path(app);
+    char resolved_icon[PATH_MAX];
+    bool icon_set = false;
+    if (icon_path) {
+      if (cogito_image_resolve_path(icon_path, resolved_icon, sizeof(resolved_icon))) {
+        icon_set = cogito_backend->window_set_icon(window, resolved_icon);
+      }
+    }
+    if (!icon_set && cogito_script_dir[0]) {
+      // Auto-detect icon file in script directory
+      static const char* icon_names[] = {"icon.png", "icon.svg", "icon.jpg", "icon.bmp", NULL};
+      for (int i = 0; icon_names[i]; i++) {
+        if (cogito_image_resolve_path(icon_names[i], resolved_icon, sizeof(resolved_icon))) {
+          if (cogito_backend->window_set_icon(window, resolved_icon)) break;
+        }
+      }
+    }
+  }
+
   cogito_backend_ready = true;
   {
     const char* env_inspector = getenv("COGITO_INSPECTOR");

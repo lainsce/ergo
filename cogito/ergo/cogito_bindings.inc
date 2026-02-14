@@ -7,6 +7,8 @@
 #undef cogito_app_set_appid
 #undef cogito_app_set_app_name
 #undef cogito_app_set_accent_color
+#undef cogito_app_set_icon
+#undef cogito_app_get_icon
 #undef cogito_open_url
 #undef cogito_window_new
 #undef cogito_window_free
@@ -422,6 +424,20 @@ static void __cogito_app_set_accent_color(ErgoVal appv, ErgoVal colorv, ErgoVal 
   bool ov = overridev.tag == EVT_BOOL ? overridev.as.b : false;
   if (color) cogito_app_set_accent_color(app, color, ov);
   if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
+static void __cogito_app_set_icon(ErgoVal appv, ErgoVal pathv) {
+  cogito_app* app = cogito_app_from_val(appv);
+  ErgoStr* tmp = NULL;
+  const char* path = cogito_optional_cstr(pathv, &tmp);
+  if (path) cogito_app_set_icon(app, path);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
+static ErgoVal __cogito_app_get_icon(ErgoVal appv) {
+  cogito_app* app = cogito_app_from_val(appv);
+  const char* path = cogito_app_get_icon(app);
+  return EV_STR(stdr_str_lit(path ? path : ""));
 }
 
 static ErgoVal __cogito_window(ErgoVal titlev, ErgoVal wv, ErgoVal hv) {
@@ -1670,6 +1686,8 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_app_set_appid __cogito_app_set_appid
 #define cogito_app_set_app_name __cogito_app_set_app_name
 #define cogito_app_set_accent_color __cogito_app_set_accent_color
+#define cogito_app_set_icon __cogito_app_set_icon
+#define cogito_app_get_icon __cogito_app_get_icon
 #define cogito_open_url __cogito_open_url
 #define cogito_window_new __cogito_window
 #define cogito_window_set_resizable __cogito_window_set_resizable
@@ -1750,6 +1768,8 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_app_set_appid __cogito_app_set_appid
 #define cogito_app_set_app_name __cogito_app_set_app_name
 #define cogito_app_set_accent_color __cogito_app_set_accent_color
+#define cogito_app_set_icon __cogito_app_set_icon
+#define cogito_app_get_icon __cogito_app_get_icon
 #define cogito_pointer_capture_set __cogito_pointer_capture
 #define cogito_pointer_capture_clear __cogito_pointer_release
 #define cogito_view_switcher_set_active __cogito_view_switcher_set_active

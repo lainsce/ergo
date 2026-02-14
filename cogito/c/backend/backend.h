@@ -81,6 +81,7 @@ typedef struct CogitoBackend {
     void (*window_restore)(CogitoWindow* window);
     bool (*window_is_maximized)(CogitoWindow* window);
     void* (*window_get_native_handle)(CogitoWindow* window);
+    bool (*window_set_icon)(CogitoWindow* window, const char* path);
     uint32_t (*window_get_id)(CogitoWindow* window);
     bool (*open_url)(const char* url);
     

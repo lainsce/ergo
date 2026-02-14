@@ -11,6 +11,10 @@ static void cogito_app_drop(ErgoObj* o) {
     ergo_release_val(EV_STR(app->app_name));
     app->app_name = NULL;
   }
+  if (app->app_icon) {
+    ergo_release_val(EV_STR(app->app_icon));
+    app->app_icon = NULL;
+  }
 }
 
 static CogitoApp* cogito_app_new_obj(void) {
@@ -24,6 +28,7 @@ static CogitoApp* cogito_app_new_obj(void) {
   app->system_dark = false;
   app->system_accent = cogito_rgba(114, 222, 194, 255);
   app->system_accent_set = false;
+  app->app_icon = NULL;
   return app;
 }
 
@@ -123,6 +128,32 @@ static void cogito_app_set_accent_color(ErgoVal appv, ErgoVal colorv, ErgoVal fo
     if (temp && s) ergo_release_val(EV_STR(s));
   }
   cogito_app_update_theme(app);
+}
+
+static void cogito_app_set_icon(ErgoVal appv, ErgoVal pathv) {
+  if (appv.tag != EVT_OBJ) ergo_trap("cogito.app_set_icon expects app");
+  CogitoApp* app = (CogitoApp*)appv.as.p;
+  ErgoStr* s = NULL;
+  bool temp = false;
+  if (pathv.tag == EVT_STR) {
+    s = (ErgoStr*)pathv.as.p;
+    if (s) ergo_retain_val(EV_STR(s));
+  } else if (pathv.tag != EVT_NULL) {
+    s = stdr_to_string(pathv);
+    temp = true;
+  }
+  if (app->app_icon) ergo_release_val(EV_STR(app->app_icon));
+  app->app_icon = s;
+  if (temp && s) {
+    // app now owns temp string (ref=1)
+  }
+}
+
+static const char* cogito_app_get_icon_path(CogitoApp* app) {
+  if (app && app->app_icon && app->app_icon->data && app->app_icon->data[0]) {
+    return app->app_icon->data;
+  }
+  return NULL;
 }
 
 static ErgoVal cogito_app_new(void) {

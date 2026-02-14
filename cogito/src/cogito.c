@@ -37,6 +37,7 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_app_set_accent_color cogito_app_set_accent_color_ergo
 #define cogito_app_set_app_name cogito_app_set_app_name_ergo
 #define cogito_app_set_appid cogito_app_set_appid_ergo
+#define cogito_app_set_icon cogito_app_set_icon_ergo
 #define cogito_appbar_add_button cogito_appbar_add_button_ergo
 #define cogito_appbar_new cogito_appbar_new_ergo
 #define cogito_appbar_set_controls cogito_appbar_set_controls_ergo
@@ -218,6 +219,7 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_app_set_accent_color
 #undef cogito_app_set_app_name
 #undef cogito_app_set_appid
+#undef cogito_app_set_icon
 #undef cogito_appbar_add_button
 #undef cogito_appbar_new
 #undef cogito_appbar_set_controls
@@ -481,6 +483,18 @@ void cogito_app_set_app_name(cogito_app* app, const char* name) {
   ErgoVal nv = cogito_val_from_cstr(name);
   cogito_app_set_app_name_ergo(EV_OBJ(app), nv);
   if (nv.tag == EVT_STR) ergo_release_val(nv);
+}
+
+void cogito_app_set_icon(cogito_app* app, const char* path) {
+  if (!app) return;
+  ErgoVal pv = cogito_val_from_cstr(path);
+  cogito_app_set_icon_ergo(EV_OBJ(app), pv);
+  if (pv.tag == EVT_STR) ergo_release_val(pv);
+}
+
+const char* cogito_app_get_icon(cogito_app* app) {
+  if (!app) return NULL;
+  return cogito_app_get_icon_path((CogitoApp*)app);
 }
 
 void cogito_app_set_accent_color(cogito_app* app, const char* hex, bool follow_system) {

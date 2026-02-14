@@ -83,6 +83,8 @@ void cogito_app_run(cogito_app* app, cogito_window* window);
 void cogito_app_set_appid(cogito_app* app, const char* rdnn);
 void cogito_app_set_app_name(cogito_app* app, const char* name);
 void cogito_app_set_accent_color(cogito_app* app, const char* hex, bool follow_system);
+void cogito_app_set_icon(cogito_app* app, const char* path);
+const char* cogito_app_get_icon(cogito_app* app);
 bool cogito_open_url(const char* url);
 
 cogito_window* cogito_window_new(const char* title, int w, int h);

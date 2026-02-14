@@ -68,6 +68,7 @@ typedef struct CogitoApp {
   bool system_dark;
   CogitoColor system_accent;
   bool system_accent_set;
+  ErgoStr* app_icon;  // path to app icon (png/svg/jpg/bmp)
 } CogitoApp;
 
 typedef enum {

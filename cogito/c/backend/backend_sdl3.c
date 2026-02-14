@@ -7,6 +7,9 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_gpu.h>
 #include <SDL3_ttf/SDL_ttf.h>
+#if defined(COGITO_HAS_SDL3_IMAGE)
+#include <SDL3_image/SDL_image.h>
+#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -584,6 +587,22 @@ static void* sdl3_window_get_native_handle(CogitoWindow* window) {
                                                      SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
 #else
     return NULL;
+#endif
+}
+
+static bool sdl3_window_set_icon(CogitoWindow* window, const char* path) {
+    CogitoSDL3Window* win = (CogitoSDL3Window*)window;
+    if (!win || !win->sdl_window || !path || !path[0]) return false;
+#if defined(COGITO_HAS_SDL3_IMAGE)
+    SDL_Surface* icon = IMG_Load(path);
+    if (!icon) return false;
+    bool ok = SDL_SetWindowIcon(win->sdl_window, icon);
+    SDL_DestroySurface(icon);
+    return ok;
+#else
+    (void)win;
+    (void)path;
+    return false;
 #endif
 }
 
@@ -1981,6 +2000,7 @@ static CogitoBackend sdl3_backend = {
     .window_restore = sdl3_window_restore,
     .window_is_maximized = sdl3_window_is_maximized,
     .window_get_native_handle = sdl3_window_get_native_handle,
+    .window_set_icon = sdl3_window_set_icon,
     .window_get_id = sdl3_window_get_id,
     .open_url = sdl3_open_url,
     .begin_frame = sdl3_begin_frame,
