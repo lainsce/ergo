@@ -11,8 +11,8 @@ def ?pending_op = @""
 def ?reset_input = true
 def ?has_error = false
 def ?showing_converter = false
-def conv_input = cogito.textfield(@"Input")
-def conv_output = cogito.textfield(@"Output")
+def conv_input = cogito.textfield(@"From")
+def conv_output = cogito.textfield(@"To")
 def ?conv_from_idx = 0
 def ?conv_to_idx = 1
 def conv_from_dd = cogito.dropdown()
@@ -358,30 +358,26 @@ fun build_converter_ui() (( cogito.VStack )) {
     })
     panel.add(cat_dd)
 
-    let from_row = cogito.vstack()
+    let from_row = cogito.hstack()
     from_row.set_hexpand(true)
     from_row.set_gap(6)
-
-    let from_label = cogito.label(@"From")
-    cogito.set_class(from_label, @"conv-label")
-    from_row.add(from_label)
 
     let names = conv_unit_names()
     conv_from_dd.set_items(names)
     conv_from_dd.set_selected(0)
-    conv_from_dd.set_hexpand(true)
     conv_from_dd.on_change((dd = cogito.Dropdown) => {
         conv_from_idx = dd.selected()
         do_convert()
     })
-    from_row.add(conv_from_dd)
 
     conv_input.set_hexpand(true)
     cogito.set_class(conv_input, @"conv-input")
     conv_input.on_change((tf = cogito.TextField) => {
         do_convert()
     })
+
     from_row.add(conv_input)
+    from_row.add(conv_from_dd)
     panel.add(from_row)
 
     let swap_row = cogito.hstack()
@@ -394,27 +390,23 @@ fun build_converter_ui() (( cogito.VStack )) {
     swap_row.add(swap_btn)
     panel.add(swap_row)
 
-    let to_row = cogito.vstack()
+    let to_row = cogito.hstack()
     to_row.set_hexpand(true)
     to_row.set_gap(6)
 
-    let to_label = cogito.label(@"To")
-    cogito.set_class(to_label, @"conv-label")
-    to_row.add(to_label)
-
     conv_to_dd.set_items(names)
     conv_to_dd.set_selected(1)
-    conv_to_dd.set_hexpand(true)
     conv_to_dd.on_change((dd = cogito.Dropdown) => {
         conv_to_idx = dd.selected()
         do_convert()
     })
-    to_row.add(conv_to_dd)
 
     conv_output.set_hexpand(true)
     conv_output.set_editable(false)
     cogito.set_class(conv_output, @"conv-output")
+
     to_row.add(conv_output)
+    to_row.add(conv_to_dd)
     panel.add(to_row)
 
     do_convert()

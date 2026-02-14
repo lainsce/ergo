@@ -110,12 +110,22 @@ static void ergo_trap(const char* msg) {
 static void ergo_retain_val(ErgoVal v);
 static void ergo_release_val(ErgoVal v);
 
+// Static constant strings (ref=INT32_MAX means never freed)
+static ErgoStr ergo_static_empty    = { INT32_MAX, 0, "" };
+static ErgoStr ergo_static_null     = { INT32_MAX, 4, "null" };
+static ErgoStr ergo_static_true     = { INT32_MAX, 4, "true" };
+static ErgoStr ergo_static_false    = { INT32_MAX, 5, "false" };
+static ErgoStr ergo_static_array    = { INT32_MAX, 7, "[array]" };
+static ErgoStr ergo_static_object   = { INT32_MAX, 8, "[object]" };
+static ErgoStr ergo_static_function = { INT32_MAX, 10, "[function]" };
+static ErgoStr ergo_static_unknown  = { INT32_MAX, 3, "<?>" };
+
 static ErgoStr* stdr_str_lit(const char* s) {
   size_t n = strlen(s);
-  ErgoStr* st = (ErgoStr*)malloc(sizeof(ErgoStr));
+  ErgoStr* st = (ErgoStr*)malloc(sizeof(ErgoStr) + n + 1);
   st->ref = 1;
   st->len = n;
-  st->data = (char*)malloc(n + 1);
+  st->data = (char*)(st + 1);
   memcpy(st->data, s, n + 1);
   return st;
 }
@@ -132,7 +142,7 @@ static ErgoVal ergo_arr_remove(ErgoArr* a, int64_t idx);
 static ErgoVal stdr_str_at(ErgoVal v, int64_t idx) {
   if (v.tag != EVT_STR) ergo_trap("str_at expects string");
   ErgoStr* s = (ErgoStr*)v.as.p;
-  if (idx < 0 || (size_t)idx >= s->len) return EV_STR(stdr_str_lit(""));
+  if (idx < 0 || (size_t)idx >= s->len) return EV_STR(&ergo_static_empty);
   return EV_STR(stdr_str_from_slice(s->data + idx, 1));
 }
 
@@ -197,12 +207,14 @@ static ErgoStr* stdr_read_line(void) {
     buf[len++] = (char)c;
   }
   if (len > 0 && buf[len - 1] == '\r') len--;
-  buf[len] = 0;
-  ErgoStr* s = (ErgoStr*)malloc(sizeof(ErgoStr));
+  ErgoStr* s = (ErgoStr*)malloc(sizeof(ErgoStr) + len + 1);
   if (!s) ergo_trap("out of memory");
   s->ref = 1;
   s->len = len;
-  s->data = buf;
+  s->data = (char*)(s + 1);
+  memcpy(s->data, buf, len);
+  s->data[len] = 0;
+  free(buf);
   return s;
 }
 
@@ -225,22 +237,16 @@ static ErgoVal stdr_read_text_file(ErgoVal pathv) {
     return EV_NULLV;
   }
   size_t len = (size_t)sz;
-  ErgoStr* out = (ErgoStr*)malloc(sizeof(ErgoStr));
+  ErgoStr* out = (ErgoStr*)malloc(sizeof(ErgoStr) + len + 1);
   if (!out) {
     fclose(f);
     ergo_trap("out of memory");
   }
-  out->data = (char*)malloc(len + 1);
-  if (!out->data) {
-    fclose(f);
-    free(out);
-    ergo_trap("out of memory");
-  }
+  out->data = (char*)(out + 1);
   size_t n = 0;
   if (len > 0) n = fread(out->data, 1, len, f);
   fclose(f);
   if (n != len) {
-    free(out->data);
     free(out);
     return EV_NULLV;
   }
@@ -351,12 +357,11 @@ static void stdr_trim_span(const char* s, size_t len, size_t* out_start, size_t*
 }
 
 static ErgoStr* stdr_str_from_slice(const char* s, size_t len) {
-  ErgoStr* st = (ErgoStr*)malloc(sizeof(ErgoStr));
+  ErgoStr* st = (ErgoStr*)malloc(sizeof(ErgoStr) + len + 1);
   if (!st) ergo_trap("out of memory");
   st->ref = 1;
   st->len = len;
-  st->data = (char*)malloc(len + 1);
-  if (!st->data) ergo_trap("out of memory");
+  st->data = (char*)(st + 1);
   if (len > 0) memcpy(st->data, s, len);
   st->data[len] = 0;
   return st;
@@ -364,26 +369,28 @@ static ErgoStr* stdr_str_from_slice(const char* s, size_t len) {
 
 static int64_t stdr_parse_int_slice(const char* s, size_t len) {
   if (len == 0) return 0;
-  char* tmp = (char*)malloc(len + 1);
+  char stack[64];
+  char* tmp = (len < sizeof(stack)) ? stack : (char*)malloc(len + 1);
   if (!tmp) ergo_trap("out of memory");
   memcpy(tmp, s, len);
   tmp[len] = 0;
   char* end = NULL;
   long long v = strtoll(tmp, &end, 10);
-  free(tmp);
+  if (tmp != stack) free(tmp);
   if (end == tmp) return 0;
   return (int64_t)v;
 }
 
 static double stdr_parse_float_slice(const char* s, size_t len) {
   if (len == 0) return 0.0;
-  char* tmp = (char*)malloc(len + 1);
+  char stack[64];
+  char* tmp = (len < sizeof(stack)) ? stack : (char*)malloc(len + 1);
   if (!tmp) ergo_trap("out of memory");
   memcpy(tmp, s, len);
   tmp[len] = 0;
   char* end = NULL;
   double v = strtod(tmp, &end);
-  free(tmp);
+  if (tmp != stack) free(tmp);
   if (end == tmp) return 0.0;
   return v;
 }
@@ -424,8 +431,10 @@ static ErgoVal stdr_readf_parse(ErgoVal fmt, ErgoVal line, ErgoVal args) {
     }
   }
 
-  const char** seg_ptrs = (const char**)malloc(sizeof(char*) * segs);
-  size_t* seg_lens = (size_t*)malloc(sizeof(size_t) * segs);
+  const char* stack_ptrs[16];
+  size_t stack_lens[16];
+  const char** seg_ptrs = (segs <= 16) ? stack_ptrs : (const char**)malloc(sizeof(char*) * segs);
+  size_t* seg_lens = (segs <= 16) ? stack_lens : (size_t*)malloc(sizeof(size_t) * segs);
   if (!seg_ptrs || !seg_lens) ergo_trap("out of memory");
 
   size_t seg_start = 0;
@@ -487,16 +496,16 @@ static ErgoVal stdr_readf_parse(ErgoVal fmt, ErgoVal line, ErgoVal args) {
     ergo_arr_add(out, v);
   }
 
-  free(seg_ptrs);
-  free(seg_lens);
+  if (seg_ptrs != stack_ptrs) free(seg_ptrs);
+  if (seg_lens != stack_lens) free(seg_lens);
 
   return EV_ARR(out);
 }
 
 static ErgoStr* stdr_to_string(ErgoVal v) {
   char buf[64];
-  if (v.tag == EVT_NULL) return stdr_str_lit("null");
-  if (v.tag == EVT_BOOL) return stdr_str_lit(v.as.b ? "true" : "false");
+  if (v.tag == EVT_NULL) return &ergo_static_null;
+  if (v.tag == EVT_BOOL) return v.as.b ? &ergo_static_true : &ergo_static_false;
   if (v.tag == EVT_INT) {
     snprintf(buf, sizeof(buf), "%lld", (long long)v.as.i);
     return stdr_str_lit(buf);
@@ -509,23 +518,24 @@ static ErgoStr* stdr_to_string(ErgoVal v) {
     ergo_retain_val(v);
     return (ErgoStr*)v.as.p;
   }
-  if (v.tag == EVT_ARR) return stdr_str_lit("[array]");
-  if (v.tag == EVT_OBJ) return stdr_str_lit("[object]");
-  if (v.tag == EVT_FN) return stdr_str_lit("[function]");
-  return stdr_str_lit("<?>");
+  if (v.tag == EVT_ARR) return &ergo_static_array;
+  if (v.tag == EVT_OBJ) return &ergo_static_object;
+  if (v.tag == EVT_FN) return &ergo_static_function;
+  return &ergo_static_unknown;
 }
 
 static ErgoStr* stdr_str_from_parts(int n, ErgoVal* parts) {
   size_t total = 0;
-  ErgoStr** strs = (ErgoStr**)malloc(sizeof(ErgoStr*) * (size_t)n);
+  ErgoStr* stack_strs[16];
+  ErgoStr** strs = (n <= 16) ? stack_strs : (ErgoStr**)malloc(sizeof(ErgoStr*) * (size_t)n);
   for (int i = 0; i < n; i++) {
     strs[i] = stdr_to_string(parts[i]);
     total += strs[i]->len;
   }
-  ErgoStr* out = (ErgoStr*)malloc(sizeof(ErgoStr));
+  ErgoStr* out = (ErgoStr*)malloc(sizeof(ErgoStr) + total + 1);
   out->ref = 1;
   out->len = total;
-  out->data = (char*)malloc(total + 1);
+  out->data = (char*)(out + 1);
   size_t off = 0;
   for (int i = 0; i < n; i++) {
     memcpy(out->data + off, strs[i]->data, strs[i]->len);
@@ -533,12 +543,12 @@ static ErgoStr* stdr_str_from_parts(int n, ErgoVal* parts) {
     ergo_release_val(EV_STR(strs[i]));
   }
   out->data[total] = 0;
-  free(strs);
+  if (strs != stack_strs) free(strs);
   return out;
 }
 
 static void ergo_retain_val(ErgoVal v) {
-  if (v.tag == EVT_STR) ((ErgoStr*)v.as.p)->ref++;
+  if (v.tag == EVT_STR) { int* r = &((ErgoStr*)v.as.p)->ref; if (*r != INT32_MAX) (*r)++; }
   else if (v.tag == EVT_ARR) ((ErgoArr*)v.as.p)->ref++;
   else if (v.tag == EVT_OBJ) ((ErgoObj*)v.as.p)->ref++;
   else if (v.tag == EVT_FN) ((ErgoFn*)v.as.p)->ref++;
@@ -547,8 +557,9 @@ static void ergo_retain_val(ErgoVal v) {
 static void ergo_release_val(ErgoVal v) {
   if (v.tag == EVT_STR) {
     ErgoStr* s = (ErgoStr*)v.as.p;
+    if (s->ref == INT32_MAX) return;
     if (--s->ref == 0) {
-      free(s->data);
+      if (s->data != (char*)(s + 1)) free(s->data);
       free(s);
     }
   } else if (v.tag == EVT_ARR) {

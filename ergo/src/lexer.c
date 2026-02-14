@@ -226,12 +226,7 @@ static bool is_ident_mid(char ch) {
     return isalnum((unsigned char)ch) || ch == '_';
 }
 
-static Str str_from_slice(const char *data, size_t len) {
-    Str out;
-    out.data = data;
-    out.len = len;
-    return out;
-}
+// str_from_slice is now in str.h
 
 static char *arena_strndup(Arena *arena, const char *s, size_t len) {
     if (!arena) {
@@ -553,7 +548,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
         if (ch == '\n') {
             adv(&lx, 1);
             if (lx.nest == 0 && is_stmt_end(lx.last_sig)) {
-                if (!emit_simple(&lx, out, err, TOK_SEMI, str_from_c(";"), lx.line - 1, 0)) {
+                if (!emit_simple(&lx, out, err, TOK_SEMI, STR_LIT(";"), lx.line - 1, 0)) {
                     return false;
                 }
                 lx.last_real = TOK_SEMI;
@@ -562,7 +557,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
         }
 
         if (two0 == '(' && two1 == '(' && lx.ret_depth == 0 && lx.last_sig == TOK_RPAR) {
-            if (!emit_simple(&lx, out, err, TOK_RET_L, str_from_c("(("), lx.line, lx.col)) {
+            if (!emit_simple(&lx, out, err, TOK_RET_L, STR_LIT("(("), lx.line, lx.col)) {
                 return false;
             }
             adv(&lx, 2);
@@ -572,7 +567,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
         }
 
         if (two0 == ')' && two1 == ')' && lx.ret_depth > 0) {
-            if (!emit_simple(&lx, out, err, TOK_RET_R, str_from_c("))"), lx.line, lx.col)) {
+            if (!emit_simple(&lx, out, err, TOK_RET_R, STR_LIT("))"), lx.line, lx.col)) {
                 return false;
             }
             adv(&lx, 2);
@@ -584,7 +579,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
         }
 
         if (two0 == '-' && two1 == '-' && lx.ret_depth > 0) {
-            if (!emit_simple(&lx, out, err, TOK_RET_VOID, str_from_c("--"), lx.line, lx.col)) {
+            if (!emit_simple(&lx, out, err, TOK_RET_VOID, STR_LIT("--"), lx.line, lx.col)) {
                 return false;
             }
             adv(&lx, 2);
@@ -601,7 +596,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
         }
 
         if (two0 == '=' && two1 == '=') {
-            if (!emit_simple(&lx, out, err, TOK_EQEQ, str_from_c("=="), lx.line, lx.col)) {
+            if (!emit_simple(&lx, out, err, TOK_EQEQ, STR_LIT("=="), lx.line, lx.col)) {
                 return false;
             }
             adv(&lx, 2);
@@ -609,7 +604,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             continue;
         }
         if (two0 == '!' && two1 == '=') {
-            if (!emit_simple(&lx, out, err, TOK_NEQ, str_from_c("!="), lx.line, lx.col)) {
+            if (!emit_simple(&lx, out, err, TOK_NEQ, STR_LIT("!="), lx.line, lx.col)) {
                 return false;
             }
             adv(&lx, 2);
@@ -617,7 +612,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             continue;
         }
         if (two0 == '<' && two1 == '=') {
-            if (!emit_simple(&lx, out, err, TOK_LTE, str_from_c("<="), lx.line, lx.col)) {
+            if (!emit_simple(&lx, out, err, TOK_LTE, STR_LIT("<="), lx.line, lx.col)) {
                 return false;
             }
             adv(&lx, 2);
@@ -625,7 +620,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             continue;
         }
         if (two0 == '>' && two1 == '=') {
-            if (!emit_simple(&lx, out, err, TOK_GTE, str_from_c(">="), lx.line, lx.col)) {
+            if (!emit_simple(&lx, out, err, TOK_GTE, STR_LIT(">="), lx.line, lx.col)) {
                 return false;
             }
             adv(&lx, 2);
@@ -633,7 +628,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             continue;
         }
         if (two0 == '&' && two1 == '&') {
-            if (!emit_simple(&lx, out, err, TOK_ANDAND, str_from_c("&&"), lx.line, lx.col)) {
+            if (!emit_simple(&lx, out, err, TOK_ANDAND, STR_LIT("&&"), lx.line, lx.col)) {
                 return false;
             }
             adv(&lx, 2);
@@ -641,7 +636,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             continue;
         }
         if (two0 == '|' && two1 == '|') {
-            if (!emit_simple(&lx, out, err, TOK_OROR, str_from_c("||"), lx.line, lx.col)) {
+            if (!emit_simple(&lx, out, err, TOK_OROR, STR_LIT("||"), lx.line, lx.col)) {
                 return false;
             }
             adv(&lx, 2);
@@ -649,7 +644,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             continue;
         }
         if (two0 == '=' && two1 == '>') {
-            if (!emit_simple(&lx, out, err, TOK_ARROW, str_from_c("=>"), lx.line, lx.col)) {
+            if (!emit_simple(&lx, out, err, TOK_ARROW, STR_LIT("=>"), lx.line, lx.col)) {
                 return false;
             }
             adv(&lx, 2);
@@ -657,7 +652,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             continue;
         }
         if (two0 == '+' && two1 == '=') {
-            if (!emit_simple(&lx, out, err, TOK_PLUSEQ, str_from_c("+="), lx.line, lx.col)) {
+            if (!emit_simple(&lx, out, err, TOK_PLUSEQ, STR_LIT("+="), lx.line, lx.col)) {
                 return false;
             }
             adv(&lx, 2);
@@ -665,7 +660,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             continue;
         }
         if (two0 == '-' && two1 == '=') {
-            if (!emit_simple(&lx, out, err, TOK_MINUSEQ, str_from_c("-="), lx.line, lx.col)) {
+            if (!emit_simple(&lx, out, err, TOK_MINUSEQ, STR_LIT("-="), lx.line, lx.col)) {
                 return false;
             }
             adv(&lx, 2);
@@ -673,7 +668,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             continue;
         }
         if (two0 == '*' && two1 == '=') {
-            if (!emit_simple(&lx, out, err, TOK_STAREQ, str_from_c("*="), lx.line, lx.col)) {
+            if (!emit_simple(&lx, out, err, TOK_STAREQ, STR_LIT("*="), lx.line, lx.col)) {
                 return false;
             }
             adv(&lx, 2);
@@ -681,7 +676,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             continue;
         }
         if (two0 == '/' && two1 == '=') {
-            if (!emit_simple(&lx, out, err, TOK_SLASHEQ, str_from_c("/="), lx.line, lx.col)) {
+            if (!emit_simple(&lx, out, err, TOK_SLASHEQ, STR_LIT("/="), lx.line, lx.col)) {
                 return false;
             }
             adv(&lx, 2);
@@ -689,7 +684,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             continue;
         }
         if (two0 == '?' && two1 == '?') {
-            if (!emit_simple(&lx, out, err, TOK_QQ, str_from_c("??"), lx.line, lx.col)) {
+            if (!emit_simple(&lx, out, err, TOK_QQ, STR_LIT("??"), lx.line, lx.col)) {
                 return false;
             }
             adv(&lx, 2);
@@ -698,7 +693,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
         }
 
         if (ch == ';') {
-            if (!emit_simple(&lx, out, err, TOK_SEMI, str_from_c(";"), lx.line, lx.col)) {
+            if (!emit_simple(&lx, out, err, TOK_SEMI, STR_LIT(";"), lx.line, lx.col)) {
                 return false;
             }
             adv(&lx, 1);
@@ -751,7 +746,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
         }
 
         if (ch == '?') {
-            if (!emit_simple(&lx, out, err, TOK_QMARK, str_from_c("?"), lx.line, lx.col)) {
+            if (!emit_simple(&lx, out, err, TOK_QMARK, STR_LIT("?"), lx.line, lx.col)) {
                 return false;
             }
             adv(&lx, 1);
@@ -760,7 +755,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
         }
 
         if (ch == '#') {
-            if (!emit_simple(&lx, out, err, TOK_HASH, str_from_c("#"), lx.line, lx.col)) {
+            if (!emit_simple(&lx, out, err, TOK_HASH, STR_LIT("#"), lx.line, lx.col)) {
                 return false;
             }
             adv(&lx, 1);
@@ -791,7 +786,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
                         charvec_free(&buf);
                         return set_error(&lx, err, start_line, start_col, "out of memory");
                     }
-                    if (!emit_str(&lx, out, err, str_from_c("@\"...\""), sp, start_line, start_col)) {
+                    if (!emit_str(&lx, out, err, STR_LIT("@\"...\""), sp, start_line, start_col)) {
                         strpartvec_free(&parts);
                         charvec_free(&buf);
                         return false;
@@ -905,7 +900,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
                         strpartvec_free(&parts);
                         return set_error(&lx, err, start_line, start_col, "out of memory");
                     }
-                    if (!emit_str(&lx, out, err, str_from_c("\"...\""), sp, start_line, start_col)) {
+                    if (!emit_str(&lx, out, err, STR_LIT("\"...\""), sp, start_line, start_col)) {
                         charvec_free(&buf_raw);
                         strpartvec_free(&parts);
                         return false;
@@ -943,14 +938,15 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             size_t end = lx.i;
             Str text = str_from_slice(&lx.src[start], end - start);
             if (is_float) {
-                char *tmp = (char *)malloc(text.len + 1);
+                char stack_tmp[64];
+                char *tmp = (text.len < sizeof(stack_tmp)) ? stack_tmp : (char *)malloc(text.len + 1);
                 if (!tmp) {
                     return set_error(&lx, err, start_line, start_col, "out of memory");
                 }
                 memcpy(tmp, text.data, text.len);
                 tmp[text.len] = '\0';
                 double val = strtod(tmp, NULL);
-                free(tmp);
+                if (tmp != stack_tmp) free(tmp);
                 if (!emit_float(&lx, out, err, text, val, start_line, start_col)) {
                     return false;
                 }
@@ -979,32 +975,46 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             Str word = str_from_slice(&lx.src[start], end - start);
 
             TokKind kw = TOK_INVALID;
-            if (str_eq_c(word, "cask")) kw = TOK_KW_cask;
-            else if (str_eq_c(word, "bring")) kw = TOK_KW_bring;
-            else if (str_eq_c(word, "fun")) kw = TOK_KW_fun;
-            else if (str_eq_c(word, "entry")) kw = TOK_KW_entry;
-            else if (str_eq_c(word, "class")) kw = TOK_KW_class;
-            else if (str_eq_c(word, "struct")) kw = TOK_KW_struct;
-            else if (str_eq_c(word, "enum")) kw = TOK_KW_enum;
-            else if (str_eq_c(word, "pub")) kw = TOK_KW_pub;
-            else if (str_eq_c(word, "lock")) kw = TOK_KW_lock;
-            else if (str_eq_c(word, "seal")) kw = TOK_KW_seal;
-            else if (str_eq_c(word, "def")) kw = TOK_KW_def;
-            else if (str_eq_c(word, "let")) kw = TOK_KW_let;
-            else if (str_eq_c(word, "const")) kw = TOK_KW_const;
-            else if (str_eq_c(word, "if")) kw = TOK_KW_if;
-            else if (str_eq_c(word, "else")) kw = TOK_KW_else;
-            else if (str_eq_c(word, "elif")) kw = TOK_KW_elif;
-            else if (str_eq_c(word, "return")) kw = TOK_KW_return;
-            else if (str_eq_c(word, "true")) kw = TOK_KW_true;
-            else if (str_eq_c(word, "false")) kw = TOK_KW_false;
-            else if (str_eq_c(word, "null")) kw = TOK_KW_null;
-            else if (str_eq_c(word, "for")) kw = TOK_KW_for;
-            else if (str_eq_c(word, "match")) kw = TOK_KW_match;
-            else if (str_eq_c(word, "new")) kw = TOK_KW_new;
-            else if (str_eq_c(word, "in")) kw = TOK_KW_in;
-            else if (str_eq_c(word, "break")) kw = TOK_KW_break;
-            else if (str_eq_c(word, "continue")) kw = TOK_KW_continue;
+            switch (word.len) {
+            case 2:
+                if (word.data[0] == 'i' && word.data[1] == 'f') kw = TOK_KW_if;
+                else if (word.data[0] == 'i' && word.data[1] == 'n') kw = TOK_KW_in;
+                break;
+            case 3:
+                if (memcmp(word.data, "fun", 3) == 0) kw = TOK_KW_fun;
+                else if (memcmp(word.data, "pub", 3) == 0) kw = TOK_KW_pub;
+                else if (memcmp(word.data, "def", 3) == 0) kw = TOK_KW_def;
+                else if (memcmp(word.data, "let", 3) == 0) kw = TOK_KW_let;
+                else if (memcmp(word.data, "for", 3) == 0) kw = TOK_KW_for;
+                else if (memcmp(word.data, "new", 3) == 0) kw = TOK_KW_new;
+                break;
+            case 4:
+                if (memcmp(word.data, "cask", 4) == 0) kw = TOK_KW_cask;
+                else if (memcmp(word.data, "enum", 4) == 0) kw = TOK_KW_enum;
+                else if (memcmp(word.data, "lock", 4) == 0) kw = TOK_KW_lock;
+                else if (memcmp(word.data, "seal", 4) == 0) kw = TOK_KW_seal;
+                else if (memcmp(word.data, "else", 4) == 0) kw = TOK_KW_else;
+                else if (memcmp(word.data, "elif", 4) == 0) kw = TOK_KW_elif;
+                else if (memcmp(word.data, "true", 4) == 0) kw = TOK_KW_true;
+                else if (memcmp(word.data, "null", 4) == 0) kw = TOK_KW_null;
+                break;
+            case 5:
+                if (memcmp(word.data, "bring", 5) == 0) kw = TOK_KW_bring;
+                else if (memcmp(word.data, "entry", 5) == 0) kw = TOK_KW_entry;
+                else if (memcmp(word.data, "class", 5) == 0) kw = TOK_KW_class;
+                else if (memcmp(word.data, "const", 5) == 0) kw = TOK_KW_const;
+                else if (memcmp(word.data, "false", 5) == 0) kw = TOK_KW_false;
+                else if (memcmp(word.data, "match", 5) == 0) kw = TOK_KW_match;
+                else if (memcmp(word.data, "break", 5) == 0) kw = TOK_KW_break;
+                break;
+            case 6:
+                if (memcmp(word.data, "struct", 6) == 0) kw = TOK_KW_struct;
+                else if (memcmp(word.data, "return", 6) == 0) kw = TOK_KW_return;
+                break;
+            case 8:
+                if (memcmp(word.data, "continue", 8) == 0) kw = TOK_KW_continue;
+                break;
+            }
 
             if (kw != TOK_INVALID) {
                 if (!emit_simple(&lx, out, err, kw, word, start_line, start_col)) {
@@ -1024,7 +1034,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
     }
 
     if (lx.nest == 0 && is_stmt_end(lx.last_sig)) {
-        if (!emit_simple(&lx, out, err, TOK_SEMI, str_from_c(";"), lx.line, lx.col)) {
+        if (!emit_simple(&lx, out, err, TOK_SEMI, STR_LIT(";"), lx.line, lx.col)) {
             return false;
         }
         lx.last_real = TOK_SEMI;

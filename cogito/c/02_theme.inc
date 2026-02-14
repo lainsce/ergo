@@ -149,83 +149,89 @@ static void cogito_theme_init(void) {
   }
 }
 
-static CogitoStyle cogito_style_merge(const CogitoStyle* base, const CogitoStyle* over) {
-  CogitoStyle out = *base;
-  if (over->has_bg) { out.has_bg = true; out.bg = over->bg; }
-  if (over->has_text) { out.has_text = true; out.text = over->text; }
-  if (over->has_border) { out.has_border = true; out.border = over->border; }
-  if (over->has_border_width) { out.has_border_width = true; out.border_width = over->border_width; }
-  if (over->has_radius) { out.has_radius = true; out.radius = over->radius; }
-  if (over->has_selection) { out.has_selection = true; out.selection = over->selection; }
-  if (over->has_font_size) { out.has_font_size = true; out.font_size = over->font_size; }
-  if (over->has_track) { out.has_track = true; out.track = over->track; }
-  if (over->has_track_on) { out.has_track_on = true; out.track_on = over->track_on; }
-  if (over->has_knob) { out.has_knob = true; out.knob = over->knob; }
-  if (over->has_check) { out.has_check = true; out.check = over->check; }
-  if (over->has_font_weight) { out.has_font_weight = true; out.font_weight = over->font_weight; }
-  if (over->has_letter_spacing) { out.has_letter_spacing = true; out.letter_spacing = over->letter_spacing; }
-  if (over->has_font_tabular) { out.has_font_tabular = true; out.font_tabular = over->font_tabular; }
-  if (over->has_font_mono) { out.has_font_mono = true; out.font_mono = over->font_mono; }
-  if (over->has_min_w) { out.has_min_w = true; out.min_w = over->min_w; }
-  if (over->has_min_h) { out.has_min_h = true; out.min_h = over->min_h; }
-  if (over->has_max_w) { out.has_max_w = true; out.max_w = over->max_w; }
-  if (over->has_max_h) { out.has_max_h = true; out.max_h = over->max_h; }
-  if (over->has_icon_size) { out.has_icon_size = true; out.icon_size = over->icon_size; }
-  if (over->has_icon_color) { out.has_icon_color = true; out.icon_color = over->icon_color; }
-  if (over->has_transition_ms) { out.has_transition_ms = true; out.transition_ms = over->transition_ms; }
-  if (over->has_transition_ease) { out.has_transition_ease = true; out.transition_ease = over->transition_ease; }
-  if (over->has_appbar_btn_size) { out.has_appbar_btn_size = true; out.appbar_btn_size = over->appbar_btn_size; }
-  if (over->has_appbar_btn_gap) { out.has_appbar_btn_gap = true; out.appbar_btn_gap = over->appbar_btn_gap; }
-  if (over->has_appbar_btn_pad_top) { out.has_appbar_btn_pad_top = true; out.appbar_btn_pad_top = over->appbar_btn_pad_top; }
-  if (over->has_appbar_btn_pad_right) { out.has_appbar_btn_pad_right = true; out.appbar_btn_pad_right = over->appbar_btn_pad_right; }
-  if (over->has_appbar_btn_close_color) { out.has_appbar_btn_close_color = true; out.appbar_btn_close_color = over->appbar_btn_close_color; }
-  if (over->has_appbar_btn_min_color) { out.has_appbar_btn_min_color = true; out.appbar_btn_min_color = over->appbar_btn_min_color; }
-  if (over->has_appbar_btn_max_color) { out.has_appbar_btn_max_color = true; out.appbar_btn_max_color = over->appbar_btn_max_color; }
-  if (over->has_appbar_btn_border_color) { out.has_appbar_btn_border_color = true; out.appbar_btn_border_color = over->appbar_btn_border_color; }
-  if (over->has_appbar_btn_border_width) { out.has_appbar_btn_border_width = true; out.appbar_btn_border_width = over->appbar_btn_border_width; }
+// Optimized version that writes to output pointer to avoid large struct copies
+static void cogito_style_merge_into(const CogitoStyle* base, const CogitoStyle* over, CogitoStyle* out) {
+  *out = *base;
+  if (over->has_bg) { out->has_bg = true; out->bg = over->bg; }
+  if (over->has_text) { out->has_text = true; out->text = over->text; }
+  if (over->has_border) { out->has_border = true; out->border = over->border; }
+  if (over->has_border_width) { out->has_border_width = true; out->border_width = over->border_width; }
+  if (over->has_radius) { out->has_radius = true; out->radius = over->radius; }
+  if (over->has_selection) { out->has_selection = true; out->selection = over->selection; }
+  if (over->has_font_size) { out->has_font_size = true; out->font_size = over->font_size; }
+  if (over->has_track) { out->has_track = true; out->track = over->track; }
+  if (over->has_track_on) { out->has_track_on = true; out->track_on = over->track_on; }
+  if (over->has_knob) { out->has_knob = true; out->knob = over->knob; }
+  if (over->has_check) { out->has_check = true; out->check = over->check; }
+  if (over->has_font_weight) { out->has_font_weight = true; out->font_weight = over->font_weight; }
+  if (over->has_letter_spacing) { out->has_letter_spacing = true; out->letter_spacing = over->letter_spacing; }
+  if (over->has_font_tabular) { out->has_font_tabular = true; out->font_tabular = over->font_tabular; }
+  if (over->has_font_mono) { out->has_font_mono = true; out->font_mono = over->font_mono; }
+  if (over->has_min_w) { out->has_min_w = true; out->min_w = over->min_w; }
+  if (over->has_min_h) { out->has_min_h = true; out->min_h = over->min_h; }
+  if (over->has_max_w) { out->has_max_w = true; out->max_w = over->max_w; }
+  if (over->has_max_h) { out->has_max_h = true; out->max_h = over->max_h; }
+  if (over->has_icon_size) { out->has_icon_size = true; out->icon_size = over->icon_size; }
+  if (over->has_icon_color) { out->has_icon_color = true; out->icon_color = over->icon_color; }
+  if (over->has_transition_ms) { out->has_transition_ms = true; out->transition_ms = over->transition_ms; }
+  if (over->has_transition_ease) { out->has_transition_ease = true; out->transition_ease = over->transition_ease; }
+  if (over->has_appbar_btn_size) { out->has_appbar_btn_size = true; out->appbar_btn_size = over->appbar_btn_size; }
+  if (over->has_appbar_btn_gap) { out->has_appbar_btn_gap = true; out->appbar_btn_gap = over->appbar_btn_gap; }
+  if (over->has_appbar_btn_pad_top) { out->has_appbar_btn_pad_top = true; out->appbar_btn_pad_top = over->appbar_btn_pad_top; }
+  if (over->has_appbar_btn_pad_right) { out->has_appbar_btn_pad_right = true; out->appbar_btn_pad_right = over->appbar_btn_pad_right; }
+  if (over->has_appbar_btn_close_color) { out->has_appbar_btn_close_color = true; out->appbar_btn_close_color = over->appbar_btn_close_color; }
+  if (over->has_appbar_btn_min_color) { out->has_appbar_btn_min_color = true; out->appbar_btn_min_color = over->appbar_btn_min_color; }
+  if (over->has_appbar_btn_max_color) { out->has_appbar_btn_max_color = true; out->appbar_btn_max_color = over->appbar_btn_max_color; }
+  if (over->has_appbar_btn_border_color) { out->has_appbar_btn_border_color = true; out->appbar_btn_border_color = over->appbar_btn_border_color; }
+  if (over->has_appbar_btn_border_width) { out->has_appbar_btn_border_width = true; out->appbar_btn_border_width = over->appbar_btn_border_width; }
 
-  if (over->has_border_style) { out.has_border_style = true; out.border_style = over->border_style; }
-  if (over->has_radius_tl) { out.has_radius_tl = true; out.radius_tl = over->radius_tl; }
-  if (over->has_radius_tr) { out.has_radius_tr = true; out.radius_tr = over->radius_tr; }
-  if (over->has_radius_br) { out.has_radius_br = true; out.radius_br = over->radius_br; }
-  if (over->has_radius_bl) { out.has_radius_bl = true; out.radius_bl = over->radius_bl; }
+  if (over->has_border_style) { out->has_border_style = true; out->border_style = over->border_style; }
+  if (over->has_radius_tl) { out->has_radius_tl = true; out->radius_tl = over->radius_tl; }
+  if (over->has_radius_tr) { out->has_radius_tr = true; out->radius_tr = over->radius_tr; }
+  if (over->has_radius_br) { out->has_radius_br = true; out->radius_br = over->radius_br; }
+  if (over->has_radius_bl) { out->has_radius_bl = true; out->radius_bl = over->radius_bl; }
   if (over->has_font_family) {
-    out.has_font_family = true;
-    strncpy(out.font_family, over->font_family, 63);
-    out.font_family[63] = '\0';
+    out->has_font_family = true;
+    strncpy(out->font_family, over->font_family, 63);
+    out->font_family[63] = '\0';
   }
   if (over->has_box_shadow) {
-    out.has_box_shadow = true;
-    out.box_shadow = over->box_shadow;
+    out->has_box_shadow = true;
+    out->box_shadow = over->box_shadow;
   }
 
   if (over->has_padding) {
-    out.has_padding = true;
-    out.padding_left = over->padding_left;
-    out.padding_top = over->padding_top;
-    out.padding_right = over->padding_right;
-    out.padding_bottom = over->padding_bottom;
+    out->has_padding = true;
+    out->padding_left = over->padding_left;
+    out->padding_top = over->padding_top;
+    out->padding_right = over->padding_right;
+    out->padding_bottom = over->padding_bottom;
   }
-  if (over->has_padding_left) { out.has_padding_left = true; out.padding_left = over->padding_left; }
-  if (over->has_padding_top) { out.has_padding_top = true; out.padding_top = over->padding_top; }
-  if (over->has_padding_right) { out.has_padding_right = true; out.padding_right = over->padding_right; }
-  if (over->has_padding_bottom) { out.has_padding_bottom = true; out.padding_bottom = over->padding_bottom; }
+  if (over->has_padding_left) { out->has_padding_left = true; out->padding_left = over->padding_left; }
+  if (over->has_padding_top) { out->has_padding_top = true; out->padding_top = over->padding_top; }
+  if (over->has_padding_right) { out->has_padding_right = true; out->padding_right = over->padding_right; }
+  if (over->has_padding_bottom) { out->has_padding_bottom = true; out->padding_bottom = over->padding_bottom; }
 
   if (over->has_margin) {
-    out.has_margin = true;
-    out.margin_left = over->margin_left;
-    out.margin_top = over->margin_top;
-    out.margin_right = over->margin_right;
-    out.margin_bottom = over->margin_bottom;
+    out->has_margin = true;
+    out->margin_left = over->margin_left;
+    out->margin_top = over->margin_top;
+    out->margin_right = over->margin_right;
+    out->margin_bottom = over->margin_bottom;
   }
-  if (over->has_margin_left) { out.has_margin_left = true; out.margin_left = over->margin_left; }
-  if (over->has_margin_top) { out.has_margin_top = true; out.margin_top = over->margin_top; }
-  if (over->has_margin_right) { out.has_margin_right = true; out.margin_right = over->margin_right; }
-  if (over->has_margin_bottom) { out.has_margin_bottom = true; out.margin_bottom = over->margin_bottom; }
+  if (over->has_margin_left) { out->has_margin_left = true; out->margin_left = over->margin_left; }
+  if (over->has_margin_top) { out->has_margin_top = true; out->margin_top = over->margin_top; }
+  if (over->has_margin_right) { out->has_margin_right = true; out->margin_right = over->margin_right; }
+  if (over->has_margin_bottom) { out->has_margin_bottom = true; out->margin_bottom = over->margin_bottom; }
 
-  if (over->has_opacity) { out.has_opacity = true; out.opacity = over->opacity; }
-  if (over->has_track_height) { out.has_track_height = true; out.track_height = over->track_height; }
+  if (over->has_opacity) { out->has_opacity = true; out->opacity = over->opacity; }
+  if (over->has_track_height) { out->has_track_height = true; out->track_height = over->track_height; }
+}
 
+// Legacy wrapper for compatibility
+static CogitoStyle cogito_style_merge(const CogitoStyle* base, const CogitoStyle* over) {
+  CogitoStyle out;
+  cogito_style_merge_into(base, over, &out);
   return out;
 }
 
@@ -364,8 +370,9 @@ static void cogito_node_hover_state(CogitoNode* n, bool* out_hover, bool* out_ac
   bool button_down = false;
   bool button_pressed = false;
   if (cogito_backend) {
-    CogitoWindow* bw = cogito_backend_window_for_node(n);
-    if (bw == cogito_active_backend_window && cogito_main_pointer_valid) {
+    // Fast path: use cached per-frame pointer state (avoids walking parent chain
+    // via cogito_backend_window_for_node for every widget during draw).
+    if (cogito_main_pointer_valid) {
       if (!cogito_main_pointer_routed) {
         return;
       }
@@ -374,8 +381,8 @@ static void cogito_node_hover_state(CogitoNode* n, bool* out_hover, bool* out_ac
       have_mouse = true;
       button_down = cogito_main_pointer_down;
       button_pressed = cogito_main_pointer_pressed;
-    } else if (bw && cogito_backend->get_mouse_position_in_window) {
-      cogito_backend->get_mouse_position_in_window(bw, &mx, &my);
+    } else if (cogito_active_backend_window && cogito_backend->get_mouse_position_in_window) {
+      cogito_backend->get_mouse_position_in_window(cogito_active_backend_window, &mx, &my);
       have_mouse = true;
       button_down = cogito_backend->is_mouse_button_down && cogito_backend->is_mouse_button_down(0);
       button_pressed = cogito_backend->is_mouse_button_pressed && cogito_backend->is_mouse_button_pressed(0);

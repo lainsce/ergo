@@ -4,10 +4,9 @@ case COGITO_BUTTON: {
       cogito_node_hover_state(n, &hover, &active);
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
       if (n->parent && n->parent->kind == COGITO_APPBAR) {
-        int mx = 0, my = 0;
-        if (cogito_backend && cogito_backend_ready) {
-          cogito_backend->get_mouse_position(&mx, &my);
-        }
+        // Use cached pointer position instead of querying backend
+        int mx = cogito_main_pointer_x;
+        int my = cogito_main_pointer_y;
         bool over = cogito_hit_rect(mx, my, n->x, n->y, n->w, n->h);
         bool down = over && (cogito_backend && cogito_backend->is_mouse_button_down(0));
         if (down) {

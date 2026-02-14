@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -163,18 +164,12 @@ static bool cg_set_errf(Diag *err, Str path, int line, int col, const char *fmt,
     if (!err) {
         return false;
     }
-    char buf[512];
+    static char buf[512];
     va_list ap;
     va_start(ap, fmt);
     vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
-    char *msg = (char *)malloc(strlen(buf) + 1);
-    if (!msg) {
-        err->message = "codegen error";
-    } else {
-        strcpy(msg, buf);
-        err->message = msg;
-    }
+    err->message = buf;
     err->path = path.data;
     err->line = line;
     err->col = col;
@@ -233,6 +228,71 @@ static char *arena_printf(Arena *arena, const char *fmt, ...) {
     vsnprintf(buf, (size_t)needed + 1, fmt, ap2);
     va_end(ap2);
     return buf;
+}
+
+// -----------------
+// Simple hash map (Str -> size_t index)
+// -----------------
+
+static uint32_t str_hash(Str s) {
+    uint32_t h = 2166136261u;
+    for (size_t i = 0; i < s.len; i++) {
+        h ^= (uint8_t)s.data[i];
+        h *= 16777619u;
+    }
+    return h;
+}
+
+typedef struct {
+    Str key;
+    size_t value;
+    bool occupied;
+} StrMapEntry;
+
+typedef struct {
+    StrMapEntry *entries;
+    size_t cap;
+    size_t len;
+} StrMap;
+
+static void strmap_init(StrMap *m, Arena *arena, size_t expected) {
+    size_t cap = 16;
+    while (cap < expected * 2) cap *= 2;
+    m->entries = (StrMapEntry *)arena_alloc(arena, sizeof(StrMapEntry) * cap);
+    memset(m->entries, 0, sizeof(StrMapEntry) * cap);
+    m->cap = cap;
+    m->len = 0;
+}
+
+static void strmap_put(StrMap *m, Str key, size_t value) {
+    uint32_t idx = str_hash(key) & (uint32_t)(m->cap - 1);
+    for (;;) {
+        if (!m->entries[idx].occupied) {
+            m->entries[idx].key = key;
+            m->entries[idx].value = value;
+            m->entries[idx].occupied = true;
+            m->len++;
+            return;
+        }
+        if (str_eq(m->entries[idx].key, key)) {
+            m->entries[idx].value = value;
+            return;
+        }
+        idx = (idx + 1) & (uint32_t)(m->cap - 1);
+    }
+}
+
+static bool strmap_get(StrMap *m, Str key, size_t *out) {
+    if (!m->entries || m->len == 0) return false;
+    uint32_t idx = str_hash(key) & (uint32_t)(m->cap - 1);
+    for (;;) {
+        if (!m->entries[idx].occupied) return false;
+        if (str_eq(m->entries[idx].key, key)) {
+            *out = m->entries[idx].value;
+            return true;
+        }
+        idx = (idx + 1) & (uint32_t)(m->cap - 1);
+    }
 }
 
 static char *c_escape(Arena *arena, Str s) {
@@ -458,8 +518,15 @@ typedef struct {
     LoopCtx *loop_stack;
     size_t loop_stack_len;
     size_t loop_stack_cap;
-    
+
     bool uses_cogito;
+
+    // Hash map caches for env lookups
+    StrMap class_map;       // qname -> index into env->classes
+    StrMap fun_map;         // "cask\0name" -> index into env->funs
+    StrMap cask_globals_map; // cask -> index into env->cask_globals
+    StrMap cask_consts_map;  // cask -> index into env->cask_consts
+    StrMap cask_imports_map; // cask -> index into env->cask_imports
 } Codegen;
 
 static char *codegen_c_class_name(Codegen *cg, Str qname) {
@@ -692,10 +759,9 @@ static Str codegen_cask_name(Codegen *cg, Str path) {
 }
 
 static ModuleImport *codegen_cask_imports(Codegen *cg, Str cask_name) {
-    for (size_t i = 0; i < cg->env->cask_imports_len; i++) {
-        if (str_eq(cg->env->cask_imports[i].cask, cask_name)) {
-            return &cg->env->cask_imports[i];
-        }
+    size_t idx;
+    if (strmap_get(&cg->cask_imports_map, cask_name, &idx)) {
+        return &cg->env->cask_imports[idx];
     }
     return NULL;
 }
@@ -710,37 +776,41 @@ static ClassDecl *codegen_class_decl(Codegen *cg, Str qname) {
 }
 
 static ClassInfo *codegen_class_info(Codegen *cg, Str qname) {
-    for (size_t i = 0; i < cg->env->classes_len; i++) {
-        if (str_eq(cg->env->classes[i].qname, qname)) {
-            return &cg->env->classes[i];
-        }
+    size_t idx;
+    if (strmap_get(&cg->class_map, qname, &idx)) {
+        return &cg->env->classes[idx];
     }
     return NULL;
 }
 
 static FunSig *codegen_fun_sig(Codegen *cg, Str cask, Str name) {
-    for (size_t i = 0; i < cg->env->funs_len; i++) {
-        if (str_eq(cg->env->funs[i].cask, cask) && str_eq(cg->env->funs[i].name, name)) {
-            return &cg->env->funs[i];
+    size_t klen = cask.len + 1 + name.len;
+    char kbuf[256];
+    char *key = (klen <= sizeof(kbuf)) ? kbuf : (char *)arena_alloc(cg->arena, klen);
+    if (key) {
+        memcpy(key, cask.data, cask.len);
+        key[cask.len] = '\0';
+        memcpy(key + cask.len + 1, name.data, name.len);
+        size_t idx;
+        if (strmap_get(&cg->fun_map, (Str){key, klen}, &idx)) {
+            return &cg->env->funs[idx];
         }
     }
     return NULL;
 }
 
 static ModuleConsts *codegen_cask_consts(Codegen *cg, Str cask) {
-    for (size_t i = 0; i < cg->env->cask_consts_len; i++) {
-        if (str_eq(cg->env->cask_consts[i].cask, cask)) {
-            return &cg->env->cask_consts[i];
-        }
+    size_t idx;
+    if (strmap_get(&cg->cask_consts_map, cask, &idx)) {
+        return &cg->env->cask_consts[idx];
     }
     return NULL;
 }
 
 static ModuleGlobals *codegen_cask_globals(Codegen *cg, Str cask) {
-    for (size_t i = 0; i < cg->env->cask_globals_len; i++) {
-        if (str_eq(cg->env->cask_globals[i].cask, cask)) {
-            return &cg->env->cask_globals[i];
-        }
+    size_t idx;
+    if (strmap_get(&cg->cask_globals_map, cask, &idx)) {
+        return &cg->env->cask_globals[idx];
     }
     return NULL;
 }
@@ -3178,6 +3248,47 @@ static bool codegen_init(Codegen *cg, Program *prog, Arena *arena, Diag *err) {
         return false;
     }
 
+    // Build hash map caches for env lookups
+    if (cg->env->classes_len > 0) {
+        strmap_init(&cg->class_map, arena, cg->env->classes_len);
+        for (size_t i = 0; i < cg->env->classes_len; i++) {
+            strmap_put(&cg->class_map, cg->env->classes[i].qname, i);
+        }
+    }
+    if (cg->env->funs_len > 0) {
+        strmap_init(&cg->fun_map, arena, cg->env->funs_len);
+        for (size_t i = 0; i < cg->env->funs_len; i++) {
+            // Build composite key "cask\0name"
+            FunSig *fs = &cg->env->funs[i];
+            size_t klen = fs->cask.len + 1 + fs->name.len;
+            char *key = (char *)arena_alloc(arena, klen);
+            if (key) {
+                memcpy(key, fs->cask.data, fs->cask.len);
+                key[fs->cask.len] = '\0';
+                memcpy(key + fs->cask.len + 1, fs->name.data, fs->name.len);
+                strmap_put(&cg->fun_map, (Str){key, klen}, i);
+            }
+        }
+    }
+    if (cg->env->cask_globals_len > 0) {
+        strmap_init(&cg->cask_globals_map, arena, cg->env->cask_globals_len);
+        for (size_t i = 0; i < cg->env->cask_globals_len; i++) {
+            strmap_put(&cg->cask_globals_map, cg->env->cask_globals[i].cask, i);
+        }
+    }
+    if (cg->env->cask_consts_len > 0) {
+        strmap_init(&cg->cask_consts_map, arena, cg->env->cask_consts_len);
+        for (size_t i = 0; i < cg->env->cask_consts_len; i++) {
+            strmap_put(&cg->cask_consts_map, cg->env->cask_consts[i].cask, i);
+        }
+    }
+    if (cg->env->cask_imports_len > 0) {
+        strmap_init(&cg->cask_imports_map, arena, cg->env->cask_imports_len);
+        for (size_t i = 0; i < cg->env->cask_imports_len; i++) {
+            strmap_put(&cg->cask_imports_map, cg->env->cask_imports[i].cask, i);
+        }
+    }
+
     // build class decl map
     for (size_t i = 0; i < prog->mods_len; i++) {
         Module *m = prog->mods[i];
@@ -3586,8 +3697,6 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
     w_line(&cg->w, "@autoreleasepool {");
     cg->w.indent++;
     w_line(&cg->w, "ergo_runtime_init();");
-    // Set script directory for cogito image path resolution
-    fprintf(stderr, "DEBUG codegen: uses_cogito=%d entry_path.data=%s\n", cg->uses_cogito, cg->entry_path.data ? cg->entry_path.data : "NULL");
     // Always set script directory when entry_path is available
     if (cg->entry_path.data && cg->entry_path.len > 0) {
         // Find the directory of the entry script
@@ -3602,13 +3711,10 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
             char *dir = arena_alloc(cg->arena, dir_len + 1);
             memcpy(dir, path, dir_len);
             dir[dir_len] = 0;
-            fprintf(stderr, "DEBUG codegen: setting script dir to: '%s' (path='%s' len=%zu)\n", dir, path, len);
             w_line(&cg->w, "__cogito_set_script_dir(\"%s\");", dir);
         } else {
-            fprintf(stderr, "DEBUG codegen: no slash found in path '%s'\n", path);
         }
     } else {
-        fprintf(stderr, "DEBUG codegen: NOT generating script_dir call - no entry_path\n");
     }
     w_line(&cg->w, "ergo_entry();");
     cg->w.indent--;

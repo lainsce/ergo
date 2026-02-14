@@ -26,12 +26,50 @@ typedef struct {
   int w;
   int h;
   bool used;
+  uint32_t last_used;  // Frame counter for LRU eviction
 } CogitoIconCacheEntry;
 
-static CogitoIconCacheEntry cogito_icon_cache[128];
+#define COGITO_ICON_CACHE_SIZE 64
+#define COGITO_ICON_CACHE_EVICT_AGE 1  // Frame Bus Method: evict anything not used in last frame
+
+static CogitoIconCacheEntry cogito_icon_cache[COGITO_ICON_CACHE_SIZE];
 static int cogito_icon_cache_len = 0;
+static uint32_t cogito_icon_cache_frame = 0;
 static char cogito_icon_theme_name[64] = {0};
 static bool cogito_icon_theme_init = false;
+
+// Periodic eviction: call this once per frame to evict old icon textures
+static void cogito_icon_cache_frame_start(void) {
+  cogito_icon_cache_frame++;
+  
+  // Frame Bus Method: evict every 7 frames
+  if (cogito_icon_cache_frame % 7 == 0) {
+    for (int i = 0; i < cogito_icon_cache_len; i++) {
+      CogitoIconCacheEntry* e = &cogito_icon_cache[i];
+      if (e->used && e->tex && 
+          (cogito_icon_cache_frame - e->last_used) > COGITO_ICON_CACHE_EVICT_AGE) {
+        if (cogito_backend && cogito_backend->texture_destroy) {
+          cogito_backend->texture_destroy(e->tex);
+        }
+        e->tex = NULL;
+        e->used = false;
+      }
+    }
+    // Compact the cache: move valid entries to the front
+    int write_idx = 0;
+    for (int i = 0; i < cogito_icon_cache_len; i++) {
+      if (cogito_icon_cache[i].used) {
+        if (i != write_idx) {
+          cogito_icon_cache[write_idx] = cogito_icon_cache[i];
+          cogito_icon_cache[i].used = false;
+          cogito_icon_cache[i].tex = NULL;
+        }
+        write_idx++;
+      }
+    }
+    cogito_icon_cache_len = write_idx;
+  }
+}
 
 #if defined(COGITO_HAS_SDL3_IMAGE)
 #include <SDL3/SDL_pixels.h>
@@ -587,6 +625,7 @@ static bool cogito_icon_load_texture_one(const char* name, const char* theme, in
   for (int i = 0; i < cogito_icon_cache_len; i++) {
     CogitoIconCacheEntry* e = &cogito_icon_cache[i];
     if (e->used && e->size == cache_size && strcmp(e->name, name) == 0 && strcmp(e->theme, cache_theme) == 0) {
+      e->last_used = cogito_icon_cache_frame;  // Update LRU timestamp
       if (out) *out = e->tex;
       if (out_w) *out_w = e->w;
       if (out_h) *out_h = e->h;
@@ -599,7 +638,7 @@ static bool cogito_icon_load_texture_one(const char* name, const char* theme, in
     int tw = 0;
     int th = 0;
     if (cogito_sf_symbol_load(name + 3, cache_size, &tex, &tw, &th)) {
-      if (cogito_icon_cache_len < (int)(sizeof(cogito_icon_cache) / sizeof(cogito_icon_cache[0]))) {
+      if (cogito_icon_cache_len < COGITO_ICON_CACHE_SIZE) {
         CogitoIconCacheEntry* e = &cogito_icon_cache[cogito_icon_cache_len++];
         memset(e, 0, sizeof(*e));
         strncpy(e->name, name, sizeof(e->name) - 1);
@@ -609,6 +648,7 @@ static bool cogito_icon_load_texture_one(const char* name, const char* theme, in
         e->w = tw;
         e->h = th;
         e->used = true;
+        e->last_used = cogito_icon_cache_frame;
       }
       if (out) *out = tex;
       if (out_w) *out_w = tw;
@@ -626,7 +666,7 @@ static bool cogito_icon_load_texture_one(const char* name, const char* theme, in
   int th = 0;
   (void)is_svg;
   if (!cogito_icon_load_file_texture(path, &tex, &tw, &th)) return false;
-  if (cogito_icon_cache_len < (int)(sizeof(cogito_icon_cache) / sizeof(cogito_icon_cache[0]))) {
+  if (cogito_icon_cache_len < COGITO_ICON_CACHE_SIZE) {
     CogitoIconCacheEntry* e = &cogito_icon_cache[cogito_icon_cache_len++];
     memset(e, 0, sizeof(*e));
     strncpy(e->name, name, sizeof(e->name) - 1);
@@ -636,6 +676,7 @@ static bool cogito_icon_load_texture_one(const char* name, const char* theme, in
     e->w = tw;
     e->h = th;
     e->used = true;
+    e->last_used = cogito_icon_cache_frame;
   }
   if (out) *out = tex;
   if (out_w) *out_w = tw;
@@ -654,7 +695,7 @@ static bool cogito_icon_load_texture(const char* name, int size, CogitoTexture**
   return false;
 }
 
-static void cogito_icon_cache_clear(void) {
+void cogito_icon_cache_clear(void) {
   for (int i = 0; i < cogito_icon_cache_len; i++) {
     CogitoIconCacheEntry* e = &cogito_icon_cache[i];
     if (e->tex && cogito_backend && cogito_backend->texture_destroy) {

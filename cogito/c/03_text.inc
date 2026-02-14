@@ -576,13 +576,30 @@ static void cogito_text_backspace(CogitoNode* n) {
 static int cogito_text_index_from_x(const CogitoNode* n, const char* text, int size, int target_x) {
   if (!text || target_x <= 0) return 0;
   int len = (int)strlen(text);
-  int last = 0;
-  for (int i = 1; i <= len; i++) {
-    int w = cogito_text_width_size_n_node(n, text, i, size);
-    if (w >= target_x) return i;
-    last = i;
+  if (len == 0) return 0;
+  
+  // Binary search for the character position
+  int lo = 0, hi = len;
+  while (lo < hi) {
+    int mid = (lo + hi) / 2;
+    int w = cogito_text_width_size_n_node(n, text, mid + 1, size);
+    if (w < target_x) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
   }
-  return last;
+  
+  // lo is now the first position where width >= target_x, or len
+  if (lo < len && lo > 0) {
+    // Check if previous position is closer
+    int w_lo = cogito_text_width_size_n_node(n, text, lo + 1, size);
+    int w_prev = cogito_text_width_size_n_node(n, text, lo, size);
+    if (target_x - w_prev < w_lo - target_x) {
+      return lo;
+    }
+  }
+  return lo;
 }
 
 static int cogito_text_line_index_from_pos(const CogitoNode* n, const char* text, int size, int max_w, int line_y, int line_h, int x, int y) {
@@ -595,6 +612,7 @@ static int cogito_text_line_index_from_pos(const CogitoNode* n, const char* text
     int line_start = idx;
     int line_len = 0;
     int last_space = -1;
+    int cumulative_w = 0;  // Track width incrementally for better performance
     for (int i = idx; i < len; i++) {
       char c = text[i];
       if (c == '\n') {
@@ -602,9 +620,10 @@ static int cogito_text_line_index_from_pos(const CogitoNode* n, const char* text
         idx = i + 1;
         break;
       }
-      int w = cogito_text_width_size_n_node(n, text + idx, i - idx + 1, size);
+      // Get width of just this character
+      int char_w = cogito_text_width_size_n_node(n, text + i, 1, size);
       if (c == ' ') last_space = i;
-      if (w > max_w) {
+      if (cumulative_w + char_w > max_w) {
         if (last_space >= idx) {
           line_len = last_space - idx;
           idx = last_space + 1;
@@ -614,6 +633,7 @@ static int cogito_text_line_index_from_pos(const CogitoNode* n, const char* text
         }
         break;
       }
+      cumulative_w += char_w;
       if (i == len - 1) {
         line_len = i - idx + 1;
         idx = len;

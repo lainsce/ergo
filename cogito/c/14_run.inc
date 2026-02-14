@@ -230,6 +230,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   {
     CogitoColor win_bg = win->bg_set ? win->bg : cogito_rgba(245, 245, 245, 255);
     cogito_backend->begin_frame(window);
+    cogito_icon_cache_frame_start();  // Initialize icon cache frame counter
     cogito_backend->clear(win_bg);
     cogito_draw_node(win);
     cogito_backend->end_frame(window);
@@ -239,6 +240,14 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
 
   // Main event loop
   while (!cogito_backend->window_should_close(window) && !win->should_close) {
+    // On macOS, wrap the entire loop body in an autoreleasepool.
+    // SDL3's Metal backend and Cocoa calls create ObjC objects that get
+    // autoreleased. Without a pool, they accumulate and leak every iteration.
+#if defined(__APPLE__)
+    extern void cogito_autorelease_push(void);
+    extern void cogito_autorelease_pop(void);
+    cogito_autorelease_push();
+#endif
     // Poll events (true if any event was processed; used to decide if we need to redraw)
     bool had_events = cogito_backend->poll_events();
 #if defined(__APPLE__)
@@ -307,6 +316,10 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           cogito_backend->window_destroy(inspector_window);
           inspector_window = NULL;
         }
+        if (inspector_hit_test_params) {
+          free(inspector_hit_test_params);
+          inspector_hit_test_params = NULL;
+        }
         inspector_native_drag = false;
         inspector_drag_pending = false;
         inspector_drag_active = false;
@@ -323,7 +336,11 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       cogito_window_relayout(win);
       window_resized = true;
     }
-    if (had_events || window_resized) cogito_queue_draw(win);
+    // GTK-style selective invalidation: only redraw when something visual changed.
+    // Mouse motion alone doesn't trigger redraw — hover-change detection below handles it.
+    extern bool cogito_last_poll_had_non_motion;
+    if (window_resized) cogito_queue_draw(win);
+    if (had_events && cogito_last_poll_had_non_motion) cogito_queue_draw(win);
 
     // Get mouse position in the main window coordinate space.
     int mx = 0;
@@ -383,6 +400,18 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       CogitoNode* stepper_hit = cogito_find_stepper_hit(win, mx, my);
       if (stepper_hit) {
         cogito_stepper_hit_test(stepper_hit, mx, my);
+      }
+    }
+
+    // GTK-style hover-change detection: only redraw on mouse motion if the
+    // hovered interactive widget changed (enter/leave a button, slider, etc.)
+    {
+      static CogitoNode* prev_hover_node = NULL;
+      CogitoNode* cur_hover = route_main_pointer
+          ? cogito_find_clickable(win, mx, my) : NULL;
+      if (cur_hover != prev_hover_node) {
+        prev_hover_node = cur_hover;
+        cogito_queue_draw(win);
       }
     }
 
@@ -1277,16 +1306,19 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
 
     // Only redraw when something requested it (queue_draw) or continuous updates needed.
     // Do not redraw during window drag — we only move the window; no present() needed, so we wait for events and avoid CPU spike.
-    bool need_redraw = cogito_draw_pending(win) || (cogito_carousel_animating_count > 0)
-        || cogito_menu.open || cogito_inspector_open;
+    bool window_being_dragged = cogito_drag_active || cogito_drag_pending 
+        || inspector_drag_active || inspector_drag_pending;
+    bool need_redraw = !window_being_dragged && (cogito_draw_pending(win) || (cogito_carousel_animating_count > 0)
+        || cogito_menu.open || cogito_inspector_open);
 
     if (need_redraw) {
     // Rendering
     cogito_backend->begin_frame(window);
-    
+    cogito_icon_cache_frame_start();  // Evict old icon textures
+
     CogitoColor win_bg = win->bg_set ? win->bg : cogito_rgba(245, 245, 245, 255);
     cogito_backend->clear(win_bg);
-    
+
     cogito_tooltip_hovered = NULL;
     cogito_draw_node(win);
     if (cogito_menu.open) cogito_draw_menu();
@@ -1379,6 +1411,9 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     } else {
       cogito_backend->wait_event_timeout(100);
     }
+#if defined(__APPLE__)
+    cogito_autorelease_pop();
+#endif
   }
   
   // Cleanup

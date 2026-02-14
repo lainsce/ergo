@@ -79,14 +79,12 @@ static void parser_set_oom(Parser *p) {
 static bool ptrvec_push(Parser *p, PtrVec *v, void *item) {
     if (v->len + 1 > v->cap) {
         size_t next = v->cap ? v->cap * 2 : 8;
-        while (next < v->len + 1) {
-            next *= 2;
-        }
-        void **data = (void **)realloc(v->data, next * sizeof(void *));
+        void **data = (void **)arena_alloc(p->arena, next * sizeof(void *));
         if (!data) {
             parser_set_oom(p);
             return false;
         }
+        if (v->len > 0) memcpy(data, v->data, sizeof(void *) * v->len);
         v->data = data;
         v->cap = next;
     }
@@ -95,23 +93,14 @@ static bool ptrvec_push(Parser *p, PtrVec *v, void *item) {
 }
 
 static void **ptrvec_finalize(Parser *p, PtrVec *v) {
+    (void)p;
     if (v->len == 0) {
-        free(v->data);
         v->data = NULL;
         v->cap = 0;
         return NULL;
     }
-    void **arr = (void **)arena_alloc(p->arena, sizeof(void *) * v->len);
-    if (!arr) {
-        parser_set_oom(p);
-        free(v->data);
-        v->data = NULL;
-        v->len = 0;
-        v->cap = 0;
-        return NULL;
-    }
-    memcpy(arr, v->data, sizeof(void *) * v->len);
-    free(v->data);
+    // Data is already in arena, just return it
+    void **arr = v->data;
     v->data = NULL;
     v->cap = 0;
     return arr;

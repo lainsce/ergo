@@ -124,6 +124,127 @@ static int char_queue_head = 0, char_queue_tail = 0;
 static double start_time = 0.0;
 
 // ============================================================================
+// Text Texture Cache (Performance Optimization)
+// ============================================================================
+
+#define COGITO_TEXT_CACHE_SIZE 512
+#define COGITO_TEXT_CACHE_MAX_LEN 64
+#define COGITO_TEXT_CACHE_EVICT_AGE 1  // Frame Bus Method: evict anything not used in last frame
+#define COGITO_FRAME_BUDGET_MS 12  // Target frame time in ms (leaves 4ms buffer for 60fps)
+
+typedef struct CogitoTextCacheKey {
+    char text[COGITO_TEXT_CACHE_MAX_LEN];
+    TTF_Font* font;
+    uint32_t color_packed;    // Packed RGBA color
+} CogitoTextCacheKey;
+
+typedef struct CogitoTextCacheEntry {
+    CogitoTextCacheKey key;
+    SDL_Texture* texture;
+    int width;
+    int height;
+    uint64_t last_used;
+    bool valid;
+} CogitoTextCacheEntry;
+
+static CogitoTextCacheEntry g_text_cache[COGITO_TEXT_CACHE_SIZE];
+static uint64_t g_text_cache_frame = 0;
+
+static uint32_t cogito_text_cache_hash(const CogitoTextCacheKey* key) {
+    uint32_t h = 5381;
+    for (const char* p = key->text; *p; p++) {
+        h = ((h << 5) + h) ^ (uint8_t)*p;
+    }
+    h ^= (uint32_t)(uintptr_t)key->font;
+    h ^= key->color_packed;
+    return h;
+}
+
+static bool cogito_text_cache_key_eq(const CogitoTextCacheKey* a, const CogitoTextCacheKey* b) {
+    return a->font == b->font &&
+           a->color_packed == b->color_packed &&
+           strcmp(a->text, b->text) == 0;
+}
+
+static CogitoTextCacheEntry* cogito_text_cache_lookup(
+    TTF_Font* font, const char* text, SDL_Color color
+) {
+    CogitoTextCacheKey key = {0};
+    strncpy(key.text, text, COGITO_TEXT_CACHE_MAX_LEN - 1);
+    key.text[COGITO_TEXT_CACHE_MAX_LEN - 1] = '\0';
+    key.font = font;
+    key.color_packed = ((uint32_t)color.r << 24) | ((uint32_t)color.g << 16) | 
+                       ((uint32_t)color.b << 8) | (uint32_t)color.a;
+    
+    uint32_t hash = cogito_text_cache_hash(&key);
+    int idx = hash % COGITO_TEXT_CACHE_SIZE;
+    
+    // Linear probing
+    for (int i = 0; i < COGITO_TEXT_CACHE_SIZE; i++) {
+        int probe = (idx + i) % COGITO_TEXT_CACHE_SIZE;
+        CogitoTextCacheEntry* e = &g_text_cache[probe];
+        
+        if (!e->valid) {
+            // Empty slot - will be filled by insert
+            e->key = key;
+            return e;
+        }
+        
+        if (cogito_text_cache_key_eq(&e->key, &key)) {
+            // Cache hit
+            e->last_used = g_text_cache_frame;
+            return e;
+        }
+    }
+    
+    // Cache full - evict oldest
+    uint64_t oldest = UINT64_MAX;
+    int oldest_idx = 0;
+    for (int i = 0; i < COGITO_TEXT_CACHE_SIZE; i++) {
+        if (g_text_cache[i].last_used < oldest) {
+            oldest = g_text_cache[i].last_used;
+            oldest_idx = i;
+        }
+    }
+    
+    CogitoTextCacheEntry* e = &g_text_cache[oldest_idx];
+    if (e->texture) {
+        SDL_DestroyTexture(e->texture);
+        e->texture = NULL;
+    }
+    e->key = key;
+    e->valid = false;
+    return e;
+}
+
+static void cogito_text_cache_clear(void) {
+    for (int i = 0; i < COGITO_TEXT_CACHE_SIZE; i++) {
+        if (g_text_cache[i].texture) {
+            SDL_DestroyTexture(g_text_cache[i].texture);
+            g_text_cache[i].texture = NULL;
+        }
+        g_text_cache[i].valid = false;
+    }
+}
+
+static void cogito_text_cache_frame_start(void) {
+    g_text_cache_frame++;
+    
+    // Frame Bus Method: evict every 7 frames
+    if (g_text_cache_frame % 7 == 0) {
+        for (int i = 0; i < COGITO_TEXT_CACHE_SIZE; i++) {
+            CogitoTextCacheEntry* e = &g_text_cache[i];
+            if (e->valid && e->texture && 
+                (g_text_cache_frame - e->last_used) > COGITO_TEXT_CACHE_EVICT_AGE) {
+                SDL_DestroyTexture(e->texture);
+                e->texture = NULL;
+                e->valid = false;
+            }
+        }
+    }
+}
+
+// ============================================================================
 // Color Helpers
 // ============================================================================
 
@@ -222,6 +343,9 @@ static bool sdl3_init(void) {
 static void sdl3_shutdown(void) {
     if (!sdl3_initialized) return;
     
+    // Clear text texture cache
+    cogito_text_cache_clear();
+    
     if (global_gpu_device) {
         SDL_DestroyGPUDevice(global_gpu_device);
         global_gpu_device = NULL;
@@ -262,27 +386,6 @@ static SDL_Renderer* sdl3_create_renderer_for_window(SDL_Window* window) {
 
     if (!renderer) {
         renderer = SDL_CreateRenderer(window, NULL);
-    }
-
-    if (renderer) {
-        const char* renderer_name = SDL_GetRendererName(renderer);
-        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Renderer backend: %s",
-                    renderer_name ? renderer_name : "unknown");
-#ifdef __APPLE__
-        if (renderer_name && strcmp(renderer_name, "opengl") == 0) {
-            int msaa_buffers = 0;
-            int msaa_samples = 0;
-            if (SDL_GL_GetAttribute(SDL_GL_MULTISAMPLEBUFFERS, &msaa_buffers) &&
-                SDL_GL_GetAttribute(SDL_GL_MULTISAMPLESAMPLES, &msaa_samples)) {
-                SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
-                            "OpenGL MSAA: buffers=%d samples=%d",
-                            msaa_buffers, msaa_samples);
-            } else {
-                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                            "OpenGL MSAA query failed: %s", SDL_GetError());
-            }
-        }
-#endif
     }
 
     return renderer;
@@ -499,9 +602,35 @@ static bool sdl3_open_url(const char* url) {
 // Frame Rendering
 // ============================================================================
 
+// Forward declarations for functions used in begin_frame/end_frame
+static double sdl3_get_time(void);
+extern void cogito_icon_cache_clear(void);
+
+static double g_frame_start_time = 0.0;
+static bool g_frame_missed_deadline = false;
+
 static void sdl3_begin_frame(CogitoWindow* window) {
     CogitoSDL3Window* win = (CogitoSDL3Window*)window;
     if (!win || !win->renderer) return;
+    
+    // Drain autorelease pool at start of each frame to prevent RAM accumulation
+    // This is critical on macOS during window drag when modal event loop prevents normal drain
+#if defined(__APPLE__)
+    extern void cogito_frame_start(void);
+    cogito_frame_start();
+#endif
+    
+    // Frame Bus Method: deadline-miss flag is tracked but we no longer
+    // clear ALL caches on miss (that causes a death spiral: clearing makes
+    // the next frame slower → misses again → clears again → repeat).
+    // Normal 7-frame LRU eviction in cogito_text_cache_frame_start() handles it.
+    g_frame_missed_deadline = false;
+    
+    // Record frame start time for Frame Bus Method
+    g_frame_start_time = sdl3_get_time();
+    
+    // Increment frame counter for text cache LRU
+    cogito_text_cache_frame_start();
     
     int w, h;
     SDL_GetWindowSize(win->sdl_window, &w, &h);
@@ -525,7 +654,21 @@ static void sdl3_end_frame(CogitoWindow* window) {
 static void sdl3_present(CogitoWindow* window) {
     CogitoSDL3Window* win = (CogitoSDL3Window*)window;
     if (!win || !win->renderer) return;
+    // Use autoreleasepool wrapper on macOS to prevent RAM balloon during window drag
+    // performWindowDragWithEvent: runs a modal event loop that stops normal autorelease pool drain
+#if defined(__APPLE__)
+    extern void cogito_render_present_with_autoreleasepool(SDL_Renderer* renderer);
+    cogito_render_present_with_autoreleasepool(win->renderer);
+#else
     SDL_RenderPresent(win->renderer);
+#endif
+    
+    // Frame Bus Method: check if we exceeded frame budget
+    double frame_time = (sdl3_get_time() - g_frame_start_time) * 1000.0;  // Convert to ms
+    if (frame_time > COGITO_FRAME_BUDGET_MS) {
+        g_frame_missed_deadline = true;  // Next frame will clear caches
+    }
+    
     g_current_renderer = NULL;
     if (g_current_window == win) {
         g_current_window = NULL;
@@ -542,6 +685,11 @@ static void sdl3_clear(CogitoColor color) {
 // Event Loop
 // ============================================================================
 
+// GTK-style event classification: tracks whether the last poll had any
+// non-motion event (click, key, scroll, etc.) that needs a visual update.
+// Readable from 14_run.inc via extern.
+bool cogito_last_poll_had_non_motion = false;
+
 static bool process_events(void) {
     // Reset per-frame state
     for (int i = 0; i < 3; i++) {
@@ -555,27 +703,41 @@ static bool process_events(void) {
     mouse_wheel = 0.0f;
     
     bool had_any = false;
+    cogito_last_poll_had_non_motion = false;
     SDL_Event event;
+#if defined(__APPLE__)
+    // On macOS, wrap event polling in autoreleasepool to prevent RAM growth during window drag
+    // The modal event loop during drag prevents normal autorelease pool drain
+    extern bool cogito_poll_event_with_autoreleasepool(SDL_Event* event);
+    while (cogito_poll_event_with_autoreleasepool(&event)) {
+#else
     while (SDL_PollEvent(&event)) {
+#endif
         had_any = true;
+        if (event.type != SDL_EVENT_MOUSE_MOTION) {
+            cogito_last_poll_had_non_motion = true;
+        }
         switch (event.type) {
             case SDL_EVENT_QUIT:
+
                 // Mark all windows for close
                 for (int i = 0; i < window_registry.count; i++) {
                     CogitoSDL3Window* win = (CogitoSDL3Window*)window_registry.windows[i];
                     if (win) win->should_close = true;
                 }
                 break;
-                
+
             case SDL_EVENT_WINDOW_CLOSE_REQUESTED: {
+
                 CogitoWindow* win = cogito_window_registry_get(&window_registry, event.window.windowID);
                 if (win) {
                     ((CogitoSDL3Window*)win)->should_close = true;
                 }
                 break;
             }
-            
+
             case SDL_EVENT_WINDOW_FOCUS_GAINED: {
+
                 CogitoWindow* win = cogito_window_registry_get(&window_registry, event.window.windowID);
                 if (win) {
                     cogito_window_registry_set_focused(&window_registry, win);
@@ -586,13 +748,14 @@ static bool process_events(void) {
                 }
                 break;
             }
-            
+
             case SDL_EVENT_MOUSE_MOTION:
                 mouse_x = (int)event.motion.x;
                 mouse_y = (int)event.motion.y;
                 break;
                 
             case SDL_EVENT_MOUSE_BUTTON_DOWN:
+
                 if (event.button.button >= 1 && event.button.button <= 3) {
                     int btn = event.button.button - 1;
                     mouse_buttons[btn] = true;
@@ -601,6 +764,7 @@ static bool process_events(void) {
                 break;
                 
             case SDL_EVENT_MOUSE_BUTTON_UP:
+
                 if (event.button.button >= 1 && event.button.button <= 3) {
                     int btn = event.button.button - 1;
                     mouse_buttons[btn] = false;
@@ -609,10 +773,12 @@ static bool process_events(void) {
                 break;
                 
             case SDL_EVENT_MOUSE_WHEEL:
+
                 mouse_wheel = event.wheel.y;
                 break;
                 
             case SDL_EVENT_KEY_DOWN:
+
                 if (event.key.scancode < 512) {
                     keys_down[event.key.scancode] = true;
                     keys_pressed[event.key.scancode] = true;
@@ -637,6 +803,7 @@ static bool process_events(void) {
                 break;
                 
             case SDL_EVENT_KEY_UP:
+
                 if (event.key.scancode < 512) {
                     keys_down[event.key.scancode] = false;
                     keys_released[event.key.scancode] = true;
@@ -644,6 +811,7 @@ static bool process_events(void) {
                 break;
                 
             case SDL_EVENT_TEXT_INPUT: {
+
                 const char* text = event.text.text;
                 if (text) {
                     while (*text) {
@@ -678,12 +846,20 @@ static bool sdl3_poll_events(void) {
     return process_events();
 }
 
+
 // Block until an event is available or timeout_ms elapses. Used when idle to avoid busy-loop CPU use.
 static void sdl3_wait_event_timeout(uint32_t timeout_ms) {
     SDL_Event event;
+#if defined(__APPLE__)
+    extern bool cogito_wait_event_with_autoreleasepool(SDL_Event* event, int timeout_ms);
+    if (cogito_wait_event_with_autoreleasepool(&event, (int)timeout_ms)) {
+        SDL_PushEvent(&event);
+    }
+#else
     if (SDL_WaitEventTimeout(&event, (int)timeout_ms)) {
         SDL_PushEvent(&event);
     }
+#endif
 }
 
 static bool sdl3_window_should_close(CogitoWindow* window) {
@@ -882,6 +1058,38 @@ static float sdl3_clampf(float x, float a, float b) {
     return (x < a) ? a : ((x > b) ? b : x);
 }
 
+// ============================================================================
+// Rounded Rectangle Reusable Buffers (Performance Optimization)
+// ============================================================================
+
+static SDL_FPoint* g_rounded_rect_pts = NULL;
+static int g_rounded_rect_pts_cap = 0;
+
+static SDL_FPoint* g_rounded_rect_pts2 = NULL;  // For outline inner perimeter
+static int g_rounded_rect_pts2_cap = 0;
+
+static SDL_Vertex* g_rounded_rect_verts = NULL;
+static int g_rounded_rect_verts_cap = 0;
+
+static int* g_rounded_rect_indices = NULL;
+static int g_rounded_rect_indices_cap = 0;
+
+#define ROUNDED_RECT_INITIAL_CAP 64
+
+static bool cogito_ensure_cap(void** ptr, int* cap, int needed, size_t elem_size) {
+    if (*cap >= needed) return true;
+    
+    int new_cap = *cap ? *cap * 2 : ROUNDED_RECT_INITIAL_CAP;
+    while (new_cap < needed) new_cap *= 2;
+    
+    void* new_ptr = realloc(*ptr, (size_t)new_cap * elem_size);
+    if (!new_ptr) return false;
+    
+    *ptr = new_ptr;
+    *cap = new_cap;
+    return true;
+}
+
 static int sdl3_build_rounded_rect_perimeter(float x, float y, float w, float h,
                                              float radius, int segments,
                                              SDL_FPoint** out_pts, int* out_count) {
@@ -892,8 +1100,12 @@ static int sdl3_build_rounded_rect_perimeter(float x, float y, float w, float h,
     float r = sdl3_clampf(radius, 0.0f, max_r);
 
     const int count = 4 * segments + 4;
-    SDL_FPoint* pts = (SDL_FPoint*)malloc((size_t)count * sizeof(SDL_FPoint));
-    if (!pts) return -1;
+    
+    // Use static buffer instead of malloc
+    if (!cogito_ensure_cap((void**)&g_rounded_rect_pts, &g_rounded_rect_pts_cap, 
+                           count, sizeof(SDL_FPoint))) {
+        return -1;
+    }
 
     float left = x + r;
     float right = x + w - r;
@@ -920,11 +1132,11 @@ static int sdl3_build_rounded_rect_perimeter(float x, float y, float w, float h,
             float a = a0 + (a1 - a0) * t;
             float px = cx + cosf(a) * r;
             float py = cy + sinf(a) * r;
-            pts[out++] = (SDL_FPoint){ px, py };
+            g_rounded_rect_pts[out++] = (SDL_FPoint){ px, py };
         }
     }
 
-    *out_pts = pts;
+    *out_pts = g_rounded_rect_pts;
     *out_count = out;
     return 0;
 }
@@ -952,36 +1164,34 @@ static bool sdl3_draw_filled_rounded_rect_fan(int x, int y, int w, int h,
     const int vert_count = 1 + perim_count;
     const int index_count = 3 * perim_count;
 
-    SDL_Vertex* verts = (SDL_Vertex*)malloc((size_t)vert_count * sizeof(SDL_Vertex));
-    int* indices = (int*)malloc((size_t)index_count * sizeof(int));
-    if (!verts || !indices) {
-        free(verts);
-        free(indices);
-        free(perim);
+    // Use static buffers instead of malloc
+    if (!cogito_ensure_cap((void**)&g_rounded_rect_verts, &g_rounded_rect_verts_cap,
+                           vert_count, sizeof(SDL_Vertex)) ||
+        !cogito_ensure_cap((void**)&g_rounded_rect_indices, &g_rounded_rect_indices_cap,
+                           index_count, sizeof(int))) {
         return false;
     }
 
     float cx = (float)x + (float)w * 0.5f;
     float cy = (float)y + (float)h * 0.5f;
-    verts[0] = (SDL_Vertex){ .position = { cx, cy }, .color = c, .tex_coord = { 0.0f, 0.0f } };
+    g_rounded_rect_verts[0] = (SDL_Vertex){ .position = { cx, cy }, .color = c, .tex_coord = { 0.0f, 0.0f } };
 
     for (int i = 0; i < perim_count; i++) {
-        verts[1 + i] = (SDL_Vertex){ .position = perim[i], .color = c, .tex_coord = { 0.0f, 0.0f } };
+        g_rounded_rect_verts[1 + i] = (SDL_Vertex){ .position = perim[i], .color = c, .tex_coord = { 0.0f, 0.0f } };
     }
 
     int ii = 0;
     for (int i = 0; i < perim_count; i++) {
         int b = 1 + i;
         int cidx = 1 + ((i + 1) % perim_count);
-        indices[ii++] = 0;
-        indices[ii++] = b;
-        indices[ii++] = cidx;
+        g_rounded_rect_indices[ii++] = 0;
+        g_rounded_rect_indices[ii++] = b;
+        g_rounded_rect_indices[ii++] = cidx;
     }
 
-    bool ok = SDL_RenderGeometry(g_current_renderer, NULL, verts, vert_count, indices, index_count);
-    free(verts);
-    free(indices);
-    free(perim);
+    bool ok = SDL_RenderGeometry(g_current_renderer, NULL, g_rounded_rect_verts, 
+                                  vert_count, g_rounded_rect_indices, index_count);
+    // No free() calls - buffers are reused
     return ok;
 }
 
@@ -1013,20 +1223,55 @@ static bool sdl3_draw_rounded_rect_outline(int x, int y, int w, int h,
     int outer_count = 0;
     int inner_count = 0;
 
+    // Build outer perimeter using primary buffer
     if (sdl3_build_rounded_rect_perimeter((float)x, (float)y, (float)w, (float)h,
                                           r_outer, segments, &outer_pts, &outer_count) != 0) {
         return false;
     }
-    if (sdl3_build_rounded_rect_perimeter(xi, yi, wi, hi,
-                                          r_inner, segments, &inner_pts, &inner_count) != 0) {
-        free(outer_pts);
+    
+    // Build inner perimeter using secondary buffer
+    const int count = 4 * segments + 4;
+    if (!cogito_ensure_cap((void**)&g_rounded_rect_pts2, &g_rounded_rect_pts2_cap,
+                           count, sizeof(SDL_FPoint))) {
         return false;
     }
+    
+    // Build inner perimeter manually to use secondary buffer
+    float max_r_inner = 0.5f * ((wi < hi) ? wi : hi);
+    float r_inner_clamped = sdl3_clampf(r_inner, 0.0f, max_r_inner);
+    
+    float left = xi + r_inner_clamped;
+    float right = xi + wi - r_inner_clamped;
+    float top = yi + r_inner_clamped;
+    float bottom = yi + hi - r_inner_clamped;
+
+    struct Arc { float cx, cy, a0, a1; } arcs[4] = {
+        { right, top,    (float)(-0.5 * M_PI), (float)(0.0 * M_PI) },
+        { right, bottom, (float)(0.0  * M_PI), (float)(0.5 * M_PI) },
+        { left,  bottom, (float)(0.5  * M_PI), (float)(1.0 * M_PI) },
+        { left,  top,    (float)(1.0  * M_PI), (float)(1.5 * M_PI) },
+    };
+
+    inner_count = 0;
+    for (int corner = 0; corner < 4; corner++) {
+        float cx = arcs[corner].cx;
+        float cy = arcs[corner].cy;
+        float a0 = arcs[corner].a0;
+        float a1 = arcs[corner].a1;
+
+        for (int i = 0; i <= segments; i++) {
+            if (corner > 0 && i == 0) continue;
+            float t_val = (float)i / (float)segments;
+            float a = a0 + (a1 - a0) * t_val;
+            float px = cx + cosf(a) * r_inner_clamped;
+            float py = cy + sinf(a) * r_inner_clamped;
+            g_rounded_rect_pts2[inner_count++] = (SDL_FPoint){ px, py };
+        }
+    }
+    inner_pts = g_rounded_rect_pts2;
 
     int n = (outer_count < inner_count) ? outer_count : inner_count;
     if (n < 3) {
-        free(outer_pts);
-        free(inner_pts);
         return false;
     }
 
@@ -1034,19 +1279,17 @@ static bool sdl3_draw_rounded_rect_outline(int x, int y, int w, int h,
     const int vert_count = 2 * n;
     const int index_count = 6 * n;
 
-    SDL_Vertex* verts = (SDL_Vertex*)malloc((size_t)vert_count * sizeof(SDL_Vertex));
-    int* indices = (int*)malloc((size_t)index_count * sizeof(int));
-    if (!verts || !indices) {
-        free(verts);
-        free(indices);
-        free(outer_pts);
-        free(inner_pts);
+    // Use static buffers
+    if (!cogito_ensure_cap((void**)&g_rounded_rect_verts, &g_rounded_rect_verts_cap,
+                           vert_count, sizeof(SDL_Vertex)) ||
+        !cogito_ensure_cap((void**)&g_rounded_rect_indices, &g_rounded_rect_indices_cap,
+                           index_count, sizeof(int))) {
         return false;
     }
 
     for (int i = 0; i < n; i++) {
-        verts[i] = (SDL_Vertex){ .position = outer_pts[i], .color = c, .tex_coord = { 0.0f, 0.0f } };
-        verts[n + i] = (SDL_Vertex){ .position = inner_pts[i], .color = c, .tex_coord = { 0.0f, 0.0f } };
+        g_rounded_rect_verts[i] = (SDL_Vertex){ .position = outer_pts[i], .color = c, .tex_coord = { 0.0f, 0.0f } };
+        g_rounded_rect_verts[n + i] = (SDL_Vertex){ .position = inner_pts[i], .color = c, .tex_coord = { 0.0f, 0.0f } };
     }
 
     int ii = 0;
@@ -1056,19 +1299,17 @@ static bool sdl3_draw_rounded_rect_outline(int x, int y, int w, int h,
         int o1 = next;
         int i0 = n + i;
         int i1 = n + next;
-        indices[ii++] = o0;
-        indices[ii++] = o1;
-        indices[ii++] = i1;
-        indices[ii++] = o0;
-        indices[ii++] = i1;
-        indices[ii++] = i0;
+        g_rounded_rect_indices[ii++] = o0;
+        g_rounded_rect_indices[ii++] = o1;
+        g_rounded_rect_indices[ii++] = i1;
+        g_rounded_rect_indices[ii++] = o0;
+        g_rounded_rect_indices[ii++] = i1;
+        g_rounded_rect_indices[ii++] = i0;
     }
 
-    bool ok = SDL_RenderGeometry(g_current_renderer, NULL, verts, vert_count, indices, index_count);
-    free(verts);
-    free(indices);
-    free(outer_pts);
-    free(inner_pts);
+    bool ok = SDL_RenderGeometry(g_current_renderer, NULL, g_rounded_rect_verts, 
+                                  vert_count, g_rounded_rect_indices, index_count);
+    // No free() calls - buffers are reused
     return ok;
 }
 
@@ -1332,8 +1573,19 @@ static void sdl3_draw_text(CogitoFont* font, const char* text, int x, int y, int
     if (!g_current_renderer || !f || !f->ttf_font || !text || !text[0]) return;
     (void)size;
     
-    // Render text to surface using SDL_ttf
     SDL_Color sdl_color = { color.r, color.g, color.b, color.a };
+    
+    // Look up in cache
+    CogitoTextCacheEntry* entry = cogito_text_cache_lookup(f->ttf_font, text, sdl_color);
+    
+    if (entry->valid && entry->texture) {
+        // Cache hit - use existing texture
+        SDL_FRect dst = { (float)x, (float)y, (float)entry->width, (float)entry->height };
+        SDL_RenderTexture(g_current_renderer, entry->texture, NULL, &dst);
+        return;
+    }
+    
+    // Cache miss - render new texture
     SDL_Surface* surface = TTF_RenderText_Blended(f->ttf_font, text, 0, sdl_color);
     if (!surface) return;
     
@@ -1344,12 +1596,19 @@ static void sdl3_draw_text(CogitoFont* font, const char* text, int x, int y, int
     }
     SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
     SDL_SetTextureScaleMode(tex, SDL_SCALEMODE_LINEAR);
-
+    
+    // Store in cache
+    entry->texture = tex;
+    entry->width = surface->w;
+    entry->height = surface->h;
+    entry->valid = true;
+    entry->last_used = g_text_cache_frame;
+    
     SDL_FRect dst = { (float)x, (float)y, (float)surface->w, (float)surface->h };
     SDL_RenderTexture(g_current_renderer, tex, NULL, &dst);
-
-    SDL_DestroyTexture(tex);
+    
     SDL_DestroySurface(surface);
+    // Note: texture is now owned by cache, don't destroy it here
 }
 
 // ============================================================================

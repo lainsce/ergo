@@ -19,18 +19,16 @@
 #define COLOR_CYAN    "\033[36m"
 #define COLOR_GRAY    "\033[90m"
 
-// Check if stderr is a terminal (for color support)
+// Check if stderr is a terminal (for color support) — cached
 static bool use_color(void) {
-    const char *term = getenv("TERM");
-    const char *no_color = getenv("NO_COLOR");
-    
-    if (no_color && no_color[0]) {
-        return false;
+    static int cached = -1;
+    if (cached < 0) {
+        const char *no_color = getenv("NO_COLOR");
+        if (no_color && no_color[0]) { cached = 0; }
+        else if (!isatty(fileno(stderr))) { cached = 0; }
+        else { const char *term = getenv("TERM"); cached = (term && term[0]) ? 1 : 0; }
     }
-    if (!isatty(fileno(stderr))) {
-        return false;
-    }
-    return term && term[0];
+    return cached != 0;
 }
 
 // Print with optional color
@@ -52,99 +50,64 @@ static void print_colored(FILE *out, const char *color, const char *fmt, ...) {
 }
 
 // Read a line from source file at given line number
-// Returns allocated string that caller must free, or NULL on error
-static char *read_source_line(const char *path, int line_num) {
-    if (!path || line_num <= 0) {
-        return NULL;
-    }
-    
-    FILE *f = fopen(path, "r");
-    if (!f) {
-        return NULL;
-    }
-    
-    char *line = NULL;
-    size_t cap = 0;
-    int current_line = 1;
-    
-    while (getline(&line, &cap, f) != -1) {
-        if (current_line == line_num) {
-            // Remove trailing newline
-            size_t len = strlen(line);
-            if (len > 0 && line[len - 1] == '\n') {
-                line[len - 1] = '\0';
-            }
-            fclose(f);
-            return line;
-        }
-        current_line++;
-    }
-    
-    free(line);
-    fclose(f);
-    return NULL;
-}
-
 // Print a code snippet with line numbers and error highlighting
+// Reads the file once and extracts all needed lines
 static void print_code_snippet(const char *path, int line, int col, int context_lines) {
     if (!path || line <= 0) {
         return;
     }
-    
-    // Read the error line and surrounding context
-    for (int i = line - context_lines; i <= line + context_lines; i++) {
-        if (i < 1) continue;
-        
-        char *source_line = read_source_line(path, i);
-        if (!source_line) continue;
-        
-        // Print line number with color
+
+    FILE *f = fopen(path, "r");
+    if (!f) return;
+
+    int first_line = line - context_lines;
+    if (first_line < 1) first_line = 1;
+    int last_line = line + context_lines;
+
+    // Skip to first_line
+    char *buf = NULL;
+    size_t buf_cap = 0;
+    int current = 1;
+    while (current < first_line) {
+        if (getline(&buf, &buf_cap, f) == -1) { free(buf); fclose(f); return; }
+        current++;
+    }
+
+    // Read and display lines from first_line to last_line
+    for (int i = first_line; i <= last_line; i++) {
+        if (getline(&buf, &buf_cap, f) == -1) break;
+
+        // Strip trailing newline
+        size_t len = strlen(buf);
+        if (len > 0 && buf[len - 1] == '\n') buf[--len] = '\0';
+
         if (i == line) {
             print_colored(stderr, COLOR_BOLD COLOR_CYAN, "%4d | ", i);
         } else {
             print_colored(stderr, COLOR_GRAY, "%4d | ", i);
         }
-        
-        // Print the source line
-        fprintf(stderr, "%s\n", source_line);
-        
-        // Print caret pointing to error column
+        fprintf(stderr, "%s\n", buf);
+
         if (i == line && col > 0) {
             print_colored(stderr, COLOR_GRAY, "     | ");
-            
-            // Calculate visual column (accounting for tabs)
             int visual_col = 0;
-            for (int j = 0; j < col - 1 && source_line[j]; j++) {
-                if (source_line[j] == '\t') {
-                    visual_col += 4 - (visual_col % 4);
-                } else {
-                    visual_col++;
-                }
+            for (int j = 0; j < col - 1 && buf[j]; j++) {
+                if (buf[j] == '\t') visual_col += 4 - (visual_col % 4);
+                else visual_col++;
             }
-            
-            // Print spaces up to the error position
-            for (int j = 0; j < visual_col; j++) {
-                fprintf(stderr, " ");
-            }
-            
-            // Print the caret
+            for (int j = 0; j < visual_col; j++) fprintf(stderr, " ");
             print_colored(stderr, COLOR_BOLD COLOR_RED, "^");
-            
-            // Print underline for the token (estimate 1-8 chars)
+
             int token_len = 1;
-            for (int j = col - 1; source_line[j] && !isspace((unsigned char)source_line[j]); j++) {
-                token_len++;
-            }
+            for (int j = col - 1; buf[j] && !isspace((unsigned char)buf[j]); j++) token_len++;
             if (token_len > 8) token_len = 8;
-            
-            for (int j = 1; j < token_len; j++) {
-                print_colored(stderr, COLOR_RED, "~");
-            }
+            for (int j = 1; j < token_len; j++) print_colored(stderr, COLOR_RED, "~");
             fprintf(stderr, "\n");
         }
-        
-        free(source_line);
     }
+
+    free(buf);
+    fclose(f);
 }
 
 // Get a helpful tip based on error message content
