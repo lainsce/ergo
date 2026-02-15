@@ -50,6 +50,12 @@ static const char* cogito_kind_name(CogitoKind kind) {
     case COGITO_WINDOW: return "window";
     case COGITO_ZSTACK: return "zstack";
     case COGITO_DIVIDER: return "divider";
+    case COGITO_CARD: return "card";
+    case COGITO_AVATAR: return "avatar";
+    case COGITO_BADGE: return "badge";
+    case COGITO_BANNER: return "banner";
+    case COGITO_BOTTOM_SHEET: return "bottom-sheet";
+    case COGITO_TIMEPICKER: return "timepicker";
     case COGITO_KIND_COUNT: return "unknown";
   }
   return "unknown";

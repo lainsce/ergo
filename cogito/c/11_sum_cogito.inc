@@ -610,6 +610,12 @@ static bool cogito_sum_selector_kind(const char* sel, CogitoKind* out_kind, bool
     return true;
   }
   if (strcmp(s, "divider") == 0) { if (out_kind) *out_kind = COGITO_DIVIDER; return true; }
+  if (strcmp(s, "card") == 0) { if (out_kind) *out_kind = COGITO_CARD; return true; }
+  if (strcmp(s, "avatar") == 0) { if (out_kind) *out_kind = COGITO_AVATAR; return true; }
+  if (strcmp(s, "badge") == 0) { if (out_kind) *out_kind = COGITO_BADGE; return true; }
+  if (strcmp(s, "banner") == 0) { if (out_kind) *out_kind = COGITO_BANNER; return true; }
+  if (strcmp(s, "bottom-sheet") == 0 || strcmp(s, "bottom_sheet") == 0 || strcmp(s, "bottomsheet") == 0) { if (out_kind) *out_kind = COGITO_BOTTOM_SHEET; return true; }
+  if (strcmp(s, "timepicker") == 0 || strcmp(s, "time-picker") == 0 || strcmp(s, "time_picker") == 0) { if (out_kind) *out_kind = COGITO_TIMEPICKER; return true; }
   if (strcmp(s, "dropdown") == 0) { if (out_kind) *out_kind = COGITO_DROPDOWN; return true; }
   if (strcmp(s, "fab") == 0) { if (out_kind) *out_kind = COGITO_FAB; return true; }
   if (strcmp(s, "fixed") == 0) { if (out_kind) *out_kind = COGITO_FIXED; return true; }
@@ -1062,6 +1068,7 @@ static void cogito_apply_theme(bool dark, CogitoColor accent) {
   char dyn[65536];
   sum_build_dynamic(dark, accent, dyn, sizeof(dyn));
   if (getenv("COGITO_THEME_DEBUG")) {
+    fprintf(stderr, "cogito_apply_theme: dark=%d accent=(%d,%d,%d)\n", dark, accent.r, accent.g, accent.b);
     fprintf(stderr, "Cogito dynamic SUM:\\n%s\\n", dyn);
   }
   cogito_apply_sum_inline(dyn);

@@ -177,6 +177,18 @@ static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h) {
 
     #include "widgets/layout/divider.inc"
 
+    #include "widgets/layout/card.inc"
+
+    #include "widgets/layout/avatar.inc"
+
+    #include "widgets/layout/badge.inc"
+
+    #include "widgets/layout/banner.inc"
+
+    #include "widgets/layout/bottom_sheet.inc"
+
+    #include "widgets/layout/timepicker.inc"
+
     case COGITO_TREEVIEW:
       cogito_layout_treeview(n, x, y);
       break;

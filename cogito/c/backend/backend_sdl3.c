@@ -544,6 +544,12 @@ static void sdl3_window_hide(CogitoWindow* window) {
     SDL_HideWindow(win->sdl_window);
 }
 
+static void sdl3_window_raise(CogitoWindow* window) {
+    CogitoSDL3Window* win = (CogitoSDL3Window*)window;
+    if (!win || !win->sdl_window) return;
+    SDL_RaiseWindow(win->sdl_window);
+}
+
 static void sdl3_window_minimize(CogitoWindow* window) {
     CogitoSDL3Window* win = (CogitoSDL3Window*)window;
     if (!win || !win->sdl_window) return;
@@ -1995,6 +2001,7 @@ static CogitoBackend sdl3_backend = {
     .window_set_title = sdl3_window_set_title,
     .window_show = sdl3_window_show,
     .window_hide = sdl3_window_hide,
+    .window_raise = sdl3_window_raise,
     .window_minimize = sdl3_window_minimize,
     .window_maximize = sdl3_window_maximize,
     .window_restore = sdl3_window_restore,

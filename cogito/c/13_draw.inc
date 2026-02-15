@@ -497,6 +497,18 @@ case COGITO_TOASTS:
 
     #include "widgets/draw/divider.inc"
 
+    #include "widgets/draw/card.inc"
+
+    #include "widgets/draw/avatar.inc"
+
+    #include "widgets/draw/badge.inc"
+
+    #include "widgets/draw/banner.inc"
+
+    #include "widgets/draw/bottom_sheet.inc"
+
+    #include "widgets/draw/timepicker.inc"
+
     case COGITO_KIND_COUNT:
       break;
   

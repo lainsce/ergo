@@ -208,7 +208,7 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "bottom-nav:selection\n  background: %s\n", bottomsel);
   cogito_sum_append(out, cap, &off, "bottom-nav\n  background: %s\n  color: %s\n  min-height: 80\n  padding: 0 8\n  transition: 220 standard\n", bottombg, ons);
   cogito_sum_append(out, cap, &off, "button:active\n  background: %s\n  color: %s\n", pa, op);
-  cogito_sum_append(out, cap, &off, "button:focus, iconbtn:focus, checkbox:focus, switch:focus, slider:focus, dropdown:focus, chip:focus, segmented:focus, stepper:focus, fab:focus, nav_rail:focus, bottom_nav:focus, datepicker:focus, colorpicker:focus\n  border-color: %s\n  border-width: 2\n", p);
+  cogito_sum_append(out, cap, &off, "button:focus, iconbtn:focus, checkbox:focus, switch:focus, slider:focus, dropdown:focus, chip:focus, segmented:focus, stepper:focus, fab:focus, nav_rail:focus, bottom_nav:focus, datepicker:focus, colorpicker:focus, timepicker:focus\n  border-color: %s\n  border-width: 2\n", p);
   cogito_sum_append(out, cap, &off, "button:hover\n  background: %s\n  color: %s\n", ph, op);
   cogito_sum_append(out, cap, &off, "button.outlined:active\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, "button.outlined:disabled\n  color: %s61\n  border-color: %s12\n", ons, ons);
@@ -257,6 +257,13 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "iconbtn:hover\n  background: %s\n  border-radius: 99\n  min-width: 42\n  min-height: 42\n  color: %s\n", outl, ons);
   cogito_sum_append(out, cap, &off, "iconbtn\n  background: %s\n  border-radius: 99\n  min-width: 42\n  min-height: 42\n  color: %s\n  transition: 150 standard\n", iconbg, ons);
   cogito_sum_append(out, cap, &off, "label\n  color: %s\n", ons);
+  cogito_sum_append(out, cap, &off, "avatar\n  background: %s\n  color: %s\n  min-width: 40\n  min-height: 40\n", secc, osecc);
+  cogito_sum_append(out, cap, &off, "badge\n  background: %s\n  color: %s\n  font-size: 11\n  min-width: 10\n  min-height: 10\n", err, oerr);
+  cogito_sum_append(out, cap, &off, "banner\n  background: %s\n  color: %s\n  padding: 16\n  min-height: 52\n  transition: 200 standard\n", secc, osecc);
+  cogito_sum_append(out, cap, &off, "banner:selection\n  color: %s\n", p);
+  cogito_sum_append(out, cap, &off, "bottom-sheet\n  background: %s\n  color: %s\n  border-radius: 28 28 0 0\n  padding: 16\n  transition: 300 emphasized\n", surf, ons);
+  cogito_sum_append(out, cap, &off, "card:hover\n  box-shadow: [ 0 2 8 0 #0000002a ]\n");
+  cogito_sum_append(out, cap, &off, "card\n  background: %s\n  color: %s\n  border-radius: 12\n  padding: 16\n  transition: 200 standard\n", surf, ons);
   cogito_sum_append(out, cap, &off, "carousel_item\n  background: %s\n", surf);
   cogito_sum_append(out, cap, &off, "list:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, "list\n  background: %s\n  color: %s\n", surf, ons);
@@ -316,6 +323,8 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "textview:focus\n  border: 2 solid %s\n", p);
   cogito_sum_append(out, cap, &off, "textview:selection, .textview:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, "textview\n  background: %s\n  color: %s\n  border-radius: 8\n  min-height: 96\n  transition: 180 standard\n", surf, ons);
+  cogito_sum_append(out, cap, &off, "timepicker\n  background: %s\n  color: %s\n  border-radius: 18\n  min-height: 200\n  min-width: 180\n  transition: 220 standard\n", surf, ons);
+  cogito_sum_append(out, cap, &off, "timepicker:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, "toast:selection\n  background: %s\n", invp);
   cogito_sum_append(out, cap, &off, "toast\n  background: %s\n  color: %s\n  border-radius: 10\n  min-height: 34\n  padding: 0 12\n  transition: 220 standard\n", toastbg, toastfg);
   cogito_sum_append(out, cap, &off, "toasts\n  padding: 12\n");

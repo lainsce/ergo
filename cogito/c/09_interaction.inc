@@ -98,6 +98,12 @@ static void cogito_container_remove_child(CogitoNode* parent, CogitoNode* child)
 #include "widgets/interaction/popover.inc"
 #include "widgets/interaction/dropdown.inc"
 #include "widgets/interaction/divider.inc"
+#include "widgets/interaction/card.inc"
+#include "widgets/interaction/avatar.inc"
+#include "widgets/interaction/badge.inc"
+#include "widgets/interaction/banner.inc"
+#include "widgets/interaction/bottom_sheet.inc"
+#include "widgets/interaction/timepicker.inc"
 #include "widgets/interaction/fab.inc"
 #include "widgets/interaction/fixed.inc"
 #include "widgets/interaction/grid.inc"
@@ -215,7 +221,8 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
       n->kind == COGITO_CHIP || n->kind == COGITO_FAB ||
       n->kind == COGITO_STEPPER || n->kind == COGITO_SEGMENTED ||
       n->kind == COGITO_SEARCHFIELD ||
-      n->kind == COGITO_NAV_RAIL || n->kind == COGITO_BOTTOM_NAV) {
+      n->kind == COGITO_NAV_RAIL || n->kind == COGITO_BOTTOM_NAV ||
+      n->kind == COGITO_TIMEPICKER || n->kind == COGITO_BANNER) {
     if (cogito_hit_node(n, x, y)) return n;
   }
   return NULL;

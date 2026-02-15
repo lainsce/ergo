@@ -580,6 +580,155 @@ static void __cogito_chip_on_close(ErgoVal chipv, ErgoVal handler) {
   cogito_chip_on_close(chip, cogito_cb_action, h);
 }
 
+// --- Divider ---
+static ErgoVal __cogito_divider(ErgoVal orientationv, ErgoVal insetv) {
+  ErgoStr* tmp = NULL;
+  const char* orientation = NULL;
+  if (orientationv.tag != EVT_NULL) {
+    orientation = cogito_required_cstr(orientationv, &tmp);
+  }
+  bool inset = ergo_as_bool(insetv);
+  cogito_node* n = cogito_divider_new(orientation, inset);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+// --- Card ---
+static ErgoVal __cogito_card(ErgoVal titlev) {
+  ErgoStr* tmp = NULL;
+  const char* title = NULL;
+  if (titlev.tag != EVT_NULL) {
+    title = cogito_required_cstr(titlev, &tmp);
+  }
+  cogito_node* n = cogito_card_new(title);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+// --- Avatar ---
+static ErgoVal __cogito_avatar(ErgoVal textv) {
+  ErgoStr* tmp = NULL;
+  const char* text = NULL;
+  if (textv.tag != EVT_NULL) {
+    text = cogito_required_cstr(textv, &tmp);
+  }
+  cogito_node* n = cogito_avatar_new(text);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+static void __cogito_avatar_set_image(ErgoVal avatarv, ErgoVal pathv) {
+  cogito_node* n = cogito_node_from_val(avatarv);
+  ErgoStr* tmp = NULL;
+  const char* path = cogito_required_cstr(pathv, &tmp);
+  cogito_avatar_set_image(n, path);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
+// --- Badge ---
+static ErgoVal __cogito_badge(ErgoVal countv) {
+  int count = 0;
+  if (countv.tag == EVT_INT) count = (int)countv.as.i;
+  else if (countv.tag == EVT_FLOAT) count = (int)countv.as.f;
+  cogito_node* n = cogito_badge_new(count);
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+static void __cogito_badge_set_count(ErgoVal badgev, ErgoVal countv) {
+  cogito_node* n = cogito_node_from_val(badgev);
+  int count = 0;
+  if (countv.tag == EVT_INT) count = (int)countv.as.i;
+  else if (countv.tag == EVT_FLOAT) count = (int)countv.as.f;
+  cogito_badge_set_count(n, count);
+}
+
+static ErgoVal __cogito_badge_get_count(ErgoVal badgev) {
+  cogito_node* n = cogito_node_from_val(badgev);
+  return EV_INT(cogito_badge_get_count(n));
+}
+
+// --- Banner ---
+static ErgoVal __cogito_banner(ErgoVal textv) {
+  ErgoStr* tmp = NULL;
+  const char* text = cogito_required_cstr(textv, &tmp);
+  cogito_node* n = cogito_banner_new(text);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+static void __cogito_banner_set_action(ErgoVal bannerv, ErgoVal textv, ErgoVal handlerv) {
+  cogito_node* banner = cogito_node_from_val(bannerv);
+  CogitoHandle* h = (CogitoHandle*)bannerv.as.p;
+  ErgoStr* tmp = NULL;
+  const char* text = cogito_required_cstr(textv, &tmp);
+  if (handlerv.tag != EVT_FN) {
+    cogito_set_handler(h, &h->on_action, handlerv);
+    cogito_banner_set_action(banner, text, NULL, NULL);
+  } else {
+    cogito_set_handler(h, &h->on_action, handlerv);
+    cogito_banner_set_action(banner, text, cogito_cb_action, h);
+  }
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
+static void __cogito_banner_set_icon(ErgoVal bannerv, ErgoVal iconv) {
+  cogito_node* banner = cogito_node_from_val(bannerv);
+  ErgoStr* tmp = NULL;
+  const char* icon = cogito_required_cstr(iconv, &tmp);
+  cogito_banner_set_icon(banner, icon);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
+// --- BottomSheet ---
+static ErgoVal __cogito_bottom_sheet(ErgoVal titlev) {
+  ErgoStr* tmp = NULL;
+  const char* title = NULL;
+  if (titlev.tag != EVT_NULL) {
+    title = cogito_required_cstr(titlev, &tmp);
+  }
+  cogito_node* n = cogito_bottom_sheet_new(title);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+// --- TimePicker ---
+static ErgoVal __cogito_timepicker(void) {
+  cogito_node* n = cogito_timepicker_new();
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+static void __cogito_timepicker_on_change(ErgoVal tpv, ErgoVal handler) {
+  cogito_node* tp = cogito_node_from_val(tpv);
+  CogitoHandle* h = (CogitoHandle*)tpv.as.p;
+  if (handler.tag != EVT_FN) {
+    cogito_set_handler(h, &h->on_change, handler);
+    cogito_timepicker_on_change(tp, NULL, NULL);
+    return;
+  }
+  cogito_set_handler(h, &h->on_change, handler);
+  cogito_timepicker_on_change(tp, cogito_cb_change, h);
+}
+
+static ErgoVal __cogito_timepicker_get_hour(ErgoVal tpv) {
+  cogito_node* n = cogito_node_from_val(tpv);
+  return EV_INT(cogito_timepicker_get_hour(n));
+}
+
+static ErgoVal __cogito_timepicker_get_minute(ErgoVal tpv) {
+  cogito_node* n = cogito_node_from_val(tpv);
+  return EV_INT(cogito_timepicker_get_minute(n));
+}
+
+static void __cogito_timepicker_set_time(ErgoVal tpv, ErgoVal hourv, ErgoVal minv) {
+  cogito_node* n = cogito_node_from_val(tpv);
+  int hour = 0, minute = 0;
+  if (hourv.tag == EVT_INT) hour = (int)hourv.as.i;
+  else if (hourv.tag == EVT_FLOAT) hour = (int)hourv.as.f;
+  if (minv.tag == EVT_INT) minute = (int)minv.as.i;
+  else if (minv.tag == EVT_FLOAT) minute = (int)minv.as.f;
+  cogito_timepicker_set_time(n, hour, minute);
+}
+
 static ErgoVal __cogito_image(ErgoVal iconv) {
   ErgoStr* tmp = NULL;
   const char* icon = cogito_required_cstr(iconv, &tmp);
@@ -1848,6 +1997,22 @@ void __cogito_button_on_click(ErgoVal btn, ErgoVal handler);
 #define cogito_chip_set_closable __cogito_chip_set_closable
 #define cogito_chip_on_click __cogito_chip_on_click
 #define cogito_chip_on_close __cogito_chip_on_close
+#define cogito_divider_new __cogito_divider
+#define cogito_card_new __cogito_card
+#define cogito_avatar_new __cogito_avatar
+#define cogito_avatar_set_image __cogito_avatar_set_image
+#define cogito_badge_new __cogito_badge
+#define cogito_badge_set_count __cogito_badge_set_count
+#define cogito_badge_get_count __cogito_badge_get_count
+#define cogito_banner_new __cogito_banner
+#define cogito_banner_set_action __cogito_banner_set_action
+#define cogito_banner_set_icon __cogito_banner_set_icon
+#define cogito_bottom_sheet_new __cogito_bottom_sheet
+#define cogito_timepicker_new __cogito_timepicker
+#define cogito_timepicker_on_change __cogito_timepicker_on_change
+#define cogito_timepicker_get_hour __cogito_timepicker_get_hour
+#define cogito_timepicker_get_minute __cogito_timepicker_get_minute
+#define cogito_timepicker_set_time __cogito_timepicker_set_time
 #define cogito_appbar_add_button __cogito_appbar_add_button
 #define cogito_appbar_set_controls __cogito_appbar_set_controls
 #define cogito_appbar_set_title __cogito_appbar_set_title

@@ -114,6 +114,12 @@ typedef enum {
   COGITO_WINDOW,
   COGITO_ZSTACK,
   COGITO_DIVIDER,
+  COGITO_CARD,
+  COGITO_AVATAR,
+  COGITO_BADGE,
+  COGITO_BANNER,
+  COGITO_BOTTOM_SHEET,
+  COGITO_TIMEPICKER,
   COGITO_KIND_COUNT
 } CogitoKind;
 
@@ -560,6 +566,12 @@ typedef struct CogitoNode {
   bool fab_extended;
   bool divider_vertical;
   bool divider_inset;
+  // Badge
+  int badge_count;
+  // TimePicker
+  int time_hour;
+  int time_minute;
+  bool time_ampm; // true = PM
   ErgoStr** nav_rail_labels;
   ErgoStr** nav_rail_icons;
   size_t nav_rail_len;
@@ -844,6 +856,29 @@ static bool cogito_macos_apply_app_name(const char* name) {
   SEL sel_set_title = sel_registerName("setTitle:");
   ((void (*)(id, SEL, id))objc_msgSend)(app_item, sel_set_title, cogito_nsstring(app_name));
   return true;
+}
+
+static void cogito_macos_set_app_icon(const char* path) {
+  if (!path || !path[0]) return;
+  Class nsapp = (Class)objc_getClass("NSApplication");
+  if (!nsapp) return;
+  SEL sel_shared = sel_registerName("sharedApplication");
+  id app = ((id (*)(id, SEL))objc_msgSend)((id)nsapp, sel_shared);
+  if (!app) return;
+  // Create NSString for path
+  id ns_path = cogito_nsstring(path);
+  // Create NSImage from file path: [[NSImage alloc] initByReferencingFile:path]
+  Class nsimage = (Class)objc_getClass("NSImage");
+  if (!nsimage) return;
+  SEL sel_alloc = sel_registerName("alloc");
+  id img = ((id (*)(id, SEL))objc_msgSend)((id)nsimage, sel_alloc);
+  if (!img) return;
+  SEL sel_init = sel_registerName("initByReferencingFile:");
+  img = ((id (*)(id, SEL, id))objc_msgSend)(img, sel_init, ns_path);
+  if (!img) return;
+  // [NSApp setApplicationIconImage:img]
+  SEL sel_set_icon = sel_registerName("setApplicationIconImage:");
+  ((void (*)(id, SEL, id))objc_msgSend)(app, sel_set_icon, img);
 }
 #endif
 

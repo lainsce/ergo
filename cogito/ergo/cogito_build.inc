@@ -251,30 +251,7 @@ static const char *cogito_default_ldflags(void) {
 #endif
     static char buf[1024];
 
-    // 1) Check system install paths first (preferred for portable binaries)
-    {
-        const char *sys_dirs[] = {
-#if defined(__APPLE__)
-            "/opt/homebrew/lib",
-            "/usr/local/lib",
-#endif
-            "/usr/lib",
-        };
-        for (size_t i = 0; i < sizeof(sys_dirs) / sizeof(sys_dirs[0]); i++) {
-            char path[512];
-            snprintf(path, sizeof(path), "%s/%s", sys_dirs[i], libname);
-            if (path_is_file(path)) {
-#if defined(__APPLE__) || defined(__linux__)
-                snprintf(buf, sizeof(buf), "-L%s -lcogito -Wl,-rpath,%s", sys_dirs[i], sys_dirs[i]);
-#else
-                snprintf(buf, sizeof(buf), "-L%s -lcogito", sys_dirs[i]);
-#endif
-                return buf;
-            }
-        }
-    }
-
-    // 2) Fall back to development build directories (cwd-relative, resolved to absolute)
+    // 1) Check development build directories first (cwd-relative, resolved to absolute)
     {
         const char *dev_dirs[] = {
             "cogito/_build",
@@ -304,7 +281,7 @@ static const char *cogito_default_ldflags(void) {
         }
     }
 
-    // 3) Try relative to the executable (binary at <project>/ergo/build/ergo)
+    // 2) Try relative to the executable (binary at <project>/ergo/build/ergo)
     {
         char *exe_dir = ergo_exe_dir();
         if (exe_dir) {
@@ -334,6 +311,29 @@ static const char *cogito_default_ldflags(void) {
                 }
             }
             free(exe_dir);
+        }
+    }
+
+    // 3) Fall back to system install paths
+    {
+        const char *sys_dirs[] = {
+#if defined(__APPLE__)
+            "/opt/homebrew/lib",
+            "/usr/local/lib",
+#endif
+            "/usr/lib",
+        };
+        for (size_t i = 0; i < sizeof(sys_dirs) / sizeof(sys_dirs[0]); i++) {
+            char path[512];
+            snprintf(path, sizeof(path), "%s/%s", sys_dirs[i], libname);
+            if (path_is_file(path)) {
+#if defined(__APPLE__) || defined(__linux__)
+                snprintf(buf, sizeof(buf), "-L%s -lcogito -Wl,-rpath,%s", sys_dirs[i], sys_dirs[i]);
+#else
+                snprintf(buf, sizeof(buf), "-L%s -lcogito", sys_dirs[i]);
+#endif
+                return buf;
+            }
         }
     }
 

@@ -1,4 +1,6 @@
-# Ergo + Cogito
+# Ergo
+
+> Vala was the war. Ergo is the spoils.
 
 This repository contains:
 

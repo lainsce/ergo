@@ -557,6 +557,18 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
 
     #include "widgets/intrinsic/divider.inc"
 
+    #include "widgets/intrinsic/card.inc"
+
+    #include "widgets/intrinsic/avatar.inc"
+
+    #include "widgets/intrinsic/badge.inc"
+
+    #include "widgets/intrinsic/banner.inc"
+
+    #include "widgets/intrinsic/bottom_sheet.inc"
+
+    #include "widgets/intrinsic/timepicker.inc"
+
     #include "widgets/intrinsic/treeview.inc"
 
     #include "widgets/intrinsic/colorpicker.inc"

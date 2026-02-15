@@ -749,6 +749,197 @@ fun build_tree_view(views = cogito.ViewSwitcher) (( cogito.VStack )) {
     return vstack
 }
 
+fun build_cards_view() (( cogito.VStack )) {
+    let vstack = cogito.vstack()
+    vstack.set_vexpand(true)
+    vstack.set_hexpand(true)
+    vstack.set_gap(12)
+    vstack.set_padding(0, 18, 0, 18)
+
+    let subtitle = cogito.label(@"Cards & Containers")
+    subtitle.set_class(@"subtitle")
+    vstack.add(subtitle)
+
+    let info = cogito.label(@"Cards are elevated containers with rounded corners.")
+    info.set_class(@"body")
+    info.set_wrap(true)
+    vstack.add(info)
+
+    let card1 = cogito.card(@"Basic Card")
+    card1.set_hexpand(true)
+    let card1_body = cogito.label(@"This is a simple card with a title and body text.")
+    card1_body.set_class(@"body")
+    card1_body.set_wrap(true)
+    card1.add(card1_body)
+    vstack.add(card1)
+
+    let card2 = cogito.card(@"Interactive Card")
+    card2.set_hexpand(true)
+    let card2_body = cogito.label(@"Cards can contain any widgets.")
+    card2_body.set_class(@"body")
+    card2_body.set_wrap(true)
+    card2.add(card2_body)
+    let card2_btn = cogito.button(@"Action")
+    cogito.set_class(card2_btn, @"outlined")
+    card2_btn.on_click((b = cogito.Button) => {
+        info.set_text(@"Card action clicked!")
+    })
+    card2.add(card2_btn)
+    vstack.add(card2)
+
+    let card3 = cogito.card_untitled()
+    card3.set_hexpand(true)
+    let card3_body = cogito.label(@"A card without a title.")
+    card3_body.set_class(@"body")
+    card3_body.set_wrap(true)
+    card3.add(card3_body)
+    vstack.add(card3)
+
+    return vstack
+}
+
+fun build_avatars_view() (( cogito.VStack )) {
+    let vstack = cogito.vstack()
+    vstack.set_vexpand(true)
+    vstack.set_hexpand(true)
+    vstack.set_gap(12)
+    vstack.set_padding(0, 18, 0, 18)
+
+    let subtitle = cogito.label(@"Avatars & Badges")
+    subtitle.set_class(@"subtitle")
+    vstack.add(subtitle)
+
+    let info = cogito.label(@"Avatars show user initials or images. Badges show counts.")
+    info.set_class(@"body")
+    info.set_wrap(true)
+    vstack.add(info)
+
+    let row1 = cogito.hstack()
+    row1.set_gap(12)
+
+    let av1 = cogito.avatar(@"Alice")
+    row1.add(av1)
+
+    let av2 = cogito.avatar(@"Bob")
+    row1.add(av2)
+
+    let av3 = cogito.avatar(@"Charlie")
+    row1.add(av3)
+
+    let av4 = cogito.avatar(@"sf:person")
+    row1.add(av4)
+
+    vstack.add(row1)
+
+    let badge_label = cogito.label(@"Badges")
+    badge_label.set_class(@"subtitle")
+    vstack.add(badge_label)
+
+    let row2 = cogito.hstack()
+    row2.set_gap(16)
+
+    let b1 = cogito.badge_dot()
+    row2.add(b1)
+
+    let b2 = cogito.badge(3)
+    row2.add(b2)
+
+    let b3 = cogito.badge(42)
+    row2.add(b3)
+
+    let b4 = cogito.badge(999)
+    row2.add(b4)
+
+    vstack.add(row2)
+
+    return vstack
+}
+
+fun build_banners_view() (( cogito.VStack )) {
+    let vstack = cogito.vstack()
+    vstack.set_vexpand(true)
+    vstack.set_hexpand(true)
+    vstack.set_gap(12)
+    vstack.set_padding(0, 18, 0, 18)
+
+    let subtitle = cogito.label(@"Banners & Dividers")
+    subtitle.set_class(@"subtitle")
+    vstack.add(subtitle)
+
+    let info = cogito.label(@"Banners display important messages. Dividers separate content.")
+    info.set_class(@"body")
+    info.set_wrap(true)
+    vstack.add(info)
+
+    let banner1 = cogito.banner(@"Your connection was lost.")
+    banner1.set_hexpand(true)
+    banner1.set_icon(@"sf:warninexclamationmark.triangle")
+    banner1.set_action(@"Retry", (b = any) => {
+        info.set_text(@"Retry clicked!")
+    })
+    vstack.add(banner1)
+
+    let banner2 = cogito.banner(@"A new update is available.")
+    banner2.set_hexpand(true)
+    banner2.set_action(@"Update", (b = any) => {
+        info.set_text(@"Update clicked!")
+    })
+    vstack.add(banner2)
+
+    let div_label = cogito.label(@"Dividers")
+    div_label.set_class(@"subtitle")
+    vstack.add(div_label)
+
+    let item1 = cogito.label(@"Item above divider")
+    item1.set_class(@"body")
+    vstack.add(item1)
+
+    let d1 = cogito.divider(@"horizontal", false)
+    d1.set_hexpand(true)
+    vstack.add(d1)
+
+    let item2 = cogito.label(@"Item below divider")
+    item2.set_class(@"body")
+    vstack.add(item2)
+
+    let d2 = cogito.divider(@"horizontal", true)
+    d2.set_hexpand(true)
+    vstack.add(d2)
+
+    let item3 = cogito.label(@"Item below inset divider")
+    item3.set_class(@"body")
+    vstack.add(item3)
+
+    return vstack
+}
+
+fun build_timepicker_view() (( cogito.VStack )) {
+    let vstack = cogito.vstack()
+    vstack.set_vexpand(true)
+    vstack.set_hexpand(true)
+    vstack.set_gap(12)
+    vstack.set_padding(0, 18, 0, 18)
+
+    let subtitle = cogito.label(@"Time Picker")
+    subtitle.set_class(@"subtitle")
+    vstack.add(subtitle)
+
+    let info = cogito.label(@"Select a time using the up/down buttons.")
+    info.set_class(@"body")
+    info.set_wrap(true)
+    vstack.add(info)
+
+    let tp = cogito.timepicker()
+    tp.on_change((picker = cogito.TimePicker) => {
+        let h = picker.hour()
+        let m = picker.minute()
+        info.set_text(@"Selected: $h:$m")
+    })
+    vstack.add(tp)
+
+    return vstack
+}
+
 fun build_ui(win = cogito.Window) (( -- )) {
     let bar = cogito.appbar(@"Sidebar", @"")
     cogito.set_class(bar, @"sidebar")
@@ -815,6 +1006,22 @@ fun build_ui(win = cogito.Window) (( -- )) {
     cogito.set_id(tree_view, @"tree")
     views.add(tree_view)
 
+    let cards_view = build_cards_view()
+    cogito.set_id(cards_view, @"cards")
+    views.add(cards_view)
+
+    let avatars_view = build_avatars_view()
+    cogito.set_id(avatars_view, @"avatars")
+    views.add(avatars_view)
+
+    let banners_view = build_banners_view()
+    cogito.set_id(banners_view, @"banners")
+    views.add(banners_view)
+
+    let timepicker_view = build_timepicker_view()
+    cogito.set_id(timepicker_view, @"timepicker")
+    views.add(timepicker_view)
+
     -- Sidebar
     let sidebar = cogito.vstack()
     cogito.set_class(sidebar, @"sidebar")
@@ -836,6 +1043,10 @@ fun build_ui(win = cogito.Window) (( -- )) {
     sidebar_list.add(cogito.label(@"Nav Rail"))
     sidebar_list.add(cogito.label(@"Dialogs"))
     sidebar_list.add(cogito.label(@"Tree View"))
+    sidebar_list.add(cogito.label(@"Cards"))
+    sidebar_list.add(cogito.label(@"Avatars & Badges"))
+    sidebar_list.add(cogito.label(@"Banners"))
+    sidebar_list.add(cogito.label(@"Time Picker"))
     sidebar_list.on_select((idx) => {
         let target = if idx == 0 {
             @"buttons"
@@ -863,6 +1074,14 @@ fun build_ui(win = cogito.Window) (( -- )) {
             @"dialogs"
         } elif idx == 12 {
             @"tree"
+        } elif idx == 13 {
+            @"cards"
+        } elif idx == 14 {
+            @"avatars"
+        } elif idx == 15 {
+            @"banners"
+        } elif idx == 16 {
+            @"timepicker"
         } else {
             @"buttons"
         }
