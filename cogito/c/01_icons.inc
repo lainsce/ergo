@@ -29,7 +29,7 @@ typedef struct {
   uint32_t last_used;  // Frame counter for LRU eviction
 } CogitoIconCacheEntry;
 
-#define COGITO_ICON_CACHE_SIZE 64
+#define COGITO_ICON_CACHE_SIZE 512
 #define COGITO_ICON_CACHE_EVICT_AGE 1  // Frame Bus Method: evict anything not used in last frame
 
 static CogitoIconCacheEntry cogito_icon_cache[COGITO_ICON_CACHE_SIZE];

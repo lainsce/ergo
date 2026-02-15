@@ -391,15 +391,10 @@ fun build_tabs_view() (( cogito.VStack )) {
 
     let tab_views = cogito.view_switcher()
     tab_views.set_hexpand(true)
-    let tv1 = cogito.label(@"Overview content")
-    cogito.set_id(tv1, @"tab_overview")
-    let tv2 = cogito.label(@"Details content")
-    cogito.set_id(tv2, @"tab_details")
-    let tv3 = cogito.label(@"History content")
-    cogito.set_id(tv3, @"tab_history")
-    tab_views.add(tv1)
-    tab_views.add(tv2)
-    tab_views.add(tv3)
+    tab_views.add(@"tab_overview", (vs = cogito.ViewSwitcher) => cogito.label(@"Overview content"))
+    tab_views.add(@"tab_details", (vs = cogito.ViewSwitcher) => cogito.label(@"Details content"))
+    tab_views.add(@"tab_history", (vs = cogito.ViewSwitcher) => cogito.label(@"History content"))
+    tab_views.set_active(@"tab_overview")
     tabs.bind(tab_views)
     vstack.add(tab_views)
 
@@ -953,74 +948,27 @@ fun build_ui(win = cogito.Window) (( -- )) {
     views.set_hexpand(true)
     views.set_vexpand(true)
 
-    -- Create all views
-    let buttons_view = build_buttons_view()
-    cogito.set_id(buttons_view, @"buttons")
-    views.add(buttons_view)
+    -- Register lazy view builders - views are built on-demand when first selected
+    views.add(@"buttons", (vs = cogito.ViewSwitcher) => build_buttons_view())
+    views.add(@"textfields", (vs = cogito.ViewSwitcher) => build_textfields_view())
+    views.add(@"checkboxes", (vs = cogito.ViewSwitcher) => build_checkboxes_view())
+    views.add(@"sliders", (vs = cogito.ViewSwitcher) => build_sliders_view())
+    views.add(@"pickers", (vs = cogito.ViewSwitcher) => build_pickers_view())
+    views.add(@"lists", (vs = cogito.ViewSwitcher) => build_lists_view())
+    views.add(@"controls", (vs = cogito.ViewSwitcher) => build_controls_view())
+    views.add(@"tabs", (vs = cogito.ViewSwitcher) => build_tabs_view())
+    views.add(@"chips", (vs = cogito.ViewSwitcher) => build_chips_view())
+    views.add(@"carousel", (vs = cogito.ViewSwitcher) => build_carousel_view())
+    views.add(@"navrail", (vs = cogito.ViewSwitcher) => build_navrail_view())
+    views.add(@"dialogs", (vs = cogito.ViewSwitcher) => build_dialogs_view())
+    views.add(@"tree", (vs = cogito.ViewSwitcher) => build_tree_view(vs))
+    views.add(@"cards", (vs = cogito.ViewSwitcher) => build_cards_view())
+    views.add(@"avatars", (vs = cogito.ViewSwitcher) => build_avatars_view())
+    views.add(@"banners", (vs = cogito.ViewSwitcher) => build_banners_view())
+    views.add(@"timepicker", (vs = cogito.ViewSwitcher) => build_timepicker_view())
 
-    let textfields_view = build_textfields_view()
-    cogito.set_id(textfields_view, @"textfields")
-    views.add(textfields_view)
-
-    let checkboxes_view = build_checkboxes_view()
-    cogito.set_id(checkboxes_view, @"checkboxes")
-    views.add(checkboxes_view)
-
-    let sliders_view = build_sliders_view()
-    cogito.set_id(sliders_view, @"sliders")
-    views.add(sliders_view)
-
-    let pickers_view = build_pickers_view()
-    cogito.set_id(pickers_view, @"pickers")
-    views.add(pickers_view)
-
-    let lists_view = build_lists_view()
-    cogito.set_id(lists_view, @"lists")
-    views.add(lists_view)
-
-    let controls_view = build_controls_view()
-    cogito.set_id(controls_view, @"controls")
-    views.add(controls_view)
-
-    let tabs_view = build_tabs_view()
-    cogito.set_id(tabs_view, @"tabs")
-    views.add(tabs_view)
-
-    let chips_view = build_chips_view()
-    cogito.set_id(chips_view, @"chips")
-    views.add(chips_view)
-
-    let carousel_view = build_carousel_view()
-    cogito.set_id(carousel_view, @"carousel")
-    views.add(carousel_view)
-
-    let navrail_view = build_navrail_view()
-    cogito.set_id(navrail_view, @"navrail")
-    views.add(navrail_view)
-
-    let dialogs_view = build_dialogs_view()
-    cogito.set_id(dialogs_view, @"dialogs")
-    views.add(dialogs_view)
-
-    let tree_view = build_tree_view(views)
-    cogito.set_id(tree_view, @"tree")
-    views.add(tree_view)
-
-    let cards_view = build_cards_view()
-    cogito.set_id(cards_view, @"cards")
-    views.add(cards_view)
-
-    let avatars_view = build_avatars_view()
-    cogito.set_id(avatars_view, @"avatars")
-    views.add(avatars_view)
-
-    let banners_view = build_banners_view()
-    cogito.set_id(banners_view, @"banners")
-    views.add(banners_view)
-
-    let timepicker_view = build_timepicker_view()
-    cogito.set_id(timepicker_view, @"timepicker")
-    views.add(timepicker_view)
+    -- Set initial active view
+    views.set_active(@"buttons")
 
     -- Sidebar
     let sidebar = cogito.vstack()

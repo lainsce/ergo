@@ -1076,6 +1076,27 @@
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_view_switcher_add_lazy")) {
+                        GenExpr node, idv, builderv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &idv, err)) { gen_expr_free(&node); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[2], &builderv, err)) { gen_expr_free(&node); gen_expr_free(&idv); return false; }
+                        w_line(&cg->w, "cogito_view_switcher_add(%s, %s, %s);", node.tmp, idv.tmp, builderv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", idv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", builderv.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_release_except(cg, &idv, idv.tmp);
+                        gen_expr_release_except(cg, &builderv, builderv.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_free(&idv);
+                        gen_expr_free(&builderv);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_textfield_set_text")) {
                         GenExpr node, text;
                         if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;

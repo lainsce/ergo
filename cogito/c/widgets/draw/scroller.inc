@@ -45,8 +45,9 @@ case COGITO_SCROLLER: {
           if (n->scrollbar_hover_until > 0.0 && now >= n->scrollbar_hover_until) {
             n->scrollbar_alpha = (uint8_t)((int)n->scrollbar_alpha * 220 / 255);
             if (n->scrollbar_alpha > 0) {
-              CogitoNode* win = cogito_node_window(n);
-              if (win) cogito_queue_draw(win);
+              // Request continued redraw via frame counter instead of queue_draw
+              // (queue_draw during draw phase is cleared immediately and creates redraw coupling)
+              if (cogito_anim_frames_remaining < 1) cogito_anim_frames_remaining = 1;
             }
           }
         }

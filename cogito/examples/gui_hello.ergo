@@ -4,7 +4,7 @@ bring stdr
 bring cogito
 
 fun on_btn(btn = cogito.Button) (( -- )) {
-    btn.set_text(@"Clicked!")
+    btn.set_text(@"This Button Got Clicked!")
 }
 
 fun build_ui(win = cogito.Window) (( -- )) {
@@ -14,77 +14,20 @@ fun build_ui(win = cogito.Window) (( -- )) {
     vstack.set_hexpand(true)
     vstack.set_vexpand(true)
 
-    let title = cogito.label(@"Cogito")
+    let title = cogito.label(@"Welcome to Cogito")
     title.set_class(@"title")
     vstack.add(title)
 
-    let subtitle = cogito.label(@"Welcome to Cogito")
-    subtitle.set_class(@"subtitle")
-    vstack.add(subtitle)
-
-    let desc = cogito.label(@"A UI library for Ergo")
-    desc.set_class(@"body")
-    vstack.add(desc)
-
-    let btn = cogito.button(@"Click Me")
+    let btn = cogito.button(@"Click")
     btn.on_click(on_btn)
-    cogito.set_tooltip(btn, @"Filled button with elevation")
     vstack.add(btn)
-
-    let iconbtn = cogito.iconbtn(@"star")
-    cogito.set_tooltip(iconbtn, @"Icon button test")
-    vstack.add(iconbtn)
-
-    let search = cogito.searchfield(@"Find widgets")
-    search.set_hexpand(true)
-    search.on_change((s = cogito.SearchField) => {
-        let text = s.text()
-        writef(@"Search: $text\n")
-    })
-    vstack.add(search)
-
-    let dd = cogito.dropdown()
-    dd.set_items([@"One", @"Two", @"Three"])
-    dd.set_selected(0)
-    dd.on_change((idx) => {
-        writef(@"Dropdown: $idx\n")
-    })
-    dd.set_hexpand(true)
-    vstack.add(dd)
-
-    let slider = cogito.slider(0, 100, 50)
-    slider.on_change((s = cogito.Slider) => {
-        let value = s.value()
-        writef(@"Slider: $value\n")
-    })
-    cogito.set_tooltip(slider, @"Slider")
-    slider.set_hexpand(true)
-    vstack.add(slider)
-
-    let tabs = cogito.tabs()
-    tabs.set_items([@"Alpha", @"Beta"])
-    tabs.set_ids([@"alpha", @"beta"])
-    tabs.set_selected(0)
-    tabs.set_hexpand(true)
-    vstack.add(tabs)
-
-    let tab_views = cogito.view_switcher()
-    tab_views.set_hexpand(true)
-    let alpha = cogito.label(@"Alpha tab content")
-    cogito.set_id(alpha, @"alpha")
-    let beta = cogito.label(@"Beta tab content")
-    cogito.set_id(beta, @"beta")
-    tab_views.add(alpha)
-    tab_views.add(beta)
-    tabs.bind(tab_views)
-    vstack.add(tab_views)
 
     win.add(vstack)
 }
 
 entry () (( -- )) {
     let app = cogito.app()
-    let win = cogito.window_title(@"Cogito Demo")
+    let win = cogito.window_title(@"Minimal Cogito Demo")
     win.build(build_ui)
     win.set_resizable(false)
     app.run(win)

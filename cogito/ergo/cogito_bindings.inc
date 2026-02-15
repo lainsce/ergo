@@ -177,6 +177,9 @@ typedef struct CogitoMenuHandler {
 
 static void __cogito_button_on_click(ErgoVal btnv, ErgoVal handler);
 
+// Forward declaration for internal ErgoVal-based function
+extern void cogito_view_switcher_add_lazy_ergo(cogito_node* view_switcher, ErgoVal id, ErgoVal builder);
+
 typedef struct CogitoState {
   ErgoObj base;
   ErgoVal value;
@@ -265,6 +268,13 @@ static cogito_window* cogito_window_from_val(ErgoVal v) {
 
 static cogito_node* cogito_node_from_val(ErgoVal v) {
   CogitoHandle* h = cogito_handle_from_val(v, "cogito.node expects node");
+  return (cogito_node*)h->ptr;
+}
+
+// Non-static version for use by view_switcher.inc
+cogito_node* cogito_unwrap_handle(ErgoVal v) {
+  if (v.tag != EVT_OBJ) return NULL;
+  CogitoHandle* h = (CogitoHandle*)v.as.p;
   return (cogito_node*)h->ptr;
 }
 
@@ -1694,6 +1704,11 @@ static void __cogito_view_switcher_set_active(ErgoVal viewv, ErgoVal idv) {
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
 
+static void __cogito_view_switcher_add(ErgoVal vsv, ErgoVal idv, ErgoVal builderv) {
+  cogito_node* nvs = cogito_node_from_val(vsv);
+  cogito_view_switcher_add_lazy_ergo(nvs, idv, builderv);
+}
+
 static void __cogito_progress_set_value(ErgoVal pv, ErgoVal valuev) {
   cogito_node* p = cogito_node_from_val(pv);
   cogito_progress_set_value(p, ergo_as_float(valuev));
@@ -1922,6 +1937,7 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_pointer_capture_set __cogito_pointer_capture
 #define cogito_pointer_capture_clear __cogito_pointer_release
 #define cogito_view_switcher_set_active __cogito_view_switcher_set_active
+#define cogito_view_switcher_add __cogito_view_switcher_add
 #define cogito_textfield_set_text __cogito_textfield_set_text
 #define cogito_textfield_get_text __cogito_textfield_get_text
 #define cogito_searchfield_set_text __cogito_searchfield_set_text

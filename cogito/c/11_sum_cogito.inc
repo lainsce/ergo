@@ -1068,7 +1068,6 @@ static void cogito_apply_theme(bool dark, CogitoColor accent) {
   char dyn[65536];
   sum_build_dynamic(dark, accent, dyn, sizeof(dyn));
   if (getenv("COGITO_THEME_DEBUG")) {
-    fprintf(stderr, "cogito_apply_theme: dark=%d accent=(%d,%d,%d)\n", dark, accent.r, accent.g, accent.b);
     fprintf(stderr, "Cogito dynamic SUM:\\n%s\\n", dyn);
   }
   cogito_apply_sum_inline(dyn);

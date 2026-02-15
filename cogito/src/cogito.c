@@ -202,6 +202,7 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_treeview_new cogito_treeview_new_ergo
 #define cogito_view_switcher_new cogito_view_switcher_new_ergo
 #define cogito_view_switcher_set_active cogito_view_switcher_set_active_ergo
+#define cogito_view_switcher_add_lazy cogito_view_switcher_add_lazy_ergo
 #define cogito_vstack_new cogito_vstack_new_ergo
 #define cogito_window_clear_dialog cogito_window_clear_dialog_ergo
 #define cogito_window_new cogito_window_new_ergo
@@ -397,6 +398,7 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_treeview_new
 #undef cogito_view_switcher_new
 #undef cogito_view_switcher_set_active
+#undef cogito_view_switcher_add_lazy
 #undef cogito_vstack_new
 #undef cogito_window_clear_dialog
 #undef cogito_window_new
@@ -1784,6 +1786,17 @@ void cogito_view_switcher_set_active(cogito_node* view_switcher, const char* id)
   if (!view_switcher) return;
   ErgoVal iv = cogito_val_from_cstr(id);
   cogito_view_switcher_set_active_ergo(EV_OBJ(view_switcher), iv);
+  if (iv.tag == EVT_STR) ergo_release_val(iv);
+}
+
+void cogito_view_switcher_add_lazy(cogito_node* view_switcher, const char* id, cogito_node_fn builder) {
+  if (!view_switcher || !builder) return;
+  ErgoVal iv = cogito_val_from_cstr(id);
+  CogitoCbNode* env = (CogitoCbNode*)calloc(1, sizeof(*env));
+  env->fn = builder;
+  ErgoFn* wrap = cogito_make_fn(cogito_cb_node, env);
+  cogito_view_switcher_add_lazy_ergo(view_switcher, iv, EV_FN(wrap));
+  ergo_release_val(EV_FN(wrap));
   if (iv.tag == EVT_STR) ergo_release_val(iv);
 }
 

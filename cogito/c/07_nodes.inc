@@ -154,6 +154,18 @@ static void cogito_node_drop(ErgoObj* o) {
     ergo_release_val(EV_STR(n->view_active_id));
     n->view_active_id = NULL;
   }
+  if (n->view_builder_ids) {
+    for (size_t i = 0; i < n->view_builder_len; i++) {
+      if (n->view_builder_ids[i]) ergo_release_val(EV_STR(n->view_builder_ids[i]));
+      if (n->view_builders[i]) ergo_release_val(EV_FN(n->view_builders[i]));
+    }
+    free(n->view_builder_ids);
+    free(n->view_builders);
+    n->view_builder_ids = NULL;
+    n->view_builders = NULL;
+    n->view_builder_len = 0;
+    n->view_builder_cap = 0;
+  }
   if (n->children) {
     for (size_t i = 0; i < n->len; i++) {
       ergo_release_val(EV_OBJ(n->children[i]));
@@ -255,6 +267,10 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->editable = true;
   n->view_id = NULL;
   n->view_active_id = NULL;
+  n->view_builder_ids = NULL;
+  n->view_builders = NULL;
+  n->view_builder_len = 0;
+  n->view_builder_cap = 0;
   n->slider_min = 0.0;
   n->slider_max = 1.0;
   n->slider_value = 0.0;

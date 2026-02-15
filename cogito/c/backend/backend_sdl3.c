@@ -1653,45 +1653,38 @@ static CogitoTexture* sdl3_texture_create(int w, int h, const uint8_t* data, int
     
     tex->gpu_texture = NULL;
     tex->sdl_texture = NULL;
-    
-    // Upload data
-    int src_channels = channels;
-    int dst_channels = (channels == 3) ? 4 : channels;
-    int src_pitch = w * src_channels;
-    int dst_pitch = w * dst_channels;
-    
-    uint8_t* upload_data = (uint8_t*)malloc(w * h * dst_channels);
-    if (!upload_data) {
-        free(tex);
-        return NULL;
-    }
-    
-    // Convert to RGBA if needed
-    for (int y = 0; y < h; y++) {
-        for (int x = 0; x < w; x++) {
-            int src_idx = y * src_pitch + x * src_channels;
-            int dst_idx = y * dst_pitch + x * dst_channels;
-            
-            if (channels == 1) {
-                upload_data[dst_idx] = data[src_idx];
-                upload_data[dst_idx + 1] = data[src_idx];
-                upload_data[dst_idx + 2] = data[src_idx];
-                upload_data[dst_idx + 3] = 255;
-            } else if (channels == 3) {
-                upload_data[dst_idx] = data[src_idx];
-                upload_data[dst_idx + 1] = data[src_idx + 1];
-                upload_data[dst_idx + 2] = data[src_idx + 2];
-                upload_data[dst_idx + 3] = 255;
-            } else {
-                upload_data[dst_idx] = data[src_idx];
-                upload_data[dst_idx + 1] = data[src_idx + 1];
-                upload_data[dst_idx + 2] = data[src_idx + 2];
-                upload_data[dst_idx + 3] = data[src_idx + 3];
+
+    // For RGBA data, pass directly to SDL — no copy needed.
+    // For 1-ch or 3-ch, convert to RGBA first.
+    uint8_t* upload_data = NULL;
+    const uint8_t* rgba_data = data;
+
+    if (channels == 4) {
+        rgba_data = data;
+    } else {
+        size_t pixel_count = (size_t)w * (size_t)h;
+        upload_data = (uint8_t*)malloc(pixel_count * 4);
+        if (!upload_data) { free(tex); return NULL; }
+        if (channels == 1) {
+            for (size_t i = 0; i < pixel_count; i++) {
+                uint8_t v = data[i];
+                upload_data[i*4]   = v;
+                upload_data[i*4+1] = v;
+                upload_data[i*4+2] = v;
+                upload_data[i*4+3] = 255;
+            }
+        } else { // channels == 3
+            for (size_t i = 0; i < pixel_count; i++) {
+                upload_data[i*4]   = data[i*3];
+                upload_data[i*4+1] = data[i*3+1];
+                upload_data[i*4+2] = data[i*3+2];
+                upload_data[i*4+3] = 255;
             }
         }
+        rgba_data = upload_data;
     }
-    
-    SDL_Surface* surface = SDL_CreateSurfaceFrom(w, h, SDL_PIXELFORMAT_RGBA32, upload_data, w * 4);
+
+    SDL_Surface* surface = SDL_CreateSurfaceFrom(w, h, SDL_PIXELFORMAT_RGBA32, (void*)rgba_data, w * 4);
     if (!surface) {
         free(upload_data);
         free(tex);
@@ -1699,7 +1692,7 @@ static CogitoTexture* sdl3_texture_create(int w, int h, const uint8_t* data, int
     }
     tex->sdl_texture = SDL_CreateTextureFromSurface(renderer, surface);
     SDL_DestroySurface(surface);
-    free(upload_data);
+    free(upload_data); // NULL for channels==4 (no-op)
     if (!tex->sdl_texture) {
         free(tex);
         return NULL;

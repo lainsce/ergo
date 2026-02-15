@@ -316,6 +316,7 @@ void cogito_grid_on_select(cogito_node* grid, cogito_index_fn fn, void* user);
 void cogito_grid_on_activate(cogito_node* grid, cogito_index_fn fn, void* user);
 
 void cogito_view_switcher_set_active(cogito_node* view_switcher, const char* id);
+void cogito_view_switcher_add_lazy(cogito_node* view_switcher, const char* id, cogito_node_fn builder);
 
 void cogito_toast_set_text(cogito_node* toast, const char* text);
 void cogito_toast_on_click(cogito_node* toast, cogito_node_fn fn, void* user);

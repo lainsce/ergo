@@ -363,6 +363,11 @@ typedef struct CogitoNode {
   ErgoStr* action_text;
   ErgoStr* view_id;
   ErgoStr* view_active_id;
+  // Lazy view builders for ViewSwitcher
+  ErgoStr** view_builder_ids;
+  ErgoFn** view_builders;
+  size_t view_builder_len;
+  size_t view_builder_cap;
   ErgoFn* on_click;
   ErgoFn* on_change;
   ErgoFn* on_select;
@@ -659,6 +664,7 @@ static bool cogito_toasts_force_draw = false;
 static CogitoNode* cogito_slider_active = NULL;
 static CogitoNode* cogito_carousel_active = NULL;
 static int cogito_carousel_animating_count = 0;  // Track number of animating carousels globally
+static int cogito_anim_frames_remaining = 0;  // Countdown of redraw frames needed for animations
 static CogitoNode* cogito_colorpicker_active = NULL;
 static int cogito_colorpicker_channel = -1;
 static CogitoNode* cogito_pointer_capture = NULL;
@@ -937,9 +943,23 @@ static CogitoColor cogito_anim_color(CogitoNode* n, CogitoColor target, CogitoCo
   }
   bool changed = !(tgt->r == target.r && tgt->g == target.g && tgt->b == target.b && tgt->a == target.a);
   if (changed) {
+    bool first_init = (tgt->r == 0 && tgt->g == 0 && tgt->b == 0 && tgt->a == 0 &&
+                       cur->r == 0 && cur->g == 0 && cur->b == 0 && cur->a == 0);
+    if (first_init) {
+      // Channel not yet initialized — snap to target without animation
+      *cur = target;
+      *from = target;
+      *tgt = target;
+      if (start) *start = now;
+      return target;
+    }
     *from = *cur;
     *tgt = target;
     if (start) *start = now;
+    if (n->anim_ms > 0) {
+      int frames = (n->anim_ms + 15) / 16;  // ~60fps, round up
+      if (frames > cogito_anim_frames_remaining) cogito_anim_frames_remaining = frames;
+    }
   }
   if (n->anim_ms <= 0) {
     *cur = target;
@@ -975,6 +995,10 @@ static int cogito_anim_int(CogitoNode* n, int target, int* cur, int* from, int* 
     *from = *cur;
     *tgt = target;
     if (start) *start = now;
+    if (n->anim_ms > 0) {
+      int frames = (n->anim_ms + 15) / 16;  // ~60fps, round up
+      if (frames > cogito_anim_frames_remaining) cogito_anim_frames_remaining = frames;
+    }
   }
   if (n->anim_ms <= 0) {
     *cur = target;
@@ -1013,6 +1037,10 @@ static float cogito_anim_float(CogitoNode* n, float target, float* cur, float* f
     *from = *cur;
     *tgt = target;
     if (start) *start = now;
+    if (n->anim_ms > 0) {
+      int frames = (n->anim_ms + 15) / 16;  // ~60fps, round up
+      if (frames > cogito_anim_frames_remaining) cogito_anim_frames_remaining = frames;
+    }
   }
   if (n->anim_ms <= 0) {
     *cur = target;

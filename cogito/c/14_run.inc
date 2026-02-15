@@ -1329,8 +1329,38 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     // Do not redraw during window drag — we only move the window; no present() needed, so we wait for events and avoid CPU spike.
     bool window_being_dragged = cogito_drag_active || cogito_drag_pending 
         || inspector_drag_active || inspector_drag_pending;
-    bool need_redraw = !window_being_dragged && (cogito_draw_pending(win) || (cogito_carousel_animating_count > 0)
+    bool anim_running = cogito_anim_frames_remaining > 0;
+    bool need_redraw = !window_being_dragged && (cogito_draw_pending(win) || anim_running
+        || (cogito_carousel_animating_count > 0)
         || cogito_menu.open || cogito_inspector_open);
+
+    // Debug redraw: set COGITO_DEBUG_REDRAW=1 to see why each frame redraws
+    {
+      static int _dbg_init = -1;
+      if (_dbg_init < 0) { const char* _e = getenv("COGITO_DEBUG_REDRAW"); _dbg_init = (_e && _e[0] && _e[0] != '0') ? 1 : 0; }
+      if (_dbg_init) {
+        static int _dbg_frame = 0;
+        static int _dbg_redraw_streak = 0;
+        _dbg_frame++;
+        if (need_redraw) {
+          _dbg_redraw_streak++;
+          if (_dbg_redraw_streak <= 3 || _dbg_redraw_streak % 60 == 0) {
+            fprintf(stderr, "[redraw] frame=%d streak=%d reason:", _dbg_frame, _dbg_redraw_streak);
+            if (cogito_draw_pending(win)) fprintf(stderr, " draw_pending");
+            if (anim_running) fprintf(stderr, " anim(%d)", cogito_anim_frames_remaining);
+            if (cogito_carousel_animating_count > 0) fprintf(stderr, " carousel(%d)", cogito_carousel_animating_count);
+            if (cogito_menu.open) fprintf(stderr, " menu");
+            if (cogito_inspector_open) fprintf(stderr, " inspector");
+            fprintf(stderr, "\n");
+          }
+        } else {
+          if (_dbg_redraw_streak > 3) {
+            fprintf(stderr, "[redraw] streak ended after %d frames\n", _dbg_redraw_streak);
+          }
+          _dbg_redraw_streak = 0;
+        }
+      }
+    }
 
     if (need_redraw) {
     // Rendering
@@ -1371,6 +1401,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     cogito_backend->end_frame(window);
     cogito_backend->present(window);
     cogito_draw_clear_pending(win);
+    if (cogito_anim_frames_remaining > 0) cogito_anim_frames_remaining--;
 
     if (cogito_inspector_open && inspector_window) {
       int iw = 0;
@@ -1430,7 +1461,12 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       cogito_backend->present(inspector_window);
     }
     } else {
+      // Idle: wait for an event or timeout.
+      // SDL_WaitEventTimeout on macOS/Metal may not truly block (compositor
+      // events wake it immediately), so always follow with a short sleep.
       cogito_backend->wait_event_timeout(100);
+      struct timespec ts = {0, 8000000}; // 8ms (~120Hz check rate)
+      nanosleep(&ts, NULL);
     }
 #if defined(__APPLE__)
     cogito_autorelease_pop();
