@@ -50,11 +50,23 @@ case COGITO_ICONBTN: {
 	        if (n->shadow_set && n->shadow_level > 0) {
 	          cogito_draw_shadow_node_level(n, &s, n->x, n->y, n->w, n->h, radius, n->shadow_level);
 	        }
-        cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, radius);
-        if (border_w > 0) {
-          cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border, radius, border_w);
-        }
-      }
+	        cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, radius);
+	        // Draw ripple effect when iconbtn is active (showing Primary color; clipped to widget bounds)
+	        if (cogito_ripple_update(n)) {
+	          float r_radius, r_alpha;
+	          cogito_ripple_get(n, &r_radius, &r_alpha);
+	          if (r_radius > 0 && r_alpha > 0) {
+	            CogitoColor ripple_color = icon_color;
+	            ripple_color.a = (uint8_t)(255 * r_alpha);
+	            int cx = n->x + n->ripple_x;
+	            int cy = n->y + n->ripple_y;
+	            cogito_draw_circle_clipped(cx, cy, r_radius, n->x, n->y, n->w, n->h, ripple_color);
+	          }
+	        }
+	        if (border_w > 0) {
+	          cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border, radius, border_w);
+	        }
+	      }
       if (n->text) {
         int btn_min = n->w < n->h ? n->w : n->h;
         int target = s.has_icon_size ? s.icon_size : 24;

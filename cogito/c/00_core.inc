@@ -525,6 +525,14 @@ typedef struct CogitoNode {
   float opacity_target;
   double opacity_start;
 
+  // Ripple animation (mouse-position-aware, for Primary-colored interactables)
+  double ripple_start;      // Animation start time
+  float ripple_progress;    // 0.0 to 1.0, updated each frame
+  int ripple_x;             // Click position relative to widget
+  int ripple_y;
+  float ripple_max_radius;  // Pre-calculated max radius
+  bool ripple_active;       // Whether ripple is currently animating
+
   // Kind-specific data (anonymous union — only one member active per node)
   union {
     struct {
@@ -1082,6 +1090,74 @@ static void cogito_anim_apply(CogitoNode* n, const CogitoStyle* s, CogitoColor* 
   if (selection) {
     *selection = cogito_anim_color(n, *selection, &n->anim_selection, &n->anim_selection_from, &n->anim_selection_target, &n->anim_selection_start, now);
     *selection = cogito_apply_opacity(*selection, opacity);
+  }
+}
+
+// Ripple animation constants (optimized for low CPU)
+#define COGITO_RIPPLE_DURATION_MS 350
+#define COGITO_RIPPLE_FPS 30
+
+// Start a ripple animation at the given position (mouse-relative to widget)
+static void cogito_ripple_start(CogitoNode* n, int mx, int my) {
+  if (!n) return;
+  n->ripple_active = true;
+  n->ripple_start = cogito_backend->get_time();
+  n->ripple_x = mx - n->x;
+  n->ripple_y = my - n->y;
+  // Pre-calculate max radius to cover entire widget from any click point
+  int dx1 = n->ripple_x;
+  int dy1 = n->ripple_y;
+  int dx2 = n->w - n->ripple_x;
+  int dy2 = n->h - n->ripple_y;
+  float r1 = sqrtf((float)(dx1*dx1 + dy1*dy1));
+  float r2 = sqrtf((float)(dx1*dx1 + dy2*dy2));
+  float r3 = sqrtf((float)(dx2*dx2 + dy1*dy1));
+  float r4 = sqrtf((float)(dx2*dx2 + dy2*dy2));
+  float max_r = r1;
+  if (r2 > max_r) max_r = r2;
+  if (r3 > max_r) max_r = r3;
+  if (r4 > max_r) max_r = r4;
+  n->ripple_max_radius = max_r;
+  n->ripple_progress = 0.0f;
+  // Request animation frame
+  double end_time = n->ripple_start + (COGITO_RIPPLE_DURATION_MS / 1000.0);
+  if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
+}
+
+// Update ripple progress; returns true if still active
+static bool cogito_ripple_update(CogitoNode* n) {
+  if (!n || !n->ripple_active) return false;
+  double now = cogito_backend->get_time();
+  double elapsed_ms = (now - n->ripple_start) * 1000.0;
+  if (elapsed_ms >= COGITO_RIPPLE_DURATION_MS) {
+    n->ripple_active = false;
+    n->ripple_progress = 1.0f;
+    return false;
+  }
+  // Use ease-out curve for natural deceleration
+  float t = (float)(elapsed_ms / COGITO_RIPPLE_DURATION_MS);
+  n->ripple_progress = 1.0f - (1.0f - t) * (1.0f - t);
+  // Request continued animation
+  double end_time = n->ripple_start + (COGITO_RIPPLE_DURATION_MS / 1000.0);
+  if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
+  return true;
+}
+
+// Get current ripple radius and alpha for drawing
+static void cogito_ripple_get(CogitoNode* n, float* out_radius, float* out_alpha) {
+  if (!n || !n->ripple_active) {
+    if (out_radius) *out_radius = 0;
+    if (out_alpha) *out_alpha = 0;
+    return;
+  }
+  float p = n->ripple_progress;
+  if (out_radius) *out_radius = p * n->ripple_max_radius;
+  // Alpha fades out quadratically in second half for smooth exit
+  if (p < 0.5f) {
+    if (out_alpha) *out_alpha = 0.25f; // Full opacity in first half
+  } else {
+    float fade = 1.0f - (p - 0.5f) * 2.0f;
+    if (out_alpha) *out_alpha = 0.25f * fade * fade;
   }
 }
 

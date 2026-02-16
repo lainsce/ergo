@@ -73,6 +73,19 @@ static void cogito_draw_corner_fill(int cx, int cy, int r, int sx, int sy, int s
   }
 }
 
+// Draw a circle clipped to a rectangle (for ripple effects)
+static void cogito_draw_circle_clipped(int cx, int cy, float r, int clip_x, int clip_y, int clip_w, int clip_h, CogitoColor color) {
+  if (r <= 0 || clip_w <= 0 || clip_h <= 0) return;
+  if (!cogito_backend || !cogito_backend->draw_circle) return;
+  if (cogito_backend->begin_scissor && cogito_backend->end_scissor) {
+    cogito_backend->begin_scissor(clip_x, clip_y, clip_w, clip_h);
+    cogito_backend->draw_circle(cx, cy, r, color);
+    cogito_backend->end_scissor();
+  } else {
+    cogito_backend->draw_circle(cx, cy, r, color);
+  }
+}
+
 static void cogito_draw_corner_outline(int cx, int cy, int r, int sx, int sy, int sw, int sh, CogitoColor color, int thickness) {
   if (r <= 0 || sw <= 0 || sh <= 0 || thickness <= 0) return;
   if (!cogito_backend || !cogito_backend->draw_circle_lines) return;

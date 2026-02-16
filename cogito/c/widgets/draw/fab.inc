@@ -27,6 +27,19 @@ case COGITO_FAB: {
     cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, state_layer, radius);
   }
 
+  // Draw ripple effect for Primary-colored FAB (clipped to widget bounds)
+  if (cogito_ripple_update(n)) {
+    float r_radius, r_alpha;
+    cogito_ripple_get(n, &r_radius, &r_alpha);
+    if (r_radius > 0 && r_alpha > 0) {
+      CogitoColor ripple_color = text_color;
+      ripple_color.a = (uint8_t)(255 * r_alpha);
+      int cx = n->x + n->ripple_x;
+      int cy = n->y + n->ripple_y;
+      cogito_draw_circle_clipped(cx, cy, r_radius, n->x, n->y, n->w, n->h, ripple_color);
+    }
+  }
+
   // Draw icon
   if (n->text && n->text->data[0]) {
     int icon_size = 24;

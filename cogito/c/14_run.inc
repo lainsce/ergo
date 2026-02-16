@@ -1220,6 +1220,10 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           cogito_focused = NULL;
         }
         if (hit) {
+          // Trigger ripple for Primary-colored interactables
+          if (hit->kind == COGITO_BUTTON || hit->kind == COGITO_FAB || hit->kind == COGITO_ICONBTN) {
+            cogito_ripple_start(hit, mx, my);
+          }
           if (hit->kind == COGITO_BUTTON || hit->kind == COGITO_ICONBTN) {
             if (hit->menu_len > 0) {
               cogito_menu_open_for(hit);
