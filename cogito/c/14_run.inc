@@ -1,6 +1,7 @@
 #include <SDL3/SDL.h>
 
 static CogitoNode* cogito_find_stepper_hit(CogitoNode* n, int x, int y);
+static CogitoNode* cogito_find_timepicker_hit(CogitoNode* n, int x, int y);
 
 #include "widgets/util/text_editing.inc"
 
@@ -424,6 +425,12 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       }
     }
 
+    // Update timepicker hit states for hover effects.
+    if (route_main_pointer) {
+      CogitoNode* timepicker_hit = cogito_find_timepicker_hit(win, mx, my);
+      (void)timepicker_hit;  // Currently just for future hover effects
+    }
+
     // GTK-style hover-change detection: only redraw on mouse motion if the
     // hovered interactive widget changed (enter/leave a button, slider, etc.)
     {
@@ -558,12 +565,17 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           int snap_sx = 0;
           CAROUSEL_SNAP_SCROLL(carousel, snap_idx, max_scroll, snap_sx);
           
-          // Start snap animation
+          // Start snap animation only if position actually changes
           carousel->carousel.anim_from = carousel->carousel.scroll_xf;
           carousel->carousel.anim_to = (double)snap_sx;
-          carousel->carousel.anim_start = cogito_backend->get_time();
-          if (!carousel->carousel.animating) cogito_carousel_animating_count++;
-          carousel->carousel.animating = true;
+          if (carousel->carousel.anim_from != carousel->carousel.anim_to) {
+            carousel->carousel.anim_start = cogito_backend->get_time();
+            if (!carousel->carousel.animating) cogito_carousel_animating_count++;
+            carousel->carousel.animating = true;
+          } else {
+            carousel->carousel.animating = false;
+            carousel->carousel.scroll_xf = carousel->carousel.anim_to;
+          }
           carousel->carousel.active_index = snap_idx;
         }
       }
@@ -768,12 +780,17 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         int snap_sx = 0;
         CAROUSEL_SNAP_SCROLL(cr, snap_idx, max_scroll, snap_sx);
         
-        // Start animation from current position to snap target
+        // Start animation from current position to snap target (only if position changes)
         cr->carousel.anim_from = cr->carousel.scroll_xf;
         cr->carousel.anim_to = (double)snap_sx;
-        cr->carousel.anim_start = cogito_backend->get_time();
-        if (!cr->carousel.animating) cogito_carousel_animating_count++;
-        cr->carousel.animating = true;
+        if (cr->carousel.anim_from != cr->carousel.anim_to) {
+          cr->carousel.anim_start = cogito_backend->get_time();
+          if (!cr->carousel.animating) cogito_carousel_animating_count++;
+          cr->carousel.animating = true;
+        } else {
+          cr->carousel.animating = false;
+          cr->carousel.scroll_xf = cr->carousel.anim_to;
+        }
         cr->carousel.active_index = snap_idx;
         
         if (cogito_pointer_capture == cr) {
@@ -1283,6 +1300,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             cogito_invoke_click(hit);
           } else if (hit->kind == COGITO_STEPPER) {
             cogito_stepper_click(hit, mx, my);
+          } else if (hit->kind == COGITO_TIMEPICKER) {
+            cogito_timepicker_click(hit, mx, my);
           } else if (hit->kind == COGITO_SEGMENTED) {
             cogito_segmented_click(hit, mx, my);
             cogito_window_relayout(win);
@@ -1389,7 +1408,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     // Do not redraw during window drag — we only move the window; no present() needed, so we wait for events and avoid CPU spike.
     bool window_being_dragged = cogito_drag_active || cogito_drag_pending 
         || inspector_drag_active || inspector_drag_pending;
-    bool anim_running = cogito_anim_frames_remaining > 0;
+    double now = cogito_backend->get_time();
+    bool anim_running = now < cogito_anim_end_time;
     bool need_redraw = !window_being_dragged && (cogito_draw_pending(win) || anim_running
         || (cogito_carousel_animating_count > 0)
         || cogito_menu.open || cogito_inspector_open);
@@ -1407,7 +1427,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           if (_dbg_redraw_streak <= 3 || _dbg_redraw_streak % 60 == 0) {
             fprintf(stderr, "[redraw] frame=%d streak=%d reason:", _dbg_frame, _dbg_redraw_streak);
             if (cogito_draw_pending(win)) fprintf(stderr, " draw_pending");
-            if (anim_running) fprintf(stderr, " anim(%d)", cogito_anim_frames_remaining);
+            if (anim_running) fprintf(stderr, " anim(%.0fms)", cogito_anim_end_time - now);
             if (cogito_carousel_animating_count > 0) fprintf(stderr, " carousel(%d)", cogito_carousel_animating_count);
             if (cogito_menu.open) fprintf(stderr, " menu");
             if (cogito_inspector_open) fprintf(stderr, " inspector");
@@ -1461,7 +1481,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     cogito_backend->end_frame(window);
     cogito_backend->present(window);
     cogito_draw_clear_pending(win);
-    if (cogito_anim_frames_remaining > 0) cogito_anim_frames_remaining--;
+    // Animation deadline is time-based, no decrement needed
 
     if (cogito_inspector_open && inspector_window) {
       int iw = 0;

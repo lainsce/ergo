@@ -1003,12 +1003,14 @@ void cogito_switchbar_set_checked(cogito_node* sb, bool checked) {
   cogito_switchbar_set_checked_ergo(EV_OBJ(sb), EV_BOOL(checked));
 }
 void cogito_switchbar_on_change(cogito_node* sb, cogito_node_fn fn, void* user) {
-  if (!fn) {
-    cogito_switchbar_on_change_ergo(EV_OBJ(sb), EV_NULLV);
-  } else {
-    //CogitoCbNode* h = cogito_cb_node_new(fn, user);
-    //cogito_switchbar_on_change_ergo(EV_OBJ(sb), EV_OBJ(h));
-  }
+  if (!sb) return;
+  if (!fn) { cogito_switchbar_on_change_ergo(EV_OBJ(sb), EV_NULLV); return; }
+  CogitoCbNode* env = (CogitoCbNode*)calloc(1, sizeof(*env));
+  env->fn = fn;
+  env->user = user;
+  ErgoFn* wrap = cogito_make_fn(cogito_cb_node, env);
+  cogito_switchbar_on_change_ergo(EV_OBJ(sb), EV_FN(wrap));
+  ergo_release_val(EV_FN(wrap));
 }
 cogito_node* cogito_content_list_new(void) {
   return cogito_from_val(cogito_content_list_new_ergo());
@@ -1034,8 +1036,12 @@ void cogito_empty_page_set_action(cogito_node* ep, const char* text, cogito_node
   if (!fn) {
     cogito_empty_page_set_action_ergo(EV_OBJ(ep), tv, EV_NULLV);
   } else {
-    //CogitoCbNode* h = cogito_node_new(fn, user);
-    //cogito_empty_page_set_action_ergo(EV_OBJ(ep), tv, EV_OBJ(h));
+    CogitoCbNode* env = (CogitoCbNode*)calloc(1, sizeof(*env));
+    env->fn = fn;
+    env->user = user;
+    ErgoFn* wrap = cogito_make_fn(cogito_cb_node, env);
+    cogito_empty_page_set_action_ergo(EV_OBJ(ep), tv, EV_FN(wrap));
+    ergo_release_val(EV_FN(wrap));
   }
   if (tv.tag == EVT_STR) ergo_release_val(tv);
 }
@@ -1095,8 +1101,12 @@ void cogito_welcome_screen_set_action(cogito_node* ws, const char* text, cogito_
   if (!fn) {
     cogito_welcome_screen_set_action_ergo(EV_OBJ(ws), tv, EV_NULLV);
   } else {
-    //CogitoCbNode* h = cogito_cb_node_new(fn, user);
-    //cogito_welcome_screen_set_action_ergo(EV_OBJ(ws), tv, EV_OBJ(h));
+    CogitoCbNode* env = (CogitoCbNode*)calloc(1, sizeof(*env));
+    env->fn = fn;
+    env->user = user;
+    ErgoFn* wrap = cogito_make_fn(cogito_cb_node, env);
+    cogito_welcome_screen_set_action_ergo(EV_OBJ(ws), tv, EV_FN(wrap));
+    ergo_release_val(EV_FN(wrap));
   }
   if (tv.tag == EVT_STR) ergo_release_val(tv);
 }
@@ -1110,11 +1120,15 @@ cogito_node* cogito_view_chooser_new(void) {
   return cogito_from_val(cogito_view_chooser_new_ergo());
 }
 void cogito_view_chooser_set_items(cogito_node* vc, const char** items, size_t count) {
-  // ErgoArr* arr = stdr_arr_new(count);
-  // for (size_t i = 0; i < count; i++) {
-  //   arr->items[i] = cogito_val_from_cstr(items[i]);
-  // }
-  // cogito_view_chooser_set_items_ergo(EV_OBJ(vc), EV_ARR(arr));
+  if (!vc) return;
+  ErgoArr* arr = ergo_arr_new(count);
+  if (arr) arr->len = count;
+  for (size_t i = 0; i < count; i++) {
+    ErgoVal sv = cogito_val_from_cstr(items[i]);
+    ergo_arr_set(arr, i, sv);
+  }
+  cogito_view_chooser_set_items_ergo(EV_OBJ(vc), EV_ARR(arr));
+  ergo_release_val(EV_ARR(arr));
 }
 void cogito_view_chooser_bind(cogito_node* vc, cogito_node* view_switcher) {
   cogito_view_chooser_bind_ergo(EV_OBJ(vc), EV_OBJ(view_switcher));
@@ -1159,8 +1173,12 @@ void cogito_split_button_add_menu(cogito_node* sb, const char* label, cogito_nod
   if (!fn) {
     cogito_split_button_add_menu_ergo(EV_OBJ(sb), lv, EV_NULLV);
   } else {
-    //CogitoCbNode* h = cogito_cb_node_new(fn, user);
-    //cogito_split_button_add_menu_ergo(EV_OBJ(sb), lv, EV_OBJ(h));
+    CogitoCbNode* env = (CogitoCbNode*)calloc(1, sizeof(*env));
+    env->fn = fn;
+    env->user = user;
+    ErgoFn* wrap = cogito_make_fn(cogito_cb_node, env);
+    cogito_split_button_add_menu_ergo(EV_OBJ(sb), lv, EV_FN(wrap));
+    ergo_release_val(EV_FN(wrap));
   }
   if (lv.tag == EVT_STR) ergo_release_val(lv);
 }

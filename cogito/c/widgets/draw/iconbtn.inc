@@ -11,9 +11,9 @@ case COGITO_ICONBTN: {
         bool over = cogito_hit_rect(mx, my, n->x, n->y, n->w, n->h);
         bool down = over && (cogito_backend && cogito_backend->is_mouse_button_down(0));
         if (down) {
-          s = cogito_style_merge(&s, &cogito_theme.appbar_child_iconbtn_active);
+          cogito_style_merge_into(&s, &cogito_theme.appbar_child_iconbtn_active, &s);
         } else if (over) {
-          s = cogito_style_merge(&s, &cogito_theme.appbar_child_iconbtn_hover);
+          cogito_style_merge_into(&s, &cogito_theme.appbar_child_iconbtn_hover, &s);
         }
       }
       CogitoColor bg = n->bg;

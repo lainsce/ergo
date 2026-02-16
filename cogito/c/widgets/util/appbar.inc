@@ -188,13 +188,15 @@ static void cogito_appbar_row_positions(
 }
 
 static CogitoStyle cogito_appbar_win_btn_style(int kind, int state) {
-  CogitoStyle s = cogito_style_merge(&cogito_theme.appbar_win_btn_all, &cogito_theme.appbar_win_btn[kind]);
+  // Optimized: use in-place merging to avoid struct copies
+  CogitoStyle s;
+  cogito_style_merge_into(&cogito_theme.appbar_win_btn_all, &cogito_theme.appbar_win_btn[kind], &s);
   if (state == 1) {
-    s = cogito_style_merge(&s, &cogito_theme.appbar_win_btn_hover_all);
-    s = cogito_style_merge(&s, &cogito_theme.appbar_win_btn_hover[kind]);
+    cogito_style_merge_into(&s, &cogito_theme.appbar_win_btn_hover_all, &s);
+    cogito_style_merge_into(&s, &cogito_theme.appbar_win_btn_hover[kind], &s);
   } else if (state == 2) {
-    s = cogito_style_merge(&s, &cogito_theme.appbar_win_btn_active_all);
-    s = cogito_style_merge(&s, &cogito_theme.appbar_win_btn_active[kind]);
+    cogito_style_merge_into(&s, &cogito_theme.appbar_win_btn_active_all, &s);
+    cogito_style_merge_into(&s, &cogito_theme.appbar_win_btn_active[kind], &s);
   }
   return s;
 }

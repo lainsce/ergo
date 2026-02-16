@@ -676,7 +676,7 @@ static bool cogito_toasts_force_draw = false;
 static CogitoNode* cogito_slider_active = NULL;
 static CogitoNode* cogito_carousel_active = NULL;
 static int cogito_carousel_animating_count = 0;  // Track number of animating carousels globally
-static int cogito_anim_frames_remaining = 0;  // Countdown of redraw frames needed for animations
+static double cogito_anim_end_time = 0.0;  // Time when all animations will complete (time-based for smooth animation)
 static CogitoNode* cogito_colorpicker_active = NULL;
 static int cogito_colorpicker_channel = -1;
 static CogitoNode* cogito_pointer_capture = NULL;
@@ -876,28 +876,6 @@ static bool cogito_macos_apply_app_name(const char* name) {
   return true;
 }
 
-static void cogito_macos_set_app_icon(const char* path) {
-  if (!path || !path[0]) return;
-  Class nsapp = (Class)objc_getClass("NSApplication");
-  if (!nsapp) return;
-  SEL sel_shared = sel_registerName("sharedApplication");
-  id app = ((id (*)(id, SEL))objc_msgSend)((id)nsapp, sel_shared);
-  if (!app) return;
-  // Create NSString for path
-  id ns_path = cogito_nsstring(path);
-  // Create NSImage from file path: [[NSImage alloc] initByReferencingFile:path]
-  Class nsimage = (Class)objc_getClass("NSImage");
-  if (!nsimage) return;
-  SEL sel_alloc = sel_registerName("alloc");
-  id img = ((id (*)(id, SEL))objc_msgSend)((id)nsimage, sel_alloc);
-  if (!img) return;
-  SEL sel_init = sel_registerName("initByReferencingFile:");
-  img = ((id (*)(id, SEL, id))objc_msgSend)(img, sel_init, ns_path);
-  if (!img) return;
-  // [NSApp setApplicationIconImage:img]
-  SEL sel_set_icon = sel_registerName("setApplicationIconImage:");
-  ((void (*)(id, SEL, id))objc_msgSend)(app, sel_set_icon, img);
-}
 #endif
 
 // Use cogito_color from backend.h instead
@@ -969,8 +947,8 @@ static CogitoColor cogito_anim_color(CogitoNode* n, CogitoColor target, CogitoCo
     *tgt = target;
     if (start) *start = now;
     if (n->anim_ms > 0) {
-      int frames = (n->anim_ms + 15) / 16;  // ~60fps, round up
-      if (frames > cogito_anim_frames_remaining) cogito_anim_frames_remaining = frames;
+      double end_time = now + (double)n->anim_ms;
+      if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
     }
   }
   if (n->anim_ms <= 0) {
@@ -985,6 +963,8 @@ static CogitoColor cogito_anim_color(CogitoNode* n, CogitoColor target, CogitoCo
   double t = (now - t0) * 1000.0 / (double)n->anim_ms;
   if (t >= 1.0) {
     *cur = target;
+    *from = target;  // Ensure from matches target to avoid residual interpolation
+    *tgt = target;
     return target;
   }
   double e = cogito_ease(t, n->anim_ease);
@@ -1008,8 +988,8 @@ static int cogito_anim_int(CogitoNode* n, int target, int* cur, int* from, int* 
     *tgt = target;
     if (start) *start = now;
     if (n->anim_ms > 0) {
-      int frames = (n->anim_ms + 15) / 16;  // ~60fps, round up
-      if (frames > cogito_anim_frames_remaining) cogito_anim_frames_remaining = frames;
+      double end_time = now + (double)n->anim_ms;
+      if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
     }
   }
   if (n->anim_ms <= 0) {
@@ -1024,6 +1004,8 @@ static int cogito_anim_int(CogitoNode* n, int target, int* cur, int* from, int* 
   double t = (now - t0) * 1000.0 / (double)n->anim_ms;
   if (t >= 1.0) {
     *cur = target;
+    *from = target;  // Ensure from matches target to avoid residual interpolation
+    *tgt = target;
     return target;
   }
   double e = cogito_ease(t, n->anim_ease);
@@ -1050,8 +1032,8 @@ static float cogito_anim_float(CogitoNode* n, float target, float* cur, float* f
     *tgt = target;
     if (start) *start = now;
     if (n->anim_ms > 0) {
-      int frames = (n->anim_ms + 15) / 16;  // ~60fps, round up
-      if (frames > cogito_anim_frames_remaining) cogito_anim_frames_remaining = frames;
+      double end_time = now + (double)n->anim_ms;
+      if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
     }
   }
   if (n->anim_ms <= 0) {
@@ -1066,6 +1048,8 @@ static float cogito_anim_float(CogitoNode* n, float target, float* cur, float* f
   double t = (now - t0) * 1000.0 / (double)n->anim_ms;
   if (t >= 1.0) {
     *cur = target;
+    *from = target;  // Ensure from matches target to avoid residual interpolation
+    *tgt = target;
     return target;
   }
   double e = cogito_ease(t, n->anim_ease);

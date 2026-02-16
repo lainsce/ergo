@@ -981,14 +981,16 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
                 else if (word.data[0] == 'i' && word.data[1] == 'n') kw = TOK_KW_in;
                 break;
             case 3:
-                if (memcmp(word.data, "fun", 3) == 0) kw = TOK_KW_fun;
-                else if (memcmp(word.data, "pub", 3) == 0) kw = TOK_KW_pub;
-                else if (memcmp(word.data, "def", 3) == 0) kw = TOK_KW_def;
-                else if (memcmp(word.data, "let", 3) == 0) kw = TOK_KW_let;
-                else if (memcmp(word.data, "for", 3) == 0) kw = TOK_KW_for;
-                else if (memcmp(word.data, "new", 3) == 0) kw = TOK_KW_new;
+                // Use direct character comparison for better branch prediction
+                if (word.data[0] == 'f' && word.data[1] == 'u' && word.data[2] == 'n') kw = TOK_KW_fun;
+                else if (word.data[0] == 'p' && word.data[1] == 'u' && word.data[2] == 'b') kw = TOK_KW_pub;
+                else if (word.data[0] == 'd' && word.data[1] == 'e' && word.data[2] == 'f') kw = TOK_KW_def;
+                else if (word.data[0] == 'l' && word.data[1] == 'e' && word.data[2] == 't') kw = TOK_KW_let;
+                else if (word.data[0] == 'f' && word.data[1] == 'o' && word.data[2] == 'r') kw = TOK_KW_for;
+                else if (word.data[0] == 'n' && word.data[1] == 'e' && word.data[2] == 'w') kw = TOK_KW_new;
                 break;
             case 4:
+                // Use memcmp with length check already done by case
                 if (memcmp(word.data, "cask", 4) == 0) kw = TOK_KW_cask;
                 else if (memcmp(word.data, "enum", 4) == 0) kw = TOK_KW_enum;
                 else if (memcmp(word.data, "lock", 4) == 0) kw = TOK_KW_lock;

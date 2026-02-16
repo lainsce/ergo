@@ -51,8 +51,10 @@ static size_t cogito_treeview_count_subtree_nodes(const CogitoNode* n) {
   return total;
 }
 
+// Calculate the capacity needed for visible rows
 static size_t cogito_treeview_visible_row_capacity(const CogitoNode* tree) {
   if (!tree) return 0;
+  // Fast path: if no children collapsed, we can count more efficiently
   size_t total = 0;
   for (size_t i = 0; i < tree->len; i++) {
     total += cogito_treeview_count_subtree_nodes(tree->children[i]);

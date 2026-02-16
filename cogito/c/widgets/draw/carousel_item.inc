@@ -16,16 +16,18 @@ case COGITO_CAROUSEL_ITEM: {
       }
       
       // When we have an image child, we skip drawing our own bg rectangle.
-      // The image's corner mask needs the color that is actually *behind*
-      // the carousel item (the parent carousel / window bg), not the
-      // carousel item's own theme bg (which is never drawn).
-      // Skip fully-transparent parents (e.g. carousel with background:transparent)
-      // because a transparent mask would be invisible.
+      // The image's corner mask needs the carousel item's theme bg color
+      // so the rounded corners blend correctly with the item's surface.
       if (has_image_child) {
-        CogitoNode* p = n->parent;
-        while (p) {
-          if (p->bg_set && p->bg.a > 0) { n->bg = p->bg; n->bg_set = true; break; }
-          p = p->parent;
+        // Pass carousel_item's theme bg to image children for corner masking.
+        // The image needs to mask with the item's actual surface color,
+        // not the window background behind the transparent carousel.
+        CogitoColor item_bg = s.has_bg ? s.bg : n->bg;
+        for (size_t i = 0; i < n->len; i++) {
+          if (n->children[i]->kind == COGITO_IMAGE) {
+            n->children[i]->bg = item_bg;
+            n->children[i]->bg_set = true;
+          }
         }
       } else if (n->bg_set || s.has_bg) {
         cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, radius);

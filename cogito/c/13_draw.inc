@@ -208,18 +208,35 @@ static void cogito_draw_shadow_radii_level(int x, int y, int w, int h,
   if (level <= 0 || w <= 0 || h <= 0) return;
   if (level > 5) level = 5;
 
-  int blur = 4 + level * 3;
-  int spread = level;
-  int key_offset_y = level;
-  int ambient_offset_y = level / 2;
-  int alpha = 28 + level * 14;
-  if (alpha > 150) alpha = 150;
+  // Calculate blur and spread based on level
+  // Level 1: blur=3, spread=-0.5
+  // Level 2: blur=6, spread=-1.5
+  // Level 3: blur=12, spread=-3
+  // Level 4: blur=24, spread=-6
+  // Level 5: blur=24, spread=-12
+  int blur = 3;
+  int spread = 0;
+  int offset_y = 0;
+  
+  switch(level) {
+    case 1: blur = 3; spread = 0; offset_y = 1; break;   // -0.5 spread equivalent (0)
+    case 2: blur = 6; spread = -1; offset_y = 2; break;  // -1.5 spread equivalent (-1)
+    case 3: blur = 12; spread = -3; offset_y = 3; break; // -3 spread
+    case 4: blur = 24; spread = -6; offset_y = 4; break; // -6 spread
+    case 5: blur = 24; spread = -12; offset_y = 6; break; // -12 spread
+  }
 
-  CogitoColor ambient = cogito_rgba(0, 0, 0, (uint8_t)((alpha * 3) / 5));
-  CogitoColor key = cogito_rgba(0, 0, 0, (uint8_t)((alpha * 4) / 5));
-
-  cogito_draw_shadow_blur_radii(x, y + ambient_offset_y, w, h, tl, tr, br, bl, spread + 1, blur + 2, ambient);
-  cogito_draw_shadow_blur_radii(x, y + key_offset_y, w, h, tl, tr, br, bl, spread, blur, key);
+  // Consistent 6% opacity black (approximately 15 alpha)
+  int alpha = 15;
+  CogitoColor shadow_col = cogito_rgba(0, 0, 0, (uint8_t)alpha);
+  
+  // Draw ambient shadow (above the element)
+  cogito_draw_shadow_blur_radii(x, y - offset_y, w, h, tl, tr, br, bl, 
+                                 spread + 1, blur, shadow_col);
+  
+  // Draw key shadow (offset below the element)
+  cogito_draw_shadow_blur_radii(x, y + offset_y, w, h, tl, tr, br, bl, 
+                                 spread, blur, shadow_col);
 }
 
 static void cogito_draw_shadow_radii_box(int x, int y, int w, int h,

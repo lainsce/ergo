@@ -359,27 +359,39 @@ static void cogito_font_cache_clear(void) {
 
 static int cogito_text_width(const char* s) {
   if (!s) return 0;
-  if (!cogito_backend_ready || !cogito_font_ready) return (int)strlen(s) * 8;
+  if (!cogito_backend_ready || !cogito_font_ready) {
+    int len = 0;
+    while (s[len]) len++;
+    return len * 8;
+  }
   
   if (cogito_backend && cogito_backend->text_measure_width) {
     CogitoFont* f = cogito_font_resolve_size(cogito_font, cogito_font_size());
     return cogito_backend->text_measure_width(f ? f : cogito_font, s, cogito_font_size());
   }
   
-  return (int)strlen(s) * 8;
+  int len = 0;
+  while (s[len]) len++;
+  return len * 8;
 }
 
 static int cogito_text_width_size(const char* s, int size) {
   if (!s) return 0;
   if (size <= 0) size = cogito_font_size();
-  if (!cogito_backend_ready || !cogito_font_ready) return (int)strlen(s) * (size / 2);
+  if (!cogito_backend_ready || !cogito_font_ready) {
+    int len = 0;
+    while (s[len]) len++;
+    return len * (size / 2);
+  }
   
   if (cogito_backend && cogito_backend->text_measure_width) {
     CogitoFont* f = cogito_font_resolve_size(cogito_font, size);
     return cogito_backend->text_measure_width(f ? f : cogito_font, s, size);
   }
   
-  return (int)strlen(s) * (size / 2);
+  int len = 0;
+  while (s[len]) len++;
+  return len * (size / 2);
 }
 
 static int cogito_text_height(void) {
@@ -417,11 +429,15 @@ static int cogito_text_width_size_font_spaced(CogitoFont* f, const char* s, int 
 
   int base;
   if (!cogito_backend_ready || !cogito_font_ready || !f) {
-    base = (int)strlen(s) * (size / 2);
+    int len = 0;
+    while (s[len]) len++;
+    base = len * (size / 2);
   } else if (cogito_backend && cogito_backend->text_measure_width) {
     base = cogito_backend->text_measure_width(f, s, size);
   } else {
-    base = (int)strlen(s) * (size / 2);
+    int len = 0;
+    while (s[len]) len++;
+    base = len * (size / 2);
   }
 
   if (spacing != 0.0f) {
@@ -483,6 +499,9 @@ static void cogito_text_set_from_buf(CogitoNode* n, const char* buf, size_t len)
   if (s) ergo_release_val(EV_STR(s));
 }
 
+// Static buffer to reduce heap allocations in text editing hot path
+static char cogito_text_edit_buf[4096];
+
 static void cogito_text_delete_range(CogitoNode* n, size_t start, size_t end) {
   if (!n || !n->text) return;
   if (start > end) { size_t tmp = start; start = end; end = tmp; }
@@ -491,13 +510,22 @@ static void cogito_text_delete_range(CogitoNode* n, size_t start, size_t end) {
   if (end > len) end = len;
   if (start == end) return;
   size_t new_len = len - (end - start);
-  char* buf = (char*)malloc(new_len + 1);
-  if (!buf) return;
+  
+  // Use stack buffer for small edits to avoid malloc/free overhead
+  char* buf;
+  bool use_static = new_len < sizeof(cogito_text_edit_buf);
+  if (use_static) {
+    buf = cogito_text_edit_buf;
+  } else {
+    buf = (char*)malloc(new_len + 1);
+    if (!buf) return;
+  }
+  
   if (start > 0) memcpy(buf, n->text->data, start);
   if (end < len) memcpy(buf + start, n->text->data + end, len - end);
   buf[new_len] = '\0';
   cogito_text_set_from_buf(n, buf, new_len);
-  free(buf);
+  if (!use_static) free(buf);
 }
 
 static void cogito_text_append_codepoint(CogitoNode* n, int cp) {
@@ -535,14 +563,23 @@ static void cogito_text_append_codepoint(CogitoNode* n, int cp) {
   size_t insert_at = (size_t)n->text_input.caret;
   if (insert_at > base_len) insert_at = base_len;
   size_t out_len = base_len + (size_t)ulen;
-  char* buf = (char*)malloc(out_len + 1);
-  if (!buf) return;
+  
+  // Use stack buffer for small edits to avoid malloc/free overhead
+  char* buf;
+  bool use_static = out_len < sizeof(cogito_text_edit_buf);
+  if (use_static) {
+    buf = cogito_text_edit_buf;
+  } else {
+    buf = (char*)malloc(out_len + 1);
+    if (!buf) return;
+  }
+  
   if (insert_at > 0) memcpy(buf, n->text->data, insert_at);
   memcpy(buf + insert_at, utf8, (size_t)ulen);
   if (base_len > insert_at) memcpy(buf + insert_at + (size_t)ulen, n->text->data + insert_at, base_len - insert_at);
   buf[out_len] = '\0';
   cogito_text_set_from_buf(n, buf, out_len);
-  free(buf);
+  if (!use_static) free(buf);
   n->text_input.caret = (int)(insert_at + (size_t)ulen);
   n->text_input.sel_start = n->text_input.caret;
   n->text_input.sel_end = n->text_input.caret;
@@ -737,7 +774,8 @@ static void cogito_draw_text_node(const CogitoNode* n, int x, int y, const char*
 static void cogito_draw_text_ellipsis(const CogitoNode* n, int x, int y, int w, const char* text, CogitoColor color, int size, bool bold, int align) {
   if (!text || w <= 0) return;
   if (size <= 0) size = cogito_font_size();
-  int len = (int)strlen(text);
+  int len = 0;
+  while (text[len]) len++;
   int full_w = cogito_text_width_size_node(n, text, size);
   if (full_w <= w) {
     int tx = x;
@@ -750,12 +788,20 @@ static void cogito_draw_text_ellipsis(const CogitoNode* n, int x, int y, int w, 
   int dots_w = cogito_text_width_size_node(n, dots, size);
   int max_w = w - dots_w;
   if (max_w < 0) max_w = 0;
-  int cut = len;
-  for (int i = 0; i < len; i++) {
-    int ww = cogito_text_width_size_n_node(n, text, i + 1, size);
-    if (ww > max_w) { cut = i; break; }
+  
+  // Binary search for truncation point - O(log n) instead of O(n²)
+  int lo = 0, hi = len, cut = 0;
+  while (lo <= hi) {
+    int mid = (lo + hi) / 2;
+    int ww = cogito_text_width_size_n_node(n, text, mid, size);
+    if (ww <= max_w) {
+      cut = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
   }
-  if (cut < 0) cut = 0;
+  
   char buf[1024];
   if (cut > 1000) cut = 1000;
   memcpy(buf, text, (size_t)cut);

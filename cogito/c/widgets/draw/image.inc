@@ -11,6 +11,12 @@ case COGITO_IMAGE: {
       int border_w = s.has_border_width ? s.border_width : n->border_width;
       // User-set radius takes priority over theme
       int radius = n->radius_set ? n->border_radius : (s.has_radius ? s.radius : n->border_radius);
+      // Images inside carousel_items should use the parent's border-radius
+      if (radius == 0 && n->parent && n->parent->kind == COGITO_CAROUSEL_ITEM) {
+        CogitoStyle ps = cogito_theme_resolve_node(n->parent);
+        if (ps.has_radius) radius = ps.radius;
+        else if (n->parent->border_radius > 0) radius = n->parent->border_radius;
+      }
       if (radius > n->w / 2) radius = n->w / 2;
       if (radius > n->h / 2) radius = n->h / 2;
       

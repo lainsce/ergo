@@ -46,8 +46,9 @@ case COGITO_SCROLLER: {
             n->scroller.bar_alpha = (uint8_t)((int)n->scroller.bar_alpha * 220 / 255);
             if (n->scroller.bar_alpha > 0) {
               // Request continued redraw via frame counter instead of queue_draw
-              // (queue_draw during draw phase is cleared immediately and creates redraw coupling)
-              if (cogito_anim_frames_remaining < 1) cogito_anim_frames_remaining = 1;
+              // Request continuous redraw for animation
+              double anim_end = now + 16.0;  // Request ~1 frame more of animation
+              if (anim_end > cogito_anim_end_time) cogito_anim_end_time = anim_end;
             }
           }
         }

@@ -356,7 +356,7 @@ fun build_controls_view() (( cogito.VStack )) {
     vstack.add(img_label_container)
 
     let img = cogito.image(@"")
-    img.set_source(@"cogito/examples/assets/photo.png")
+    img.set_source(@"cogito/examples/assets/image.jpg")
     img.set_size(360, 360)
     img.set_radius(12)
     vstack.add(img)
@@ -489,7 +489,6 @@ fun build_carousel_view() (( cogito.VStack )) {
 
     let carousel = cogito.carousel()
     carousel.set_hexpand(true)
-    carousel.set_vexpand(true)
 
     let item1 = cogito.carousel_item()
     item1.set_vexpand(true)
@@ -498,7 +497,7 @@ fun build_carousel_view() (( cogito.VStack )) {
     item1.set_halign(0)  -- left
     item1.set_valign(2)  -- bottom
     let img1 = cogito.image(@"")
-    img1.set_source(@"cogito/examples/assets/photo.png")
+    img1.set_source(@"cogito/examples/assets/image.jpg")
     img1.set_hexpand(true)
     img1.set_vexpand(true)
     img1.set_radius(26)
@@ -512,7 +511,7 @@ fun build_carousel_view() (( cogito.VStack )) {
     item2.set_halign(0)  -- left
     item2.set_valign(2)  -- bottom
     let img2 = cogito.image(@"")
-    img2.set_source(@"cogito/examples/assets/photo.png")
+    img2.set_source(@"cogito/examples/assets/image2.jpg")
     img2.set_hexpand(true)
     img2.set_vexpand(true)
     img2.set_radius(26)
@@ -526,7 +525,7 @@ fun build_carousel_view() (( cogito.VStack )) {
     item3.set_halign(0)  -- left
     item3.set_valign(2)  -- bottom
     let img3 = cogito.image(@"")
-    img3.set_source(@"cogito/examples/assets/photo.png")
+    img3.set_source(@"cogito/examples/assets/image3.jpg")
     img3.set_hexpand(true)
     img3.set_vexpand(true)
     img3.set_radius(26)
@@ -540,7 +539,7 @@ fun build_carousel_view() (( cogito.VStack )) {
     item4.set_halign(0)  -- left
     item4.set_valign(2)  -- bottom
     let img4 = cogito.image(@"")
-    img4.set_source(@"cogito/examples/assets/photo.png")
+    img4.set_source(@"cogito/examples/assets/image4.jpg")
     img4.set_hexpand(true)
     img4.set_vexpand(true)
     img4.set_radius(26)
@@ -554,7 +553,7 @@ fun build_carousel_view() (( cogito.VStack )) {
     item5.set_halign(0)  -- left
     item5.set_valign(2)  -- bottom
     let img5 = cogito.image(@"")
-    img5.set_source(@"cogito/examples/assets/photo.png")
+    img5.set_source(@"cogito/examples/assets/image5.jpg")
     img5.set_hexpand(true)
     img5.set_vexpand(true)
     img5.set_radius(26)
