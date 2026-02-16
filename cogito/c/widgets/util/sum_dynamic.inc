@@ -204,7 +204,7 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "appbar .window-min\n  background: %s\n", secc);
   cogito_sum_append(out, cap, &off, "appbar.sidebar\n  background: %s\n  color: %s\n", surf, ons);
   cogito_sum_append(out, cap, &off, "appbar.view\n  background: %s\n  color: %s\n", bg, ons);
-  cogito_sum_append(out, cap, &off, "appbar\n  background: %s\n  color: %s\n", bg, ons);
+  cogito_sum_append(out, cap, &off, "appbar\n  background: %s\n  color: %s\n  border: 1 solid #00000000\n", bg, ons);
   cogito_sum_append(out, cap, &off, "bottom-nav:selection\n  background: %s\n", bottomsel);
   cogito_sum_append(out, cap, &off, "bottom-nav\n  background: %s\n  color: %s\n  min-height: 80\n  padding: 0 8\n  transition: 220 standard\n", bottombg, ons);
   cogito_sum_append(out, cap, &off, "button:active\n  background: %s\n  color: %s\n", pa, op);
@@ -313,7 +313,7 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "switch track\n  background: %s\n", strack);
   cogito_sum_append(out, cap, &off, "switch:checked .track\n  background: %s\n  border-radius: 100\n", p);
   cogito_sum_append(out, cap, &off, "switch:checked track\n  background: %s\n  border-radius: 100\n", p);
-  cogito_sum_append(out, cap, &off, "switch\n  color: %s\n  min-height: 28\n  min-width: 64\n  transition: 150 standard\n", ons);
+  cogito_sum_append(out, cap, &off, "switch\n  color: %s\n  min-height: 28\n  min-width: 64\n  transition: 100 standard\n", ons);
   cogito_sum_append(out, cap, &off, "tabs:selection\n  background: %s\n", tabssel);
   cogito_sum_append(out, cap, &off, "tabs\n  background: %s\n  color: %s\n  border-radius: 10\n  min-height: 36\n  transition: 180 standard\n", tabsbg, ons);
   cogito_sum_append(out, cap, &off, "textfield:focus\n  border: 2 solid %s\n", p);

@@ -387,6 +387,7 @@ grid:selection
 appbar
   background: #2c2c2e
   color: #f2f2f7
+  border: 0 solid #00000000
 
 appbar.view
   background: #2c2c2e

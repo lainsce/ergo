@@ -7,8 +7,8 @@ static ErgoVal cogito_scroller_new(void) {
 static void cogito_scroller_set_axes(ErgoVal scv, ErgoVal horzv, ErgoVal vertv) {
   if (scv.tag != EVT_OBJ) ergo_trap("cogito.scroller_set_axes expects scroller");
   CogitoNode* sc = (CogitoNode*)scv.as.p;
-  sc->scroll_horz = ergo_as_bool(horzv);
-  sc->scroll_vert = ergo_as_bool(vertv);
+  sc->scroller.horz = ergo_as_bool(horzv);
+  sc->scroller.vert = ergo_as_bool(vertv);
   cogito_window_relayout(cogito_node_window(sc));
 }
 static CogitoNode* cogito_find_scroller(CogitoNode* n, int x, int y) {

@@ -23,37 +23,37 @@ static int cogito_weekday(int y, int m, int d) {
 
 static void cogito_datepicker_ensure_date(CogitoNode* n) {
   if (!n || n->kind != COGITO_DATEPICKER) return;
-  if (n->date_year <= 0 || n->date_month <= 0) {
+  if (n->datepicker.year <= 0 || n->datepicker.month <= 0) {
     time_t now = time(NULL);
     struct tm* lt = localtime(&now);
     if (lt) {
-      n->date_year = lt->tm_year + 1900;
-      n->date_month = lt->tm_mon + 1;
-      n->date_day = lt->tm_mday;
+      n->datepicker.year = lt->tm_year + 1900;
+      n->datepicker.month = lt->tm_mon + 1;
+      n->datepicker.day = lt->tm_mday;
     } else {
-      n->date_year = 2025;
-      n->date_month = 1;
-      n->date_day = 1;
+      n->datepicker.year = 2025;
+      n->datepicker.month = 1;
+      n->datepicker.day = 1;
     }
   }
-  if (n->date_month < 1) n->date_month = 1;
-  if (n->date_month > 12) n->date_month = 12;
-  int dim = cogito_days_in_month(n->date_year, n->date_month);
-  if (n->date_day < 1) n->date_day = 1;
-  if (n->date_day > dim) n->date_day = dim;
+  if (n->datepicker.month < 1) n->datepicker.month = 1;
+  if (n->datepicker.month > 12) n->datepicker.month = 12;
+  int dim = cogito_days_in_month(n->datepicker.year, n->datepicker.month);
+  if (n->datepicker.day < 1) n->datepicker.day = 1;
+  if (n->datepicker.day > dim) n->datepicker.day = dim;
 }
 
 static void cogito_datepicker_shift_month(CogitoNode* n, int delta) {
   if (!n) return;
   cogito_datepicker_ensure_date(n);
-  int m = n->date_month + delta;
-  int y = n->date_year;
+  int m = n->datepicker.month + delta;
+  int y = n->datepicker.year;
   while (m < 1) { m += 12; y -= 1; }
   while (m > 12) { m -= 12; y += 1; }
-  n->date_month = m;
-  n->date_year = y;
-  int dim = cogito_days_in_month(n->date_year, n->date_month);
-  if (n->date_day > dim) n->date_day = dim;
+  n->datepicker.month = m;
+  n->datepicker.year = y;
+  int dim = cogito_days_in_month(n->datepicker.year, n->datepicker.month);
+  if (n->datepicker.day > dim) n->datepicker.day = dim;
 }
 
 static void cogito_datepicker_layout(CogitoNode* n, int* out_pad_l, int* out_pad_t, int* out_pad_r, int* out_pad_b,
@@ -94,10 +94,10 @@ static int cogito_datepicker_hit_day(CogitoNode* n, int mx, int my) {
   int col = (mx - grid_x) / cell_w;
   int row = (my - grid_y) / cell_h;
   if (col < 0 || col > 6 || row < 0 || row > 5) return -1;
-  int first = cogito_weekday(n->date_year, n->date_month, 1);
+  int first = cogito_weekday(n->datepicker.year, n->datepicker.month, 1);
   int idx = row * 7 + col;
   int day = idx - first + 1;
-  int dim = cogito_days_in_month(n->date_year, n->date_month);
+  int dim = cogito_days_in_month(n->datepicker.year, n->datepicker.month);
   if (day < 1 || day > dim) return -1;
   return day;
 }

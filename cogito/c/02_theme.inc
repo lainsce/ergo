@@ -241,8 +241,8 @@ static CogitoStyle cogito_theme_resolve(CogitoKind kind) {
 
 static CogitoStyle cogito_theme_resolve_node(const CogitoNode* n) {
   CogitoStyle s = cogito_theme_resolve(n->kind);
-  if (n->kind == COGITO_LABEL && n->label_class > COGITO_LABEL_CLASS_NONE && n->label_class < 4) {
-    s = cogito_style_merge(&s, &cogito_theme.label_class[n->label_class]);
+  if (n->kind == COGITO_LABEL && n->label.cls > COGITO_LABEL_CLASS_NONE && n->label.cls < 4) {
+    s = cogito_style_merge(&s, &cogito_theme.label_class[n->label.cls]);
   }
   if (n->font_mono) {
     s = cogito_style_merge(&s, &cogito_theme.class_mono);
@@ -250,11 +250,13 @@ static CogitoStyle cogito_theme_resolve_node(const CogitoNode* n) {
   if (n->font_tabular) {
     s = cogito_style_merge(&s, &cogito_theme.class_tabular);
   }
-  if (n->button_outlined) {
-    s = cogito_style_merge(&s, &cogito_theme.button_outlined);
-  }
-  if (n->button_text) {
-    s = cogito_style_merge(&s, &cogito_theme.button_text);
+  if (n->kind == COGITO_BUTTON) {
+    if (n->button.outlined) {
+      s = cogito_style_merge(&s, &cogito_theme.button_outlined);
+    }
+    if (n->button.text_style) {
+      s = cogito_style_merge(&s, &cogito_theme.button_text);
+    }
   }
   if (n->parent && n->parent->kind == COGITO_APPBAR) {
     if (n->kind == COGITO_BUTTON) {
@@ -412,21 +414,21 @@ static CogitoStyle cogito_theme_resolve_node_state(const CogitoNode* n, bool hov
   bool disabled = cogito_node_disabled(n);
   bool focused = (!disabled && n && n == cogito_focused);
   if (n && (n->kind == COGITO_CHECKBOX || n->kind == COGITO_SWITCH)) checked = n->checked;
-  else if (n && n->kind == COGITO_CHIP) checked = n->chip_selected;
+  else if (n && n->kind == COGITO_CHIP) checked = n->chip.selected;
   if (checked) s = cogito_style_merge(&s, &cogito_theme.per_kind_checked[n->kind]);
   if (disabled) s = cogito_style_merge(&s, &cogito_theme.per_kind_disabled[n->kind]);
   else if (active) s = cogito_style_merge(&s, &cogito_theme.per_kind_active[n->kind]);
   else if (focused) s = cogito_style_merge(&s, &cogito_theme.per_kind_focused[n->kind]);
   else if (hover) s = cogito_style_merge(&s, &cogito_theme.per_kind_hover[n->kind]);
-  if (n->kind == COGITO_LABEL && n->label_class > COGITO_LABEL_CLASS_NONE && n->label_class < 4) {
-    if (checked) s = cogito_style_merge(&s, &cogito_theme.label_class_checked[n->label_class]);
+  if (n->kind == COGITO_LABEL && n->label.cls > COGITO_LABEL_CLASS_NONE && n->label.cls < 4) {
+    if (checked) s = cogito_style_merge(&s, &cogito_theme.label_class_checked[n->label.cls]);
     if (disabled) {
-      s = cogito_style_merge(&s, &cogito_theme.label_class_disabled[n->label_class]);
+      s = cogito_style_merge(&s, &cogito_theme.label_class_disabled[n->label.cls]);
     }
     if (!disabled) {
-      if (active) s = cogito_style_merge(&s, &cogito_theme.label_class_active[n->label_class]);
-      else if (focused) s = cogito_style_merge(&s, &cogito_theme.label_class_focused[n->label_class]);
-      else if (hover) s = cogito_style_merge(&s, &cogito_theme.label_class_hover[n->label_class]);
+      if (active) s = cogito_style_merge(&s, &cogito_theme.label_class_active[n->label.cls]);
+      else if (focused) s = cogito_style_merge(&s, &cogito_theme.label_class_focused[n->label.cls]);
+      else if (hover) s = cogito_style_merge(&s, &cogito_theme.label_class_hover[n->label.cls]);
     }
   }
   if (n->font_mono) {
@@ -451,24 +453,26 @@ static CogitoStyle cogito_theme_resolve_node_state(const CogitoNode* n, bool hov
       else if (hover) s = cogito_style_merge(&s, &cogito_theme.class_tabular_hover);
     }
   }
-  if (n->button_outlined) {
-    if (disabled) {
-      s = cogito_style_merge(&s, &cogito_theme.button_outlined_disabled);
+  if (n->kind == COGITO_BUTTON) {
+    if (n->button.outlined) {
+      if (disabled) {
+        s = cogito_style_merge(&s, &cogito_theme.button_outlined_disabled);
+      }
+      if (!disabled) {
+        if (active) s = cogito_style_merge(&s, &cogito_theme.button_outlined_active);
+        else if (focused) s = cogito_style_merge(&s, &cogito_theme.button_outlined_focused);
+        else if (hover) s = cogito_style_merge(&s, &cogito_theme.button_outlined_hover);
+      }
     }
-    if (!disabled) {
-      if (active) s = cogito_style_merge(&s, &cogito_theme.button_outlined_active);
-      else if (focused) s = cogito_style_merge(&s, &cogito_theme.button_outlined_focused);
-      else if (hover) s = cogito_style_merge(&s, &cogito_theme.button_outlined_hover);
-    }
-  }
-  if (n->button_text) {
-    if (disabled) {
-      s = cogito_style_merge(&s, &cogito_theme.button_text_disabled);
-    }
-    if (!disabled) {
-      if (active) s = cogito_style_merge(&s, &cogito_theme.button_text_active);
-      else if (focused) s = cogito_style_merge(&s, &cogito_theme.button_text_focused);
-      else if (hover) s = cogito_style_merge(&s, &cogito_theme.button_text_hover);
+    if (n->button.text_style) {
+      if (disabled) {
+        s = cogito_style_merge(&s, &cogito_theme.button_text_disabled);
+      }
+      if (!disabled) {
+        if (active) s = cogito_style_merge(&s, &cogito_theme.button_text_active);
+        else if (focused) s = cogito_style_merge(&s, &cogito_theme.button_text_focused);
+        else if (hover) s = cogito_style_merge(&s, &cogito_theme.button_text_hover);
+      }
     }
   }
   // Apply custom class state variants
@@ -722,7 +726,7 @@ static int cogito_font_size(void) {
 static int cogito_label_font_size(const CogitoNode* n) {
   if (!n) return cogito_font_size();
   if (n->font_size_set && n->font_size > 0) return n->font_size;
-  switch (n->label_class) {
+  switch (n->label.cls) {
     case COGITO_LABEL_CLASS_TITLE: return 32;
     case COGITO_LABEL_CLASS_SUBTITLE: return 26;
     case COGITO_LABEL_CLASS_BODY: return 16;
@@ -764,7 +768,7 @@ static void cogito_apply_size_constraints(const CogitoNode* n, int* w, int* h) {
 static bool cogito_label_bold(const CogitoNode* n) {
   if (!n) return false;
   if (n->font_weight_set) return n->font_weight >= 600;
-  return n->label_class == COGITO_LABEL_CLASS_TITLE;
+  return n->label.cls == COGITO_LABEL_CLASS_TITLE;
 }
 
 static int cogito_label_class_font_size(int cls, int fallback) {

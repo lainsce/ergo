@@ -1,13 +1,13 @@
 static void cogito_timepicker_ensure_time(CogitoNode* n) {
   if (!n || n->kind != COGITO_TIMEPICKER) return;
   // Default: if all zero, set to current time
-  if (n->time_hour == 0 && n->time_minute == 0 && !n->time_ampm) {
+  if (n->timepicker.hour == 0 && n->timepicker.minute == 0 && !n->timepicker.ampm) {
     time_t now = time(NULL);
     struct tm* lt = localtime(&now);
     if (lt) {
-      n->time_hour = lt->tm_hour;
-      n->time_minute = lt->tm_min;
-      n->time_ampm = (n->time_hour >= 12);
+      n->timepicker.hour = lt->tm_hour;
+      n->timepicker.minute = lt->tm_min;
+      n->timepicker.ampm = (n->timepicker.hour >= 12);
     }
   }
 }
@@ -40,8 +40,8 @@ static bool cogito_timepicker_hit(CogitoNode* n, int mx, int my, bool clicked) {
     int bx = hour_x + (col_w - btn_size) / 2;
     int by = display_y - btn_size - 4;
     if (cogito_hit_rect(mx, my, bx, by, btn_size, btn_size)) {
-      n->time_hour = (n->time_hour + 1) % 24;
-      n->time_ampm = (n->time_hour >= 12);
+      n->timepicker.hour = (n->timepicker.hour + 1) % 24;
+      n->timepicker.ampm = (n->timepicker.hour >= 12);
       return true;
     }
   }
@@ -50,8 +50,8 @@ static bool cogito_timepicker_hit(CogitoNode* n, int mx, int my, bool clicked) {
     int bx = hour_x + (col_w - btn_size) / 2;
     int by = display_y + box_h + 4;
     if (cogito_hit_rect(mx, my, bx, by, btn_size, btn_size)) {
-      n->time_hour = (n->time_hour + 23) % 24;
-      n->time_ampm = (n->time_hour >= 12);
+      n->timepicker.hour = (n->timepicker.hour + 23) % 24;
+      n->timepicker.ampm = (n->timepicker.hour >= 12);
       return true;
     }
   }
@@ -60,7 +60,7 @@ static bool cogito_timepicker_hit(CogitoNode* n, int mx, int my, bool clicked) {
     int bx = min_x + (col_w - btn_size) / 2;
     int by = display_y - btn_size - 4;
     if (cogito_hit_rect(mx, my, bx, by, btn_size, btn_size)) {
-      n->time_minute = (n->time_minute + 1) % 60;
+      n->timepicker.minute = (n->timepicker.minute + 1) % 60;
       return true;
     }
   }
@@ -69,7 +69,7 @@ static bool cogito_timepicker_hit(CogitoNode* n, int mx, int my, bool clicked) {
     int bx = min_x + (col_w - btn_size) / 2;
     int by = display_y + box_h + 4;
     if (cogito_hit_rect(mx, my, bx, by, btn_size, btn_size)) {
-      n->time_minute = (n->time_minute + 59) % 60;
+      n->timepicker.minute = (n->timepicker.minute + 59) % 60;
       return true;
     }
   }
@@ -83,18 +83,18 @@ static bool cogito_timepicker_hit(CogitoNode* n, int mx, int my, bool clicked) {
 
   if (cogito_hit_rect(mx, my, ampm_x, ampm_y, ampm_w, ampm_h_box)) {
     // Clicked AM
-    if (n->time_ampm) {
-      n->time_hour -= 12;
-      if (n->time_hour < 0) n->time_hour += 24;
-      n->time_ampm = false;
+    if (n->timepicker.ampm) {
+      n->timepicker.hour -= 12;
+      if (n->timepicker.hour < 0) n->timepicker.hour += 24;
+      n->timepicker.ampm = false;
       return true;
     }
   } else if (cogito_hit_rect(mx, my, ampm_x + ampm_w, ampm_y, ampm_w, ampm_h_box)) {
     // Clicked PM
-    if (!n->time_ampm) {
-      n->time_hour += 12;
-      if (n->time_hour >= 24) n->time_hour -= 24;
-      n->time_ampm = true;
+    if (!n->timepicker.ampm) {
+      n->timepicker.hour += 12;
+      if (n->timepicker.hour >= 24) n->timepicker.hour -= 24;
+      n->timepicker.ampm = true;
       return true;
     }
   }

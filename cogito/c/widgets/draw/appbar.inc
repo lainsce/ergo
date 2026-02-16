@@ -12,7 +12,6 @@ case COGITO_APPBAR: {
       if (s.has_border) border = s.border;
       if (s.has_border_width) border_w = s.border_width;
       if (s.has_radius) radius = s.radius;
-      cogito_anim_apply(n, &s, &bg, &text, &border, NULL);
       if (n->bg_set || s.has_bg || border_w > 0) {
         if (n->shadow_set && n->shadow_level > 0) {
           cogito_draw_shadow_node_level(n, &s, n->x, n->y, n->w, n->h, radius, n->shadow_level);
@@ -22,8 +21,8 @@ case COGITO_APPBAR: {
           cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border, radius, border_w);
         }
       }
-	      int btn = n->appbar_btn_size;
-	      int by = n->appbar_btn_y;
+	      int btn = n->appbar.btn_size;
+	      int by = n->appbar.btn_y;
 	      int mx = 0, my = 0;
       if (cogito_backend && cogito_backend->get_mouse_position) {
         cogito_backend->get_mouse_position(&mx, &my);
@@ -34,7 +33,7 @@ case COGITO_APPBAR: {
       }
       CogitoTrafficLightsState lights = {0};
       cogito_traffic_lights_compute(
-        n->appbar_btn_close_x, n->appbar_btn_min_x, n->appbar_btn_max_x, by, btn,
+        n->appbar.btn_close_x, n->appbar.btn_min_x, n->appbar.btn_max_x, by, btn,
         mx, my, down, &lights
       );
       CogitoColor fallback_btn = s.has_selection ? s.selection : n->selection_color;
@@ -43,12 +42,12 @@ case COGITO_APPBAR: {
       if (fallback_border.a > 80) fallback_border.a = 80;
       cogito_draw_traffic_lights_styled(
         &s, fallback_btn, fallback_border,
-        n->appbar_btn_close_x, n->appbar_btn_min_x, n->appbar_btn_max_x,
+        n->appbar.btn_close_x, n->appbar.btn_min_x, n->appbar.btn_max_x,
         &lights
       );
       if (n->text) {
         int tsz = cogito_label_class_font_size(COGITO_LABEL_CLASS_TITLE, 24);
-        int ty = n->appbar_title_y ? n->appbar_title_y : (n->y + 12);
+        int ty = n->appbar.title_y ? n->appbar.title_y : (n->y + 12);
         CogitoColor tcol = cogito_label_class_color(COGITO_LABEL_CLASS_TITLE, text);
         bool tbold = cogito_label_class_bold(COGITO_LABEL_CLASS_TITLE, true);
         cogito_draw_text_size_node(n, n->x + 16, ty, n->text->data, tcol, tsz, tbold);
@@ -57,7 +56,7 @@ case COGITO_APPBAR: {
         int tsz = cogito_label_class_font_size(COGITO_LABEL_CLASS_TITLE, 24);
         int t_h = cogito_text_height_size(tsz);
         int ssz = cogito_label_class_font_size(COGITO_LABEL_CLASS_SUBTITLE, 18);
-        int sy = n->appbar_subtitle_y ? n->appbar_subtitle_y : (n->y + 12 + t_h + 4);
+        int sy = n->appbar.subtitle_y ? n->appbar.subtitle_y : (n->y + 12 + t_h + 4);
         CogitoColor scol = cogito_label_class_color(COGITO_LABEL_CLASS_SUBTITLE, text);
         bool sbold = cogito_label_class_bold(COGITO_LABEL_CLASS_SUBTITLE, false);
         cogito_draw_text_size_node(n, n->x + 16, sy, n->subtitle->data, scol, ssz, sbold);

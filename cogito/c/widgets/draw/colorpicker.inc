@@ -14,7 +14,7 @@ case COGITO_COLORPICKER: {
         cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border, radius, border_w);
       }
 
-      if (!n->text || !n->text->data || !n->text->data[0] || !n->color_hex_editing) {
+      if (!n->text || !n->text->data || !n->text->data[0] || !n->colorpicker.hex_editing) {
         cogito_colorpicker_sync_hex(n);
       }
 
@@ -28,7 +28,7 @@ case COGITO_COLORPICKER: {
 
       int size = cogito_node_font_size(n);
       const char* labels[3] = {"H", "C", "T"};
-      double values[3] = {n->color_h, n->color_c, n->color_t};
+      double values[3] = {n->colorpicker.h, n->colorpicker.c, n->colorpicker.t};
       double ranges[3] = {360.0, 100.0, 100.0};
 
       // Slider drawing parameters (matching Cogito Slider style)
@@ -104,7 +104,7 @@ case COGITO_COLORPICKER: {
       char hex_buf[8];
       const char* hex = n->text ? n->text->data : NULL;
       if (!hex || !hex[0]) {
-        CogitoColor cur = cogito_hct_to_rgb(n->color_h, n->color_c, n->color_t);
+        CogitoColor cur = cogito_hct_to_rgb(n->colorpicker.h, n->colorpicker.c, n->colorpicker.t);
         cogito_color_to_hex(cur, hex_buf);
         hex = hex_buf;
       }
@@ -112,9 +112,9 @@ case COGITO_COLORPICKER: {
       int ty = hex_y + (hex_h - th) / 2;
 
       // Draw selection highlight
-      if (n->sel_start != n->sel_end) {
-        int a = n->sel_start;
-        int b = n->sel_end;
+      if (n->text_input.sel_start != n->text_input.sel_end) {
+        int a = n->text_input.sel_start;
+        int b = n->text_input.sel_end;
         if (a > b) { int tmp = a; a = b; b = tmp; }
         int sx_sel = cogito_text_width_size_n_node(n, hex, a, size);
         int ex = cogito_text_width_size_n_node(n, hex, b, size);
@@ -128,8 +128,8 @@ case COGITO_COLORPICKER: {
       cogito_draw_text_ellipsis(n, hex_x + pad, ty, hex_w - pad * 2, hex, text_col, size, false, 0);
 
       // Draw caret if focused and editing
-      if (cogito_focused == n && n->color_hex_editing) {
-        int caret = n->caret;
+      if (cogito_focused == n && n->colorpicker.hex_editing) {
+        int caret = n->text_input.caret;
         if (caret < 0) caret = 0;
         int tw = cogito_text_width_size_n_node(n, hex, caret, size);
         int cx = hex_x + pad + tw;
@@ -149,7 +149,7 @@ case COGITO_COLORPICKER: {
         int prev_pad = s.has_padding_left ? s.padding_left : 12;
         int prev_x = n->x + prev_pad;
         int prev_sz = hex_h;
-        CogitoColor prev_color = cogito_hct_to_rgb(n->color_h, n->color_c, n->color_t);
+        CogitoColor prev_color = cogito_hct_to_rgb(n->colorpicker.h, n->colorpicker.c, n->colorpicker.t);
         cogito_draw_rect(prev_x, hex_y, prev_sz, prev_sz, prev_color, 6);
         CogitoColor prev_border = text_col;
         prev_border.a = 60;

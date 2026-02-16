@@ -30,9 +30,9 @@ case COGITO_STEPPER: {
       cogito_draw_line(n->x + btn_w + center_w, n->y + 6, n->x + btn_w + center_w, n->y + n->h - 6, divider);
 
       // Draw minus button
-      int minus_hover = hover && n->stepper_hit_minus;
+      int minus_hover = hover && n->stepper.hit_minus;
       CogitoColor minus_col = text_col;
-      if (n->stepper_value <= n->stepper_min) {
+      if (n->stepper.value <= n->stepper.min) {
         minus_col.a = 80;  // Dimmed when at minimum
       }
       if (minus_hover) {
@@ -46,9 +46,9 @@ case COGITO_STEPPER: {
       cogito_draw_line(mx, my, mx + icon_len, my, minus_col);
 
       // Draw plus button
-      int plus_hover = hover && n->stepper_hit_plus;
+      int plus_hover = hover && n->stepper.hit_plus;
       CogitoColor plus_col = text_col;
-      if (n->stepper_value >= n->stepper_max) {
+      if (n->stepper.value >= n->stepper.max) {
         plus_col.a = 80;  // Dimmed when at maximum
       }
       if (plus_hover) {
@@ -63,10 +63,10 @@ case COGITO_STEPPER: {
 
       // Draw value text centered
       char val_buf[32];
-      if (n->stepper_step >= 1.0 && n->stepper_value == (int)n->stepper_value) {
-        snprintf(val_buf, sizeof(val_buf), "%d", (int)n->stepper_value);
+      if (n->stepper.step >= 1.0 && n->stepper.value == (int)n->stepper.value) {
+        snprintf(val_buf, sizeof(val_buf), "%d", (int)n->stepper.value);
       } else {
-        snprintf(val_buf, sizeof(val_buf), "%.1f", n->stepper_value);
+        snprintf(val_buf, sizeof(val_buf), "%.1f", n->stepper.value);
       }
       int text_w = cogito_text_width_size_node(n, val_buf, size);
       int text_h = cogito_text_height_size(size);

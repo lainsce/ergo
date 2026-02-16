@@ -10,27 +10,27 @@ static void cogito_layout_scroller(CogitoNode* n, int x, int y) {
   int cw = 0;
   int ch = 0;
   cogito_intrinsic_size(c, &cw, &ch);
-  if (!n->scroll_horz) {
+  if (!n->scroller.horz) {
     cw = inner_w;
   } else if (cw < inner_w) {
     cw = inner_w;
   }
-  if (!n->scroll_vert) {
+  if (!n->scroller.vert) {
     ch = inner_h;
   } else if (ch < inner_h) {
     ch = inner_h;
   }
-  n->scroll_content_w = cw;
-  n->scroll_content_h = ch;
+  n->scroller.content_w = cw;
+  n->scroller.content_h = ch;
   int max_x = cw - inner_w;
   int max_y = ch - inner_h;
   if (max_x < 0) max_x = 0;
   if (max_y < 0) max_y = 0;
-  if (n->scroll_x < 0) n->scroll_x = 0;
-  if (n->scroll_y < 0) n->scroll_y = 0;
-  if (n->scroll_x > max_x) n->scroll_x = max_x;
-  if (n->scroll_y > max_y) n->scroll_y = max_y;
-  cogito_layout_node(c, inner_x - n->scroll_x, inner_y - n->scroll_y, cw, ch);
+  if (n->scroller.scroll_x < 0) n->scroller.scroll_x = 0;
+  if (n->scroller.scroll_y < 0) n->scroller.scroll_y = 0;
+  if (n->scroller.scroll_x > max_x) n->scroller.scroll_x = max_x;
+  if (n->scroller.scroll_y > max_y) n->scroller.scroll_y = max_y;
+  cogito_layout_node(c, inner_x - n->scroller.scroll_x, inner_y - n->scroller.scroll_y, cw, ch);
   for (size_t i = 1; i < n->len; i++) {
     cogito_layout_node(n->children[i], inner_x, inner_y, 0, 0);
   }

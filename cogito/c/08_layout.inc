@@ -189,6 +189,34 @@ static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h) {
 
     #include "widgets/layout/timepicker.inc"
 
+    #include "widgets/layout/active_indicator.inc"
+
+    #include "widgets/layout/switchbar.inc"
+
+    #include "widgets/layout/content_list.inc"
+
+    #include "widgets/layout/empty_page.inc"
+
+    #include "widgets/layout/tip_view.inc"
+
+    #include "widgets/layout/settings_window.inc"
+
+    #include "widgets/layout/settings_page.inc"
+
+    #include "widgets/layout/settings_list.inc"
+
+    #include "widgets/layout/settings_row.inc"
+
+    #include "widgets/layout/welcome_screen.inc"
+
+    #include "widgets/layout/view_dual.inc"
+
+    #include "widgets/layout/view_chooser.inc"
+
+    #include "widgets/layout/about_window.inc"
+
+    #include "widgets/layout/split_button.inc"
+
     case COGITO_TREEVIEW:
       cogito_layout_treeview(n, x, y);
       break;

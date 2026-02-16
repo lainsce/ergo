@@ -58,8 +58,8 @@ case COGITO_CAROUSEL_ITEM: {
           int ly = n->y + n->h - lbl_pad - th;
           // Pick white or black based on the underlying image luminance.
           CogitoColor lbl_color;
-          if (image_child && image_child->image_loaded) {
-            lbl_color = (image_child->image_avg_lum < 0.55f)
+          if (image_child && image_child->image.loaded) {
+            lbl_color = (image_child->image.avg_lum < 0.55f)
               ? cogito_rgba(255, 255, 255, 255)
               : cogito_rgba(0, 0, 0, 255);
           } else {

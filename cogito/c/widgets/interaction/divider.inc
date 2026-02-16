@@ -21,8 +21,8 @@ static bool cogito_divider_orientation_vertical(ErgoVal orientationv) {
 
 static CogitoNode* cogito_divider_new_obj(bool vertical, bool inset) {
   CogitoNode* d = cogito_node_new(COGITO_DIVIDER);
-  d->divider_vertical = vertical;
-  d->divider_inset = inset;
+  d->divider.vertical = vertical;
+  d->divider.inset = inset;
   if (vertical) d->vexpand = true;
   else d->hexpand = true;
   return d;

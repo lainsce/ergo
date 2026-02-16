@@ -1,11 +1,11 @@
 static CogitoNode* cogito_image_new_obj(ErgoStr* source) {
   CogitoNode* img = cogito_node_new(COGITO_IMAGE);
   cogito_node_set_icon(img, source);
-  img->image_texture = NULL;
-  img->image_w = 0;
-  img->image_h = 0;
-  img->image_loaded = false;
-  img->image_avg_lum = 0.5f;
+  img->image.texture = NULL;
+  img->image.w = 0;
+  img->image.h = 0;
+  img->image.loaded = false;
+  img->image.avg_lum = 0.5f;
   return img;
 }
 static ErgoVal cogito_image_new(ErgoVal source) {
@@ -19,16 +19,16 @@ static void cogito_image_set_icon(ErgoVal imgv, ErgoVal icon) {
   ErgoStr* is = stdr_to_string(icon);
   
   // Free existing texture if any
-  if (img->image_texture && cogito_backend && cogito_backend->texture_destroy) {
-    cogito_backend->texture_destroy(img->image_texture);
-    img->image_texture = NULL;
+  if (img->image.texture && cogito_backend && cogito_backend->texture_destroy) {
+    cogito_backend->texture_destroy(img->image.texture);
+    img->image.texture = NULL;
   }
   
   cogito_node_set_icon(img, is);
-  img->image_loaded = false;
-  img->image_w = 0;
-  img->image_h = 0;
-  img->image_avg_lum = 0.5f;
+  img->image.loaded = false;
+  img->image.w = 0;
+  img->image.h = 0;
+  img->image.avg_lum = 0.5f;
   cogito_window_relayout(cogito_node_window(img));
 }
 static void cogito_image_set_source(ErgoVal imgv, ErgoVal source) {

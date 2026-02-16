@@ -1,8 +1,8 @@
 static CogitoNode* cogito_colorpicker_new_obj(void) {
   CogitoNode* cp = cogito_node_new(COGITO_COLORPICKER);
-  cp->color_h = 236.0;
-  cp->color_c = 41.0;
-  cp->color_t = 40.0;
+  cp->colorpicker.h = 236.0;
+  cp->colorpicker.c = 41.0;
+  cp->colorpicker.t = 40.0;
   cogito_colorpicker_sync_hex(cp);
   return cp;
 }

@@ -15,20 +15,20 @@ case COGITO_IMAGE: {
       if (radius > n->h / 2) radius = n->h / 2;
       
       // Load image from file path if not yet loaded (fallback if layout didn't load it)
-      if (n->icon && n->icon->data && n->icon->data[0] && !n->image_loaded) {
+      if (n->icon && n->icon->data && n->icon->data[0] && !n->image.loaded) {
         CogitoTexture* tex = NULL;
         int tw = 0, th = 0;
-        if (cogito_image_load_file_texture(n->icon->data, &tex, &tw, &th, &n->image_avg_lum)) {
-          n->image_texture = tex;
-          n->image_w = tw;
-          n->image_h = th;
-          n->image_loaded = true;
+        if (cogito_image_load_file_texture(n->icon->data, &tex, &tw, &th, &n->image.avg_lum)) {
+          n->image.texture = tex;
+          n->image.w = tw;
+          n->image.h = th;
+          n->image.loaded = true;
           CogitoNode* win = cogito_node_window(n);
           if (win) {
             cogito_window_relayout(win);
           }
         } else {
-          n->image_loaded = true; // Mark as attempted to avoid retrying
+          n->image.loaded = true; // Mark as attempted to avoid retrying
         }
       }
       
@@ -44,7 +44,7 @@ case COGITO_IMAGE: {
       }
       
       // Draw the loaded image texture
-      if (n->image_texture && n->image_w > 0 && n->image_h > 0) {
+      if (n->image.texture && n->image.w > 0 && n->image.h > 0) {
         // Calculate draw dimensions - fit the image to the widget size (cover mode)
         int draw_w = n->w;
         int draw_h = n->h;
@@ -52,18 +52,18 @@ case COGITO_IMAGE: {
         int draw_y = n->y;
         
         // Scale to fill while maintaining aspect ratio (cover mode)
-        float img_aspect = (float)n->image_w / (float)n->image_h;
+        float img_aspect = (float)n->image.w / (float)n->image.h;
         float widget_aspect = (n->h > 0) ? (float)n->w / (float)n->h : 1.0f;
-        int src_x = 0, src_y = 0, src_w = n->image_w, src_h = n->image_h;
+        int src_x = 0, src_y = 0, src_w = n->image.w, src_h = n->image.h;
         
         if (img_aspect > widget_aspect && widget_aspect > 0) {
           // Image is wider - crop sides
-          src_w = (int)(n->image_h * widget_aspect);
-          src_x = (n->image_w - src_w) / 2;
+          src_w = (int)(n->image.h * widget_aspect);
+          src_x = (n->image.w - src_w) / 2;
         } else if (img_aspect < widget_aspect && img_aspect > 0) {
           // Image is taller - crop top/bottom
-          src_h = (int)(n->image_w / widget_aspect);
-          src_y = (n->image_h - src_h) / 2;
+          src_h = (int)(n->image.w / widget_aspect);
+          src_y = (n->image.h - src_h) / 2;
         }
         
         // --- Parallax effect for images inside carousel items ---
@@ -83,7 +83,7 @@ case COGITO_IMAGE: {
             src_x += shift;
             // Clamp so we don't read outside the texture
             if (src_x < 0) src_x = 0;
-            if (src_x + src_w > n->image_w) src_x = n->image_w - src_w;
+            if (src_x + src_w > n->image.w) src_x = n->image.w - src_w;
           }
         }
 
@@ -93,7 +93,7 @@ case COGITO_IMAGE: {
         
         // Draw the texture
         if (cogito_backend && cogito_backend->draw_texture) {
-          cogito_backend->draw_texture(n->image_texture, src_rect, dst_rect, white);
+          cogito_backend->draw_texture(n->image.texture, src_rect, dst_rect, white);
         }
         
         // Apply rounded corner masks if needed

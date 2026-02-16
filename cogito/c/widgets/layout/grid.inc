@@ -1,7 +1,7 @@
 static void cogito_layout_grid(CogitoNode* n, int x, int y) {
-  int cols = n->grid_cols > 0 ? n->grid_cols : 1;
-  int gap_x = n->grid_gap_x;
-  int gap_y = n->grid_gap_y;
+  int cols = n->grid.cols > 0 ? n->grid.cols : 1;
+  int gap_x = n->grid.gap_x;
+  int gap_y = n->grid.gap_y;
   int inner_w = n->w - n->padding_left - n->padding_right;
   if (inner_w < 0) inner_w = 0;
   int cell_w = cols > 0 ? (inner_w - (cols - 1) * gap_x) / cols : 0;

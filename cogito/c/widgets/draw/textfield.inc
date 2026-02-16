@@ -46,9 +46,9 @@ case COGITO_TEXTFIELD: {
         int py = cogito_anim_int(n, py_target, &n->anim_y, &n->anim_y_from, &n->anim_y_target, &n->anim_y_start, now);
         cogito_draw_text_ellipsis(n, n->x + pad, py, n->w - pad * 2, placeholder, ph, size, false, 0);
       }
-      if (n->sel_start != n->sel_end) {
-        int a = n->sel_start;
-        int b = n->sel_end;
+      if (n->text_input.sel_start != n->text_input.sel_end) {
+        int a = n->text_input.sel_start;
+        int b = n->text_input.sel_end;
         if (a > b) { int tmp = a; a = b; b = tmp; }
         int sx = cogito_text_width_size_n_node(n, t, a, size);
         int ex = cogito_text_width_size_n_node(n, t, b, size);
@@ -63,9 +63,9 @@ case COGITO_TEXTFIELD: {
         }
       }
       cogito_draw_text_ellipsis(n, n->x + pad, ty, n->w - pad * 2, t, text, size, cogito_node_bold(n), 0);
-      if (n->sel_start != n->sel_end) {
-        int a2 = n->sel_start;
-        int b2 = n->sel_end;
+      if (n->text_input.sel_start != n->text_input.sel_end) {
+        int a2 = n->text_input.sel_start;
+        int b2 = n->text_input.sel_end;
         if (a2 > b2) { int tmp = a2; a2 = b2; b2 = tmp; }
         int len2 = (int)strlen(t);
         if (a2 < 0) a2 = 0;
@@ -83,7 +83,7 @@ case COGITO_TEXTFIELD: {
         }
       }
       if (cogito_focused == n && !n->disabled && n->editable) {
-        int caret = n->caret;
+        int caret = n->text_input.caret;
         if (caret < 0) caret = 0;
         int tw = cogito_text_width_size_n_node(n, t, caret, size);
         int cx = n->x + pad + tw;

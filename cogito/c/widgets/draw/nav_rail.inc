@@ -21,8 +21,8 @@ case COGITO_NAV_RAIL: {
     if (item_y < min_item_y) item_y = min_item_y;
   }
 
-  for (size_t i = 0; i < n->nav_rail_len; i++) {
-    bool selected = (int)i == n->nav_rail_selected;
+  for (size_t i = 0; i < n->nav_rail.len; i++) {
+    bool selected = (int)i == n->nav_rail.selected;
     bool hover = false;
 
     // Check if mouse is over this item
@@ -49,7 +49,7 @@ case COGITO_NAV_RAIL: {
     }
 
     // Draw icon
-    if (n->nav_rail_icons && n->nav_rail_icons[i]) {
+    if (n->nav_rail.icons && n->nav_rail.icons[i]) {
       CogitoColor icon_color = s.has_text ? s.text : n->text_color;
       if (selected) {
         CogitoColor sel_bg = s.has_selection ? s.selection : n->selection_color;
@@ -59,21 +59,21 @@ case COGITO_NAV_RAIL: {
       }
       int icon_x = bg_x + (indicator_w - icon_size) / 2;
       int icon_y = item_y + 14;
-      cogito_draw_icon_fallback(n, n->nav_rail_icons[i]->data, icon_x, icon_y, icon_size, icon_color);
+      cogito_draw_icon_fallback(n, n->nav_rail.icons[i]->data, icon_x, icon_y, icon_size, icon_color);
     }
 
     // Draw label below icon
-    if (n->nav_rail_labels && n->nav_rail_labels[i]) {
+    if (n->nav_rail.labels && n->nav_rail.labels[i]) {
       CogitoColor text_color = s.has_text ? s.text : n->text_color;
       if (selected) {
         CogitoColor sel_bg = s.has_selection ? s.selection : n->selection_color;
         text_color = cogito_on_color(sel_bg);
       }
       int size = 12;  // Small label size
-      int label_w = cogito_text_width_size_node(n, n->nav_rail_labels[i]->data, size);
+      int label_w = cogito_text_width_size_node(n, n->nav_rail.labels[i]->data, size);
       int label_x = bg_x + (indicator_w - label_w) / 2;
       int label_y = item_y + 28;
-      cogito_draw_text_size_node(n, label_x, label_y, n->nav_rail_labels[i]->data, text_color, size, false);
+      cogito_draw_text_size_node(n, label_x, label_y, n->nav_rail.labels[i]->data, text_color, size, false);
     }
 
     item_y += item_h;

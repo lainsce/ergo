@@ -99,8 +99,8 @@ static void cogito_node_set_editable(ErgoVal nodev, ErgoVal onv) {
   n->editable = on;
   if (!on && cogito_node_supports_editable(n)) {
     if (n == cogito_focused) cogito_focused = NULL;
-    n->selecting = false;
-    n->sel_end = n->sel_start;
+    n->text_input.selecting = false;
+    n->text_input.sel_end = n->text_input.sel_start;
   }
   cogito_window_relayout(cogito_node_window(n));
 }
@@ -161,24 +161,24 @@ static void cogito_node_set_class(ErgoVal nodev, ErgoVal classv) {
   
   n->font_mono = false;
   n->font_tabular = false;
-  n->button_outlined = false;
-  n->button_text = false;
-  if (n->kind == COGITO_LABEL) n->label_class = COGITO_LABEL_CLASS_NONE;
+  n->button.outlined = false;
+  n->button.text_style = false;
+  if (n->kind == COGITO_LABEL) n->label.cls = COGITO_LABEL_CLASS_NONE;
   if (s && s[0]) {
     if (strcmp(s, "title") == 0) {
-      n->label_class = COGITO_LABEL_CLASS_TITLE;
+      n->label.cls = COGITO_LABEL_CLASS_TITLE;
     } else if (strcmp(s, "subtitle") == 0 || strcmp(s, "sub-title") == 0) {
-      n->label_class = COGITO_LABEL_CLASS_SUBTITLE;
+      n->label.cls = COGITO_LABEL_CLASS_SUBTITLE;
     } else if (strcmp(s, "body") == 0) {
-      n->label_class = COGITO_LABEL_CLASS_BODY;
+      n->label.cls = COGITO_LABEL_CLASS_BODY;
     } else if (strcmp(s, "monospace") == 0 || strcmp(s, "mono") == 0) {
       n->font_mono = true;
     } else if (strcmp(s, "tabular") == 0 || strcmp(s, "tnum") == 0) {
       n->font_tabular = true;
     } else if (strcmp(s, "outlined") == 0) {
-      n->button_outlined = true;
+      n->button.outlined = true;
     } else if (strcmp(s, "text") == 0) {
-      n->button_text = true;
+      n->button.text_style = true;
     } else {
       // Store custom class name
       if (cs) {

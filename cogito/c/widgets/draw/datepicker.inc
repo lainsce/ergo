@@ -24,9 +24,9 @@ case COGITO_DATEPICKER: {
       int size = cogito_node_font_size(n);
       CogitoColor text = s.has_text ? s.text : n->text_color;
       static const char* months[] = {"January","February","March","April","May","June","July","August","September","October","November","December"};
-      const char* mname = (n->date_month >= 1 && n->date_month <= 12) ? months[n->date_month - 1] : "";
+      const char* mname = (n->datepicker.month >= 1 && n->datepicker.month <= 12) ? months[n->datepicker.month - 1] : "";
       char header[64];
-      snprintf(header, sizeof(header), "%s %d", mname, n->date_year);
+      snprintf(header, sizeof(header), "%s %d", mname, n->datepicker.year);
       int header_w = n->w - pad_l - pad_r;
       int tw = cogito_text_width_size_node(n, header, size);
       int tx = n->x + pad_l + (header_w - tw) / 2;
@@ -61,8 +61,8 @@ case COGITO_DATEPICKER: {
       cogito_draw_rect_lines(right_x, btn_y, header_h, header_h, btn_border, btn_r, 1);
       cogito_draw_text_size_node(n, left_x + (header_h / 2) - 4, arrow_y, "<", text, size, false);
       cogito_draw_text_size_node(n, right_x + (header_h / 2) - 4, arrow_y, ">", text, size, false);
-      int first = cogito_weekday(n->date_year, n->date_month, 1);
-      int dim = cogito_days_in_month(n->date_year, n->date_month);
+      int first = cogito_weekday(n->datepicker.year, n->datepicker.month, 1);
+      int dim = cogito_days_in_month(n->datepicker.year, n->datepicker.month);
       CogitoColor sel = s.has_selection ? s.selection : n->selection_color;
       for (int day = 1; day <= dim; day++) {
         int idx = first + (day - 1);
@@ -70,7 +70,7 @@ case COGITO_DATEPICKER: {
         int col = idx % 7;
         int cx = grid_x + col * cell_w;
         int cy = grid_y + row * cell_h;
-        if (day == n->date_day) {
+        if (day == n->datepicker.day) {
           int r = cell_h / 2;
           if (r < 2) r = 2;
           int inset = 2;
@@ -82,7 +82,7 @@ case COGITO_DATEPICKER: {
         int dh = cogito_text_height_size(size);
         int dx = cx + (cell_w - dw) / 2;
         int dy = cy + (cell_h - dh) / 2;
-        CogitoColor day_text = (day == n->date_day) ? cogito_on_color(sel) : text;
+        CogitoColor day_text = (day == n->datepicker.day) ? cogito_on_color(sel) : text;
         cogito_draw_text_size_node(n, dx, dy, buf, day_text, size, false);
       }
       break;

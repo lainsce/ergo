@@ -21,8 +21,8 @@ case COGITO_SLIDER: {
 
       // Calculate thumb position
       double t = 0.0;
-      if (n->slider_max > n->slider_min) {
-        t = (n->slider_value - n->slider_min) / (n->slider_max - n->slider_min);
+      if (n->slider.max > n->slider.min) {
+        t = (n->slider.value - n->slider.min) / (n->slider.max - n->slider.min);
         if (t < 0.0) t = 0.0;
         if (t > 1.0) t = 1.0;
       }

@@ -1,6 +1,6 @@
 static void cogito_colorpicker_sync_hex(CogitoNode* n) {
   if (!n || n->kind != COGITO_COLORPICKER) return;
-  CogitoColor c = cogito_hct_to_rgb(n->color_h, n->color_c, n->color_t);
+  CogitoColor c = cogito_hct_to_rgb(n->colorpicker.h, n->colorpicker.c, n->colorpicker.t);
   char buf[8];
   cogito_color_to_hex(c, buf);
   cogito_text_set_from_buf(n, buf, strlen(buf));
@@ -79,11 +79,11 @@ static bool cogito_colorpicker_set_from_mouse(CogitoNode* n, int channel, int mx
   if (t < 0.0) t = 0.0;
   if (t > 1.0) t = 1.0;
   double prev = 0.0;
-  if (channel == 0) { prev = n->color_h; n->color_h = t * 360.0; }
-  else if (channel == 1) { prev = n->color_c; n->color_c = t * 100.0; }
-  else { prev = n->color_t; n->color_t = t * 100.0; }
-  if (!n->color_hex_editing) {
+  if (channel == 0) { prev = n->colorpicker.h; n->colorpicker.h = t * 360.0; }
+  else if (channel == 1) { prev = n->colorpicker.c; n->colorpicker.c = t * 100.0; }
+  else { prev = n->colorpicker.t; n->colorpicker.t = t * 100.0; }
+  if (!n->colorpicker.hex_editing) {
     cogito_colorpicker_sync_hex(n);
   }
-  return prev != (channel == 0 ? n->color_h : (channel == 1 ? n->color_c : n->color_t));
+  return prev != (channel == 0 ? n->colorpicker.h : (channel == 1 ? n->colorpicker.c : n->colorpicker.t));
 }

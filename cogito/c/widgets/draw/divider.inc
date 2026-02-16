@@ -7,8 +7,8 @@ case COGITO_DIVIDER: {
       CogitoColor line = s.has_border ? s.border : (s.has_text ? s.text : n->text_color);
       int thickness = s.has_border_width ? s.border_width : 1;
       if (thickness < 1) thickness = 1;
-      int inset = n->divider_inset ? 18 : 0;
-      if (n->divider_vertical) {
+      int inset = n->divider.inset ? 18 : 0;
+      if (n->divider.vertical) {
         int max_inset = (n->h - 1) / 2;
         if (inset > max_inset) inset = max_inset;
         int y0 = n->y + inset;

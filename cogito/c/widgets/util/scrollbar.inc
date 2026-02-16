@@ -18,23 +18,23 @@ typedef enum {
 static bool cogito_scroller_vert_scrollbar_rects(CogitoNode* n, int sb_width,
     int* track_x, int* track_y, int* track_w, int* track_h,
     int* thumb_x, int* thumb_y, int* thumb_w, int* thumb_h) {
-  if (!n || !n->scroll_vert || n->scroll_content_h <= 0) return false;
+  if (!n || !n->scroller.vert || n->scroller.content_h <= 0) return false;
   int inner_y = n->y + n->padding_top;
   int inner_h = n->h - n->padding_top - n->padding_bottom;
   if (inner_h <= 0) return false;
-  int max_y = n->scroll_content_h - inner_h;
+  int max_y = n->scroller.content_h - inner_h;
   if (max_y <= 0) return false;
   *track_x = n->x + n->w - sb_width;
   *track_y = inner_y;
   *track_w = sb_width;
   *track_h = inner_h;
-  int th_h = (inner_h * inner_h) / n->scroll_content_h;
+  int th_h = (inner_h * inner_h) / n->scroller.content_h;
   if (th_h < COGITO_SCROLLBAR_MIN_THUMB) th_h = COGITO_SCROLLBAR_MIN_THUMB;
   if (th_h > inner_h) th_h = inner_h;
   *thumb_x = *track_x;
   *thumb_w = sb_width;
   *thumb_h = th_h;
-  *thumb_y = *track_y + (int)((long)(*track_h - th_h) * (long)n->scroll_y / (long)max_y);
+  *thumb_y = *track_y + (int)((long)(*track_h - th_h) * (long)n->scroller.scroll_y / (long)max_y);
   if (*thumb_y < *track_y) *thumb_y = *track_y;
   if (*thumb_y + *thumb_h > *track_y + *track_h) *thumb_y = *track_y + *track_h - *thumb_h;
   return true;
@@ -43,23 +43,23 @@ static bool cogito_scroller_vert_scrollbar_rects(CogitoNode* n, int sb_width,
 static bool cogito_scroller_horz_scrollbar_rects(CogitoNode* n, int sb_height,
     int* track_x, int* track_y, int* track_w, int* track_h,
     int* thumb_x, int* thumb_y, int* thumb_w, int* thumb_h) {
-  if (!n || !n->scroll_horz || n->scroll_content_w <= 0) return false;
+  if (!n || !n->scroller.horz || n->scroller.content_w <= 0) return false;
   int inner_x = n->x + n->padding_left;
   int inner_w = n->w - n->padding_left - n->padding_right;
   if (inner_w <= 0) return false;
-  int max_x = n->scroll_content_w - inner_w;
+  int max_x = n->scroller.content_w - inner_w;
   if (max_x <= 0) return false;
   *track_x = inner_x;
   *track_y = n->y + n->h - sb_height;
   *track_w = inner_w;
   *track_h = sb_height;
-  int th_w = (inner_w * inner_w) / n->scroll_content_w;
+  int th_w = (inner_w * inner_w) / n->scroller.content_w;
   if (th_w < COGITO_SCROLLBAR_MIN_THUMB) th_w = COGITO_SCROLLBAR_MIN_THUMB;
   if (th_w > inner_w) th_w = inner_w;
   *thumb_y = *track_y;
   *thumb_h = sb_height;
   *thumb_w = th_w;
-  *thumb_x = *track_x + (int)((long)(*track_w - th_w) * (long)n->scroll_x / (long)max_x);
+  *thumb_x = *track_x + (int)((long)(*track_w - th_w) * (long)n->scroller.scroll_x / (long)max_x);
   if (*thumb_x < *track_x) *thumb_x = *track_x;
   if (*thumb_x + *thumb_w > *track_x + *track_w) *thumb_x = *track_x + *track_w - *thumb_w;
   return true;
@@ -89,12 +89,12 @@ static bool cogito_scroller_cursor_over_scrollbar(CogitoNode* n, int mx, int my)
 
 /* Get vertical scrollbar max_scroll and travel (track_h - thumb_h) for drag. Returns true if vertical bar is active. */
 static bool cogito_scroller_vert_drag_params(CogitoNode* n, int* out_max_scroll, int* out_travel) {
-  if (!n || !n->scroll_vert || n->scroll_content_h <= 0) return false;
+  if (!n || !n->scroller.vert || n->scroller.content_h <= 0) return false;
   int inner_h = n->h - n->padding_top - n->padding_bottom;
   if (inner_h <= 0) return false;
-  int max_y = n->scroll_content_h - inner_h;
+  int max_y = n->scroller.content_h - inner_h;
   if (max_y <= 0) return false;
-  int thumb_h = (inner_h * inner_h) / n->scroll_content_h;
+  int thumb_h = (inner_h * inner_h) / n->scroller.content_h;
   if (thumb_h < COGITO_SCROLLBAR_MIN_THUMB) thumb_h = COGITO_SCROLLBAR_MIN_THUMB;
   if (thumb_h > inner_h) thumb_h = inner_h;
   *out_max_scroll = max_y;
@@ -104,12 +104,12 @@ static bool cogito_scroller_vert_drag_params(CogitoNode* n, int* out_max_scroll,
 }
 
 static bool cogito_scroller_horz_drag_params(CogitoNode* n, int* out_max_scroll, int* out_travel) {
-  if (!n || !n->scroll_horz || n->scroll_content_w <= 0) return false;
+  if (!n || !n->scroller.horz || n->scroller.content_w <= 0) return false;
   int inner_w = n->w - n->padding_left - n->padding_right;
   if (inner_w <= 0) return false;
-  int max_x = n->scroll_content_w - inner_w;
+  int max_x = n->scroller.content_w - inner_w;
   if (max_x <= 0) return false;
-  int thumb_w = (inner_w * inner_w) / n->scroll_content_w;
+  int thumb_w = (inner_w * inner_w) / n->scroller.content_w;
   if (thumb_w < COGITO_SCROLLBAR_MIN_THUMB) thumb_w = COGITO_SCROLLBAR_MIN_THUMB;
   if (thumb_w > inner_w) thumb_w = inner_w;
   *out_max_scroll = max_x;

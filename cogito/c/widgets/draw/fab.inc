@@ -5,7 +5,7 @@ case COGITO_FAB: {
 
   CogitoColor bg = s.has_bg ? s.bg : n->bg;
   CogitoColor text_color = s.has_text ? s.text : n->text_color;
-  int radius = n->fab_extended ? 16 : (n->h / 2);
+  int radius = n->fab.extended ? 16 : (n->h / 2);
 
   // Animate colors
   cogito_anim_apply(n, &s, &bg, &text_color, NULL, NULL);
@@ -30,14 +30,14 @@ case COGITO_FAB: {
   // Draw icon
   if (n->text && n->text->data[0]) {
     int icon_size = 24;
-    int icon_x = n->fab_extended ? (n->x + 16) : (n->x + (n->w - icon_size) / 2);
+    int icon_x = n->fab.extended ? (n->x + 16) : (n->x + (n->w - icon_size) / 2);
     int icon_y = n->y + (n->h - icon_size) / 2;
 
     cogito_draw_icon_fallback(n, n->text->data, icon_x, icon_y, icon_size, text_color);
   }
 
   // Draw label if extended
-  if (n->fab_extended && n->subtitle && n->subtitle->data[0]) {
+  if (n->fab.extended && n->subtitle && n->subtitle->data[0]) {
     int size = cogito_node_font_size(n);
     int text_h = cogito_text_height_size(size);
     int label_x = n->x + 16 + 24 + 12;

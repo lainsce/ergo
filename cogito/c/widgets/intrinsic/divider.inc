@@ -1,5 +1,5 @@
 case COGITO_DIVIDER:
-      if (n->divider_vertical) {
+      if (n->divider.vertical) {
         w = 1;
         h = 24;
       } else {

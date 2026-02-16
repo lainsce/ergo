@@ -534,11 +534,11 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       CogitoNode* scroller = cogito_find_scroller(root, mx, my);
       if (scroller) {
         int delta = (int)(wheel * 32.0f);
-        bool horiz = scroller->scroll_horz && (cogito_backend->is_key_down(SDL_SCANCODE_LSHIFT) || 
+        bool horiz = scroller->scroller.horz && (cogito_backend->is_key_down(SDL_SCANCODE_LSHIFT) || 
                                                cogito_backend->is_key_down(SDL_SCANCODE_RSHIFT) || 
-                                               !scroller->scroll_vert);
-        if (horiz) scroller->scroll_x -= delta;
-        else scroller->scroll_y -= delta;
+                                               !scroller->scroller.vert);
+        if (horiz) scroller->scroller.scroll_x -= delta;
+        else scroller->scroller.scroll_y -= delta;
         cogito_window_relayout(win);
       } else {
         // Check if mouse is over a carousel — scroll it horizontally
@@ -548,7 +548,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           CAROUSEL_MAX_SCROLL(carousel, max_scroll);
           
           // Use wheel delta to scroll (horizontal or vertical wheel both work)
-          double target_xf = carousel->carousel_scroll_xf - (double)(wheel * 80.0f);
+          double target_xf = carousel->carousel.scroll_xf - (double)(wheel * 80.0f);
           if (target_xf < 0.0) target_xf = 0.0;
           if (target_xf > (double)max_scroll) target_xf = (double)max_scroll;
           
@@ -559,12 +559,12 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           CAROUSEL_SNAP_SCROLL(carousel, snap_idx, max_scroll, snap_sx);
           
           // Start snap animation
-          carousel->carousel_anim_from = carousel->carousel_scroll_xf;
-          carousel->carousel_anim_to = (double)snap_sx;
-          carousel->carousel_anim_start = cogito_backend->get_time();
-          if (!carousel->carousel_animating) cogito_carousel_animating_count++;
-          carousel->carousel_animating = true;
-          carousel->carousel_active_index = snap_idx;
+          carousel->carousel.anim_from = carousel->carousel.scroll_xf;
+          carousel->carousel.anim_to = (double)snap_sx;
+          carousel->carousel.anim_start = cogito_backend->get_time();
+          if (!carousel->carousel.animating) cogito_carousel_animating_count++;
+          carousel->carousel.animating = true;
+          carousel->carousel.active_index = snap_idx;
         }
       }
     }
@@ -601,7 +601,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         : cogito_focus_next(root, cogito_focused, &found);
       if (!next) next = reverse ? cogito_focus_last(root) : cogito_focus_first(root);
       if (cogito_focused && cogito_focused != next && cogito_focused->kind == COGITO_COLORPICKER) {
-        cogito_focused->color_hex_editing = false;
+        cogito_focused->colorpicker.hex_editing = false;
       }
       cogito_focused = next;
     }
@@ -611,7 +611,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       (cogito_focused->kind == COGITO_TEXTFIELD || cogito_focused->kind == COGITO_TEXTVIEW || cogito_focused->kind == COGITO_SEARCHFIELD) &&
       cogito_focused->editable;
     bool focused_color_hex_edit = cogito_focused &&
-      cogito_focused->kind == COGITO_COLORPICKER && cogito_focused->color_hex_editing;
+      cogito_focused->kind == COGITO_COLORPICKER && cogito_focused->colorpicker.hex_editing;
     if (cogito_focused && !cogito_focused->disabled && (focused_text_editable || focused_color_hex_edit)) {
       bool changed = false;
       bool caret_changed = false;
@@ -634,15 +634,15 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           bool ok = (c == '#') || isxdigit((unsigned char)c);
           size_t len = cogito_focused->text ? cogito_focused->text->len : 0;
           size_t sel = 0;
-          if (cogito_focused->sel_start != cogito_focused->sel_end) {
-            int a = cogito_focused->sel_start;
-            int b = cogito_focused->sel_end;
+          if (cogito_focused->text_input.sel_start != cogito_focused->text_input.sel_end) {
+            int a = cogito_focused->text_input.sel_start;
+            int b = cogito_focused->text_input.sel_end;
             if (a > b) { int tmp = a; a = b; b = tmp; }
             sel = (size_t)(b - a);
           }
           size_t new_len = len - sel + 1;
           if (ok && new_len <= 7) {
-            if (c == '#' && cogito_focused->caret != 0) ok = false;
+            if (c == '#' && cogito_focused->text_input.caret != 0) ok = false;
             if (ok) {
               cogito_text_append_codepoint(cogito_focused, ch);
               changed = true;
@@ -681,7 +681,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           CogitoColor col = {0};
           const char* hex = cogito_focused->text ? cogito_focused->text->data : "";
           if (cogito_hex_to_color(hex, &col)) {
-            cogito_rgb_to_hct(col, &cogito_focused->color_h, &cogito_focused->color_c, &cogito_focused->color_t);
+            cogito_rgb_to_hct(col, &cogito_focused->colorpicker.h, &cogito_focused->colorpicker.c, &cogito_focused->colorpicker.t);
           }
         }
         if (changed) {
@@ -702,9 +702,9 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         double t = (x1 > x0) ? ((double)(mx - x0) / (double)(x1 - x0)) : 0.0;
         if (t < 0.0) t = 0.0;
         if (t > 1.0) t = 1.0;
-        double v = sld->slider_min + t * (sld->slider_max - sld->slider_min);
-        if (v != sld->slider_value) {
-          sld->slider_value = v;
+        double v = sld->slider.min + t * (sld->slider.max - sld->slider.min);
+        if (v != sld->slider.value) {
+          sld->slider.value = v;
           cogito_invoke_change(sld);
           cogito_window_relayout(win);
         }
@@ -720,8 +720,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     if (cogito_carousel_active) {
       if (cogito_backend->is_mouse_button_down(0)) {
         CogitoNode* cr = cogito_carousel_active;
-        int dx = mx - cr->carousel_drag_start_x;
-        double new_xf = (double)cr->carousel_drag_start_scroll - (double)dx;
+        int dx = mx - cr->carousel.drag_start_x;
+        double new_xf = (double)cr->carousel.drag_start_scroll - (double)dx;
         
         int max_scroll = 0;
         CAROUSEL_MAX_SCROLL(cr, max_scroll);
@@ -731,20 +731,20 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         
         // Track velocity: compare with last sample
         double now = cogito_backend->get_time();
-        double dt = now - cr->carousel_drag_last_time;
+        double dt = now - cr->carousel.drag_last_time;
         if (dt > 0.001) {
-          double dxf = new_xf - cr->carousel_drag_last_xf;
+          double dxf = new_xf - cr->carousel.drag_last_xf;
           // Exponential smoothing of velocity (px/sec)
           float inst_vel = (float)(dxf / dt);
-          cr->carousel_velocity = cr->carousel_velocity * 0.6f + inst_vel * 0.4f;
-          cr->carousel_drag_last_time = now;
-          cr->carousel_drag_last_xf = new_xf;
+          cr->carousel.velocity = cr->carousel.velocity * 0.6f + inst_vel * 0.4f;
+          cr->carousel.drag_last_time = now;
+          cr->carousel.drag_last_xf = new_xf;
         }
         
-        cr->carousel_scroll_xf = new_xf;
+        cr->carousel.scroll_xf = new_xf;
         int new_scroll = (int)(new_xf + 0.5);
-        if (new_scroll != cr->carousel_scroll_x) {
-          cr->carousel_scroll_x = new_scroll;
+        if (new_scroll != cr->carousel.scroll_x) {
+          cr->carousel.scroll_x = new_scroll;
           cogito_window_relayout(win);
         }
         
@@ -758,7 +758,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         CAROUSEL_MAX_SCROLL(cr, max_scroll);
         
         // Project where momentum would carry us (velocity * decay_time)
-        double projected = cr->carousel_scroll_xf + (double)cr->carousel_velocity * 0.4;
+        double projected = cr->carousel.scroll_xf + (double)cr->carousel.velocity * 0.4;
         if (projected < 0.0) projected = 0.0;
         if (projected > (double)max_scroll) projected = (double)max_scroll;
         
@@ -769,17 +769,17 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         CAROUSEL_SNAP_SCROLL(cr, snap_idx, max_scroll, snap_sx);
         
         // Start animation from current position to snap target
-        cr->carousel_anim_from = cr->carousel_scroll_xf;
-        cr->carousel_anim_to = (double)snap_sx;
-        cr->carousel_anim_start = cogito_backend->get_time();
-        if (!cr->carousel_animating) cogito_carousel_animating_count++;
-        cr->carousel_animating = true;
-        cr->carousel_active_index = snap_idx;
+        cr->carousel.anim_from = cr->carousel.scroll_xf;
+        cr->carousel.anim_to = (double)snap_sx;
+        cr->carousel.anim_start = cogito_backend->get_time();
+        if (!cr->carousel.animating) cogito_carousel_animating_count++;
+        cr->carousel.animating = true;
+        cr->carousel.active_index = snap_idx;
         
         if (cogito_pointer_capture == cr) {
           cogito_pointer_capture = NULL;
         }
-        cr->carousel_dragging = false;
+        cr->carousel.dragging = false;
         cogito_carousel_active = NULL;
         
         if (cogito_backend && cogito_backend->set_cursor) {
@@ -808,9 +808,28 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       }
     }
 
+    // ViewDual drag handling
+    if (cogito_pointer_capture && cogito_pointer_capture->kind == COGITO_VIEW_DUAL) {
+      CogitoNode* vd = cogito_pointer_capture;
+      if (cogito_backend->is_mouse_button_down(0)) {
+        int handle_w = 4;
+        int new_x = mx - vd->view_dual.drag_offset + handle_w / 2;
+        float new_ratio = (float)(new_x - vd->x) / (float)vd->w;
+        if (new_ratio < 0.1f) new_ratio = 0.1f;
+        if (new_ratio > 0.9f) new_ratio = 0.9f;
+        if (new_ratio != vd->view_dual.ratio) {
+          vd->view_dual.ratio = new_ratio;
+          cogito_window_relayout(win);
+        }
+      } else {
+        vd->view_dual.dragging = false;
+        cogito_pointer_capture = NULL;
+      }
+    }
+
     // Text selection handling
     if (cogito_focused && !cogito_focused->disabled && (focused_text_editable || focused_color_hex_edit)) {
-      if (cogito_backend->is_mouse_button_down(0) && cogito_focused->selecting) {
+      if (cogito_backend->is_mouse_button_down(0) && cogito_focused->text_input.selecting) {
         int pad = 8;
         int size = cogito_node_font_size(cogito_focused);
         const char* t = cogito_focused->text ? cogito_focused->text->data : "";
@@ -819,29 +838,29 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           int rel_x = mx - (cogito_focused->x + sf_pad);
           if (rel_x < 0) rel_x = 0;
           int idx = cogito_text_index_from_x(cogito_focused, t, size, rel_x);
-          cogito_focused->sel_end = idx;
-          cogito_focused->caret = idx;
+          cogito_focused->text_input.sel_end = idx;
+          cogito_focused->text_input.caret = idx;
         } else {
           if (cogito_focused->kind == COGITO_TEXTVIEW) {
             int rel_x = mx - (cogito_focused->x + pad);
             if (rel_x < 0) rel_x = 0;
             int line_h = cogito_text_height_size(size);
             int idx = cogito_text_line_index_from_pos(cogito_focused, t, size, cogito_focused->w - pad * 2, cogito_focused->y + pad, line_h, rel_x, my);
-            cogito_focused->sel_end = idx;
-            cogito_focused->caret = idx;
+            cogito_focused->text_input.sel_end = idx;
+            cogito_focused->text_input.caret = idx;
           } else if (cogito_focused->kind == COGITO_COLORPICKER) {
             int hx = 0, hy = 0, hw = 0, hh = 0;
             cogito_colorpicker_hex_rect(cogito_focused, &hx, &hy, &hw, &hh);
             int rel_x = mx - (hx + pad);
             if (rel_x < 0) rel_x = 0;
             int idx = cogito_text_index_from_x(cogito_focused, t, size, rel_x);
-            cogito_focused->sel_end = idx;
-            cogito_focused->caret = idx;
+            cogito_focused->text_input.sel_end = idx;
+            cogito_focused->text_input.caret = idx;
           }
         }
       }
       if (cogito_backend->is_mouse_button_released(0)) {
-        cogito_focused->selecting = false;
+        cogito_focused->text_input.selecting = false;
       }
     }
 
@@ -856,8 +875,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         int new_scroll = cogito_scrollbar_drag_start_scroll + (int)((long)delta * (long)cogito_scrollbar_drag_max / (long)cogito_scrollbar_drag_travel);
         if (new_scroll < 0) new_scroll = 0;
         if (new_scroll > cogito_scrollbar_drag_max) new_scroll = cogito_scrollbar_drag_max;
-        if (cogito_scrollbar_drag_vert) sc->scroll_y = new_scroll;
-        else sc->scroll_x = new_scroll;
+        if (cogito_scrollbar_drag_vert) sc->scroller.scroll_y = new_scroll;
+        else sc->scroller.scroll_x = new_scroll;
         cogito_window_relayout(win);
         cogito_queue_draw(win);
       }
@@ -875,7 +894,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             cogito_scrollbar_drag_scroller = sc;
             cogito_scrollbar_drag_vert = true;
             cogito_scrollbar_drag_start_mouse = my;
-            cogito_scrollbar_drag_start_scroll = sc->scroll_y;
+            cogito_scrollbar_drag_start_scroll = sc->scroller.scroll_y;
             cogito_scrollbar_drag_max = max_s;
             cogito_scrollbar_drag_travel = travel;
             click = false;
@@ -886,7 +905,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             cogito_scrollbar_drag_scroller = sc;
             cogito_scrollbar_drag_vert = false;
             cogito_scrollbar_drag_start_mouse = mx;
-            cogito_scrollbar_drag_start_scroll = sc->scroll_x;
+            cogito_scrollbar_drag_start_scroll = sc->scroller.scroll_x;
             cogito_scrollbar_drag_max = max_s;
             cogito_scrollbar_drag_travel = travel;
             click = false;
@@ -896,9 +915,9 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           if (cogito_scroller_vert_scrollbar_rects(sc, COGITO_SCROLLBAR_WIDTH_WIDE, &vtx, &vty, &vtw, &vth, &vux, &vuy, &vuw, &vuh)) {
             int max_s = 0, travel = 1;
             if (cogito_scroller_vert_drag_params(sc, &max_s, &travel)) {
-              sc->scroll_y = cogito_scroller_track_to_scroll(my, vty, vth, vuh, max_s);
-              if (sc->scroll_y < 0) sc->scroll_y = 0;
-              if (sc->scroll_y > max_s) sc->scroll_y = max_s;
+              sc->scroller.scroll_y = cogito_scroller_track_to_scroll(my, vty, vth, vuh, max_s);
+              if (sc->scroller.scroll_y < 0) sc->scroller.scroll_y = 0;
+              if (sc->scroller.scroll_y > max_s) sc->scroller.scroll_y = max_s;
               cogito_window_relayout(win);
               cogito_queue_draw(win);
               click = false;
@@ -909,9 +928,9 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           if (cogito_scroller_horz_scrollbar_rects(sc, COGITO_SCROLLBAR_WIDTH_WIDE, &htx, &hty, &htw, &hth, &hux, &huy, &huw, &huh)) {
             int max_s = 0, travel = 1;
             if (cogito_scroller_horz_drag_params(sc, &max_s, &travel)) {
-              sc->scroll_x = cogito_scroller_track_to_scroll(mx, htx, htw, huw, max_s);
-              if (sc->scroll_x < 0) sc->scroll_x = 0;
-              if (sc->scroll_x > max_s) sc->scroll_x = max_s;
+              sc->scroller.scroll_x = cogito_scroller_track_to_scroll(mx, htx, htw, huw, max_s);
+              if (sc->scroller.scroll_x < 0) sc->scroller.scroll_x = 0;
+              if (sc->scroller.scroll_x > max_s) sc->scroller.scroll_x = max_s;
               cogito_window_relayout(win);
               cogito_queue_draw(win);
               click = false;
@@ -1012,16 +1031,16 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           : ((win->dialog_open && win->dialog && win->dialog->kind == COGITO_DIALOG) ? win->dialog : NULL);
         // Check for traffic light clicks on the first appbar
         if (!active_dialog && appbar) {
-          if (appbar->appbar_btn_close_x >= 0 &&
-              cogito_hit_rect(mx, my, appbar->appbar_btn_close_x, appbar->appbar_btn_y, appbar->appbar_btn_size, appbar->appbar_btn_size)) {
+          if (appbar->appbar.btn_close_x >= 0 &&
+              cogito_hit_rect(mx, my, appbar->appbar.btn_close_x, appbar->appbar.btn_y, appbar->appbar.btn_size, appbar->appbar.btn_size)) {
             cogito_appbar_window_action(win, 0);
             handled = true;
-          } else if (appbar->appbar_btn_min_x >= 0 &&
-                     cogito_hit_rect(mx, my, appbar->appbar_btn_min_x, appbar->appbar_btn_y, appbar->appbar_btn_size, appbar->appbar_btn_size)) {
+          } else if (appbar->appbar.btn_min_x >= 0 &&
+                     cogito_hit_rect(mx, my, appbar->appbar.btn_min_x, appbar->appbar.btn_y, appbar->appbar.btn_size, appbar->appbar.btn_size)) {
             cogito_appbar_window_action(win, 1);
             handled = true;
-          } else if (appbar->appbar_btn_max_x >= 0 &&
-                     cogito_hit_rect(mx, my, appbar->appbar_btn_max_x, appbar->appbar_btn_y, appbar->appbar_btn_size, appbar->appbar_btn_size)) {
+          } else if (appbar->appbar.btn_max_x >= 0 &&
+                     cogito_hit_rect(mx, my, appbar->appbar.btn_max_x, appbar->appbar.btn_y, appbar->appbar.btn_size, appbar->appbar.btn_size)) {
             cogito_appbar_window_action(win, 2);
             handled = true;
           }
@@ -1089,7 +1108,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         if (focus_hit && focus_hit->disabled) focus_hit = NULL;
         if (focus_hit) {
           if (cogito_focused && cogito_focused != focus_hit && cogito_focused->kind == COGITO_COLORPICKER) {
-            cogito_focused->color_hex_editing = false;
+            cogito_focused->colorpicker.hex_editing = false;
           }
           cogito_focused = focus_hit;
           int pad = 8;
@@ -1099,37 +1118,37 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             int sf_pad = focus_hit->kind == COGITO_SEARCHFIELD ? (12 + 16 + 8) : pad;
             int rel_x = mx - (focus_hit->x + sf_pad);
             if (rel_x < 0) rel_x = 0;
-            focus_hit->caret = cogito_text_index_from_x(focus_hit, t, size, rel_x);
-            focus_hit->sel_start = focus_hit->caret;
-            focus_hit->sel_end = focus_hit->caret;
-            focus_hit->selecting = true;
+            focus_hit->text_input.caret = cogito_text_index_from_x(focus_hit, t, size, rel_x);
+            focus_hit->text_input.sel_start = focus_hit->text_input.caret;
+            focus_hit->text_input.sel_end = focus_hit->text_input.caret;
+            focus_hit->text_input.selecting = true;
           } else if (focus_hit->kind == COGITO_TEXTVIEW) {
             int rel_x = mx - (focus_hit->x + pad);
             if (rel_x < 0) rel_x = 0;
             int line_h = cogito_text_height_size(size);
-            focus_hit->caret = cogito_text_line_index_from_pos(focus_hit, t, size, focus_hit->w - pad * 2, focus_hit->y + pad, line_h, rel_x, my);
-            focus_hit->sel_start = focus_hit->caret;
-            focus_hit->sel_end = focus_hit->caret;
-            focus_hit->selecting = true;
+            focus_hit->text_input.caret = cogito_text_line_index_from_pos(focus_hit, t, size, focus_hit->w - pad * 2, focus_hit->y + pad, line_h, rel_x, my);
+            focus_hit->text_input.sel_start = focus_hit->text_input.caret;
+            focus_hit->text_input.sel_end = focus_hit->text_input.caret;
+            focus_hit->text_input.selecting = true;
           } else if (focus_hit->kind == COGITO_COLORPICKER) {
             int hx = 0, hy = 0, hw = 0, hh = 0;
             cogito_colorpicker_hex_rect(focus_hit, &hx, &hy, &hw, &hh);
-            focus_hit->color_hex_editing = cogito_hit_rect(mx, my, hx, hy, hw, hh);
+            focus_hit->colorpicker.hex_editing = cogito_hit_rect(mx, my, hx, hy, hw, hh);
             int rel_x = mx - (hx + pad);
             if (rel_x < 0) rel_x = 0;
-            focus_hit->caret = cogito_text_index_from_x(focus_hit, t, size, rel_x);
-            focus_hit->sel_start = focus_hit->caret;
-            focus_hit->sel_end = focus_hit->caret;
-            focus_hit->selecting = true;
+            focus_hit->text_input.caret = cogito_text_index_from_x(focus_hit, t, size, rel_x);
+            focus_hit->text_input.sel_start = focus_hit->text_input.caret;
+            focus_hit->text_input.sel_end = focus_hit->text_input.caret;
+            focus_hit->text_input.selecting = true;
           }
         } else if (hit && cogito_node_focusable(hit)) {
           if (cogito_focused && cogito_focused != hit && cogito_focused->kind == COGITO_COLORPICKER) {
-            cogito_focused->color_hex_editing = false;
+            cogito_focused->colorpicker.hex_editing = false;
           }
           cogito_focused = hit;
         } else {
           if (cogito_focused && cogito_focused->kind == COGITO_COLORPICKER) {
-            cogito_focused->color_hex_editing = false;
+            cogito_focused->colorpicker.hex_editing = false;
           }
           cogito_focused = NULL;
         }
@@ -1140,7 +1159,16 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             } else {
               cogito_invoke_click(hit);
             }
-          } else if (hit->kind == COGITO_CHECKBOX || hit->kind == COGITO_SWITCH) {
+          } else if (hit->kind == COGITO_SPLIT_BUTTON) {
+            int arrow_x = hit->split_btn.arrow_x;
+            if (mx >= arrow_x && hit->menu_len > 0) {
+              cogito_menu_open_for(hit);
+            } else {
+              cogito_invoke_click(hit);
+            }
+          } else if (hit->kind == COGITO_VIEW_CHOOSER) {
+            cogito_menu_open_for(hit);
+          } else if (hit->kind == COGITO_CHECKBOX || hit->kind == COGITO_SWITCH || hit->kind == COGITO_SWITCHBAR) {
             bool prev = hit->checked;
             if (hit->kind == COGITO_CHECKBOX && hit->group.tag != EVT_NULL) {
               hit->checked = true;
@@ -1167,13 +1195,13 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           } else if (hit->kind == COGITO_CAROUSEL) {
             cogito_carousel_active = hit;
             cogito_pointer_capture = hit;
-            hit->carousel_dragging = true;
-            hit->carousel_animating = false;
-            hit->carousel_drag_start_x = mx;
-            hit->carousel_drag_start_scroll = hit->carousel_scroll_x;
-            hit->carousel_velocity = 0.0f;
-            hit->carousel_drag_last_time = cogito_backend->get_time();
-            hit->carousel_drag_last_xf = hit->carousel_scroll_xf;
+            hit->carousel.dragging = true;
+            hit->carousel.animating = false;
+            hit->carousel.drag_start_x = mx;
+            hit->carousel.drag_start_scroll = hit->carousel.scroll_x;
+            hit->carousel.velocity = 0.0f;
+            hit->carousel.drag_last_time = cogito_backend->get_time();
+            hit->carousel.drag_last_xf = hit->carousel.scroll_xf;
             // Set cursor to grab
             if (cogito_backend && cogito_backend->set_cursor) {
               cogito_backend->set_cursor(COGITO_CURSOR_GRAB);
@@ -1202,7 +1230,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
               cogito_datepicker_shift_month(hit, 1);
             } else {
               int day = cogito_datepicker_hit_day(hit, mx, my);
-              if (day > 0) hit->date_day = day;
+              if (day > 0) hit->datepicker.day = day;
             }
             cogito_invoke_change(hit);
             cogito_window_relayout(win);
@@ -1247,7 +1275,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
               }
             } else {
               // Clicked on chip body - toggle selected state
-              hit->chip_selected = !hit->chip_selected;
+              hit->chip.selected = !hit->chip.selected;
               cogito_invoke_click(hit);
               cogito_window_relayout(win);
             }
@@ -1274,6 +1302,38 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
               cogito_handle_bottom_nav_select(hit, idx);
               cogito_window_relayout(win);
             }
+          } else if (hit->kind == COGITO_SETTINGS_WINDOW) {
+            int sidebar_w = 200;
+            if (mx >= hit->x && mx < hit->x + sidebar_w && my >= hit->y && my < hit->y + hit->h) {
+              int item_h = 40;
+              int idx = (my - hit->y - 48) / item_h;
+              if (idx >= 0 && idx < (int)hit->len) {
+                hit->selected = idx;
+                cogito_window_relayout(win);
+              }
+            }
+          } else if (hit->kind == COGITO_EMPTY_PAGE || hit->kind == COGITO_WELCOME_SCREEN || hit->kind == COGITO_ABOUT_WINDOW) {
+            if (hit->action_text && hit->action_text->data && hit->action_text->data[0]) {
+              if (hit->action_button_w > 0 && cogito_hit_rect(mx, my, hit->action_button_x, hit->action_button_y,
+                          hit->action_button_w, hit->action_button_h)) {
+                if (hit->on_action) {
+                  ErgoVal arg = EV_OBJ(hit);
+                  cogito_invoke(hit->on_action, 1, &arg);
+                } else if (hit->kind == COGITO_ABOUT_WINDOW && cogito_backend && cogito_backend->open_url) {
+                  cogito_backend->open_url(hit->action_text->data);
+                }
+              }
+            }
+          } else if (hit->kind == COGITO_VIEW_DUAL) {
+            float ratio = hit->view_dual.ratio;
+            if (ratio <= 0.0f) ratio = 0.5f;
+            int handle_w = 4;
+            int handle_x = hit->x + (int)(hit->w * ratio) - handle_w / 2;
+            if (cogito_hit_rect(mx, my, handle_x - 4, hit->y, handle_w + 8, hit->h)) {
+              hit->view_dual.dragging = true;
+              hit->view_dual.drag_offset = mx - handle_x;
+              cogito_pointer_capture = hit;
+            }
           }
         }
         if (slot && slot->dialog_open && slot->dialog) {
@@ -1297,20 +1357,20 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       while (_sp > 0) {
         CogitoNode* _cn = _stk[--_sp];
         if (!_cn) continue;
-        if (_cn->kind == COGITO_CAROUSEL && _cn->carousel_animating) {
-          double t = (_now - _cn->carousel_anim_start) / CAROUSEL_ANIM_DURATION;
+        if (_cn->kind == COGITO_CAROUSEL && _cn->carousel.animating) {
+          double t = (_now - _cn->carousel.anim_start) / CAROUSEL_ANIM_DURATION;
           if (t >= 1.0) {
             t = 1.0;
-            _cn->carousel_animating = false;
+            _cn->carousel.animating = false;
             cogito_carousel_animating_count--;
           }
           // ease-out quad: t * (2 - t)
           double et = t * (2.0 - t);
-          double sx = _cn->carousel_anim_from + (_cn->carousel_anim_to - _cn->carousel_anim_from) * et;
-          _cn->carousel_scroll_xf = sx;
+          double sx = _cn->carousel.anim_from + (_cn->carousel.anim_to - _cn->carousel.anim_from) * et;
+          _cn->carousel.scroll_xf = sx;
           int isx = (int)(sx + 0.5);
-          if (isx != _cn->carousel_scroll_x) {
-            _cn->carousel_scroll_x = isx;
+          if (isx != _cn->carousel.scroll_x) {
+            _cn->carousel.scroll_x = isx;
             _carousel_did_relayout = true;
           }
         }

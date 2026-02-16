@@ -140,6 +140,38 @@
 #undef cogito_carousel_item_set_text
 #undef cogito_carousel_item_set_halign
 #undef cogito_carousel_item_set_valign
+#undef cogito_active_indicator_new
+#undef cogito_switchbar_new
+#undef cogito_switchbar_get_checked
+#undef cogito_switchbar_set_checked
+#undef cogito_switchbar_on_change
+#undef cogito_content_list_new
+#undef cogito_empty_page_new
+#undef cogito_empty_page_set_description
+#undef cogito_empty_page_set_icon
+#undef cogito_empty_page_set_action
+#undef cogito_tip_view_new
+#undef cogito_tip_view_set_title
+#undef cogito_settings_window_new
+#undef cogito_settings_page_new
+#undef cogito_settings_list_new
+#undef cogito_settings_row_new
+#undef cogito_welcome_screen_new
+#undef cogito_welcome_screen_set_description
+#undef cogito_welcome_screen_set_icon
+#undef cogito_welcome_screen_set_action
+#undef cogito_view_dual_new
+#undef cogito_view_dual_set_ratio
+#undef cogito_view_chooser_new
+#undef cogito_view_chooser_set_items
+#undef cogito_view_chooser_bind
+#undef cogito_about_window_new
+#undef cogito_about_window_set_icon
+#undef cogito_about_window_set_description
+#undef cogito_about_window_set_website
+#undef cogito_menu_button_new
+#undef cogito_split_button_new
+#undef cogito_split_button_add_menu
 
 static bool cogito_debug_enabled(void) {
   const char* env = getenv("COGITO_DEBUG");
@@ -737,6 +769,277 @@ static void __cogito_timepicker_set_time(ErgoVal tpv, ErgoVal hourv, ErgoVal min
   if (minv.tag == EVT_INT) minute = (int)minv.as.i;
   else if (minv.tag == EVT_FLOAT) minute = (int)minv.as.f;
   cogito_timepicker_set_time(n, hour, minute);
+}
+
+// --- ActiveIndicator ---
+static ErgoVal __cogito_active_indicator(void) {
+  cogito_node* n = cogito_active_indicator_new();
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+// --- SwitchBar ---
+static ErgoVal __cogito_switchbar(ErgoVal textv) {
+  ErgoStr* tmp = NULL;
+  const char* text = cogito_required_cstr(textv, &tmp);
+  cogito_node* n = cogito_switchbar_new(text);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+static ErgoVal __cogito_switchbar_get_checked(ErgoVal sbv) {
+  cogito_node* n = cogito_node_from_val(sbv);
+  return EV_BOOL(cogito_switchbar_get_checked(n));
+}
+static void __cogito_switchbar_set_checked(ErgoVal sbv, ErgoVal val) {
+  cogito_node* n = cogito_node_from_val(sbv);
+  cogito_switchbar_set_checked(n, ergo_as_bool(val));
+}
+static void __cogito_switchbar_on_change(ErgoVal sbv, ErgoVal handler) {
+  cogito_node* sb = cogito_node_from_val(sbv);
+  CogitoHandle* h = (CogitoHandle*)sbv.as.p;
+  if (handler.tag != EVT_FN) {
+    cogito_set_handler(h, &h->on_change, handler);
+    cogito_switchbar_on_change(sb, NULL, NULL);
+    return;
+  }
+  cogito_set_handler(h, &h->on_change, handler);
+  cogito_switchbar_on_change(sb, cogito_cb_change, h);
+}
+
+// --- ContentList ---
+static ErgoVal __cogito_content_list(void) {
+  cogito_node* n = cogito_content_list_new();
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+// --- EmptyPage ---
+static ErgoVal __cogito_empty_page(ErgoVal titlev) {
+  ErgoStr* tmp = NULL;
+  const char* title = cogito_required_cstr(titlev, &tmp);
+  cogito_node* n = cogito_empty_page_new(title);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+static void __cogito_empty_page_set_description(ErgoVal epv, ErgoVal descv) {
+  cogito_node* n = cogito_node_from_val(epv);
+  ErgoStr* tmp = NULL;
+  const char* desc = cogito_required_cstr(descv, &tmp);
+  cogito_empty_page_set_description(n, desc);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+static void __cogito_empty_page_set_icon(ErgoVal epv, ErgoVal iconv) {
+  cogito_node* n = cogito_node_from_val(epv);
+  ErgoStr* tmp = NULL;
+  const char* icon = cogito_required_cstr(iconv, &tmp);
+  cogito_empty_page_set_icon(n, icon);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+static void __cogito_empty_page_set_action(ErgoVal epv, ErgoVal textv, ErgoVal handlerv) {
+  cogito_node* ep = cogito_node_from_val(epv);
+  CogitoHandle* h = (CogitoHandle*)epv.as.p;
+  ErgoStr* tmp = NULL;
+  const char* text = cogito_required_cstr(textv, &tmp);
+  if (handlerv.tag != EVT_FN) {
+    cogito_set_handler(h, &h->on_action, handlerv);
+    cogito_empty_page_set_action(ep, text, NULL, NULL);
+  } else {
+    cogito_set_handler(h, &h->on_action, handlerv);
+    cogito_empty_page_set_action(ep, text, cogito_cb_action, h);
+  }
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
+// --- TipView ---
+static ErgoVal __cogito_tip_view(ErgoVal textv) {
+  ErgoStr* tmp = NULL;
+  const char* text = cogito_required_cstr(textv, &tmp);
+  cogito_node* n = cogito_tip_view_new(text);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+static void __cogito_tip_view_set_title(ErgoVal tvv, ErgoVal titlev) {
+  cogito_node* n = cogito_node_from_val(tvv);
+  ErgoStr* tmp = NULL;
+  const char* title = cogito_required_cstr(titlev, &tmp);
+  cogito_tip_view_set_title(n, title);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
+// --- SettingsWindow ---
+static ErgoVal __cogito_settings_window(ErgoVal titlev) {
+  ErgoStr* tmp = NULL;
+  const char* title = cogito_required_cstr(titlev, &tmp);
+  cogito_node* n = cogito_settings_window_new(title);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+// --- SettingsPage ---
+static ErgoVal __cogito_settings_page(ErgoVal titlev) {
+  ErgoStr* tmp = NULL;
+  const char* title = cogito_required_cstr(titlev, &tmp);
+  cogito_node* n = cogito_settings_page_new(title);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+// --- SettingsList ---
+static ErgoVal __cogito_settings_list(ErgoVal titlev) {
+  ErgoStr* tmp = NULL;
+  const char* title = cogito_required_cstr(titlev, &tmp);
+  cogito_node* n = cogito_settings_list_new(title);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+// --- SettingsRow ---
+static ErgoVal __cogito_settings_row(ErgoVal labelv) {
+  ErgoStr* tmp = NULL;
+  const char* label = cogito_required_cstr(labelv, &tmp);
+  cogito_node* n = cogito_settings_row_new(label);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+// --- WelcomeScreen ---
+static ErgoVal __cogito_welcome_screen(ErgoVal titlev) {
+  ErgoStr* tmp = NULL;
+  const char* title = cogito_required_cstr(titlev, &tmp);
+  cogito_node* n = cogito_welcome_screen_new(title);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+static void __cogito_welcome_screen_set_description(ErgoVal wsv, ErgoVal descv) {
+  cogito_node* n = cogito_node_from_val(wsv);
+  ErgoStr* tmp = NULL;
+  const char* desc = cogito_required_cstr(descv, &tmp);
+  cogito_welcome_screen_set_description(n, desc);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+static void __cogito_welcome_screen_set_icon(ErgoVal wsv, ErgoVal iconv) {
+  cogito_node* n = cogito_node_from_val(wsv);
+  ErgoStr* tmp = NULL;
+  const char* icon = cogito_required_cstr(iconv, &tmp);
+  cogito_welcome_screen_set_icon(n, icon);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+static void __cogito_welcome_screen_set_action(ErgoVal wsv, ErgoVal textv, ErgoVal handlerv) {
+  cogito_node* ws = cogito_node_from_val(wsv);
+  CogitoHandle* h = (CogitoHandle*)wsv.as.p;
+  ErgoStr* tmp = NULL;
+  const char* text = cogito_required_cstr(textv, &tmp);
+  if (handlerv.tag != EVT_FN) {
+    cogito_set_handler(h, &h->on_action, handlerv);
+    cogito_welcome_screen_set_action(ws, text, NULL, NULL);
+  } else {
+    cogito_set_handler(h, &h->on_action, handlerv);
+    cogito_welcome_screen_set_action(ws, text, cogito_cb_action, h);
+  }
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
+// --- ViewDual ---
+static ErgoVal __cogito_view_dual(void) {
+  cogito_node* n = cogito_view_dual_new();
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+static void __cogito_view_dual_set_ratio(ErgoVal vdv, ErgoVal ratiov) {
+  cogito_node* n = cogito_node_from_val(vdv);
+  double ratio = ergo_as_float(ratiov);
+  cogito_view_dual_set_ratio(n, ratio);
+}
+
+// --- ViewChooser ---
+static ErgoVal __cogito_view_chooser(void) {
+  cogito_node* n = cogito_view_chooser_new();
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+static void __cogito_view_chooser_set_items(ErgoVal vcv, ErgoVal arrv) {
+  cogito_node* n = cogito_node_from_val(vcv);
+  if (arrv.tag != EVT_ARR) ergo_trap("view_chooser_set_items expects array");
+  ErgoArr* a = (ErgoArr*)arrv.as.p;
+  size_t len = (size_t)a->len;
+  const char** items = (const char**)malloc(sizeof(const char*) * len);
+  ErgoStr** tmps = (ErgoStr**)malloc(sizeof(ErgoStr*) * len);
+  for (size_t i = 0; i < len; i++) {
+    ErgoVal v = ergo_arr_get(a, (int64_t)i);
+    tmps[i] = NULL;
+    items[i] = cogito_required_cstr(v, &tmps[i]);
+  }
+  cogito_view_chooser_set_items(n, items, len);
+  for (size_t i = 0; i < len; i++) {
+    if (tmps[i]) ergo_release_val(EV_STR(tmps[i]));
+  }
+  free(items);
+  free(tmps);
+}
+static void __cogito_view_chooser_bind(ErgoVal vcv, ErgoVal vsv) {
+  cogito_node* vc = cogito_node_from_val(vcv);
+  cogito_node* vs = cogito_node_from_val(vsv);
+  cogito_view_chooser_bind(vc, vs);
+}
+
+// --- AboutWindow ---
+static ErgoVal __cogito_about_window(ErgoVal namev, ErgoVal versionv) {
+  ErgoStr* tmp1 = NULL;
+  ErgoStr* tmp2 = NULL;
+  const char* name = cogito_required_cstr(namev, &tmp1);
+  const char* version = cogito_required_cstr(versionv, &tmp2);
+  cogito_node* n = cogito_about_window_new(name, version);
+  if (tmp1) ergo_release_val(EV_STR(tmp1));
+  if (tmp2) ergo_release_val(EV_STR(tmp2));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+static void __cogito_about_window_set_icon(ErgoVal awv, ErgoVal iconv) {
+  cogito_node* n = cogito_node_from_val(awv);
+  ErgoStr* tmp = NULL;
+  const char* icon = cogito_required_cstr(iconv, &tmp);
+  cogito_about_window_set_icon(n, icon);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+static void __cogito_about_window_set_description(ErgoVal awv, ErgoVal descv) {
+  cogito_node* n = cogito_node_from_val(awv);
+  ErgoStr* tmp = NULL;
+  const char* desc = cogito_required_cstr(descv, &tmp);
+  cogito_about_window_set_description(n, desc);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+static void __cogito_about_window_set_website(ErgoVal awv, ErgoVal urlv) {
+  cogito_node* n = cogito_node_from_val(awv);
+  ErgoStr* tmp = NULL;
+  const char* url = cogito_required_cstr(urlv, &tmp);
+  cogito_about_window_set_website(n, url);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
+// --- MenuButton ---
+static ErgoVal __cogito_menu_button(ErgoVal iconv) {
+  ErgoStr* tmp = NULL;
+  const char* icon = cogito_required_cstr(iconv, &tmp);
+  cogito_node* n = cogito_menu_button_new(icon);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+// --- SplitButton ---
+static ErgoVal __cogito_split_button(ErgoVal textv) {
+  ErgoStr* tmp = NULL;
+  const char* text = cogito_required_cstr(textv, &tmp);
+  cogito_node* n = cogito_split_button_new(text);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+static void __cogito_split_button_add_menu(ErgoVal btnv, ErgoVal labelv, ErgoVal handlerv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  CogitoHandle* h = (CogitoHandle*)btnv.as.p;
+  ErgoStr* tmp = NULL;
+  const char* label = cogito_required_cstr(labelv, &tmp);
+  if (handlerv.tag == EVT_FN) {
+    cogito_set_handler(h, &h->on_action, handlerv);
+    cogito_split_button_add_menu(btn, label, cogito_cb_action, h);
+  } else {
+    cogito_split_button_add_menu(btn, label, NULL, NULL);
+  }
+  if (tmp) ergo_release_val(EV_STR(tmp));
 }
 
 static ErgoVal __cogito_image(ErgoVal iconv) {
@@ -2037,4 +2340,36 @@ void __cogito_button_on_click(ErgoVal btn, ErgoVal handler);
 #define cogito_run __cogito_run
 #define cogito_load_sum __cogito_load_sum
 #define cogito_set_script_dir __cogito_set_script_dir
+#define cogito_active_indicator_new __cogito_active_indicator
+#define cogito_switchbar_new __cogito_switchbar
+#define cogito_switchbar_get_checked __cogito_switchbar_get_checked
+#define cogito_switchbar_set_checked __cogito_switchbar_set_checked
+#define cogito_switchbar_on_change __cogito_switchbar_on_change
+#define cogito_content_list_new __cogito_content_list
+#define cogito_empty_page_new __cogito_empty_page
+#define cogito_empty_page_set_description __cogito_empty_page_set_description
+#define cogito_empty_page_set_icon __cogito_empty_page_set_icon
+#define cogito_empty_page_set_action __cogito_empty_page_set_action
+#define cogito_tip_view_new __cogito_tip_view
+#define cogito_tip_view_set_title __cogito_tip_view_set_title
+#define cogito_settings_window_new __cogito_settings_window
+#define cogito_settings_page_new __cogito_settings_page
+#define cogito_settings_list_new __cogito_settings_list
+#define cogito_settings_row_new __cogito_settings_row
+#define cogito_welcome_screen_new __cogito_welcome_screen
+#define cogito_welcome_screen_set_description __cogito_welcome_screen_set_description
+#define cogito_welcome_screen_set_icon __cogito_welcome_screen_set_icon
+#define cogito_welcome_screen_set_action __cogito_welcome_screen_set_action
+#define cogito_view_dual_new __cogito_view_dual
+#define cogito_view_dual_set_ratio __cogito_view_dual_set_ratio
+#define cogito_view_chooser_new __cogito_view_chooser
+#define cogito_view_chooser_set_items __cogito_view_chooser_set_items
+#define cogito_view_chooser_bind __cogito_view_chooser_bind
+#define cogito_about_window_new __cogito_about_window
+#define cogito_about_window_set_icon __cogito_about_window_set_icon
+#define cogito_about_window_set_description __cogito_about_window_set_description
+#define cogito_about_window_set_website __cogito_about_window_set_website
+#define cogito_menu_button_new __cogito_menu_button
+#define cogito_split_button_new __cogito_split_button
+#define cogito_split_button_add_menu __cogito_split_button_add_menu
 // cogito_set_script_dir is provided by the cogito library

@@ -21,7 +21,7 @@ case COGITO_CHIP: {
   }
 
   // Draw checkmark for selected chips
-  if (n->chip_selected) {
+  if (n->chip.selected) {
     int check_size = 12;
     int check_x = n->x + 8;
     int check_cy = n->y + n->h / 2;
@@ -42,12 +42,12 @@ case COGITO_CHIP: {
   if (n->text) {
     int size = cogito_node_font_size(n);
     int text_h = cogito_text_height_size(size);
-    int text_x = n->x + (n->chip_selected ? 24 : 16);
+    int text_x = n->x + (n->chip.selected ? 24 : 16);
     int text_y = n->y + (n->h - text_h) / 2;
     cogito_draw_text_size_node(n, text_x, text_y, n->text->data, text_color, size, false);
 
     // Draw close icon if enabled
-    if (n->chip_has_close) {
+    if (n->chip.has_close) {
       int icon_size = 12;
       int icon_x = n->x + n->w - 16 - icon_size;
       int icon_y = n->y + (n->h - icon_size) / 2;

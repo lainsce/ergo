@@ -935,6 +935,239 @@ fun build_timepicker_view() (( cogito.VStack )) {
     return vstack
 }
 
+fun build_new_widgets_view() (( cogito.VStack )) {
+    let vstack = cogito.vstack()
+    vstack.set_vexpand(true)
+    vstack.set_hexpand(true)
+    vstack.set_gap(12)
+    vstack.set_padding(0, 18, 0, 18)
+
+    let subtitle = cogito.label(@"New Widgets")
+    subtitle.set_class(@"subtitle")
+    vstack.add(subtitle)
+
+    let info = cogito.label(@"ActiveIndicator, SwitchBar, ContentList, EmptyPage, and SplitButton.")
+    info.set_class(@"body")
+    info.set_wrap(true)
+    vstack.add(info)
+
+    -- ActiveIndicator
+    let ai_label = cogito.label(@"Active Indicator (spinner)")
+    ai_label.set_class(@"body")
+    vstack.add(ai_label)
+
+    let ai = cogito.active_indicator()
+    vstack.add(ai)
+
+    -- SwitchBar
+    let sb_label = cogito.label(@"SwitchBar")
+    sb_label.set_class(@"body")
+    vstack.add(sb_label)
+
+    let sb = cogito.switchbar(@"Enable notifications")
+    sb.set_hexpand(true)
+    sb.on_change((s = any) => {
+        info.set_text(@"SwitchBar toggled.")
+    })
+    vstack.add(sb)
+
+    -- SplitButton
+    let sp_label = cogito.label(@"SplitButton")
+    sp_label.set_class(@"body")
+    vstack.add(sp_label)
+
+    let sp = cogito.split_button(@"Save")
+    sp.on_click((b = any) => {
+        info.set_text(@"SplitButton main action clicked.")
+    })
+    sp.add_menu(@"Save As...", (b = any) => {
+        info.set_text(@"Save As selected.")
+    })
+    sp.add_menu(@"Export", (b = any) => {
+        info.set_text(@"Export selected.")
+    })
+    vstack.add(sp)
+
+    -- ContentList
+    let cl_label = cogito.label(@"ContentList")
+    cl_label.set_class(@"body")
+    vstack.add(cl_label)
+
+    let cl = cogito.content_list()
+    cl.set_hexpand(true)
+    cl.add(cogito.label(@"First item"))
+    cl.add(cogito.label(@"Second item"))
+    cl.add(cogito.label(@"Third item"))
+    vstack.add(cl)
+
+    return vstack
+}
+
+fun build_settings_view() (( cogito.VStack )) {
+    let vstack = cogito.vstack()
+    vstack.set_vexpand(true)
+    vstack.set_hexpand(true)
+    vstack.set_gap(12)
+    vstack.set_padding(0, 18, 0, 18)
+
+    let subtitle = cogito.label(@"Settings Widgets")
+    subtitle.set_class(@"subtitle")
+    vstack.add(subtitle)
+
+    let info = cogito.label(@"SettingsWindow, SettingsPage, SettingsList, and SettingsRow.")
+    info.set_class(@"body")
+    info.set_wrap(true)
+    vstack.add(info)
+
+    let sw = cogito.settings_window(@"Preferences")
+    sw.set_hexpand(true)
+    sw.set_vexpand(true)
+
+    let page1 = cogito.settings_page(@"General")
+    let list1 = cogito.settings_list(@"Appearance")
+    list1.set_hexpand(true)
+
+    let row1 = cogito.settings_row(@"Dark Mode")
+    row1.set_hexpand(true)
+    let dark_switch = cogito.switch(@"")
+    dark_switch.on_change((s = cogito.Switch) => {
+        info.set_text(@"Dark mode toggled.")
+    })
+    row1.add(dark_switch)
+    list1.add(row1)
+
+    let row2 = cogito.settings_row(@"Font Size")
+    row2.set_hexpand(true)
+    let font_dd = cogito.dropdown()
+    font_dd.set_items([@"Small", @"Medium", @"Large"])
+    font_dd.set_selected(1)
+    row2.add(font_dd)
+    list1.add(row2)
+
+    page1.add(list1)
+    sw.add(page1)
+
+    let page2 = cogito.settings_page(@"About")
+    let list2 = cogito.settings_list(@"App Info")
+    list2.set_hexpand(true)
+    let row3 = cogito.settings_row(@"Version")
+    row3.set_hexpand(true)
+    row3.add(cogito.label(@"1.0.0"))
+    list2.add(row3)
+    page2.add(list2)
+    sw.add(page2)
+
+    vstack.add(sw)
+
+    return vstack
+}
+
+fun build_views_view() (( cogito.VStack )) {
+    let vstack = cogito.vstack()
+    vstack.set_vexpand(true)
+    vstack.set_hexpand(true)
+    vstack.set_gap(12)
+    vstack.set_padding(0, 18, 0, 18)
+
+    let subtitle = cogito.label(@"View Widgets")
+    subtitle.set_class(@"subtitle")
+    vstack.add(subtitle)
+
+    let info = cogito.label(@"ViewDual (split pane) and ViewChooser (dropdown view selector).")
+    info.set_class(@"body")
+    info.set_wrap(true)
+    vstack.add(info)
+
+    -- ViewDual
+    let vd_label = cogito.label(@"ViewDual (drag the divider)")
+    vd_label.set_class(@"body")
+    vstack.add(vd_label)
+
+    let vd = cogito.view_dual()
+    vd.set_hexpand(true)
+    vd.set_vexpand(true)
+    vd.set_ratio(0.4)
+
+    let left_pane = cogito.vstack()
+    left_pane.set_hexpand(true)
+    left_pane.set_vexpand(true)
+    left_pane.set_gap(8)
+    left_pane.set_padding(12, 12, 12, 12)
+    left_pane.add(cogito.label(@"Left Pane"))
+    left_pane.add(cogito.label(@"Resize by dragging the divider."))
+    vd.add(left_pane)
+
+    let right_pane = cogito.vstack()
+    right_pane.set_hexpand(true)
+    right_pane.set_vexpand(true)
+    right_pane.set_gap(8)
+    right_pane.set_padding(12, 12, 12, 12)
+    right_pane.add(cogito.label(@"Right Pane"))
+    right_pane.add(cogito.label(@"Content goes here."))
+    vd.add(right_pane)
+
+    vstack.add(vd)
+
+    -- ViewChooser
+    let vc_label = cogito.label(@"ViewChooser")
+    vc_label.set_class(@"body")
+    vstack.add(vc_label)
+
+    let vc_views = cogito.view_switcher()
+    vc_views.set_hexpand(true)
+    vc_views.add(@"option_a", (vs = cogito.ViewSwitcher) => cogito.label(@"Option A selected"))
+    vc_views.add(@"option_b", (vs = cogito.ViewSwitcher) => cogito.label(@"Option B selected"))
+    vc_views.add(@"option_c", (vs = cogito.ViewSwitcher) => cogito.label(@"Option C selected"))
+    vc_views.set_active(@"option_a")
+
+    let vc = cogito.view_chooser()
+    vc.set_items([@"Option A", @"Option B", @"Option C"])
+    vc.bind(vc_views)
+    vstack.add(vc)
+    vstack.add(vc_views)
+
+    return vstack
+}
+
+fun build_about_view() (( cogito.VStack )) {
+    let vstack = cogito.vstack()
+    vstack.set_vexpand(true)
+    vstack.set_hexpand(true)
+    vstack.set_gap(12)
+    vstack.set_padding(0, 18, 0, 18)
+
+    let subtitle = cogito.label(@"About & Welcome")
+    subtitle.set_class(@"subtitle")
+    vstack.add(subtitle)
+
+    let info = cogito.label(@"AboutWindow, WelcomeScreen, and EmptyPage.")
+    info.set_class(@"body")
+    info.set_wrap(true)
+    vstack.add(info)
+
+    -- AboutWindow
+    let aw = cogito.about_window(@"Cogito Gallery", @"1.0.0")
+    aw.set_description(@"A showcase of all Cogito UI widgets.")
+    aw.set_website(@"https://ergo-lang.org")
+    vstack.add(aw)
+
+    -- EmptyPage
+    let ep_label = cogito.label(@"EmptyPage")
+    ep_label.set_class(@"body")
+    vstack.add(ep_label)
+
+    let ep = cogito.empty_page(@"No Items Yet")
+    ep.set_description(@"Add some items to get started.")
+    ep.set_icon(@"sf:folder")
+    ep.set_action(@"Add Item", (b = any) => {
+        info.set_text(@"EmptyPage action clicked!")
+    })
+    ep.set_hexpand(true)
+    vstack.add(ep)
+
+    return vstack
+}
+
 fun build_ui(win = cogito.Window) (( -- )) {
     let bar = cogito.appbar(@"Sidebar", @"")
     cogito.set_class(bar, @"sidebar")
@@ -966,6 +1199,10 @@ fun build_ui(win = cogito.Window) (( -- )) {
     views.add(@"avatars", (vs = cogito.ViewSwitcher) => build_avatars_view())
     views.add(@"banners", (vs = cogito.ViewSwitcher) => build_banners_view())
     views.add(@"timepicker", (vs = cogito.ViewSwitcher) => build_timepicker_view())
+    views.add(@"newwidgets", (vs = cogito.ViewSwitcher) => build_new_widgets_view())
+    views.add(@"settings", (vs = cogito.ViewSwitcher) => build_settings_view())
+    views.add(@"viewwidgets", (vs = cogito.ViewSwitcher) => build_views_view())
+    views.add(@"about", (vs = cogito.ViewSwitcher) => build_about_view())
 
     -- Set initial active view
     views.set_active(@"buttons")
@@ -995,6 +1232,10 @@ fun build_ui(win = cogito.Window) (( -- )) {
     sidebar_list.add(cogito.label(@"Avatars & Badges"))
     sidebar_list.add(cogito.label(@"Banners"))
     sidebar_list.add(cogito.label(@"Time Picker"))
+    sidebar_list.add(cogito.label(@"New Widgets"))
+    sidebar_list.add(cogito.label(@"Settings"))
+    sidebar_list.add(cogito.label(@"View Widgets"))
+    sidebar_list.add(cogito.label(@"About & Welcome"))
     sidebar_list.on_select((idx) => {
         let target = if idx == 0 {
             @"buttons"
@@ -1030,6 +1271,14 @@ fun build_ui(win = cogito.Window) (( -- )) {
             @"banners"
         } elif idx == 16 {
             @"timepicker"
+        } elif idx == 17 {
+            @"newwidgets"
+        } elif idx == 18 {
+            @"settings"
+        } elif idx == 19 {
+            @"viewwidgets"
+        } elif idx == 20 {
+            @"about"
         } else {
             @"buttons"
         }

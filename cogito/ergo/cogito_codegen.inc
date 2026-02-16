@@ -2663,3 +2663,5 @@
                         out->tmp = t;
                         return true;
                     }
+                    // --- New Widgets Codegen ---
+                    #include "cogito_codegen_new_widgets.inc"

@@ -120,6 +120,20 @@ typedef enum {
   COGITO_BANNER,
   COGITO_BOTTOM_SHEET,
   COGITO_TIMEPICKER,
+  COGITO_ACTIVE_INDICATOR,
+  COGITO_SWITCHBAR,
+  COGITO_CONTENT_LIST,
+  COGITO_EMPTY_PAGE,
+  COGITO_TIP_VIEW,
+  COGITO_SETTINGS_WINDOW,
+  COGITO_SETTINGS_PAGE,
+  COGITO_SETTINGS_LIST,
+  COGITO_SETTINGS_ROW,
+  COGITO_WELCOME_SCREEN,
+  COGITO_VIEW_DUAL,
+  COGITO_VIEW_CHOOSER,
+  COGITO_ABOUT_WINDOW,
+  COGITO_SPLIT_BUTTON,
   COGITO_KIND_COUNT
 } CogitoKind;
 
@@ -348,6 +362,26 @@ typedef struct CogitoNode {
   struct CogitoNode** children;
   size_t len;
   size_t cap;
+
+  // Content
+  ErgoStr* text;
+  ErgoStr* subtitle;
+  ErgoStr* icon;
+  ErgoStr* tooltip;
+  ErgoStr* action_text;
+  ErgoStr* view_id;
+  ErgoStr* view_active_id;
+  ErgoStr* class_name;
+  ErgoStr* a11y_label;
+  ErgoStr* a11y_role;
+
+  // Lazy view builders (ViewSwitcher)
+  ErgoStr** view_builder_ids;
+  ErgoFn** view_builders;
+  size_t view_builder_len;
+  size_t view_builder_cap;
+
+  // Collections (menus, tabs)
   ErgoStr** menu_labels;
   ErgoFn** menu_handlers;
   size_t menu_len;
@@ -356,114 +390,107 @@ typedef struct CogitoNode {
   ErgoStr** tab_ids;
   size_t tab_len;
   size_t tab_cap;
-  ErgoStr* text;
-  ErgoStr* subtitle;
-  ErgoStr* icon;
-  ErgoStr* tooltip;
-  ErgoStr* action_text;
-  ErgoStr* view_id;
-  ErgoStr* view_active_id;
-  // Lazy view builders for ViewSwitcher
-  ErgoStr** view_builder_ids;
-  ErgoFn** view_builders;
-  size_t view_builder_len;
-  size_t view_builder_cap;
+
+  // Callbacks
   ErgoFn* on_click;
   ErgoFn* on_change;
   ErgoFn* on_select;
   ErgoFn* on_activate;
   ErgoFn* builder;
   ErgoFn* on_action;
+
+  // State
   ErgoVal group;
   bool checked;
-  int x;
-  int y;
-  int w;
-  int h;
-  int grid_cols;
-  int grid_gap_x;
-  int grid_gap_y;
-  int grid_align_x;
-  int grid_align_y;
-  int grid_span_x;
-  int grid_span_y;
-  int fixed_x;
-  int fixed_y;
-  int scroll_x;
-  int scroll_y;
-  int scroll_content_w;
-  int scroll_content_h;
-  bool scroll_horz;
-  bool scroll_vert;
-  uint8_t scrollbar_alpha;  /* overlay scrollbar opacity (0–255), fades when cursor not over scrollbar */
-  double scrollbar_hover_until; /* time (get_time()) when fade may start; 0 = cursor over scrollbar */
   int selected;
   bool tree_collapsed;
-  int margin_left;
-  int margin_top;
-  int margin_right;
-  int margin_bottom;
-  int padding_left;
-  int padding_top;
-  int padding_right;
-  int padding_bottom;
+  bool should_close;
+  bool disabled;
+  bool editable;
+  bool resizable;
+  bool fixed_pos_set;
+  bool text_wrap;
+  bool text_ellipsis;
+  int text_align;
+  bool font_mono;
+  bool font_tabular;
+
+  // Geometry
+  int x, y, w, h;
+  int margin_left, margin_top, margin_right, margin_bottom;
+  int padding_left, padding_top, padding_right, padding_bottom;
   int align;
   bool hexpand;
   bool vexpand;
   int gap;
   bool auto_size;
-  bool should_close;
-  int appbar_btn_close_x;
-  int appbar_btn_min_x;
-  int appbar_btn_max_x;
-  int appbar_btn_y;
-  int appbar_btn_size;
-  int appbar_title_y;
-  int appbar_subtitle_y;
-  char appbar_controls[16];
-  int action_button_x;
-  int action_button_y;
-  int action_button_w;
-  int action_button_h;
+  int fixed_x, fixed_y;
+  int grid_span_x, grid_span_y;
+  int grid_align_x, grid_align_y;
+  int action_button_x, action_button_y, action_button_w, action_button_h;
+
+  // Dialog / Popover
   struct CogitoNode* dialog;
   struct CogitoNode* view_switcher;
   bool dialog_open;
   struct CogitoNode* popover;
   struct CogitoNode* popover_anchor;
   bool popover_open;
-  bool resizable;
-  bool fixed_pos_set;
-  bool text_wrap;
-  bool text_ellipsis;
-  int text_align;
-  bool disabled;
-  bool editable;
-  double slider_min;
-  double slider_max;
-  double slider_value;
-  bool slider_dragging;
-  double stepper_min;
-  double stepper_max;
-  double stepper_value;
-  double stepper_step;
-  bool stepper_hit_minus;
-  bool stepper_hit_plus;
-  int date_year;
-  int date_month;
-  int date_day;
-  double color_h;
-  double color_c;
-  double color_t;
-  bool color_hex_editing;
-  int caret;
-  int sel_start;
-  int sel_end;
-  bool selecting;
-  bool font_mono;
-  bool font_tabular;
-  ErgoStr* a11y_label;
-  ErgoStr* a11y_role;
-  ErgoStr* class_name;
+
+  // Style flags
+  bool margin_set;
+  bool padding_set;
+  bool bg_set;
+  bool text_color_set;
+  bool border_color_set;
+  bool border_width_set;
+  bool radius_set;
+  bool selection_set;
+  bool track_set;
+  bool track_on_set;
+  bool knob_set;
+  bool check_set;
+  bool font_weight_set;
+  bool letter_spacing_set;
+  bool min_w_set;
+  bool min_h_set;
+  bool max_w_set;
+  bool max_h_set;
+  bool shadow_set;
+  bool font_size_set;
+  bool border_style_set;
+  bool radius_tl_set, radius_tr_set, radius_br_set, radius_bl_set;
+  bool font_family_set;
+  bool box_shadow_set;
+  bool track_height_set;
+  bool opacity_set;
+
+  // Style values
+  CogitoColor bg;
+  CogitoColor text_color;
+  CogitoColor border_color;
+  CogitoColor selection_color;
+  CogitoColor track_color;
+  CogitoColor track_on_color;
+  CogitoColor knob_color;
+  CogitoColor check_color;
+  int border_width;
+  int border_radius;
+  int font_size;
+  int font_weight;
+  float letter_spacing;
+  int min_w, min_h;
+  int max_w, max_h;
+  int shadow_level;
+  CogitoBorderStyle border_style;
+  int radius_tl, radius_tr, radius_br, radius_bl;
+  char font_family[64];
+  CogitoBoxShadow box_shadow;
+  int track_height;
+  float opacity;
+  bool has_opacity;
+
+  // Animation
   bool anim_inited;
   double anim_start;
   int anim_ms;
@@ -484,131 +511,116 @@ typedef struct CogitoNode {
   double anim_text_start;
   double anim_border_start;
   double anim_selection_start;
-  int anim_x;
-  int anim_x_from;
-  int anim_x_target;
+  int anim_x, anim_x_from, anim_x_target;
   double anim_x_start;
-  int anim_y;
-  int anim_y_from;
-  int anim_y_target;
+  int anim_y, anim_y_from, anim_y_target;
   double anim_y_start;
-  int anim_w;
-  int anim_w_from;
-  int anim_w_target;
+  int anim_w, anim_w_from, anim_w_target;
   double anim_w_start;
-  int anim_h;
-  int anim_h_from;
-  int anim_h_target;
+  int anim_h, anim_h_from, anim_h_target;
   double anim_h_start;
   bool anim_layout_active;
   double active_latch_until;
-  float opacity;
   float opacity_from;
   float opacity_target;
   double opacity_start;
-  bool has_opacity;
-  bool opacity_set;
-  double progress_value;
-  bool margin_set;
-  bool padding_set;
-  bool bg_set;
-  bool text_color_set;
-  bool border_color_set;
-  bool border_width_set;
-  bool radius_set;
-  bool selection_set;
-  bool track_set;
-  bool track_on_set;
-  bool knob_set;
-  bool check_set;
-  bool font_weight_set;
-  bool letter_spacing_set;
-  bool min_w_set;
-  bool min_h_set;
-  bool max_w_set;
-  bool shadow_set;
-  bool max_h_set;
-  CogitoColor bg;
-  CogitoColor text_color;
-  CogitoColor border_color;
-  CogitoColor selection_color;
-  CogitoColor track_color;
-  CogitoColor track_on_color;
-  CogitoColor knob_color;
-  CogitoColor check_color;
-  int border_width;
-  int border_radius;
-  int label_class;
-  int font_size;
-  bool font_size_set;
-  int font_weight;
-  float letter_spacing;
-  int min_w;
-  int min_h;
-  int max_w;
-  int max_h;
-  int shadow_level;
-  CogitoBorderStyle border_style;
-  bool border_style_set;
-  int radius_tl;
-  int radius_tr;
-  int radius_br;
-  int radius_bl;
-  bool radius_tl_set;
-  bool radius_tr_set;
-  bool radius_br_set;
-  bool radius_bl_set;
-  char font_family[64];
-  bool font_family_set;
-  CogitoBoxShadow box_shadow;
-  bool box_shadow_set;
-  int track_height;
-  bool track_height_set;
-  bool button_outlined;
-  bool button_text;
-  bool chip_selected;
-  bool chip_has_close;
-  bool fab_extended;
-  bool divider_vertical;
-  bool divider_inset;
-  // Badge
-  int badge_count;
-  // TimePicker
-  int time_hour;
-  int time_minute;
-  bool time_ampm; // true = PM
-  ErgoStr** nav_rail_labels;
-  ErgoStr** nav_rail_icons;
-  size_t nav_rail_len;
-  size_t nav_rail_cap;
-  int nav_rail_selected;
-  ErgoStr** bottom_nav_labels;
-  ErgoStr** bottom_nav_icons;
-  size_t bottom_nav_len;
-  size_t bottom_nav_cap;
-  int bottom_nav_selected;
-  // Carousel-specific fields
-  bool carousel_dragging;
-  int carousel_scroll_x;
-  int carousel_drag_start_x;
-  int carousel_drag_start_scroll;
-  int carousel_active_index;
-  int carousel_item_count;
-  // Carousel animation
-  float carousel_velocity;         // px/sec, for momentum after drag release
-  double carousel_scroll_xf;       // float version of scroll_x for smooth animation
-  double carousel_anim_start;      // timestamp when snap animation began
-  double carousel_anim_from;       // scroll_xf at animation start
-  double carousel_anim_to;         // target scroll_xf
-  bool   carousel_animating;       // true while snap/momentum animation is active
-  double carousel_drag_last_time;  // timestamp of last drag sample
-  double carousel_drag_last_xf;    // scroll_xf at last drag sample
-  // Image-specific fields
-  CogitoTexture* image_texture;
-  int image_w;
-  int image_h;
-  bool image_loaded;
-  float image_avg_lum;  // 0.0–1.0 average luminance, computed at load time
+
+  // Kind-specific data (anonymous union — only one member active per node)
+  union {
+    struct {
+      int scroll_x, scroll_y;
+      int content_w, content_h;
+      bool horz, vert;
+      uint8_t bar_alpha;
+      double bar_hover_until;
+    } scroller;
+
+    struct {
+      double min, max, value;
+      bool dragging;
+    } slider;
+
+    struct {
+      double min, max, value, step;
+      bool hit_minus, hit_plus;
+    } stepper;
+
+    struct {
+      int year, month, day;
+    } datepicker;
+
+    struct {
+      double h, c, t;
+      bool hex_editing;
+    } colorpicker;
+
+    struct {
+      int hour, minute;
+      bool ampm;
+    } timepicker;
+
+    struct {
+      int btn_close_x, btn_min_x, btn_max_x;
+      int btn_y, btn_size;
+      int title_y, subtitle_y;
+      char controls[16];
+    } appbar;
+
+    struct {
+      int cols;
+      int gap_x, gap_y;
+    } grid;
+
+    struct {
+      bool dragging;
+      int scroll_x;
+      int drag_start_x, drag_start_scroll;
+      int active_index, item_count;
+      float velocity;
+      double scroll_xf;
+      double anim_start, anim_from, anim_to;
+      bool animating;
+      double drag_last_time, drag_last_xf;
+    } carousel;
+
+    struct {
+      CogitoTexture* texture;
+      int w, h;
+      bool loaded;
+      float avg_lum;
+    } image;
+
+    struct {
+      int caret;
+      int sel_start, sel_end;
+      bool selecting;
+    } text_input;
+
+    struct {
+      ErgoStr** labels;
+      ErgoStr** icons;
+      size_t len, cap;
+      int selected;
+    } nav_rail;
+
+    struct {
+      ErgoStr** labels;
+      ErgoStr** icons;
+      size_t len, cap;
+      int selected;
+    } bottom_nav;
+
+    struct { int count; } badge;
+    struct { double value; } progress;
+    struct { bool outlined, text_style; } button;
+    struct { bool selected, has_close; } chip;
+    struct { bool extended; } fab;
+    struct { bool vertical, inset; } divider;
+    struct { int cls; } label;
+    struct { double angle; double last_time; } indicator;
+    struct { float ratio; bool dragging; int drag_offset; } view_dual;
+    struct { int arrow_x; } split_btn;
+  };
 } CogitoNode;
 
 typedef struct CogitoState {

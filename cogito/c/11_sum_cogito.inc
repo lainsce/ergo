@@ -616,6 +616,20 @@ static bool cogito_sum_selector_kind(const char* sel, CogitoKind* out_kind, bool
   if (strcmp(s, "banner") == 0) { if (out_kind) *out_kind = COGITO_BANNER; return true; }
   if (strcmp(s, "bottom-sheet") == 0 || strcmp(s, "bottom_sheet") == 0 || strcmp(s, "bottomsheet") == 0) { if (out_kind) *out_kind = COGITO_BOTTOM_SHEET; return true; }
   if (strcmp(s, "timepicker") == 0 || strcmp(s, "time-picker") == 0 || strcmp(s, "time_picker") == 0) { if (out_kind) *out_kind = COGITO_TIMEPICKER; return true; }
+  if (strcmp(s, "active-indicator") == 0 || strcmp(s, "active_indicator") == 0 || strcmp(s, "activeindicator") == 0) { if (out_kind) *out_kind = COGITO_ACTIVE_INDICATOR; return true; }
+  if (strcmp(s, "switchbar") == 0 || strcmp(s, "switch-bar") == 0 || strcmp(s, "switch_bar") == 0) { if (out_kind) *out_kind = COGITO_SWITCHBAR; return true; }
+  if (strcmp(s, "content-list") == 0 || strcmp(s, "content_list") == 0 || strcmp(s, "contentlist") == 0) { if (out_kind) *out_kind = COGITO_CONTENT_LIST; return true; }
+  if (strcmp(s, "empty-page") == 0 || strcmp(s, "empty_page") == 0 || strcmp(s, "emptypage") == 0) { if (out_kind) *out_kind = COGITO_EMPTY_PAGE; return true; }
+  if (strcmp(s, "tip-view") == 0 || strcmp(s, "tip_view") == 0 || strcmp(s, "tipview") == 0) { if (out_kind) *out_kind = COGITO_TIP_VIEW; return true; }
+  if (strcmp(s, "settings-window") == 0 || strcmp(s, "settings_window") == 0 || strcmp(s, "settingswindow") == 0) { if (out_kind) *out_kind = COGITO_SETTINGS_WINDOW; return true; }
+  if (strcmp(s, "settings-page") == 0 || strcmp(s, "settings_page") == 0 || strcmp(s, "settingspage") == 0) { if (out_kind) *out_kind = COGITO_SETTINGS_PAGE; return true; }
+  if (strcmp(s, "settings-list") == 0 || strcmp(s, "settings_list") == 0 || strcmp(s, "settingslist") == 0) { if (out_kind) *out_kind = COGITO_SETTINGS_LIST; return true; }
+  if (strcmp(s, "settings-row") == 0 || strcmp(s, "settings_row") == 0 || strcmp(s, "settingsrow") == 0) { if (out_kind) *out_kind = COGITO_SETTINGS_ROW; return true; }
+  if (strcmp(s, "welcome-screen") == 0 || strcmp(s, "welcome_screen") == 0 || strcmp(s, "welcomescreen") == 0) { if (out_kind) *out_kind = COGITO_WELCOME_SCREEN; return true; }
+  if (strcmp(s, "view-dual") == 0 || strcmp(s, "view_dual") == 0 || strcmp(s, "viewdual") == 0) { if (out_kind) *out_kind = COGITO_VIEW_DUAL; return true; }
+  if (strcmp(s, "view-chooser") == 0 || strcmp(s, "view_chooser") == 0 || strcmp(s, "viewchooser") == 0) { if (out_kind) *out_kind = COGITO_VIEW_CHOOSER; return true; }
+  if (strcmp(s, "about-window") == 0 || strcmp(s, "about_window") == 0 || strcmp(s, "aboutwindow") == 0) { if (out_kind) *out_kind = COGITO_ABOUT_WINDOW; return true; }
+  if (strcmp(s, "split-button") == 0 || strcmp(s, "split_button") == 0 || strcmp(s, "splitbutton") == 0) { if (out_kind) *out_kind = COGITO_SPLIT_BUTTON; return true; }
   if (strcmp(s, "dropdown") == 0) { if (out_kind) *out_kind = COGITO_DROPDOWN; return true; }
   if (strcmp(s, "fab") == 0) { if (out_kind) *out_kind = COGITO_FAB; return true; }
   if (strcmp(s, "fixed") == 0) { if (out_kind) *out_kind = COGITO_FIXED; return true; }

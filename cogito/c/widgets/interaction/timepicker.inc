@@ -24,13 +24,13 @@ static void cogito_timepicker_on_change(ErgoVal nodev, ErgoVal handler) {
 static ErgoVal cogito_timepicker_get_hour(ErgoVal nodev) {
   if (nodev.tag != EVT_OBJ) return EV_INT(0);
   CogitoNode* n = (CogitoNode*)nodev.as.p;
-  return EV_INT(n->time_hour);
+  return EV_INT(n->timepicker.hour);
 }
 
 static ErgoVal cogito_timepicker_get_minute(ErgoVal nodev) {
   if (nodev.tag != EVT_OBJ) return EV_INT(0);
   CogitoNode* n = (CogitoNode*)nodev.as.p;
-  return EV_INT(n->time_minute);
+  return EV_INT(n->timepicker.minute);
 }
 
 static void cogito_timepicker_set_time(ErgoVal nodev, ErgoVal hourv, ErgoVal minv) {
@@ -43,8 +43,8 @@ static void cogito_timepicker_set_time(ErgoVal nodev, ErgoVal hourv, ErgoVal min
   else if (minv.tag == EVT_FLOAT) m = (int)minv.as.f;
   if (h < 0) h = 0; if (h > 23) h = 23;
   if (m < 0) m = 0; if (m > 59) m = 59;
-  n->time_hour = h;
-  n->time_minute = m;
-  n->time_ampm = (h >= 12);
+  n->timepicker.hour = h;
+  n->timepicker.minute = m;
+  n->timepicker.ampm = (h >= 12);
   cogito_window_relayout(cogito_node_window(n));
 }

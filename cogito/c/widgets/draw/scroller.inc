@@ -29,31 +29,31 @@ case COGITO_SCROLLER: {
         double now = cogito_backend ? cogito_backend->get_time() : 0.0;
         if (cursor_over_scroller) {
           if (cursor_over_sb) {
-            if (n->scrollbar_alpha < 255) {
-              n->scrollbar_alpha = (uint8_t)(n->scrollbar_alpha + 51) > 255 ? 255 : (n->scrollbar_alpha + 51);
+            if (n->scroller.bar_alpha < 255) {
+              n->scroller.bar_alpha = (uint8_t)(n->scroller.bar_alpha + 51) > 255 ? 255 : (n->scroller.bar_alpha + 51);
             }
           } else {
-            if (n->scrollbar_alpha < 200) {
-              n->scrollbar_alpha = (uint8_t)(n->scrollbar_alpha + 40) > 200 ? 200 : (n->scrollbar_alpha + 40);
+            if (n->scroller.bar_alpha < 200) {
+              n->scroller.bar_alpha = (uint8_t)(n->scroller.bar_alpha + 40) > 200 ? 200 : (n->scroller.bar_alpha + 40);
             }
           }
-          n->scrollbar_hover_until = 0.0;
+          n->scroller.bar_hover_until = 0.0;
         } else {
-          if (n->scrollbar_alpha > 0 && n->scrollbar_hover_until == 0.0) {
-            n->scrollbar_hover_until = now + 0.3;
+          if (n->scroller.bar_alpha > 0 && n->scroller.bar_hover_until == 0.0) {
+            n->scroller.bar_hover_until = now + 0.3;
           }
-          if (n->scrollbar_hover_until > 0.0 && now >= n->scrollbar_hover_until) {
-            n->scrollbar_alpha = (uint8_t)((int)n->scrollbar_alpha * 220 / 255);
-            if (n->scrollbar_alpha > 0) {
+          if (n->scroller.bar_hover_until > 0.0 && now >= n->scroller.bar_hover_until) {
+            n->scroller.bar_alpha = (uint8_t)((int)n->scroller.bar_alpha * 220 / 255);
+            if (n->scroller.bar_alpha > 0) {
               // Request continued redraw via frame counter instead of queue_draw
               // (queue_draw during draw phase is cleared immediately and creates redraw coupling)
               if (cogito_anim_frames_remaining < 1) cogito_anim_frames_remaining = 1;
             }
           }
         }
-        if (n->scrollbar_alpha > 0) {
-          CogitoColor track = cogito_rgba(0, 0, 0, (int)n->scrollbar_alpha * 80 / 255);
-          CogitoColor thumb = cogito_rgba(128, 128, 128, (int)n->scrollbar_alpha * 180 / 255);
+        if (n->scroller.bar_alpha > 0) {
+          CogitoColor track = cogito_rgba(0, 0, 0, (int)n->scroller.bar_alpha * 80 / 255);
+          CogitoColor thumb = cogito_rgba(128, 128, 128, (int)n->scroller.bar_alpha * 180 / 255);
           int vtx, vty, vtw, vth, vux, vuy, vuw, vuh;
           if (cogito_scroller_vert_scrollbar_rects(n, sb_w, &vtx, &vty, &vtw, &vth, &vux, &vuy, &vuw, &vuh)) {
             cogito_draw_rect(vtx, vty, vtw, vth, track, 4);

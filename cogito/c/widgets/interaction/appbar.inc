@@ -33,11 +33,11 @@ static CogitoNode* cogito_appbar_new_obj(ErgoStr* title, ErgoStr* subtitle) {
   CogitoNode* ab = cogito_node_new(COGITO_APPBAR);
   cogito_node_set_text(ab, title);
   cogito_node_set_subtitle(ab, subtitle);
-  ab->appbar_btn_close_x = -1;
-  ab->appbar_btn_min_x = -1;
-  ab->appbar_btn_max_x = -1;
-  strncpy(ab->appbar_controls, "CIM|", sizeof(ab->appbar_controls) - 1);
-  ab->appbar_controls[sizeof(ab->appbar_controls) - 1] = 0;
+  ab->appbar.btn_close_x = -1;
+  ab->appbar.btn_min_x = -1;
+  ab->appbar.btn_max_x = -1;
+  strncpy(ab->appbar.controls, "CIM|", sizeof(ab->appbar.controls) - 1);
+  ab->appbar.controls[sizeof(ab->appbar.controls) - 1] = 0;
   return ab;
 }
 static ErgoVal cogito_appbar_new(ErgoVal title, ErgoVal subtitle) {
@@ -81,11 +81,11 @@ static void cogito_appbar_set_controls(ErgoVal appv, ErgoVal layout) {
   }
   buf[j] = 0;
   if (j == 0) {
-    strncpy(ab->appbar_controls, "CIM|", sizeof(ab->appbar_controls) - 1);
-    ab->appbar_controls[sizeof(ab->appbar_controls) - 1] = 0;
+    strncpy(ab->appbar.controls, "CIM|", sizeof(ab->appbar.controls) - 1);
+    ab->appbar.controls[sizeof(ab->appbar.controls) - 1] = 0;
   } else {
-    strncpy(ab->appbar_controls, buf, sizeof(ab->appbar_controls) - 1);
-    ab->appbar_controls[sizeof(ab->appbar_controls) - 1] = 0;
+    strncpy(ab->appbar.controls, buf, sizeof(ab->appbar.controls) - 1);
+    ab->appbar.controls[sizeof(ab->appbar.controls) - 1] = 0;
   }
   CogitoNode* win = cogito_root(ab);
   if (win && win->kind == COGITO_WINDOW) {

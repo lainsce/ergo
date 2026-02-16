@@ -12,8 +12,8 @@ static ErgoVal cogito_fab_new(ErgoVal icon) {
 static void cogito_fab_set_extended(ErgoVal fabv, ErgoVal extended, ErgoVal label) {
   if (fabv.tag != EVT_OBJ) ergo_trap("cogito.fab_set_extended expects fab");
   CogitoNode* n = (CogitoNode*)fabv.as.p;
-  n->fab_extended = ergo_as_bool(extended);
-  if (n->fab_extended) {
+  n->fab.extended = ergo_as_bool(extended);
+  if (n->fab.extended) {
     ErgoStr* lbl = stdr_to_string(label);
     if (n->subtitle) ergo_release_val(EV_STR(n->subtitle));
     n->subtitle = lbl;

@@ -56,6 +56,20 @@ static const char* cogito_kind_name(CogitoKind kind) {
     case COGITO_BANNER: return "banner";
     case COGITO_BOTTOM_SHEET: return "bottom-sheet";
     case COGITO_TIMEPICKER: return "timepicker";
+    case COGITO_ACTIVE_INDICATOR: return "active-indicator";
+    case COGITO_SWITCHBAR: return "switchbar";
+    case COGITO_CONTENT_LIST: return "content-list";
+    case COGITO_EMPTY_PAGE: return "empty-page";
+    case COGITO_TIP_VIEW: return "tip-view";
+    case COGITO_SETTINGS_WINDOW: return "settings-window";
+    case COGITO_SETTINGS_PAGE: return "settings-page";
+    case COGITO_SETTINGS_LIST: return "settings-list";
+    case COGITO_SETTINGS_ROW: return "settings-row";
+    case COGITO_WELCOME_SCREEN: return "welcome-screen";
+    case COGITO_VIEW_DUAL: return "view-dual";
+    case COGITO_VIEW_CHOOSER: return "view-chooser";
+    case COGITO_ABOUT_WINDOW: return "about-window";
+    case COGITO_SPLIT_BUTTON: return "split-button";
     case COGITO_KIND_COUNT: return "unknown";
   }
   return "unknown";
@@ -198,8 +212,8 @@ static void cogito_style_dump_print_node(const CogitoNode* n, int depth) {
   cogito_style_dump_apply_source(&s, &origins, &cogito_theme.base, "base:*");
   cogito_style_dump_apply_source(&s, &origins, &cogito_theme.per_kind[n->kind], kind_origin);
 
-  if (n->kind == COGITO_LABEL && n->label_class > COGITO_LABEL_CLASS_NONE && n->label_class < 4) {
-    cogito_style_dump_apply_source(&s, &origins, &cogito_theme.label_class[n->label_class], "class:label");
+  if (n->kind == COGITO_LABEL && n->label.cls > COGITO_LABEL_CLASS_NONE && n->label.cls < 4) {
+    cogito_style_dump_apply_source(&s, &origins, &cogito_theme.label_class[n->label.cls], "class:label");
   }
   if (n->font_mono) {
     cogito_style_dump_apply_source(&s, &origins, &cogito_theme.class_mono, "class:mono");
@@ -207,10 +221,10 @@ static void cogito_style_dump_print_node(const CogitoNode* n, int depth) {
   if (n->font_tabular) {
     cogito_style_dump_apply_source(&s, &origins, &cogito_theme.class_tabular, "class:tabular");
   }
-  if (n->button_outlined) {
+  if (n->button.outlined) {
     cogito_style_dump_apply_source(&s, &origins, &cogito_theme.button_outlined, "class:outlined");
   }
-  if (n->button_text) {
+  if (n->button.text_style) {
     cogito_style_dump_apply_source(&s, &origins, &cogito_theme.button_text, "class:text");
   }
   if (n->parent && n->parent->kind == COGITO_APPBAR) {
@@ -244,7 +258,7 @@ static void cogito_style_dump_print_node(const CogitoNode* n, int depth) {
 
   bool checked = false;
   if (n->kind == COGITO_CHECKBOX || n->kind == COGITO_SWITCH) checked = n->checked;
-  else if (n->kind == COGITO_CHIP) checked = n->chip_selected;
+  else if (n->kind == COGITO_CHIP) checked = n->chip.selected;
   bool disabled = cogito_node_disabled(n);
   bool focused = (!disabled && n == cogito_focused);
   bool hover = false;
@@ -258,12 +272,12 @@ static void cogito_style_dump_print_node(const CogitoNode* n, int depth) {
   else if (active) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.per_kind_active[n->kind], state_active);
   else if (focused) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.per_kind_focused[n->kind], state_focused);
   else if (hover) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.per_kind_hover[n->kind], state_hover);
-  if (n->kind == COGITO_LABEL && n->label_class > COGITO_LABEL_CLASS_NONE && n->label_class < 4) {
-    if (checked) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.label_class_checked[n->label_class], state_checked);
-    if (disabled) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.label_class_disabled[n->label_class], state_disabled);
-    else if (active) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.label_class_active[n->label_class], state_active);
-    else if (focused) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.label_class_focused[n->label_class], state_focused);
-    else if (hover) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.label_class_hover[n->label_class], state_hover);
+  if (n->kind == COGITO_LABEL && n->label.cls > COGITO_LABEL_CLASS_NONE && n->label.cls < 4) {
+    if (checked) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.label_class_checked[n->label.cls], state_checked);
+    if (disabled) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.label_class_disabled[n->label.cls], state_disabled);
+    else if (active) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.label_class_active[n->label.cls], state_active);
+    else if (focused) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.label_class_focused[n->label.cls], state_focused);
+    else if (hover) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.label_class_hover[n->label.cls], state_hover);
   }
   if (n->font_mono) {
     if (checked) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.class_mono_checked, state_checked);
@@ -279,13 +293,13 @@ static void cogito_style_dump_print_node(const CogitoNode* n, int depth) {
     else if (focused) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.class_tabular_focused, state_focused);
     else if (hover) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.class_tabular_hover, state_hover);
   }
-  if (n->button_outlined) {
+  if (n->button.outlined) {
     if (disabled) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.button_outlined_disabled, state_disabled);
     else if (active) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.button_outlined_active, state_active);
     else if (focused) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.button_outlined_focused, state_focused);
     else if (hover) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.button_outlined_hover, state_hover);
   }
-  if (n->button_text) {
+  if (n->button.text_style) {
     if (disabled) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.button_text_disabled, state_disabled);
     else if (active) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.button_text_active, state_active);
     else if (focused) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.button_text_focused, state_focused);

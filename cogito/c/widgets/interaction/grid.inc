@@ -1,6 +1,6 @@
 static CogitoNode* cogito_grid_new_obj(int cols) {
   CogitoNode* g = cogito_node_new(COGITO_GRID);
-  g->grid_cols = cols > 0 ? cols : 1;
+  g->grid.cols = cols > 0 ? cols : 1;
   g->grid_align_x = 0;
   g->grid_align_y = 0;
   return g;
@@ -12,8 +12,8 @@ static ErgoVal cogito_grid_new(ErgoVal cols) {
 static void cogito_grid_set_gap(ErgoVal gridv, ErgoVal xv, ErgoVal yv) {
   if (gridv.tag != EVT_OBJ) ergo_trap("cogito.grid_set_gap expects grid");
   CogitoNode* g = (CogitoNode*)gridv.as.p;
-  g->grid_gap_x = (int)ergo_as_int(xv);
-  g->grid_gap_y = (int)ergo_as_int(yv);
+  g->grid.gap_x = (int)ergo_as_int(xv);
+  g->grid.gap_y = (int)ergo_as_int(yv);
   cogito_window_relayout(cogito_node_window(g));
 }
 static void cogito_grid_set_span(ErgoVal childv, ErgoVal colsv, ErgoVal rowsv) {

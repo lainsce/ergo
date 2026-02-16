@@ -6,7 +6,7 @@ case COGITO_PROGRESS: {
       CogitoColor track = s.has_bg ? s.bg : (n->bg_set ? n->bg : (s.has_track ? s.track : n->bg));
       CogitoColor fill = s.has_selection ? s.selection : (s.has_text ? s.text : (s.has_knob ? s.knob : n->text_color));
       int radius = s.has_radius ? s.radius : n->border_radius;
-      double t = n->progress_value;
+      double t = n->progress.value;
       if (t < 0.0) t = 0.0;
       if (t > 1.0) t = 1.0;
       cogito_draw_rect(n->x, n->y, n->w, n->h, track, radius);

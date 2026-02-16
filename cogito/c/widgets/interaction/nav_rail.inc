@@ -1,10 +1,10 @@
 static CogitoNode* cogito_nav_rail_new_obj(void) {
   CogitoNode* n = cogito_node_new(COGITO_NAV_RAIL);
-  n->nav_rail_labels = NULL;
-  n->nav_rail_icons = NULL;
-  n->nav_rail_len = 0;
-  n->nav_rail_cap = 0;
-  n->nav_rail_selected = 0;
+  n->nav_rail.labels = NULL;
+  n->nav_rail.icons = NULL;
+  n->nav_rail.len = 0;
+  n->nav_rail.cap = 0;
+  n->nav_rail.selected = 0;
   return n;
 }
 
@@ -18,13 +18,13 @@ static void cogito_nav_rail_set_items(ErgoVal railv, ErgoVal labelsv, ErgoVal ic
   CogitoNode* n = (CogitoNode*)railv.as.p;
 
   // Clear existing items
-  if (n->nav_rail_labels) {
-    for (size_t i = 0; i < n->nav_rail_len; i++) {
-      if (n->nav_rail_labels[i]) ergo_release_val(EV_STR(n->nav_rail_labels[i]));
-      if (n->nav_rail_icons && n->nav_rail_icons[i]) ergo_release_val(EV_STR(n->nav_rail_icons[i]));
+  if (n->nav_rail.labels) {
+    for (size_t i = 0; i < n->nav_rail.len; i++) {
+      if (n->nav_rail.labels[i]) ergo_release_val(EV_STR(n->nav_rail.labels[i]));
+      if (n->nav_rail.icons && n->nav_rail.icons[i]) ergo_release_val(EV_STR(n->nav_rail.icons[i]));
     }
-    free(n->nav_rail_labels);
-    free(n->nav_rail_icons);
+    free(n->nav_rail.labels);
+    free(n->nav_rail.icons);
   }
 
   // Parse labels array
@@ -32,15 +32,15 @@ static void cogito_nav_rail_set_items(ErgoVal railv, ErgoVal labelsv, ErgoVal ic
   ErgoArr* labels = (ErgoArr*)labelsv.as.p;
   size_t count = labels->len;
 
-  n->nav_rail_len = count;
-  n->nav_rail_cap = count;
-  n->nav_rail_labels = (ErgoStr**)calloc(count, sizeof(ErgoStr*));
-  n->nav_rail_icons = (ErgoStr**)calloc(count, sizeof(ErgoStr*));
+  n->nav_rail.len = count;
+  n->nav_rail.cap = count;
+  n->nav_rail.labels = (ErgoStr**)calloc(count, sizeof(ErgoStr*));
+  n->nav_rail.icons = (ErgoStr**)calloc(count, sizeof(ErgoStr*));
 
   for (size_t i = 0; i < count; i++) {
     ErgoVal lv = labels->items[i];
     ErgoStr* ls = stdr_to_string(lv);
-    n->nav_rail_labels[i] = ls;
+    n->nav_rail.labels[i] = ls;
     ergo_retain_val(EV_STR(ls));
   }
 
@@ -51,7 +51,7 @@ static void cogito_nav_rail_set_items(ErgoVal railv, ErgoVal labelsv, ErgoVal ic
     for (size_t i = 0; i < icon_count; i++) {
       ErgoVal iv = icons->items[i];
       ErgoStr* is = stdr_to_string(iv);
-      n->nav_rail_icons[i] = is;
+      n->nav_rail.icons[i] = is;
       ergo_retain_val(EV_STR(is));
     }
   }
@@ -62,15 +62,15 @@ static void cogito_nav_rail_set_items(ErgoVal railv, ErgoVal labelsv, ErgoVal ic
 static ErgoVal cogito_nav_rail_get_selected(ErgoVal railv) {
   if (railv.tag != EVT_OBJ) ergo_trap("cogito.nav_rail_get_selected expects nav_rail");
   CogitoNode* n = (CogitoNode*)railv.as.p;
-  return EV_INT(n->nav_rail_selected);
+  return EV_INT(n->nav_rail.selected);
 }
 
 static void cogito_nav_rail_set_selected(ErgoVal railv, ErgoVal idxv) {
   if (railv.tag != EVT_OBJ) ergo_trap("cogito.nav_rail_set_selected expects nav_rail");
   CogitoNode* n = (CogitoNode*)railv.as.p;
   int idx = (int)ergo_as_int(idxv);
-  if (idx >= 0 && idx < (int)n->nav_rail_len) {
-    n->nav_rail_selected = idx;
+  if (idx >= 0 && idx < (int)n->nav_rail.len) {
+    n->nav_rail.selected = idx;
   }
 }
 
@@ -100,7 +100,7 @@ static int cogito_nav_rail_hit_index(CogitoNode* n, int x, int y) {
     break;
   }
 
-  for (size_t i = 0; i < n->nav_rail_len; i++) {
+  for (size_t i = 0; i < n->nav_rail.len; i++) {
     if (y >= item_y && y < item_y + item_h) {
       return (int)i;
     }
@@ -126,6 +126,6 @@ static inline CogitoNode* cogito_find_nav_rail_hit(CogitoNode* n, int x, int y, 
 }
 
 static void cogito_handle_nav_rail_select(CogitoNode* rail, int idx) {
-  rail->nav_rail_selected = idx;
+  rail->nav_rail.selected = idx;
   cogito_invoke_select(rail, idx, false);
 }

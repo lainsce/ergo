@@ -23,10 +23,7 @@ static void cogito_layout_view_switcher(CogitoNode* n, int x, int y) {
   int col = align % 3;
   for (size_t i = 0; i < n->len; i++) {
     CogitoNode* c = n->children[i];
-    if (c != active) {
-      cogito_layout_node(c, inner_x, inner_y, 0, 0);
-      continue;
-    }
+    if (c != active) continue;
     int cw = 0;
     int ch = 0;
     int ox = 0;

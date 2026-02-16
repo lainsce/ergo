@@ -1,5 +1,5 @@
 case COGITO_FAB: {
-  if (n->fab_extended) {
+  if (n->fab.extended) {
     // Extended FAB: icon + label + padding
     int size = cogito_node_font_size(n);
     int label_w = n->subtitle ? cogito_text_width_size_node(n, n->subtitle->data, size) : 0;

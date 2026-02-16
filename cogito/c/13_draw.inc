@@ -509,6 +509,34 @@ case COGITO_TOASTS:
 
     #include "widgets/draw/timepicker.inc"
 
+    #include "widgets/draw/active_indicator.inc"
+
+    #include "widgets/draw/switchbar.inc"
+
+    #include "widgets/draw/content_list.inc"
+
+    #include "widgets/draw/empty_page.inc"
+
+    #include "widgets/draw/tip_view.inc"
+
+    #include "widgets/draw/settings_window.inc"
+
+    #include "widgets/draw/settings_page.inc"
+
+    #include "widgets/draw/settings_list.inc"
+
+    #include "widgets/draw/settings_row.inc"
+
+    #include "widgets/draw/welcome_screen.inc"
+
+    #include "widgets/draw/view_dual.inc"
+
+    #include "widgets/draw/view_chooser.inc"
+
+    #include "widgets/draw/about_window.inc"
+
+    #include "widgets/draw/split_button.inc"
+
     case COGITO_KIND_COUNT:
       break;
   

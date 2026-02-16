@@ -15,17 +15,17 @@ case COGITO_AVATAR: {
   // Draw image if loaded, otherwise initials
   if (n->icon && n->icon->data && n->icon->data[0]) {
     // Try to load and draw image
-    if (!n->image_loaded) {
+    if (!n->image.loaded) {
       CogitoTexture* tex = NULL;
-      if (cogito_image_load_file_texture(n->icon->data, &tex, &n->image_w, &n->image_h, &n->image_avg_lum)) {
-        n->image_texture = tex;
+      if (cogito_image_load_file_texture(n->icon->data, &tex, &n->image.w, &n->image.h, &n->image.avg_lum)) {
+        n->image.texture = tex;
       }
-      n->image_loaded = true;
+      n->image.loaded = true;
     }
-    if (n->image_texture) {
+    if (n->image.texture) {
       // Draw image clipped to circle (cover mode)
-      int iw = n->image_w;
-      int ih = n->image_h;
+      int iw = n->image.w;
+      int ih = n->image.h;
       float scale_w = (float)n->w / (float)iw;
       float scale_h = (float)n->h / (float)ih;
       float scale = scale_w > scale_h ? scale_w : scale_h;
@@ -37,7 +37,7 @@ case COGITO_AVATAR: {
         CogitoRect src_rect = {src_x, src_y, src_w, src_h};
         CogitoRect dst_rect = {n->x, n->y, n->w, n->h};
         CogitoColor white = {255, 255, 255, 255};
-        cogito_backend->draw_texture(n->image_texture, src_rect, dst_rect, white);
+        cogito_backend->draw_texture(n->image.texture, src_rect, dst_rect, white);
       }
       // Draw circle border on top to clip visual
       CogitoColor border_color = s.has_border ? s.border : n->border_color;

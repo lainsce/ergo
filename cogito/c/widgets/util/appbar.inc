@@ -23,7 +23,7 @@ static int cogito_appbar_ctrl_index(char c) {
 static void cogito_appbar_controls_positions(CogitoNode* n, int x, int w, int btn_size, int gap, int pad, bool allow_max, int* out_close, int* out_min, int* out_max) {
   int pos[3] = {-1, -1, -1};
   bool seen[3] = {false, false, false};
-  const char* s = n->appbar_controls[0] ? n->appbar_controls : "CIM|";
+  const char* s = n->appbar.controls[0] ? n->appbar.controls : "CIM|";
   const char* split = strchr(s, '|');
   size_t left_len = split ? (size_t)(split - s) : strlen(s);
   const char* right = split ? split + 1 : "";
@@ -96,12 +96,12 @@ static bool cogito_is_first_appbar(CogitoNode* win, CogitoNode* appbar) {
 
 static bool cogito_point_over_appbar_buttons(CogitoNode* app, int x, int y) {
   if (!app) return false;
-  if (app->appbar_btn_close_x >= 0 &&
-      cogito_hit_rect(x, y, app->appbar_btn_close_x, app->appbar_btn_y, app->appbar_btn_size, app->appbar_btn_size)) return true;
-  if (app->appbar_btn_min_x >= 0 &&
-      cogito_hit_rect(x, y, app->appbar_btn_min_x, app->appbar_btn_y, app->appbar_btn_size, app->appbar_btn_size)) return true;
-  if (app->appbar_btn_max_x >= 0 &&
-      cogito_hit_rect(x, y, app->appbar_btn_max_x, app->appbar_btn_y, app->appbar_btn_size, app->appbar_btn_size)) return true;
+  if (app->appbar.btn_close_x >= 0 &&
+      cogito_hit_rect(x, y, app->appbar.btn_close_x, app->appbar.btn_y, app->appbar.btn_size, app->appbar.btn_size)) return true;
+  if (app->appbar.btn_min_x >= 0 &&
+      cogito_hit_rect(x, y, app->appbar.btn_min_x, app->appbar.btn_y, app->appbar.btn_size, app->appbar.btn_size)) return true;
+  if (app->appbar.btn_max_x >= 0 &&
+      cogito_hit_rect(x, y, app->appbar.btn_max_x, app->appbar.btn_y, app->appbar.btn_size, app->appbar.btn_size)) return true;
   for (size_t i = 0; i < app->len; i++) {
     CogitoNode* c = app->children[i];
     if (cogito_hit_rect(x, y, c->x, c->y, c->w, c->h)) return true;

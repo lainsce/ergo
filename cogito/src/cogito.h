@@ -73,6 +73,27 @@ typedef enum {
   COGITO_NODE_FAB,
   COGITO_NODE_NAV_RAIL,
   COGITO_NODE_BOTTOM_NAV,
+  COGITO_NODE_DIVIDER,
+  COGITO_NODE_CARD,
+  COGITO_NODE_AVATAR,
+  COGITO_NODE_BADGE,
+  COGITO_NODE_BANNER,
+  COGITO_NODE_BOTTOM_SHEET,
+  COGITO_NODE_TIMEPICKER,
+  COGITO_NODE_ACTIVE_INDICATOR,
+  COGITO_NODE_SWITCHBAR,
+  COGITO_NODE_CONTENT_LIST,
+  COGITO_NODE_EMPTY_PAGE,
+  COGITO_NODE_TIP_VIEW,
+  COGITO_NODE_SETTINGS_WINDOW,
+  COGITO_NODE_SETTINGS_PAGE,
+  COGITO_NODE_SETTINGS_LIST,
+  COGITO_NODE_SETTINGS_ROW,
+  COGITO_NODE_WELCOME_SCREEN,
+  COGITO_NODE_VIEW_DUAL,
+  COGITO_NODE_VIEW_CHOOSER,
+  COGITO_NODE_ABOUT_WINDOW,
+  COGITO_NODE_SPLIT_BUTTON,
 } cogito_node_kind;
 
 // App / window lifecycle
@@ -157,6 +178,40 @@ cogito_node* cogito_appbar_new(const char* title, const char* subtitle);
 void cogito_appbar_set_title(cogito_node* appbar, const char* title);
 void cogito_appbar_set_subtitle(cogito_node* appbar, const char* subtitle);
 cogito_node* cogito_image_new(const char* icon);
+
+// New widgets
+cogito_node* cogito_active_indicator_new(void);
+cogito_node* cogito_switchbar_new(const char* text);
+bool cogito_switchbar_get_checked(cogito_node* sb);
+void cogito_switchbar_set_checked(cogito_node* sb, bool checked);
+void cogito_switchbar_on_change(cogito_node* sb, cogito_node_fn fn, void* user);
+cogito_node* cogito_content_list_new(void);
+cogito_node* cogito_empty_page_new(const char* title);
+void cogito_empty_page_set_description(cogito_node* ep, const char* desc);
+void cogito_empty_page_set_icon(cogito_node* ep, const char* icon);
+void cogito_empty_page_set_action(cogito_node* ep, const char* text, cogito_node_fn fn, void* user);
+cogito_node* cogito_tip_view_new(const char* text);
+void cogito_tip_view_set_title(cogito_node* tv, const char* title);
+cogito_node* cogito_settings_window_new(const char* title);
+cogito_node* cogito_settings_page_new(const char* title);
+cogito_node* cogito_settings_list_new(const char* title);
+cogito_node* cogito_settings_row_new(const char* label);
+cogito_node* cogito_welcome_screen_new(const char* title);
+void cogito_welcome_screen_set_description(cogito_node* ws, const char* desc);
+void cogito_welcome_screen_set_icon(cogito_node* ws, const char* icon);
+void cogito_welcome_screen_set_action(cogito_node* ws, const char* text, cogito_node_fn fn, void* user);
+cogito_node* cogito_view_dual_new(void);
+void cogito_view_dual_set_ratio(cogito_node* vd, double ratio);
+cogito_node* cogito_view_chooser_new(void);
+void cogito_view_chooser_set_items(cogito_node* vc, const char** items, size_t count);
+void cogito_view_chooser_bind(cogito_node* vc, cogito_node* view_switcher);
+cogito_node* cogito_about_window_new(const char* app_name, const char* version);
+void cogito_about_window_set_icon(cogito_node* aw, const char* icon);
+void cogito_about_window_set_description(cogito_node* aw, const char* desc);
+void cogito_about_window_set_website(cogito_node* aw, const char* url);
+cogito_node* cogito_menu_button_new(const char* icon);
+cogito_node* cogito_split_button_new(const char* text);
+void cogito_split_button_add_menu(cogito_node* sb, const char* label, cogito_node_fn fn, void* user);
 
 // Tree / layout
 void cogito_node_add(cogito_node* parent, cogito_node* child);

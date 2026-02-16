@@ -60,9 +60,9 @@ case COGITO_SEARCHFIELD: {
   cogito_draw_icon_fallback(n, "magnifyingglass", icon_x, icon_y, icon_size, icon_color);
 
   // Draw selection highlight
-  if (focused && n->sel_start != n->sel_end) {
-    int a = n->sel_start;
-    int b = n->sel_end;
+  if (focused && n->text_input.sel_start != n->text_input.sel_end) {
+    int a = n->text_input.sel_start;
+    int b = n->text_input.sel_end;
     if (a > b) { int tmp = a; a = b; b = tmp; }
     int sx = cogito_text_width_size_n_node(n, txt, a, size);
     int ex = cogito_text_width_size_n_node(n, txt, b, size);
@@ -81,7 +81,7 @@ case COGITO_SEARCHFIELD: {
 
   // Draw caret when focused
   if (focused) {
-    int caret = n->caret;
+    int caret = n->text_input.caret;
     if (caret < 0) caret = 0;
     int tw = cogito_text_width_size_n_node(n, txt, caret, size);
     int cx = text_x + tw;

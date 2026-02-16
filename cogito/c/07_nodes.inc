@@ -50,9 +50,10 @@ static void cogito_node_drop(ErgoObj* o) {
     ergo_release_val(EV_STR(n->icon));
     n->icon = NULL;
   }
-  if (n->image_texture && cogito_backend && cogito_backend->texture_destroy) {
-    cogito_backend->texture_destroy(n->image_texture);
-    n->image_texture = NULL;
+  if ((n->kind == COGITO_IMAGE || n->kind == COGITO_AVATAR) &&
+      n->image.texture && cogito_backend && cogito_backend->texture_destroy) {
+    cogito_backend->texture_destroy(n->image.texture);
+    n->image.texture = NULL;
   }
   if (n->on_click) {
     ergo_release_val(EV_FN(n->on_click));
@@ -122,29 +123,21 @@ static void cogito_node_drop(ErgoObj* o) {
     n->tab_len = 0;
     n->tab_cap = 0;
   }
-  if (n->nav_rail_labels) {
-    for (size_t i = 0; i < n->nav_rail_len; i++) {
-      if (n->nav_rail_labels[i]) ergo_release_val(EV_STR(n->nav_rail_labels[i]));
-      if (n->nav_rail_icons && n->nav_rail_icons[i]) ergo_release_val(EV_STR(n->nav_rail_icons[i]));
+  if (n->kind == COGITO_NAV_RAIL && n->nav_rail.labels) {
+    for (size_t i = 0; i < n->nav_rail.len; i++) {
+      if (n->nav_rail.labels[i]) ergo_release_val(EV_STR(n->nav_rail.labels[i]));
+      if (n->nav_rail.icons && n->nav_rail.icons[i]) ergo_release_val(EV_STR(n->nav_rail.icons[i]));
     }
-    free(n->nav_rail_labels);
-    free(n->nav_rail_icons);
-    n->nav_rail_labels = NULL;
-    n->nav_rail_icons = NULL;
-    n->nav_rail_len = 0;
-    n->nav_rail_cap = 0;
+    free(n->nav_rail.labels);
+    free(n->nav_rail.icons);
   }
-  if (n->bottom_nav_labels) {
-    for (size_t i = 0; i < n->bottom_nav_len; i++) {
-      if (n->bottom_nav_labels[i]) ergo_release_val(EV_STR(n->bottom_nav_labels[i]));
-      if (n->bottom_nav_icons && n->bottom_nav_icons[i]) ergo_release_val(EV_STR(n->bottom_nav_icons[i]));
+  if (n->kind == COGITO_BOTTOM_NAV && n->bottom_nav.labels) {
+    for (size_t i = 0; i < n->bottom_nav.len; i++) {
+      if (n->bottom_nav.labels[i]) ergo_release_val(EV_STR(n->bottom_nav.labels[i]));
+      if (n->bottom_nav.icons && n->bottom_nav.icons[i]) ergo_release_val(EV_STR(n->bottom_nav.icons[i]));
     }
-    free(n->bottom_nav_labels);
-    free(n->bottom_nav_icons);
-    n->bottom_nav_labels = NULL;
-    n->bottom_nav_icons = NULL;
-    n->bottom_nav_len = 0;
-    n->bottom_nav_cap = 0;
+    free(n->bottom_nav.labels);
+    free(n->bottom_nav.icons);
   }
   if (n->view_id) {
     ergo_release_val(EV_STR(n->view_id));
@@ -183,202 +176,17 @@ static void cogito_node_drop(ErgoObj* o) {
 
 static CogitoNode* cogito_node_new(CogitoKind kind) {
   CogitoNode* n = (CogitoNode*)ergo_obj_new(sizeof(CogitoNode), cogito_node_drop);
+  // Zero everything after the ErgoObj base (which ergo_obj_new already set up)
+  memset((char*)n + sizeof(ErgoObj), 0, sizeof(CogitoNode) - sizeof(ErgoObj));
   n->kind = kind;
-  n->parent = NULL;
-  n->children = NULL;
-  n->len = 0;
-  n->cap = 0;
-  n->text = NULL;
-  n->subtitle = NULL;
-  n->icon = NULL;
-  n->tooltip = NULL;
-  n->on_click = NULL;
-  n->on_change = NULL;
-  n->on_select = NULL;
-  n->on_activate = NULL;
-  n->on_action = NULL;
-  n->builder = NULL;
-  n->group = EV_NULLV;
-  n->action_text = NULL;
-  n->checked = false;
-  n->x = 0;
-  n->y = 0;
-  n->w = 0;
-  n->h = 0;
-  n->grid_cols = 1;
-  n->grid_gap_x = 6;
-  n->grid_gap_y = 6;
-  n->grid_align_x = -1;
-  n->grid_align_y = -1;
+  // Non-zero common defaults
+  n->selected = -1;
+  n->resizable = true;
+  n->editable = true;
   n->grid_span_x = 1;
   n->grid_span_y = 1;
-  n->fixed_x = 0;
-  n->fixed_y = 0;
-  n->scroll_x = 0;
-  n->scroll_y = 0;
-  n->scroll_content_w = 0;
-  n->scroll_content_h = 0;
-  n->scroll_horz = false;
-  n->scroll_vert = true;
-  n->selected = -1;
-  n->tree_collapsed = false;
-  n->divider_vertical = false;
-  n->divider_inset = false;
-  n->should_close = false;
-  n->menu_labels = NULL;
-  n->menu_handlers = NULL;
-  n->menu_len = 0;
-  n->menu_cap = 0;
-  n->tab_labels = NULL;
-  n->tab_ids = NULL;
-  n->tab_len = 0;
-  n->tab_cap = 0;
-  n->nav_rail_labels = NULL;
-  n->nav_rail_icons = NULL;
-  n->nav_rail_len = 0;
-  n->nav_rail_cap = 0;
-  n->nav_rail_selected = 0;
-  n->bottom_nav_labels = NULL;
-  n->bottom_nav_icons = NULL;
-  n->bottom_nav_len = 0;
-  n->bottom_nav_cap = 0;
-  n->bottom_nav_selected = 0;
-  n->appbar_btn_close_x = 0;
-  n->appbar_btn_min_x = 0;
-  n->appbar_btn_max_x = 0;
-  n->appbar_btn_y = 0;
-  n->appbar_btn_size = 0;
-  n->appbar_title_y = 0;
-  n->appbar_subtitle_y = 0;
-  n->appbar_controls[0] = 0;
-  n->dialog = NULL;
-  n->view_switcher = NULL;
-  n->dialog_open = false;
-  n->popover = NULL;
-  n->popover_anchor = NULL;
-  n->popover_open = false;
-  n->class_name = NULL;
-  n->resizable = true;
-  n->fixed_pos_set = false;
-  n->text_wrap = false;
-  n->text_ellipsis = false;
-  n->text_align = 0;
-  n->disabled = false;
-  n->editable = true;
-  n->view_id = NULL;
-  n->view_active_id = NULL;
-  n->view_builder_ids = NULL;
-  n->view_builders = NULL;
-  n->view_builder_len = 0;
-  n->view_builder_cap = 0;
-  n->slider_min = 0.0;
-  n->slider_max = 1.0;
-  n->slider_value = 0.0;
-  n->slider_dragging = false;
-  n->stepper_min = 0.0;
-  n->stepper_max = 100.0;
-  n->stepper_value = 0.0;
-  n->stepper_step = 1.0;
-  n->date_year = 0;
-  n->date_month = 0;
-  n->date_day = 0;
-  n->color_h = 0.0;
-  n->color_c = 0.0;
-  n->color_t = 0.0;
-  n->color_hex_editing = false;
-  n->caret = 0;
-  n->sel_start = 0;
-  n->sel_end = 0;
-  n->selecting = false;
-  n->font_mono = false;
-  n->font_tabular = false;
-  n->letter_spacing_set = false;
-  n->letter_spacing = 0.0f;
-  n->a11y_label = NULL;
-  n->a11y_role = NULL;
-  n->anim_inited = false;
-  n->anim_start = 0.0;
-  n->anim_ms = 0;
-  n->anim_ease = 0;
-  n->anim_bg = cogito_rgba(0, 0, 0, 0);
-  n->anim_bg_from = n->anim_bg;
-  n->anim_bg_target = n->anim_bg;
-  n->anim_bg_start = 0.0;
-  n->anim_text = cogito_rgba(0, 0, 0, 0);
-  n->anim_text_from = n->anim_text;
-  n->anim_text_target = n->anim_text;
-  n->anim_text_start = 0.0;
-  n->anim_border = cogito_rgba(0, 0, 0, 0);
-  n->anim_border_from = n->anim_border;
-  n->anim_border_target = n->anim_border;
-  n->anim_border_start = 0.0;
-  n->anim_selection = cogito_rgba(0, 0, 0, 0);
-  n->anim_selection_from = n->anim_selection;
-  n->anim_selection_target = n->anim_selection;
-  n->anim_selection_start = 0.0;
-  n->anim_x = 0;
-  n->anim_x_from = 0;
-  n->anim_x_target = 0;
-  n->anim_x_start = 0.0;
-  n->anim_y = 0;
-  n->anim_y_from = 0;
-  n->anim_y_target = 0;
-  n->anim_y_start = 0.0;
-  n->anim_w = 0;
-  n->anim_w_from = 0;
-  n->anim_w_target = 0;
-  n->anim_w_start = 0.0;
-  n->anim_h = 0;
-  n->anim_h_from = 0;
-  n->anim_h_target = 0;
-  n->anim_h_start = 0.0;
-  n->anim_layout_active = false;
-  n->active_latch_until = 0.0;
-  n->opacity = 1.0f;
-  n->opacity_from = 1.0f;
-  n->opacity_target = 1.0f;
-  n->opacity_start = 0.0;
-  n->has_opacity = false;
-  n->opacity_set = false;
-  n->progress_value = 0.0;
-  n->stepper_hit_minus = false;
-  n->stepper_hit_plus = false;
-  n->margin_left = 0;
-  n->margin_top = 0;
-  n->margin_right = 0;
-  n->margin_bottom = 0;
-  n->padding_left = 0;
-  n->padding_top = 0;
-  n->padding_right = 0;
-  n->padding_bottom = 0;
-  n->align = 0;
-  n->hexpand = false;
-  n->vexpand = false;
-  // Layout widgets default to 0 gap, content widgets default to 8 for natural spacing
-  bool is_layout = (kind == COGITO_VSTACK || kind == COGITO_HSTACK || kind == COGITO_ZSTACK ||
-                    kind == COGITO_FIXED || kind == COGITO_SCROLLER || kind == COGITO_LIST);
-  n->gap = is_layout ? 0 : 8;
-  n->auto_size = false;
-  n->margin_set = false;
-  n->padding_set = false;
-  n->bg_set = false;
-  n->text_color_set = false;
-  n->border_color_set = false;
-  n->border_width_set = false;
-  n->radius_set = false;
-  n->selection_set = false;
-  n->track_set = false;
-  n->track_on_set = false;
-  n->knob_set = false;
-  n->check_set = false;
-  n->font_weight_set = false;
-  n->letter_spacing_set = false;
-  n->min_w_set = false;
-  n->min_h_set = false;
-  n->max_w_set = false;
-  n->max_h_set = false;
-  n->shadow_set = false;
-  n->bg = cogito_rgba(0, 0, 0, 0);
+  n->grid_align_x = -1;
+  n->grid_align_y = -1;
   n->text_color = cogito_rgba(30, 30, 30, 255);
   n->border_color = cogito_rgba(25, 25, 25, 255);
   n->selection_color = cogito_rgba(208, 220, 245, 255);
@@ -386,62 +194,24 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->track_on_color = cogito_rgba(90, 160, 110, 255);
   n->knob_color = cogito_rgba(250, 250, 250, 255);
   n->check_color = cogito_rgba(30, 30, 30, 255);
-  n->border_width = 0;
-  n->border_radius = 0;
-  n->label_class = COGITO_LABEL_CLASS_NONE;
-  n->font_size = 0;
-  n->font_size_set = false;
   n->font_weight = 400;
-  n->letter_spacing = 0.0f;
-  n->min_w = 0;
-  n->min_h = 0;
-  n->max_w = 0;
-  n->max_h = 0;
-  n->shadow_level = 0;
-  n->image_texture = NULL;
-  n->image_w = 0;
-  n->image_h = 0;
-  n->image_loaded = false;
-  n->image_avg_lum = 0.5f;
-  n->carousel_dragging = false;
-  n->carousel_scroll_x = 0;
-  n->carousel_drag_start_x = 0;
-  n->carousel_drag_start_scroll = 0;
-  n->carousel_active_index = 0;
-  n->carousel_item_count = 0;
-  n->carousel_velocity = 0.0f;
-  n->carousel_scroll_xf = 0.0;
-  n->carousel_anim_start = 0.0;
-  n->carousel_anim_from = 0.0;
-  n->carousel_anim_to = 0.0;
-  n->carousel_animating = false;
-  n->carousel_drag_last_time = 0.0;
-  n->carousel_drag_last_xf = 0.0;
-  n->border_style = COGITO_BORDER_NONE;
-  n->border_style_set = false;
-  n->radius_tl = 0;
-  n->radius_tr = 0;
-  n->radius_br = 0;
-  n->radius_bl = 0;
-  n->radius_tl_set = false;
-  n->radius_tr_set = false;
-  n->radius_br_set = false;
-  n->radius_bl_set = false;
-  n->font_family[0] = 0;
-  n->font_family_set = false;
-  n->box_shadow = (CogitoBoxShadow){0};
-  n->box_shadow_set = false;
-  n->track_height = 0;
-  n->track_height_set = false;
-  n->button_outlined = false;
-  n->button_text = false;
-  n->chip_selected = false;
-  n->chip_has_close = false;
-  n->fab_extended = false;
-  n->action_button_x = 0;
-  n->action_button_y = 0;
-  n->action_button_w = 0;
-  n->action_button_h = 0;
+  n->opacity = 1.0f;
+  n->opacity_from = 1.0f;
+  n->opacity_target = 1.0f;
+  // Layout widgets default to 0 gap, content widgets default to 8 for natural spacing
+  bool is_layout = (kind == COGITO_VSTACK || kind == COGITO_HSTACK || kind == COGITO_ZSTACK ||
+                    kind == COGITO_FIXED || kind == COGITO_SCROLLER || kind == COGITO_LIST);
+  n->gap = is_layout ? 0 : 8;
+  // Kind-specific non-zero defaults
+  switch (kind) {
+    case COGITO_SCROLLER: n->scroller.vert = true; break;
+    case COGITO_SLIDER: n->slider.max = 1.0; break;
+    case COGITO_STEPPER: n->stepper.max = 100.0; n->stepper.step = 1.0; break;
+    case COGITO_GRID: n->grid.cols = 1; n->grid.gap_x = 6; n->grid.gap_y = 6; break;
+    case COGITO_IMAGE: case COGITO_AVATAR: n->image.avg_lum = 0.5f; break;
+    case COGITO_VIEW_DUAL: n->view_dual.ratio = 0.5f; break;
+    default: break;
+  }
   cogito_apply_style_to_node(n);
   return n;
 }
@@ -452,9 +222,9 @@ static void cogito_node_set_text(CogitoNode* n, ErgoStr* s) {
   if (n->text) ergo_release_val(EV_STR(n->text));
   n->text = s;
   int len = n->text ? (int)n->text->len : 0;
-  if (n->caret > len) n->caret = len;
-  if (n->sel_start > len) n->sel_start = len;
-  if (n->sel_end > len) n->sel_end = len;
+  if (n->text_input.caret > len) n->text_input.caret = len;
+  if (n->text_input.sel_start > len) n->text_input.sel_start = len;
+  if (n->text_input.sel_end > len) n->text_input.sel_end = len;
 }
 
 static void cogito_node_set_subtitle(CogitoNode* n, ErgoStr* s) {
@@ -584,6 +354,34 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
     #include "widgets/intrinsic/bottom_sheet.inc"
 
     #include "widgets/intrinsic/timepicker.inc"
+
+    #include "widgets/intrinsic/active_indicator.inc"
+
+    #include "widgets/intrinsic/switchbar.inc"
+
+    #include "widgets/intrinsic/content_list.inc"
+
+    #include "widgets/intrinsic/empty_page.inc"
+
+    #include "widgets/intrinsic/tip_view.inc"
+
+    #include "widgets/intrinsic/settings_window.inc"
+
+    #include "widgets/intrinsic/settings_page.inc"
+
+    #include "widgets/intrinsic/settings_list.inc"
+
+    #include "widgets/intrinsic/settings_row.inc"
+
+    #include "widgets/intrinsic/welcome_screen.inc"
+
+    #include "widgets/intrinsic/view_dual.inc"
+
+    #include "widgets/intrinsic/view_chooser.inc"
+
+    #include "widgets/intrinsic/about_window.inc"
+
+    #include "widgets/intrinsic/split_button.inc"
 
     #include "widgets/intrinsic/treeview.inc"
 

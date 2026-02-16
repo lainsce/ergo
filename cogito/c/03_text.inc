@@ -502,13 +502,13 @@ static void cogito_text_delete_range(CogitoNode* n, size_t start, size_t end) {
 
 static void cogito_text_append_codepoint(CogitoNode* n, int cp) {
   if (!n || cp <= 0) return;
-  if (n->sel_start != n->sel_end) {
-    size_t start = (size_t)n->sel_start;
-    size_t end = (size_t)n->sel_end;
+  if (n->text_input.sel_start != n->text_input.sel_end) {
+    size_t start = (size_t)n->text_input.sel_start;
+    size_t end = (size_t)n->text_input.sel_end;
     cogito_text_delete_range(n, start, end);
-    n->caret = (int)((start < end) ? start : end);
-    n->sel_start = n->caret;
-    n->sel_end = n->caret;
+    n->text_input.caret = (int)((start < end) ? start : end);
+    n->text_input.sel_start = n->text_input.caret;
+    n->text_input.sel_end = n->text_input.caret;
   }
   char utf8[5] = {0, 0, 0, 0, 0};
   int ulen = 0;
@@ -532,7 +532,7 @@ static void cogito_text_append_codepoint(CogitoNode* n, int cp) {
     ulen = 4;
   }
   size_t base_len = n->text ? n->text->len : 0;
-  size_t insert_at = (size_t)n->caret;
+  size_t insert_at = (size_t)n->text_input.caret;
   if (insert_at > base_len) insert_at = base_len;
   size_t out_len = base_len + (size_t)ulen;
   char* buf = (char*)malloc(out_len + 1);
@@ -543,34 +543,34 @@ static void cogito_text_append_codepoint(CogitoNode* n, int cp) {
   buf[out_len] = '\0';
   cogito_text_set_from_buf(n, buf, out_len);
   free(buf);
-  n->caret = (int)(insert_at + (size_t)ulen);
-  n->sel_start = n->caret;
-  n->sel_end = n->caret;
+  n->text_input.caret = (int)(insert_at + (size_t)ulen);
+  n->text_input.sel_start = n->text_input.caret;
+  n->text_input.sel_end = n->text_input.caret;
 }
 
 static void cogito_text_backspace(CogitoNode* n) {
   if (!n || !n->text || n->text->len == 0) return;
-  if (n->sel_start != n->sel_end) {
-    size_t start = (size_t)n->sel_start;
-    size_t end = (size_t)n->sel_end;
+  if (n->text_input.sel_start != n->text_input.sel_end) {
+    size_t start = (size_t)n->text_input.sel_start;
+    size_t end = (size_t)n->text_input.sel_end;
     cogito_text_delete_range(n, start, end);
-    n->caret = (int)((start < end) ? start : end);
-    n->sel_start = n->caret;
-    n->sel_end = n->caret;
+    n->text_input.caret = (int)((start < end) ? start : end);
+    n->text_input.sel_start = n->text_input.caret;
+    n->text_input.sel_end = n->text_input.caret;
     return;
   }
-  size_t i = (size_t)n->caret;
+  size_t i = (size_t)n->text_input.caret;
   if (i == 0) return;
   i--;
   while (i > 0 && ((unsigned char)n->text->data[i] & 0xC0) == 0x80) {
     i--;
   }
   size_t start = i;
-  size_t end = (size_t)n->caret;
+  size_t end = (size_t)n->text_input.caret;
   cogito_text_delete_range(n, start, end);
-  n->caret = (int)start;
-  n->sel_start = n->caret;
-  n->sel_end = n->caret;
+  n->text_input.caret = (int)start;
+  n->text_input.sel_start = n->text_input.caret;
+  n->text_input.sel_end = n->text_input.caret;
 }
 
 static int cogito_text_index_from_x(const CogitoNode* n, const char* text, int size, int target_x) {

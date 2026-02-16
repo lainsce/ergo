@@ -50,9 +50,9 @@ case COGITO_TIMEPICKER: {
   hour_bg.a = 40;
   cogito_draw_rect(hour_x, display_y, col_w, box_h, hour_bg, box_r);
   {
-    int display_hour = n->time_hour;
-    if (n->time_ampm) {
-      display_hour = n->time_hour % 12;
+    int display_hour = n->timepicker.hour;
+    if (n->timepicker.ampm) {
+      display_hour = n->timepicker.hour % 12;
       if (display_hour == 0) display_hour = 12;
     }
     char hbuf[8];
@@ -78,7 +78,7 @@ case COGITO_TIMEPICKER: {
   cogito_draw_rect(min_x, display_y, col_w, box_h, min_bg, box_r);
   {
     char mbuf[8];
-    snprintf(mbuf, sizeof(mbuf), "%02d", n->time_minute);
+    snprintf(mbuf, sizeof(mbuf), "%02d", n->timepicker.minute);
     int mw = cogito_text_width_size_node(n, mbuf, big_size);
     int mmx = min_x + (col_w - mw) / 2;
     int mmy = display_y + (box_h - big_th) / 2;
@@ -132,7 +132,7 @@ case COGITO_TIMEPICKER: {
 
   // AM button
   {
-    bool is_am = !n->time_ampm;
+    bool is_am = !n->timepicker.ampm;
     CogitoColor am_bg = is_am ? sel : bg;
     if (!is_am) am_bg.a = 60;
     cogito_draw_rect(ampm_x, ampm_y, ampm_w, ampm_h_box, am_bg, ampm_r);
@@ -143,7 +143,7 @@ case COGITO_TIMEPICKER: {
   }
   // PM button
   {
-    bool is_pm = n->time_ampm;
+    bool is_pm = n->timepicker.ampm;
     CogitoColor pm_bg = is_pm ? sel : bg;
     if (!is_pm) pm_bg.a = 60;
     cogito_draw_rect(ampm_x + ampm_w, ampm_y, ampm_w, ampm_h_box, pm_bg, ampm_r);

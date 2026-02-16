@@ -104,6 +104,21 @@ static void cogito_container_remove_child(CogitoNode* parent, CogitoNode* child)
 #include "widgets/interaction/banner.inc"
 #include "widgets/interaction/bottom_sheet.inc"
 #include "widgets/interaction/timepicker.inc"
+#include "widgets/interaction/active_indicator.inc"
+#include "widgets/interaction/switchbar.inc"
+#include "widgets/interaction/content_list.inc"
+#include "widgets/interaction/empty_page.inc"
+#include "widgets/interaction/tip_view.inc"
+#include "widgets/interaction/settings_window.inc"
+#include "widgets/interaction/settings_page.inc"
+#include "widgets/interaction/settings_list.inc"
+#include "widgets/interaction/settings_row.inc"
+#include "widgets/interaction/welcome_screen.inc"
+#include "widgets/interaction/view_dual.inc"
+#include "widgets/interaction/view_chooser.inc"
+#include "widgets/interaction/about_window.inc"
+#include "widgets/interaction/split_button.inc"
+#include "widgets/interaction/menu_button.inc"
 #include "widgets/interaction/fab.inc"
 #include "widgets/interaction/fixed.inc"
 #include "widgets/interaction/grid.inc"
@@ -222,7 +237,12 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
       n->kind == COGITO_STEPPER || n->kind == COGITO_SEGMENTED ||
       n->kind == COGITO_SEARCHFIELD ||
       n->kind == COGITO_NAV_RAIL || n->kind == COGITO_BOTTOM_NAV ||
-      n->kind == COGITO_TIMEPICKER || n->kind == COGITO_BANNER) {
+      n->kind == COGITO_TIMEPICKER || n->kind == COGITO_BANNER ||
+      n->kind == COGITO_SWITCHBAR || n->kind == COGITO_SPLIT_BUTTON ||
+      n->kind == COGITO_VIEW_CHOOSER || n->kind == COGITO_VIEW_DUAL ||
+      n->kind == COGITO_SETTINGS_WINDOW ||
+      n->kind == COGITO_EMPTY_PAGE || n->kind == COGITO_WELCOME_SCREEN ||
+      n->kind == COGITO_ABOUT_WINDOW) {
     if (cogito_hit_node(n, x, y)) return n;
   }
   return NULL;
