@@ -3,7 +3,7 @@ static CogitoNode* cogito_carousel_new_obj(void) {
   cr->carousel.dragging = false;
   cr->carousel.scroll_x = 0;
   cr->carousel.drag_start_x = 0;
-  cr->carousel.drag_start_scroll = 0;
+  cr->carousel.drag_start_scroll = 0.0f;
   cr->carousel.active_index = 0;
   cr->carousel.item_count = 0;
   cr->carousel.velocity = 0.0f;

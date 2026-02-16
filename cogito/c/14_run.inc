@@ -554,16 +554,41 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           int max_scroll = 0;
           CAROUSEL_MAX_SCROLL(carousel, max_scroll);
           
+          // Calculate unit width to check if leftmost item is wide enough for snapping
+          int inner_w = carousel->w - carousel->padding_left - carousel->padding_right;
+          if (inner_w < 0) inner_w = 0;
+          int gaps = ((int)carousel->len >= 3) ? 2 : ((int)carousel->len - 1);
+          if (gaps < 0) gaps = 0;
+          int avail = inner_w - (gaps * 8);
+          if (avail < 0) avail = 0;
+          int unit_w = avail / 7;
+          
+          // Only snap if leftmost (tertiary) item width >= 56px
+          bool should_snap = unit_w >= 56;
+          
           // Use wheel delta to scroll (horizontal or vertical wheel both work)
           double target_xf = carousel->carousel.scroll_xf - (double)(wheel * 80.0f);
           if (target_xf < 0.0) target_xf = 0.0;
           if (target_xf > (double)max_scroll) target_xf = (double)max_scroll;
           
-          // Snap to nearest item
           int snap_idx = 0;
-          CAROUSEL_NEAREST_INDEX(carousel, target_xf, max_scroll, snap_idx);
           int snap_sx = 0;
-          CAROUSEL_SNAP_SCROLL(carousel, snap_idx, max_scroll, snap_sx);
+          if (should_snap) {
+            // Snap to nearest item
+            CAROUSEL_NEAREST_INDEX(carousel, target_xf, max_scroll, snap_idx);
+            CAROUSEL_SNAP_SCROLL(carousel, snap_idx, max_scroll, snap_sx);
+          } else {
+            // Without snapping: scroll freely to target position
+            snap_sx = (int)(target_xf + 0.5);
+            // Calculate active index from scroll progress (reverse of CAROUSEL_SNAP_SCROLL)
+            if (max_scroll > 0) {
+              snap_idx = (int)((target_xf / (double)max_scroll) * (double)((int)carousel->len - 1) + 0.5);
+            } else {
+              snap_idx = 0;
+            }
+            if (snap_idx < 0) snap_idx = 0;
+            if (snap_idx >= (int)carousel->len) snap_idx = (int)carousel->len - 1;
+          }
           
           // Start snap animation only if position actually changes
           carousel->carousel.anim_from = carousel->carousel.scroll_xf;
@@ -769,16 +794,41 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         int max_scroll = 0;
         CAROUSEL_MAX_SCROLL(cr, max_scroll);
         
+        // Calculate unit width to check if leftmost item is wide enough for snapping
+        int inner_w = cr->w - cr->padding_left - cr->padding_right;
+        if (inner_w < 0) inner_w = 0;
+        int gaps = ((int)cr->len >= 3) ? 2 : ((int)cr->len - 1);
+        if (gaps < 0) gaps = 0;
+        int avail = inner_w - (gaps * 8);
+        if (avail < 0) avail = 0;
+        int unit_w = avail / 7;
+        
+        // Only snap if leftmost (tertiary) item width >= 56px
+        bool should_snap = unit_w >= 56;
+        
         // Project where momentum would carry us (velocity * decay_time)
         double projected = cr->carousel.scroll_xf + (double)cr->carousel.velocity * 0.4;
         if (projected < 0.0) projected = 0.0;
         if (projected > (double)max_scroll) projected = (double)max_scroll;
         
-        // Snap to nearest item
         int snap_idx = 0;
-        CAROUSEL_NEAREST_INDEX(cr, projected, max_scroll, snap_idx);
         int snap_sx = 0;
-        CAROUSEL_SNAP_SCROLL(cr, snap_idx, max_scroll, snap_sx);
+        if (should_snap) {
+          // Snap to nearest item
+          CAROUSEL_NEAREST_INDEX(cr, projected, max_scroll, snap_idx);
+          CAROUSEL_SNAP_SCROLL(cr, snap_idx, max_scroll, snap_sx);
+        } else {
+          // Without snapping: momentum carries us to projected position
+          snap_sx = (int)(projected + 0.5);
+          // Calculate active index from scroll progress (reverse of CAROUSEL_SNAP_SCROLL)
+          if (max_scroll > 0) {
+            snap_idx = (int)((projected / (double)max_scroll) * (double)((int)cr->len - 1) + 0.5);
+          } else {
+            snap_idx = 0;
+          }
+          if (snap_idx < 0) snap_idx = 0;
+          if (snap_idx >= (int)cr->len) snap_idx = (int)cr->len - 1;
+        }
         
         // Start animation from current position to snap target (only if position changes)
         cr->carousel.anim_from = cr->carousel.scroll_xf;
@@ -1209,13 +1259,47 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           } else if (hit->kind == COGITO_SLIDER) {
             cogito_slider_active = hit;
             cogito_pointer_capture = hit;
+          } else if (hit->kind == COGITO_CAROUSEL_ITEM) {
+            // Click on a carousel item: scroll to it and make it active
+            CogitoNode* item = hit;
+            CogitoNode* carousel = item->parent;
+            if (carousel && carousel->kind == COGITO_CAROUSEL) {
+              int max_scroll = 0;
+              CAROUSEL_MAX_SCROLL(carousel, max_scroll);
+              
+              // Find the index of the clicked item
+              int item_idx = -1;
+              for (size_t i = 0; i < carousel->len; i++) {
+                if (carousel->children[i] == item) {
+                  item_idx = (int)i;
+                  break;
+                }
+              }
+              
+              if (item_idx >= 0) {
+                // Calculate target scroll position to make this item active
+                int snap_sx = 0;
+                CAROUSEL_SNAP_SCROLL(carousel, item_idx, max_scroll, snap_sx);
+                
+                // Start animation to scroll to this item
+                carousel->carousel.anim_from = carousel->carousel.scroll_xf;
+                carousel->carousel.anim_to = (double)snap_sx;
+                if (carousel->carousel.anim_from != carousel->carousel.anim_to) {
+                  carousel->carousel.anim_start = cogito_backend->get_time();
+                  if (!carousel->carousel.animating) cogito_carousel_animating_count++;
+                  carousel->carousel.animating = true;
+                }
+                carousel->carousel.active_index = item_idx;
+                cogito_window_relayout(win);
+              }
+            }
           } else if (hit->kind == COGITO_CAROUSEL) {
             cogito_carousel_active = hit;
             cogito_pointer_capture = hit;
             hit->carousel.dragging = true;
             hit->carousel.animating = false;
             hit->carousel.drag_start_x = mx;
-            hit->carousel.drag_start_scroll = hit->carousel.scroll_x;
+            hit->carousel.drag_start_scroll = (int)hit->carousel.scroll_xf;
             hit->carousel.velocity = 0.0f;
             hit->carousel.drag_last_time = cogito_backend->get_time();
             hit->carousel.drag_last_xf = hit->carousel.scroll_xf;

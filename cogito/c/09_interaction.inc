@@ -230,7 +230,7 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
       n->kind == COGITO_TREEVIEW ||
       n->kind == COGITO_TEXTFIELD || n->kind == COGITO_TEXTVIEW ||
       n->kind == COGITO_DROPDOWN || n->kind == COGITO_SLIDER ||
-      n->kind == COGITO_CAROUSEL ||
+      n->kind == COGITO_CAROUSEL || n->kind == COGITO_CAROUSEL_ITEM ||
       n->kind == COGITO_TABS || n->kind == COGITO_TOAST ||
       n->kind == COGITO_DATEPICKER || n->kind == COGITO_COLORPICKER ||
       n->kind == COGITO_CHIP || n->kind == COGITO_FAB ||

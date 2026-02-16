@@ -521,7 +521,7 @@ fun build_carousel_view() (( cogito.VStack )) {
     let item3 = cogito.carousel_item()
     item3.set_vexpand(true)
     item3.set_hexpand(true)
-    item3.set_text(@"Sunset")
+    item3.set_text(@"Sunset Vistas")
     item3.set_halign(0)  -- left
     item3.set_valign(2)  -- bottom
     let img3 = cogito.image(@"")

@@ -49,15 +49,32 @@ case COGITO_CAROUSEL_ITEM: {
       }
       // Draw the carousel-item-label at bottom-left, 16px from edge.
       // Skip if the item is too narrow for the label text, or label has no text.
+      // Also skip if the label would be drawn outside the carousel bounds.
       if (label_child && label_child->text && label_child->text->data && label_child->text->data[0]) {
         int lbl_pad = 16;
         int lbl_size = label_child->font_size_set ? label_child->font_size : 21;
         bool lbl_bold = label_child->font_weight_set ? (label_child->font_weight >= 600) : true;
         int tw = cogito_text_width_size_node(label_child, label_child->text->data, lbl_size);
         int th = cogito_text_height_size(lbl_size);
-        if (tw + lbl_pad * 2 <= n->w) {
-          int lx = n->x + lbl_pad;
-          int ly = n->y + n->h - lbl_pad - th;
+        int lx = n->x + lbl_pad;
+        int ly = n->y + n->h - lbl_pad - th;
+        // Check if label is within carousel bounds (parent bounds)
+        bool label_in_bounds = true;
+        if (n->parent) {
+          int carousel_x = n->parent->x;
+          int carousel_y = n->parent->y;
+          int carousel_w = n->parent->w;
+          int carousel_h = n->parent->h;
+          // Label text bounds
+          int label_right = lx + tw;
+          int label_bottom = ly + th;
+          // Check if any part of the label is outside carousel bounds
+          if (lx < carousel_x || label_right > carousel_x + carousel_w ||
+              ly < carousel_y || label_bottom > carousel_y + carousel_h) {
+            label_in_bounds = false;
+          }
+        }
+        if (label_in_bounds && tw + lbl_pad * 2 <= n->w) {
           // Pick white or black based on the underlying image luminance.
           CogitoColor lbl_color;
           if (image_child && image_child->image.loaded) {
