@@ -570,7 +570,7 @@ static bool cogito_sum_selector_kind(const char* sel, CogitoKind* out_kind, bool
       if (out_class) *out_class = COGITO_STYLE_CLASS_MONO;
       return true;
     }
-    if (strcmp(class_part, "tabular") == 0 || strcmp(class_part, "tnum") == 0) {
+    if (strcmp(class_part, "tabular") == 0 || strcmp(class_part, "tnum") == 0 || strcmp(class_part, "tabular-nums") == 0) {
       if (out_class) *out_class = COGITO_STYLE_CLASS_TABULAR;
       return true;
     }

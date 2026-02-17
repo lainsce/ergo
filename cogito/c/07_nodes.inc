@@ -114,11 +114,14 @@ static void cogito_node_drop(ErgoObj* o) {
   if (n->tab_labels) {
     for (size_t i = 0; i < n->tab_len; i++) {
       if (n->tab_labels[i]) ergo_release_val(EV_STR(n->tab_labels[i]));
+      if (n->tab_icons && n->tab_icons[i]) ergo_release_val(EV_STR(n->tab_icons[i]));
       if (n->tab_ids && n->tab_ids[i]) ergo_release_val(EV_STR(n->tab_ids[i]));
     }
     free(n->tab_labels);
+    free(n->tab_icons);
     free(n->tab_ids);
     n->tab_labels = NULL;
+    n->tab_icons = NULL;
     n->tab_ids = NULL;
     n->tab_len = 0;
     n->tab_cap = 0;

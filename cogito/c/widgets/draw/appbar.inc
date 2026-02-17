@@ -45,7 +45,8 @@ case COGITO_APPBAR: {
         n->appbar.btn_close_x, n->appbar.btn_min_x, n->appbar.btn_max_x,
         &lights
       );
-      if (n->text) {
+      CogitoNode* title_widget = cogito_appbar_title_widget(n);
+      if (n->text && !title_widget) {
         int tsz = cogito_label_class_font_size(COGITO_LABEL_CLASS_TITLE, 24);
         int ty = n->appbar.title_y ? n->appbar.title_y : (n->y + 12);
         CogitoColor tcol = cogito_label_class_color(COGITO_LABEL_CLASS_TITLE, text);

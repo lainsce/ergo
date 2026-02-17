@@ -380,8 +380,8 @@ fun build_tabs_view() (( cogito.VStack )) {
     vstack.add(status)
 
     let tabs = cogito.tabs()
-    tabs.set_items([@"Overview", @"Details", @"History"])
-    tabs.set_ids([@"tab_overview", @"tab_details", @"tab_history"])
+    tabs.set_items([@"Overview", @"Details", @"History", @"Miscellania"])
+    tabs.set_ids([@"tab_overview", @"tab_details", @"tab_history", @"tab_misc"])
     tabs.set_selected(0)
     tabs.on_change((idx) => {
         status.set_text(@"Tab selected index: $idx")
@@ -394,6 +394,7 @@ fun build_tabs_view() (( cogito.VStack )) {
     tab_views.add(@"tab_overview", (vs = cogito.ViewSwitcher) => cogito.label(@"Overview content"))
     tab_views.add(@"tab_details", (vs = cogito.ViewSwitcher) => cogito.label(@"Details content"))
     tab_views.add(@"tab_history", (vs = cogito.ViewSwitcher) => cogito.label(@"History content"))
+    tab_views.add(@"tab_misc", (vs = cogito.ViewSwitcher) => cogito.label(@"Misc. content"))
     tab_views.set_active(@"tab_overview")
     tabs.bind(tab_views)
     vstack.add(tab_views)
@@ -407,10 +408,10 @@ fun build_tabs_view() (( cogito.VStack )) {
     vstack.add(goto_history)
 
     let seg = cogito.segmented()
-    seg.set_hexpand(true)
     seg.add(cogito.label(@"Day"))
     seg.add(cogito.label(@"Week"))
     seg.add(cogito.label(@"Month"))
+    seg.add(cogito.label(@"Year"))
     vstack.add(seg)
 
     return vstack

@@ -880,13 +880,28 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       CogitoNode* vd = cogito_pointer_capture;
       if (cogito_backend->is_mouse_button_down(0)) {
         int handle_w = 4;
-        int new_x = mx - vd->view_dual.drag_offset + handle_w / 2;
-        float new_ratio = (float)(new_x - vd->x) / (float)vd->w;
-        if (new_ratio < 0.1f) new_ratio = 0.1f;
-        if (new_ratio > 0.9f) new_ratio = 0.9f;
-        if (new_ratio != vd->view_dual.ratio) {
-          vd->view_dual.ratio = new_ratio;
-          cogito_window_relayout(win);
+        const int min_item_w = 218;
+        if (vd->w > 0) {
+          int available_w = vd->w - handle_w;
+          if (available_w < 0) available_w = 0;
+          int new_handle_x = mx - vd->view_dual.drag_offset;
+          int new_left_w = new_handle_x - vd->x;
+          if (available_w >= min_item_w * 2) {
+            int max_left = available_w - min_item_w;
+            if (new_left_w < min_item_w) new_left_w = min_item_w;
+            if (new_left_w > max_left) new_left_w = max_left;
+          } else {
+            new_left_w = available_w / 2;
+          }
+          if (new_left_w < 0) new_left_w = 0;
+          if (new_left_w > available_w) new_left_w = available_w;
+          float new_ratio = (float)(new_left_w + handle_w / 2) / (float)vd->w;
+          if (new_ratio < 0.0f) new_ratio = 0.0f;
+          if (new_ratio > 1.0f) new_ratio = 1.0f;
+          if (new_ratio != vd->view_dual.ratio) {
+            vd->view_dual.ratio = new_ratio;
+            cogito_window_relayout(win);
+          }
         }
       } else {
         vd->view_dual.dragging = false;
@@ -1434,8 +1449,22 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           } else if (hit->kind == COGITO_VIEW_DUAL) {
             float ratio = hit->view_dual.ratio;
             if (ratio <= 0.0f) ratio = 0.5f;
+            if (ratio > 1.0f) ratio = 1.0f;
             int handle_w = 4;
-            int handle_x = hit->x + (int)(hit->w * ratio) - handle_w / 2;
+            const int min_item_w = 218;
+            int available_w = hit->w - handle_w;
+            if (available_w < 0) available_w = 0;
+            int left_w = (int)(hit->w * ratio) - handle_w / 2;
+            if (available_w >= min_item_w * 2) {
+              int max_left = available_w - min_item_w;
+              if (left_w < min_item_w) left_w = min_item_w;
+              if (left_w > max_left) left_w = max_left;
+            } else {
+              left_w = available_w / 2;
+            }
+            if (left_w < 0) left_w = 0;
+            if (left_w > available_w) left_w = available_w;
+            int handle_x = hit->x + left_w;
             if (cogito_hit_rect(mx, my, handle_x - 4, hit->y, handle_w + 8, hit->h)) {
               hit->view_dual.dragging = true;
               hit->view_dual.drag_offset = mx - handle_x;

@@ -32,16 +32,14 @@ case COGITO_VIEW_CHOOSER: {
     cogito_draw_text_size_node(n, tx, ty, n->tab_labels[sel]->data, text_color, ts, true);
   }
 
-  // Draw dropdown arrow with 24px icon size - use themed text color
-  int arrow_x = n->x + n->w - 32;
-  int arrow_y = n->y + n->h / 2 - 6;
-  CogitoColor arrow_col = text_color;
-  arrow_col.a = (uint8_t)(text_color.a * 0.5f);
-  // Draw larger chevron arrow (24px size)
-  cogito_draw_rect(arrow_x, arrow_y, 12, 2, arrow_col, 0);
-  cogito_draw_rect(arrow_x + 1, arrow_y + 2, 10, 2, arrow_col, 0);
-  cogito_draw_rect(arrow_x + 2, arrow_y + 4, 8, 2, arrow_col, 0);
-  cogito_draw_rect(arrow_x + 3, arrow_y + 6, 6, 2, arrow_col, 0);
-  cogito_draw_rect(arrow_x + 4, arrow_y + 8, 4, 2, arrow_col, 0);
+  int icon_size = s.has_icon_size ? s.icon_size : 22;
+  if (icon_size < 8) icon_size = 8;
+  if (icon_size > n->h - 4) icon_size = n->h - 4;
+  if (icon_size < 8) icon_size = 8;
+  int icon_x = n->x + n->w - 12 - icon_size;
+  int icon_y = n->y + (n->h - icon_size) / 2;
+  CogitoColor icon_color = s.has_icon_color ? s.icon_color : text_color;
+  icon_color.a = (uint8_t)(icon_color.a * 0.65f);
+  cogito_draw_icon_fallback(n, "chevron.down", icon_x, icon_y, icon_size, icon_color);
   break;
 }

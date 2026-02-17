@@ -109,6 +109,21 @@ static bool cogito_point_over_appbar_buttons(CogitoNode* app, int x, int y) {
   return false;
 }
 
+static bool cogito_appbar_is_title_widget(const CogitoNode* c) {
+  if (!c || c->kind != COGITO_VIEW_CHOOSER) return false;
+  return c->class_name && c->class_name->data &&
+         strcmp(c->class_name->data, "appbar-title") == 0;
+}
+
+static CogitoNode* cogito_appbar_title_widget(CogitoNode* appbar) {
+  if (!appbar) return NULL;
+  for (size_t i = 0; i < appbar->len; i++) {
+    CogitoNode* c = appbar->children[i];
+    if (cogito_appbar_is_title_widget(c)) return c;
+  }
+  return NULL;
+}
+
 static int cogito_label_class_font_size(int cls, int fallback);
 static int cogito_text_height_size(int size);
 static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h);
@@ -127,14 +142,20 @@ static void cogito_appbar_row_positions(
   int btn_pad_right = 9;
   cogito_appbar_button_metrics(&btn_size, &btn_gap, &btn_pad_top, &btn_pad_right);
 
-  const int has_title = (n->text && n->text->len);
+  CogitoNode* title_widget = cogito_appbar_title_widget(n);
+  const int has_title_widget = title_widget != NULL;
+  const int has_title_text = (n->text && n->text->len);
+  const int has_title = has_title_widget || has_title_text;
   const int has_subtitle = (n->subtitle && n->subtitle->len);
-  const int has_children = (n->len > 0);
 
   int title_h = 0;
   int subtitle_h = 0;
 
-  if (has_title) {
+  if (has_title_widget) {
+    int tw = 0;
+    cogito_intrinsic_size(title_widget, &tw, &title_h);
+    if (title_h <= 0) title_h = btn_size;
+  } else if (has_title_text) {
     int tsz = cogito_label_class_font_size(COGITO_LABEL_CLASS_TITLE, 32);
     title_h = cogito_text_height_size(tsz);
   }
@@ -144,11 +165,15 @@ static void cogito_appbar_row_positions(
   }
 
   int icon_row_h = 0;
-  if (has_children) {
+  int has_children = 0;
+  if (n->len > 0) {
     for (size_t i = 0; i < n->len; i++) {
+      CogitoNode* c = n->children[i];
+      if (title_widget && c == title_widget) continue;
+      has_children = 1;
       int cw = 0;
       int ch = 0;
-      cogito_intrinsic_size(n->children[i], &cw, &ch);
+      cogito_intrinsic_size(c, &cw, &ch);
       if (ch > icon_row_h) icon_row_h = ch;
     }
     if (icon_row_h == 0) icon_row_h = btn_size;

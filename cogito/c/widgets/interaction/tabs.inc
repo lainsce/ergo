@@ -1,27 +1,20 @@
 static int cogito_tabs_hit_index(CogitoNode* n, int x, int y) {
   if (!n || n->kind != COGITO_TABS) return -1;
   if (!cogito_hit_node(n, x, y)) return -1;
-  int size = cogito_node_font_size(n);
-  int th = cogito_text_height_size(size);
-  int pad_x = 12;
-  int pad_y = 8;
-  int gap = 6;
-  int tab_h = th + pad_y * 2;
-  int ty = n->y + (n->h - tab_h) / 2;
-  if (y < ty || y > ty + tab_h) return -1;
-  int cx = n->x + n->padding_left;
-  for (size_t i = 0; i < n->tab_len; i++) {
-    const char* t = n->tab_labels[i] ? n->tab_labels[i]->data : "";
-    int tw = cogito_text_width_size_node(n, t, size);
-    int tab_w = tw + pad_x * 2;
-    if (x >= cx && x <= cx + tab_w) return (int)i;
-    cx += tab_w + gap;
-  }
-  return -1;
+  if (n->w <= 0 || n->tab_len == 0) return -1;
+  const int slot_count = 4;
+  int rel_x = x - n->x;
+  if (rel_x < 0) return -1;
+  int idx = (rel_x * slot_count) / n->w;
+  if (idx < 0) idx = 0;
+  if (idx >= slot_count) idx = slot_count - 1;
+  if (idx >= (int)n->tab_len) return -1;
+  return idx;
 }
 static CogitoNode* cogito_tabs_new_obj(void) {
   CogitoNode* t = cogito_node_new(COGITO_TABS);
   t->selected = 0;
+  t->hexpand = true;
   return t;
 }
 static ErgoVal cogito_tabs_new(void) {
@@ -34,9 +27,12 @@ static void cogito_tabs_set_items(ErgoVal tabsv, ErgoVal arrv) {
   if (n->tab_labels) {
     for (size_t i = 0; i < n->tab_len; i++) {
       if (n->tab_labels[i]) ergo_release_val(EV_STR(n->tab_labels[i]));
+      if (n->tab_icons && n->tab_icons[i]) ergo_release_val(EV_STR(n->tab_icons[i]));
     }
     free(n->tab_labels);
+    free(n->tab_icons);
     n->tab_labels = NULL;
+    n->tab_icons = NULL;
   }
   if (n->tab_ids) {
     for (size_t i = 0; i < n->tab_len; i++) {
@@ -49,16 +45,36 @@ static void cogito_tabs_set_items(ErgoVal tabsv, ErgoVal arrv) {
   n->tab_cap = 0;
   ErgoArr* a = (ErgoArr*)arrv.as.p;
   if (!a || a->len == 0) { n->selected = -1; return; }
-  n->tab_labels = (ErgoStr**)malloc(sizeof(ErgoStr*) * (size_t)a->len);
+  if (a->len > 4) ergo_trap("cogito.tabs_set_items supports at most 4 items");
+  n->tab_labels = (ErgoStr**)calloc((size_t)a->len, sizeof(ErgoStr*));
+  n->tab_icons = (ErgoStr**)calloc((size_t)a->len, sizeof(ErgoStr*));
   n->tab_len = (size_t)a->len;
   n->tab_cap = n->tab_len;
   for (size_t i = 0; i < n->tab_len; i++) {
     ErgoVal v = ergo_arr_get(a, (int64_t)i);
-    ErgoStr* s = stdr_to_string(v);
-    n->tab_labels[i] = s;
-    if (s) ergo_retain_val(EV_STR(s));
+    ErgoStr* label = NULL;
+    ErgoStr* icon = NULL;
+    if (v.tag == EVT_ARR && v.as.p) {
+      ErgoArr* item = (ErgoArr*)v.as.p;
+      if (item->len > 0) {
+        ErgoVal lv = ergo_arr_get(item, 0);
+        label = stdr_to_string(lv);
+      }
+      if (item->len > 1) {
+        ErgoVal iv = ergo_arr_get(item, 1);
+        if (iv.tag != EVT_NULL) icon = stdr_to_string(iv);
+      }
+    } else {
+      label = stdr_to_string(v);
+    }
+    if (!label) label = stdr_str_lit("");
+    n->tab_labels[i] = label;
+    if (label) ergo_retain_val(EV_STR(label));
+    n->tab_icons[i] = icon;
+    if (icon) ergo_retain_val(EV_STR(icon));
   }
   if (n->selected < 0 && n->tab_len > 0) n->selected = 0;
+  if (n->selected >= (int)n->tab_len) n->selected = (int)n->tab_len - 1;
   if (n->view_switcher && n->tab_ids && n->selected >= 0 && (size_t)n->selected < n->tab_len) {
     CogitoNode* vs = n->view_switcher;
     ErgoStr* id = n->tab_ids[n->selected];
@@ -83,11 +99,13 @@ static void cogito_tabs_set_ids(ErgoVal tabsv, ErgoVal arrv) {
   }
   ErgoArr* a = (ErgoArr*)arrv.as.p;
   size_t len = a ? (size_t)a->len : 0;
+  if (len > 4) ergo_trap("cogito.tabs_set_ids supports at most 4 items");
   if (n->tab_len == 0) {
     n->tab_len = len;
     n->tab_cap = len;
     if (!n->tab_labels && len > 0) {
       n->tab_labels = (ErgoStr**)calloc(len, sizeof(ErgoStr*));
+      n->tab_icons = (ErgoStr**)calloc(len, sizeof(ErgoStr*));
     }
   }
   if (n->tab_len == 0) return;

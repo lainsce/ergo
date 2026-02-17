@@ -23,18 +23,34 @@ case COGITO_SCROLLER: {
       {
         bool cursor_over_scroller = cogito_main_pointer_valid &&
             cogito_hit_rect(cogito_main_pointer_x, cogito_main_pointer_y, n->x, n->y, n->w, n->h);
-        bool cursor_over_sb = cogito_main_pointer_valid && cogito_scroller_cursor_over_scrollbar(n, cogito_main_pointer_x, cogito_main_pointer_y);
-        int sb_w = cursor_over_sb ? COGITO_SCROLLBAR_WIDTH_WIDE : COGITO_SCROLLBAR_WIDTH_NARROW;
+        bool prev_bar_hovered = n->scroller.bar_hovered;
+        bool cursor_over_sb = false;
+        if (cursor_over_scroller && cogito_main_pointer_valid) {
+          int hit_w = n->scroller.bar_hovered ? COGITO_SCROLLBAR_WIDTH_WIDE : COGITO_SCROLLBAR_WIDTH_NARROW;
+          cursor_over_sb = cogito_scroller_hit_scrollbar(
+              n, cogito_main_pointer_x, cogito_main_pointer_y, hit_w, hit_w) != COGITO_SCROLLBAR_HIT_NONE;
+          if (!cursor_over_sb && n->scroller.bar_hovered) {
+            // Fallback to narrow hit-test at the transition boundary.
+            cursor_over_sb = cogito_scroller_hit_scrollbar(
+                n, cogito_main_pointer_x, cogito_main_pointer_y,
+                COGITO_SCROLLBAR_WIDTH_NARROW, COGITO_SCROLLBAR_WIDTH_NARROW) != COGITO_SCROLLBAR_HIT_NONE;
+          }
+        }
+        n->scroller.bar_hovered = cursor_over_sb;
+        int sb_w = n->scroller.bar_hovered ? COGITO_SCROLLBAR_WIDTH_WIDE : COGITO_SCROLLBAR_WIDTH_NARROW;
         int sb_h = sb_w;
         double now = cogito_backend ? cogito_backend->get_time() : 0.0;
+        bool bar_alpha_changed = false;
         if (cursor_over_scroller) {
           if (cursor_over_sb) {
             if (n->scroller.bar_alpha < 255) {
               n->scroller.bar_alpha = (uint8_t)(n->scroller.bar_alpha + 51) > 255 ? 255 : (n->scroller.bar_alpha + 51);
+              bar_alpha_changed = true;
             }
           } else {
             if (n->scroller.bar_alpha < 200) {
               n->scroller.bar_alpha = (uint8_t)(n->scroller.bar_alpha + 40) > 200 ? 200 : (n->scroller.bar_alpha + 40);
+              bar_alpha_changed = true;
             }
           }
           n->scroller.bar_hover_until = 0.0;
@@ -51,6 +67,10 @@ case COGITO_SCROLLER: {
               if (anim_end > cogito_anim_end_time) cogito_anim_end_time = anim_end;
             }
           }
+        }
+        if (bar_alpha_changed || prev_bar_hovered != n->scroller.bar_hovered) {
+          double anim_end = now + 16.0;
+          if (anim_end > cogito_anim_end_time) cogito_anim_end_time = anim_end;
         }
         if (n->scroller.bar_alpha > 0) {
           CogitoColor track = cogito_rgba(0, 0, 0, (int)n->scroller.bar_alpha * 80 / 255);

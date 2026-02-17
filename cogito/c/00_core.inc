@@ -392,6 +392,7 @@ typedef struct CogitoNode {
   size_t menu_len;
   size_t menu_cap;
   ErgoStr** tab_labels;
+  ErgoStr** tab_icons;
   ErgoStr** tab_ids;
   size_t tab_len;
   size_t tab_cap;
@@ -544,6 +545,7 @@ typedef struct CogitoNode {
       int scroll_x, scroll_y;
       int content_w, content_h;
       bool horz, vert;
+      bool bar_hovered;
       uint8_t bar_alpha;
       double bar_hover_until;
     } scroller;

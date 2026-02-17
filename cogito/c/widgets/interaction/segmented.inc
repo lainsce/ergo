@@ -1,6 +1,7 @@
 static CogitoNode* cogito_segmented_new_obj(void) {
   CogitoNode* s = cogito_node_new(COGITO_SEGMENTED);
   s->selected = 0;
+  s->gap = 2;
   return s;
 }
 static ErgoVal cogito_segmented_new(void) {
@@ -18,10 +19,12 @@ static void cogito_segmented_on_select(ErgoVal nodev, ErgoVal handler) {
 static void cogito_segmented_click(CogitoNode* n, int mx, int my) {
   if (n->len == 0) return;
   (void)my;
-  int seg_w = n->w / (int)n->len;
-  int idx = (mx - n->x) / seg_w;
+  int count = (int)n->len;
+  if (n->w <= 0) return;
+  int rel_x = mx - n->x;
+  int idx = (rel_x * count) / n->w;
   if (idx < 0) idx = 0;
-  if (idx >= (int)n->len) idx = (int)n->len - 1;
+  if (idx >= count) idx = count - 1;
   int prev = n->selected;
   n->selected = idx;
   if (n->selected != prev && n->on_change) {

@@ -173,7 +173,7 @@ static void cogito_node_set_class(ErgoVal nodev, ErgoVal classv) {
       n->label.cls = COGITO_LABEL_CLASS_BODY;
     } else if (strcmp(s, "monospace") == 0 || strcmp(s, "mono") == 0) {
       n->font_mono = true;
-    } else if (strcmp(s, "tabular") == 0 || strcmp(s, "tnum") == 0) {
+    } else if (strcmp(s, "tabular") == 0 || strcmp(s, "tnum") == 0 || strcmp(s, "tabular-nums") == 0) {
       n->font_tabular = true;
     } else if (strcmp(s, "outlined") == 0) {
       n->button.outlined = true;

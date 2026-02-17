@@ -81,12 +81,6 @@ static CogitoScrollbarHit cogito_scroller_hit_scrollbar(CogitoNode* n, int mx, i
   return COGITO_SCROLLBAR_HIT_NONE;
 }
 
-/* Returns true if (mx, my) is over the scrollbar (track or thumb). Uses narrow width so bar stays thin until cursor is exactly over it. */
-static bool cogito_scroller_cursor_over_scrollbar(CogitoNode* n, int mx, int my) {
-  return cogito_scroller_hit_scrollbar(n, mx, my,
-      COGITO_SCROLLBAR_WIDTH_NARROW, COGITO_SCROLLBAR_WIDTH_NARROW) != COGITO_SCROLLBAR_HIT_NONE;
-}
-
 /* Get vertical scrollbar max_scroll and travel (track_h - thumb_h) for drag. Returns true if vertical bar is active. */
 static bool cogito_scroller_vert_drag_params(CogitoNode* n, int* out_max_scroll, int* out_travel) {
   if (!n || !n->scroller.vert || n->scroller.content_h <= 0) return false;
