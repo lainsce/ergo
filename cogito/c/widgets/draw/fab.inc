@@ -2,19 +2,33 @@ case COGITO_FAB: {
   bool hover = false, active = false;
   cogito_node_hover_state(n, &hover, &active);
   CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
+  bool in_nav_rail = (n->parent && n->parent->kind == COGITO_NAV_RAIL);
+  CogitoStyle rail_style = {0};
+  if (in_nav_rail) {
+    rail_style = cogito_theme_resolve_node(n->parent);
+  }
 
   CogitoColor bg = s.has_bg ? s.bg : n->bg;
   CogitoColor text_color = s.has_text ? s.text : n->text_color;
   int radius = n->fab.extended ? 16 : (n->h / 2);
+  if (in_nav_rail) {
+    bg = rail_style.has_selection ? rail_style.selection : n->parent->selection_color;
+    text_color = cogito_on_color(bg);
+    radius = 16;
+  }
 
   // Animate colors
-  cogito_anim_apply(n, &s, &bg, &text_color, NULL, NULL);
+  if (!in_nav_rail) {
+    cogito_anim_apply(n, &s, &bg, &text_color, NULL, NULL);
+  }
 
   // Draw box shadow (elevation)
-  if (s.has_box_shadow && s.box_shadow.blur > 0) {
-    cogito_draw_shadow_node_box(n, &s, n->x, n->y, n->w, n->h, radius, &s.box_shadow);
-  } else if (n->shadow_set && n->shadow_level > 0) {
-    cogito_draw_shadow_node_level(n, &s, n->x, n->y, n->w, n->h, radius, n->shadow_level);
+  if (!in_nav_rail) {
+    if (s.has_box_shadow && s.box_shadow.blur > 0) {
+      cogito_draw_shadow_node_box(n, &s, n->x, n->y, n->w, n->h, radius, &s.box_shadow);
+    } else if (n->shadow_set && n->shadow_level > 0) {
+      cogito_draw_shadow_node_level(n, &s, n->x, n->y, n->w, n->h, radius, n->shadow_level);
+    }
   }
 
   // Draw elevated circular/rounded background
@@ -28,15 +42,17 @@ case COGITO_FAB: {
   }
 
   // Draw ripple effect for Primary-colored FAB (clipped to widget bounds)
-  if (cogito_ripple_update(n)) {
-    float r_radius, r_alpha;
-    cogito_ripple_get(n, &r_radius, &r_alpha);
-    if (r_radius > 0 && r_alpha > 0) {
-      CogitoColor ripple_color = text_color;
-      ripple_color.a = (uint8_t)(255 * r_alpha);
-      int cx = n->x + n->ripple_x;
-      int cy = n->y + n->ripple_y;
-      cogito_draw_circle_clipped_node(n, &s, radius, cx, cy, r_radius, ripple_color);
+  if (!in_nav_rail) {
+    if (cogito_ripple_update(n)) {
+      float r_radius, r_alpha;
+      cogito_ripple_get(n, &r_radius, &r_alpha);
+      if (r_radius > 0 && r_alpha > 0) {
+        CogitoColor ripple_color = text_color;
+        ripple_color.a = (uint8_t)(255 * r_alpha);
+        int cx = n->x + n->ripple_x;
+        int cy = n->y + n->ripple_y;
+        cogito_draw_circle_clipped_node(n, &s, radius, cx, cy, r_radius, ripple_color);
+      }
     }
   }
 

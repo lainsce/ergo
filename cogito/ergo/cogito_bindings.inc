@@ -1914,6 +1914,50 @@ static void __cogito_nav_rail_set_items(ErgoVal railv, ErgoVal labelsv, ErgoVal 
   free(label_strs);
 }
 
+static void __cogito_nav_rail_set_badges(ErgoVal railv, ErgoVal badgesv) {
+  cogito_node* rail = cogito_node_from_val(railv);
+  if (badgesv.tag == EVT_NULL) {
+    cogito_nav_rail_set_badges(rail, NULL, 0);
+    return;
+  }
+  if (badgesv.tag != EVT_ARR) ergo_trap("cogito.nav_rail_set_badges expects array");
+  ErgoArr* badges = (ErgoArr*)badgesv.as.p;
+  size_t count = badges->len;
+  int* vals = (int*)calloc(count, sizeof(int));
+  for (size_t i = 0; i < count; i++) {
+    ErgoVal bv = badges->items[i];
+    int v = 0;
+    switch (bv.tag) {
+      case EVT_NULL:
+        v = 0;
+        break;
+      case EVT_BOOL:
+        v = bv.as.b ? -1 : 0;
+        break;
+      case EVT_INT:
+        v = (int)bv.as.i;
+        if (v < 0) v = -1;
+        break;
+      case EVT_FLOAT: {
+        int rounded = (int)(bv.as.f >= 0.0 ? bv.as.f + 0.5 : bv.as.f - 0.5);
+        v = rounded < 0 ? -1 : rounded;
+        break;
+      }
+      default:
+        free(vals);
+        ergo_trap("cogito.nav_rail_set_badges expects int/bool/null entries");
+    }
+    vals[i] = v;
+  }
+  cogito_nav_rail_set_badges(rail, vals, count);
+  free(vals);
+}
+
+static void __cogito_nav_rail_set_toggle(ErgoVal railv, ErgoVal onv) {
+  cogito_node* rail = cogito_node_from_val(railv);
+  cogito_nav_rail_set_toggle(rail, ergo_as_bool(onv));
+}
+
 static void __cogito_nav_rail_set_selected(ErgoVal railv, ErgoVal idxv) {
   cogito_node* rail = cogito_node_from_val(railv);
   cogito_nav_rail_set_selected(rail, (int)ergo_as_int(idxv));
@@ -2266,6 +2310,8 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_tabs_on_change __cogito_tabs_on_change
 #define cogito_tabs_bind __cogito_tabs_bind
 #define cogito_nav_rail_set_items __cogito_nav_rail_set_items
+#define cogito_nav_rail_set_badges __cogito_nav_rail_set_badges
+#define cogito_nav_rail_set_toggle __cogito_nav_rail_set_toggle
 #define cogito_nav_rail_set_selected __cogito_nav_rail_set_selected
 #define cogito_nav_rail_get_selected __cogito_nav_rail_get_selected
 #define cogito_nav_rail_on_change __cogito_nav_rail_on_change

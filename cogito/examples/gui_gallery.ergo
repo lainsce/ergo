@@ -588,28 +588,119 @@ fun build_navrail_view() (( cogito.VStack )) {
     subtitle.set_class(@"subtitle")
     vstack.add(subtitle)
 
-    let status = cogito.label(@"Click rail items to switch views.")
+    let status = cogito.label(@"Reference layouts: no menu, menu, FAB, and menu+FAB.")
     status.set_class(@"body")
     status.set_wrap(true)
     vstack.add(status)
 
-    let rail = cogito.nav_rail()
-    rail.set_vexpand(true)
-    rail.set_items([@"Home", @"Search", @"Profile", @"Settings"], [@"sf:star", @"sf:star", @"sf:star", @"sf:star"])
-    rail.on_change((idx) => {
+    let labels = [@"Home", @"Search", @"Profile"]
+    let icons = [@"sf:house", @"sf:magnifyingglass", @"sf:person"]
+
+    let rails_row = cogito.hstack()
+    rails_row.set_hexpand(true)
+    rails_row.set_vexpand(true)
+    rails_row.set_gap(24)
+
+    let rail_1_col = cogito.vstack()
+    rail_1_col.set_vexpand(true)
+    rail_1_col.set_gap(6)
+    rail_1_col.add(cogito.label(@"1. No Menu"))
+    let rail_1 = cogito.nav_rail()
+    rail_1.set_vexpand(true)
+    rail_1.set_items(labels, icons)
+    rail_1.set_toggle(false)
+    rail_1.set_selected(0)
+    rail_1.on_change((idx) => {
         let item = if idx == 0 {
             @"Home"
         } elif idx == 1 {
             @"Search"
-        } elif idx == 2 {
-            @"Profile"
         } else {
-            @"Settings"
+            @"Profile"
         }
-        status.set_text(@"Rail selected: $item")
+        status.set_text(@"Layout 1 selected: $item")
     })
-    vstack.add(rail)
+    rail_1_col.add(rail_1)
+    rails_row.add(rail_1_col)
 
+    let rail_2_col = cogito.vstack()
+    rail_2_col.set_vexpand(true)
+    rail_2_col.set_gap(6)
+    rail_2_col.add(cogito.label(@"2. Menu"))
+    let rail_2 = cogito.nav_rail()
+    rail_2.set_vexpand(true)
+    rail_2.set_items(labels, icons)
+    rail_2.set_toggle(true)
+    rail_2.set_selected(0)
+    rail_2.on_change((idx) => {
+        let item = if idx == 0 {
+            @"Home"
+        } elif idx == 1 {
+            @"Search"
+        } else {
+            @"Profile"
+        }
+        status.set_text(@"Layout 2 selected: $item")
+    })
+    rail_2_col.add(rail_2)
+    rails_row.add(rail_2_col)
+
+    let rail_3_col = cogito.vstack()
+    rail_3_col.set_vexpand(true)
+    rail_3_col.set_gap(6)
+    rail_3_col.add(cogito.label(@"3. FAB"))
+    let rail_3 = cogito.nav_rail()
+    rail_3.set_vexpand(true)
+    rail_3.set_items(labels, icons)
+    rail_3.set_toggle(false)
+    rail_3.set_selected(0)
+    let rail_3_fab = cogito.fab(@"sf:pencil")
+    rail_3_fab.on_click((f = cogito.FAB) => {
+        status.set_text(@"Layout 3 FAB clicked.")
+    })
+    rail_3.add(rail_3_fab)
+    rail_3.on_change((idx) => {
+        let item = if idx == 0 {
+            @"Home"
+        } elif idx == 1 {
+            @"Search"
+        } else {
+            @"Profile"
+        }
+        status.set_text(@"Layout 3 selected: $item")
+    })
+    rail_3_col.add(rail_3)
+    rails_row.add(rail_3_col)
+
+    let rail_4_col = cogito.vstack()
+    rail_4_col.set_vexpand(true)
+    rail_4_col.set_gap(6)
+    rail_4_col.add(cogito.label(@"4. Menu + FAB"))
+    let rail_4 = cogito.nav_rail()
+    rail_4.set_vexpand(true)
+    rail_4.set_items(labels, icons)
+    rail_4.set_toggle(true)
+    rail_4.set_badges([1, -1, 0])
+    rail_4.set_selected(0)
+    let rail_4_fab = cogito.fab(@"sf:pencil")
+    rail_4_fab.on_click((f = cogito.FAB) => {
+        status.set_text(@"Layout 4 FAB clicked.")
+    })
+    rail_4.add(rail_4_fab)
+    rail_4.on_change((idx) => {
+        let item = if idx == 0 {
+            @"Home"
+        } elif idx == 1 {
+            @"Search"
+        } else {
+            @"Profile"
+        }
+        status.set_text(@"Layout 4 selected: $item")
+    })
+    rail_4_col.add(rail_4)
+    rails_row.add(rail_4_col)
+
+    vstack.add(rails_row)
     return vstack
 }
 

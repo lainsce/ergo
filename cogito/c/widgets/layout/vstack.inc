@@ -45,7 +45,7 @@ static void cogito_layout_vstack(CogitoNode* n, int x, int y) {
     if (slot_w < 0) slot_w = 0;
 
     bool is_chrome = (c->kind == COGITO_APPBAR || c->kind == COGITO_TOOLBAR ||
-                      c->kind == COGITO_NAV_RAIL || c->kind == COGITO_BOTTOM_NAV);
+                      c->kind == COGITO_BOTTOM_NAV);
     if (c->hexpand || is_chrome) {
       cw = slot_w;
       if (c->kind == COGITO_LABEL && c->text_wrap && !c->vexpand) {

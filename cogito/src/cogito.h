@@ -260,6 +260,8 @@ void cogito_tabs_set_selected(cogito_node* tabs, int idx);
 void cogito_tabs_bind(cogito_node* tabs, cogito_node* view_switcher);
 
 void cogito_nav_rail_set_items(cogito_node* rail, const char** labels, const char** icons, size_t count);
+void cogito_nav_rail_set_badges(cogito_node* rail, const int* badges, size_t count);
+void cogito_nav_rail_set_toggle(cogito_node* rail, bool visible);
 int cogito_nav_rail_get_selected(cogito_node* rail);
 void cogito_nav_rail_set_selected(cogito_node* rail, int idx);
 void cogito_nav_rail_on_change(cogito_node* rail, cogito_index_fn fn, void* user);

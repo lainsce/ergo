@@ -2,9 +2,12 @@ static CogitoNode* cogito_nav_rail_new_obj(void) {
   CogitoNode* n = cogito_node_new(COGITO_NAV_RAIL);
   n->nav_rail.labels = NULL;
   n->nav_rail.icons = NULL;
+  n->nav_rail.badges = NULL;
   n->nav_rail.len = 0;
   n->nav_rail.cap = 0;
   n->nav_rail.selected = 0;
+  n->nav_rail.expanded = false;
+  n->nav_rail.show_toggle = true;
   return n;
 }
 
@@ -18,13 +21,14 @@ static void cogito_nav_rail_set_items(ErgoVal railv, ErgoVal labelsv, ErgoVal ic
   CogitoNode* n = (CogitoNode*)railv.as.p;
 
   // Clear existing items
-  if (n->nav_rail.labels) {
+  if (n->nav_rail.labels || n->nav_rail.badges) {
     for (size_t i = 0; i < n->nav_rail.len; i++) {
-      if (n->nav_rail.labels[i]) ergo_release_val(EV_STR(n->nav_rail.labels[i]));
+      if (n->nav_rail.labels && n->nav_rail.labels[i]) ergo_release_val(EV_STR(n->nav_rail.labels[i]));
       if (n->nav_rail.icons && n->nav_rail.icons[i]) ergo_release_val(EV_STR(n->nav_rail.icons[i]));
     }
     free(n->nav_rail.labels);
     free(n->nav_rail.icons);
+    free(n->nav_rail.badges);
   }
 
   // Parse labels array
@@ -36,6 +40,7 @@ static void cogito_nav_rail_set_items(ErgoVal railv, ErgoVal labelsv, ErgoVal ic
   n->nav_rail.cap = count;
   n->nav_rail.labels = (ErgoStr**)calloc(count, sizeof(ErgoStr*));
   n->nav_rail.icons = (ErgoStr**)calloc(count, sizeof(ErgoStr*));
+  n->nav_rail.badges = (int*)calloc(count, sizeof(int));
 
   for (size_t i = 0; i < count; i++) {
     ErgoVal lv = labels->items[i];
@@ -56,6 +61,64 @@ static void cogito_nav_rail_set_items(ErgoVal railv, ErgoVal labelsv, ErgoVal ic
     }
   }
 
+  cogito_window_relayout(cogito_node_window(n));
+}
+
+static void cogito_nav_rail_set_badges(ErgoVal railv, ErgoVal badgesv) {
+  if (railv.tag != EVT_OBJ) ergo_trap("cogito.nav_rail_set_badges expects nav_rail");
+  CogitoNode* n = (CogitoNode*)railv.as.p;
+  if (n->kind != COGITO_NAV_RAIL) ergo_trap("cogito.nav_rail_set_badges expects nav_rail");
+
+  size_t count = n->nav_rail.len;
+  if (count == 0) return;
+  if (!n->nav_rail.badges) {
+    n->nav_rail.badges = (int*)calloc(count, sizeof(int));
+  }
+  if (!n->nav_rail.badges) return;
+  memset(n->nav_rail.badges, 0, sizeof(int) * count);
+
+  if (badgesv.tag == EVT_NULL) {
+    cogito_window_relayout(cogito_node_window(n));
+    return;
+  }
+  if (badgesv.tag != EVT_ARR) ergo_trap("cogito.nav_rail_set_badges expects array");
+
+  ErgoArr* badges = (ErgoArr*)badgesv.as.p;
+  size_t use = badges->len < count ? badges->len : count;
+  for (size_t i = 0; i < use; i++) {
+    ErgoVal bv = badges->items[i];
+    int badge = 0;
+    switch (bv.tag) {
+      case EVT_NULL:
+        badge = 0;
+        break;
+      case EVT_BOOL:
+        badge = bv.as.b ? -1 : 0;
+        break;
+      case EVT_INT:
+        badge = (int)bv.as.i;
+        if (badge < 0) badge = -1;
+        break;
+      case EVT_FLOAT: {
+        int v = (int)lround(bv.as.f);
+        badge = v < 0 ? -1 : v;
+        break;
+      }
+      default:
+        ergo_trap("cogito.nav_rail_set_badges expects int/bool/null entries");
+    }
+    n->nav_rail.badges[i] = badge;
+  }
+
+  cogito_window_relayout(cogito_node_window(n));
+}
+
+static void cogito_nav_rail_set_toggle(ErgoVal railv, ErgoVal onv) {
+  if (railv.tag != EVT_OBJ) ergo_trap("cogito.nav_rail_set_toggle expects nav_rail");
+  CogitoNode* n = (CogitoNode*)railv.as.p;
+  if (n->kind != COGITO_NAV_RAIL) ergo_trap("cogito.nav_rail_set_toggle expects nav_rail");
+  n->nav_rail.show_toggle = ergo_as_bool(onv);
+  if (!n->nav_rail.show_toggle) n->nav_rail.expanded = false;
   cogito_window_relayout(cogito_node_window(n));
 }
 
@@ -86,25 +149,78 @@ static void cogito_nav_rail_on_change(ErgoVal railv, ErgoVal handler) {
   }
 }
 
-static int cogito_nav_rail_hit_index(CogitoNode* n, int x, int y) {
-  if (!n || n->kind != COGITO_NAV_RAIL) return -1;
-  if (x < n->x || x >= n->x + n->w || y < n->y || y >= n->y + n->h) return -1;
+static void cogito_nav_rail_toggle_rect(CogitoNode* n, int* out_x, int* out_y, int* out_w, int* out_h) {
+  if (!n) return;
+  if (!n->nav_rail.show_toggle) {
+    if (out_x) *out_x = 0;
+    if (out_y) *out_y = 0;
+    if (out_w) *out_w = 0;
+    if (out_h) *out_h = 0;
+    return;
+  }
+  int rail_w = n->w > 0 ? n->w : COGITO_NAV_RAIL_WIDTH;
+  int x = n->x + (rail_w - COGITO_NAV_RAIL_TOGGLE_BUTTON_SIZE) / 2;
+  if (n->nav_rail.expanded) {
+    int indicator_w = rail_w - (COGITO_NAV_RAIL_ITEM_SIDE_PADDING * 2);
+    if (indicator_w < 96) indicator_w = 96;
+    int bg_x = n->x + (rail_w - indicator_w) / 2;
+    int content_x = bg_x + COGITO_NAV_RAIL_EXPANDED_CONTENT_INSET;
+    int align_x = content_x - (COGITO_NAV_RAIL_TOGGLE_BUTTON_SIZE - COGITO_NAV_RAIL_TOGGLE_ICON_SIZE) / 2;
+    int min_x = n->x;
+    int max_x = n->x + rail_w - COGITO_NAV_RAIL_TOGGLE_BUTTON_SIZE;
+    if (align_x < min_x) align_x = min_x;
+    if (align_x > max_x) align_x = max_x;
+    x = align_x;
+  }
+  int y = n->y + n->padding_top + COGITO_NAV_RAIL_TOP_OFFSET;
+  if (out_x) *out_x = x;
+  if (out_y) *out_y = y;
+  if (out_w) *out_w = COGITO_NAV_RAIL_TOGGLE_BUTTON_SIZE;
+  if (out_h) *out_h = COGITO_NAV_RAIL_TOGGLE_BUTTON_SIZE;
+}
 
-  int item_h = 56;  // Standard item height
-  int item_y = n->y + n->padding_top;
+static bool cogito_nav_rail_hit_toggle(CogitoNode* n, int x, int y) {
+  if (!n || n->kind != COGITO_NAV_RAIL || !n->nav_rail.show_toggle) return false;
+  int tx = 0, ty = 0, tw = 0, th = 0;
+  cogito_nav_rail_toggle_rect(n, &tx, &ty, &tw, &th);
+  return cogito_hit_rect(x, y, tx, ty, tw, th);
+}
+
+static int cogito_nav_rail_items_start_y(CogitoNode* n) {
+  if (!n) return 0;
+  int item_y = n->y + n->padding_top + COGITO_NAV_RAIL_TOP_OFFSET + COGITO_NAV_RAIL_SECTION_GAP;
+  if (n->nav_rail.show_toggle) {
+    item_y += COGITO_NAV_RAIL_TOGGLE_BUTTON_SIZE;
+  }
   for (size_t i = 0; i < n->len; i++) {
     CogitoNode* c = n->children[i];
     if (!c || c->kind != COGITO_FAB || c->w <= 0 || c->h <= 0) continue;
-    int min_item_y = c->y + c->h + 12;
+    int min_item_y = c->y + c->h + COGITO_NAV_RAIL_SECTION_GAP;
     if (item_y < min_item_y) item_y = min_item_y;
     break;
   }
+  return item_y;
+}
+
+static int cogito_nav_rail_item_step(const CogitoNode* n) {
+  if (n && n->nav_rail.expanded) return COGITO_NAV_RAIL_ITEM_HEIGHT;
+  return COGITO_NAV_RAIL_COLLAPSED_ITEM_STEP;
+}
+
+static int cogito_nav_rail_hit_index(CogitoNode* n, int x, int y) {
+  if (!n || n->kind != COGITO_NAV_RAIL) return -1;
+  int rail_w = n->w > 0 ? n->w : COGITO_NAV_RAIL_WIDTH;
+  if (x < n->x || x >= n->x + rail_w || y < n->y || y >= n->y + n->h) return -1;
+  if (cogito_nav_rail_hit_toggle(n, x, y)) return -1;
+
+  int item_y = cogito_nav_rail_items_start_y(n);
+  int item_step = cogito_nav_rail_item_step(n);
 
   for (size_t i = 0; i < n->nav_rail.len; i++) {
-    if (y >= item_y && y < item_y + item_h) {
+    if (y >= item_y && y < item_y + item_step) {
       return (int)i;
     }
-    item_y += item_h;
+    item_y += item_step;
   }
   return -1;
 }
@@ -112,6 +228,7 @@ static int cogito_nav_rail_hit_index(CogitoNode* n, int x, int y) {
 static inline CogitoNode* cogito_find_nav_rail_hit(CogitoNode* n, int x, int y, int* out_idx) {
   if (!n) return NULL;
   if (n->kind == COGITO_NAV_RAIL) {
+    if (cogito_nav_rail_hit_toggle(n, x, y)) return n;
     int idx = cogito_nav_rail_hit_index(n, x, y);
     if (idx >= 0) {
       if (out_idx) *out_idx = idx;

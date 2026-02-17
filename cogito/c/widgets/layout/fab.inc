@@ -8,7 +8,11 @@ case COGITO_FAB: {
 
       if (p->kind == COGITO_NAV_RAIL) {
         n->x = p->x + (p->w - n->w) / 2 + n->margin_left - n->margin_right;
-        n->y = p->y + 21 + n->margin_top;
+        int y = p->y + p->padding_top + COGITO_NAV_RAIL_TOP_OFFSET + n->margin_top;
+        if (p->nav_rail.show_toggle) {
+          y += COGITO_NAV_RAIL_TOGGLE_BUTTON_SIZE + COGITO_NAV_RAIL_SECTION_GAP;
+        }
+        n->y = y;
         break;
       }
       if (p->kind == COGITO_BOTTOM_NAV) {

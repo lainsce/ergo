@@ -1460,10 +1460,15 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
               cogito_window_relayout(win);
             }
           } else if (hit->kind == COGITO_NAV_RAIL) {
-            int idx = cogito_nav_rail_hit_index(hit, mx, my);
-            if (idx >= 0) {
-              cogito_handle_nav_rail_select(hit, idx);
+            if (cogito_nav_rail_hit_toggle(hit, mx, my)) {
+              hit->nav_rail.expanded = !hit->nav_rail.expanded;
               cogito_window_relayout(win);
+            } else {
+              int idx = cogito_nav_rail_hit_index(hit, mx, my);
+              if (idx >= 0) {
+                cogito_handle_nav_rail_select(hit, idx);
+                cogito_window_relayout(win);
+              }
             }
           } else if (hit->kind == COGITO_BOTTOM_NAV) {
             int idx = cogito_bottom_nav_hit_index(hit, mx, my);

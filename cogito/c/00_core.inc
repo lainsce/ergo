@@ -7,6 +7,10 @@
 #include <objc/runtime.h>
 #endif
 
+// Versioning: numeric for build/config, user-visible string for titles and UI
+#define COGITO_VERSION "1.0"
+#define COGITO_USER_VERSION "1.0 \"B-17 Bomber\""
+
 static bool sum_system_is_dark(void);
 static bool sum_system_accent(CogitoColor* out);
 
@@ -39,6 +43,20 @@ static void cogito_apply_theme(bool dark, CogitoColor accent);
 #define COGITO_ANIM_DURATION_LONG4 600
 #define COGITO_ACTIVE_LATCH_MS 90      // Keep pressed visual briefly to avoid click flash
 
+// Nav Rail Constants (dp)
+#define COGITO_NAV_RAIL_WIDTH 80       // Collapsed nav rail width in pixels
+#define COGITO_NAV_RAIL_EXPANDED_MIN_WIDTH 220
+#define COGITO_NAV_RAIL_EXPANDED_MAX_WIDTH 360
+#define COGITO_NAV_RAIL_ITEM_HEIGHT 56
+#define COGITO_NAV_RAIL_COLLAPSED_ITEM_STEP 72
+#define COGITO_NAV_RAIL_ITEM_WIDTH 56
+#define COGITO_NAV_RAIL_TOGGLE_BUTTON_SIZE 48
+#define COGITO_NAV_RAIL_TOGGLE_ICON_SIZE 24
+#define COGITO_NAV_RAIL_ITEM_SIDE_PADDING 12
+#define COGITO_NAV_RAIL_EXPANDED_CONTENT_INSET 16
+#define COGITO_NAV_RAIL_TOP_OFFSET 12
+#define COGITO_NAV_RAIL_SECTION_GAP 16
+
 // Animation Easing Functions
 #define COGITO_EASING_LINEAR 0
 #define COGITO_EASING_STANDARD 1       // Standard easing (smooth start and end)
@@ -52,10 +70,6 @@ static void cogito_apply_theme(bool dark, CogitoColor accent);
 #define cogito_luma cogito_color_luma
 #define cogito_mix cogito_color_mix
 #define cogito_on_color cogito_color_on_color
-
-// Versioning: numeric for build/config, user-visible string for titles and UI
-#define COGITO_VERSION "1.0"
-#define COGITO_USER_VERSION "v1 B-17 BOMBER"
 
 typedef struct CogitoApp {
   ErgoObj base;
@@ -615,8 +629,11 @@ typedef struct CogitoNode {
     struct {
       ErgoStr** labels;
       ErgoStr** icons;
+      int* badges;      // 0: none, -1: dot, >0: numeric
       size_t len, cap;
       int selected;
+      bool expanded;
+      bool show_toggle;
     } nav_rail;
 
     struct {

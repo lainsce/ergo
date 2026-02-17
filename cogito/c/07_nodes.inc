@@ -126,13 +126,16 @@ static void cogito_node_drop(ErgoObj* o) {
     n->tab_len = 0;
     n->tab_cap = 0;
   }
-  if (n->kind == COGITO_NAV_RAIL && n->nav_rail.labels) {
-    for (size_t i = 0; i < n->nav_rail.len; i++) {
-      if (n->nav_rail.labels[i]) ergo_release_val(EV_STR(n->nav_rail.labels[i]));
-      if (n->nav_rail.icons && n->nav_rail.icons[i]) ergo_release_val(EV_STR(n->nav_rail.icons[i]));
+  if (n->kind == COGITO_NAV_RAIL) {
+    if (n->nav_rail.labels) {
+      for (size_t i = 0; i < n->nav_rail.len; i++) {
+        if (n->nav_rail.labels[i]) ergo_release_val(EV_STR(n->nav_rail.labels[i]));
+        if (n->nav_rail.icons && n->nav_rail.icons[i]) ergo_release_val(EV_STR(n->nav_rail.icons[i]));
+      }
+      free(n->nav_rail.labels);
+      free(n->nav_rail.icons);
     }
-    free(n->nav_rail.labels);
-    free(n->nav_rail.icons);
+    if (n->nav_rail.badges) free(n->nav_rail.badges);
   }
   if (n->kind == COGITO_BOTTOM_NAV && n->bottom_nav.labels) {
     for (size_t i = 0; i < n->bottom_nav.len; i++) {
