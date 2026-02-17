@@ -671,7 +671,7 @@ static bool cogito_sum_parse_token(const char* tok, char* base, size_t base_cap,
   if (!tok || !tok[0]) return false;
   while (*tok == '.' || *tok == '#') tok++;
   if (!*tok) return false;
-  char buf[64];
+  char buf[128];
   size_t len = strlen(tok);
   if (len >= sizeof(buf)) len = sizeof(buf) - 1;
   memcpy(buf, tok, len);
@@ -679,9 +679,12 @@ static bool cogito_sum_parse_token(const char* tok, char* base, size_t base_cap,
   char* state_ptr = NULL;
   char* dot = strchr(buf, '.');
   char* colon = strchr(buf, ':');
-  if (dot && colon) state_ptr = dot < colon ? dot : colon;
+  char* eq = strchr(buf, '=');
+  // For element position syntax (content-list=first), treat = as state delimiter
+  // Priority: colon > dot > eq (but eq only if no colon/dot)
+  if (colon) state_ptr = colon;
   else if (dot) state_ptr = dot;
-  else if (colon) state_ptr = colon;
+  else if (eq) state_ptr = eq;
   if (state_ptr) {
     *state_ptr = 0;
     state_ptr++;
@@ -757,9 +760,16 @@ void cogito_sum_add_styles(const char* parent, const char* child, CogitoStyle** 
       memcpy(buf, parent, n);
       buf[n] = 0;
       char* colon = strchr(buf, ':');
+      char* eq = strchr(buf, '=');
       if (colon) {
         *colon = 0;
         strncpy(state, colon + 1, sizeof(state) - 1);
+        state[sizeof(state) - 1] = 0;
+        cogito_trim(state);
+      } else if (eq) {
+        // Handle element position syntax: content-list=first
+        *eq = 0;
+        strncpy(state, eq + 1, sizeof(state) - 1);
         state[sizeof(state) - 1] = 0;
         cogito_trim(state);
       }
@@ -818,6 +828,14 @@ void cogito_sum_add_styles(const char* parent, const char* child, CogitoStyle** 
         else if (focused) style = &cogito_theme.label_class_focused[label_class];
         else if (hover) style = &cogito_theme.label_class_hover[label_class];
         else style = &cogito_theme.label_class[label_class];
+      } else if (kind == COGITO_CONTENT_LIST && state[0] &&
+                 (strcmp(state, "first") == 0 || strcmp(state, "last") == 0 ||
+                  strcmp(state, "middle") == 0 || strcmp(state, "single") == 0)) {
+        // Handle element position selectors: content-list=first
+        if (strcmp(state, "first") == 0) style = &cogito_theme.content_list_item_first;
+        else if (strcmp(state, "last") == 0) style = &cogito_theme.content_list_item_last;
+        else if (strcmp(state, "middle") == 0) style = &cogito_theme.content_list_item_middle;
+        else if (strcmp(state, "single") == 0) style = &cogito_theme.content_list_item_single;
       } else if (is_menu) {
         style = &cogito_theme.menu;
       } else {
@@ -930,6 +948,15 @@ void cogito_sum_add_styles(const char* parent, const char* child, CogitoStyle** 
         if (flags && strcmp(child_state, "selection") == 0) flags[(*count)] = 1;
         (*count)++;
       }
+    }
+    return;
+  }
+  if ((strcmp(parent_base, "content-list") == 0 || strcmp(parent_base, "content_list") == 0 || strcmp(parent_base, "contentlist") == 0) &&
+      strcmp(child_base, "label") == 0) {
+    if (*count < max) {
+      styles[(*count)] = &cogito_theme.content_list_label;
+      if (flags && strcmp(child_state, "selection") == 0) flags[(*count)] = 1;
+      (*count)++;
     }
     return;
   }

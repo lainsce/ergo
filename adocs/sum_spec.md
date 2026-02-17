@@ -99,6 +99,44 @@ Examples:
 
 Current parser behavior supports one parent token + one child token.
 
+### 3.3.1 Element Position Selectors
+
+Special selectors target children based on their position within a parent container using the `=` suffix. This is primarily used for styling items in list-like containers (e.g., `content-list`).
+
+Syntax: `widget=position`
+
+Supported positions:
+- `first` - First child in the container
+- `last` - Last child in the container
+- `middle` - Neither first nor last (intermediate children)
+- `single` - Only child (first and last simultaneously)
+
+Examples:
+
+```sum
+; First item in content-list has full top radius
+content-list=first
+  border-radius: 12 12 8 8
+  background: @surface
+
+; Last item in content-list has full bottom radius
+content-list=last
+  border-radius: 8 8 12 12
+  background: @surface
+
+; Middle items have reduced radius
+content-list=middle
+  border-radius: 8
+  background: @surface
+
+; Single item gets full radius
+content-list=single
+  border-radius: 12
+  background: @surface
+```
+
+Element position selectors enable precise styling of container children without requiring manual class assignment in the application code.
+
 ### 3.4 Selector Lists
 
 Comma-separated selectors are supported:
@@ -240,6 +278,17 @@ Examples:
 - `border-width`
 - `border-radius`, `radius`
 - `box-shadow`
+
+#### Border Radius Shorthand
+
+The `border-radius` property accepts 1-4 values following CSS conventions:
+
+- `border-radius: 12` — All corners 12px
+- `border-radius: 12 8` — Top/bottom 12px, left/right 8px
+- `border-radius: 12 8 6` — Top 12px, left/right 8px, bottom 6px
+- `border-radius: 12 8 6 4` — Top-left 12px, top-right 8px, bottom-right 6px, bottom-left 4px
+
+Order: **top-left**, **top-right**, **bottom-right**, **bottom-left
 - `elevation`
 
 ### 6.2 Typography

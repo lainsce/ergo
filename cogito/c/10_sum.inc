@@ -538,10 +538,10 @@ static void sum_parse(const char* src) {
         parent[pi] = 0;
         while (*sp == ' ' || *sp == '\t') sp++;
 
-        char child[64] = {0};
+        char child[128] = {0};
         if (*sp && *sp != ',') {
           size_t ci = 0;
-          while (*sp && *sp != ' ' && *sp != '\t' && *sp != ',') {
+          while (*sp && *sp != ',' && *sp != ' ' && *sp != '\t') {
             if (ci < sizeof(child) - 1) child[ci++] = *sp;
             sp++;
           }

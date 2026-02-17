@@ -335,6 +335,11 @@ typedef struct CogitoTheme {
   CogitoStyle switch_knob_hover;
   CogitoStyle switch_knob_active;
   CogitoStyle switch_knob_checked;
+  CogitoStyle content_list_item_first;
+  CogitoStyle content_list_item_last;
+  CogitoStyle content_list_item_middle;
+  CogitoStyle content_list_item_single;
+  CogitoStyle content_list_label;
   CogitoStyle button_outlined;
   CogitoStyle button_outlined_hover;
   CogitoStyle button_outlined_active;

@@ -103,6 +103,11 @@ static void cogito_theme_set_defaults(void) {
   cogito_style_clear(&cogito_theme.switch_knob_hover);
   cogito_style_clear(&cogito_theme.switch_knob_active);
   cogito_style_clear(&cogito_theme.switch_knob_checked);
+  cogito_style_clear(&cogito_theme.content_list_item_first);
+  cogito_style_clear(&cogito_theme.content_list_item_last);
+  cogito_style_clear(&cogito_theme.content_list_item_middle);
+  cogito_style_clear(&cogito_theme.content_list_item_single);
+  cogito_style_clear(&cogito_theme.content_list_label);
   cogito_theme.base.has_text = true;
   cogito_theme.base.text = cogito_rgba(30, 30, 30, 255);
 
@@ -264,6 +269,9 @@ static CogitoStyle cogito_theme_resolve_node(const CogitoNode* n) {
     } else if (n->kind == COGITO_ICONBTN) {
       s = cogito_style_merge(&s, &cogito_theme.appbar_child_iconbtn);
     }
+  }
+  if (n->parent && n->parent->kind == COGITO_CONTENT_LIST && n->kind == COGITO_LABEL) {
+    s = cogito_style_merge(&s, &cogito_theme.content_list_label);
   }
   // Apply custom class styles if class_name is set
   if (n->class_name && n->class_name->data && n->class_name->len > 0) {

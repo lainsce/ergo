@@ -63,13 +63,21 @@ static void cogito_draw_rect_plain(int x, int y, int w, int h, CogitoColor color
 
 static void cogito_draw_corner_fill(int cx, int cy, int r, int sx, int sy, int sw, int sh, CogitoColor color) {
   if (r <= 0 || sw <= 0 || sh <= 0) return;
-  if (!cogito_backend || !cogito_backend->draw_circle) return;
-  if (cogito_backend->begin_scissor && cogito_backend->end_scissor) {
+  if (!cogito_backend) return;
+  bool can_clip = (cogito_backend->begin_scissor && cogito_backend->end_scissor);
+  if (!cogito_backend->draw_rect_rounded && !cogito_backend->draw_circle) return;
+  if (can_clip) {
     cogito_backend->begin_scissor(sx, sy, sw, sh);
-    cogito_backend->draw_circle(cx, cy, (float)r, color);
-    cogito_backend->end_scissor();
+  }
+  if (cogito_backend->draw_rect_rounded) {
+    int d = r * 2;
+    float roundness = cogito_roundness_for(d, d, r);
+    cogito_backend->draw_rect_rounded(cx - r, cy - r, d, d, color, roundness);
   } else {
     cogito_backend->draw_circle(cx, cy, (float)r, color);
+  }
+  if (can_clip) {
+    cogito_backend->end_scissor();
   }
 }
 
@@ -88,13 +96,21 @@ static void cogito_draw_circle_clipped(int cx, int cy, float r, int clip_x, int 
 
 static void cogito_draw_corner_outline(int cx, int cy, int r, int sx, int sy, int sw, int sh, CogitoColor color, int thickness) {
   if (r <= 0 || sw <= 0 || sh <= 0 || thickness <= 0) return;
-  if (!cogito_backend || !cogito_backend->draw_circle_lines) return;
-  if (cogito_backend->begin_scissor && cogito_backend->end_scissor) {
+  if (!cogito_backend) return;
+  bool can_clip = (cogito_backend->begin_scissor && cogito_backend->end_scissor);
+  if (!cogito_backend->draw_rect_rounded_lines && !cogito_backend->draw_circle_lines) return;
+  if (can_clip) {
     cogito_backend->begin_scissor(sx, sy, sw, sh);
-    cogito_backend->draw_circle_lines(cx, cy, (float)r, color, thickness);
-    cogito_backend->end_scissor();
+  }
+  if (cogito_backend->draw_rect_rounded_lines) {
+    int d = r * 2;
+    float roundness = cogito_roundness_for(d, d, r);
+    cogito_backend->draw_rect_rounded_lines(cx - r, cy - r, d, d, color, roundness, thickness);
   } else {
     cogito_backend->draw_circle_lines(cx, cy, (float)r, color, thickness);
+  }
+  if (can_clip) {
+    cogito_backend->end_scissor();
   }
 }
 
