@@ -44,7 +44,7 @@ case COGITO_BUTTON: {
             ripple_color.a = (uint8_t)(255 * r_alpha);
             int cx = n->x + n->ripple_x;
             int cy = n->y + n->ripple_y;
-            cogito_draw_circle_clipped(cx, cy, r_radius, n->x, n->y, n->w, n->h, ripple_color);
+            cogito_draw_circle_clipped_node(n, &s, radius, cx, cy, r_radius, ripple_color);
           }
         }
         if (border_w > 0) {

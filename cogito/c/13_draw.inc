@@ -94,6 +94,85 @@ static void cogito_draw_circle_clipped(int cx, int cy, float r, int clip_x, int 
   }
 }
 
+// Draw a circle clipped to a rounded-rect region (for ripple effects on rounded widgets).
+static void cogito_draw_circle_clipped_radii(int cx, int cy, float r,
+                                             int clip_x, int clip_y, int clip_w, int clip_h,
+                                             int tl, int tr, int br, int bl,
+                                             CogitoColor color) {
+  if (r <= 0 || clip_w <= 0 || clip_h <= 0) return;
+  if (!cogito_backend) return;
+  cogito_clamp_corner_radii(clip_w, clip_h, &tl, &tr, &br, &bl);
+  if (tl == 0 && tr == 0 && br == 0 && bl == 0) {
+    cogito_draw_circle_clipped(cx, cy, r, clip_x, clip_y, clip_w, clip_h, color);
+    return;
+  }
+  if (!cogito_backend->draw_rect) {
+    cogito_draw_circle_clipped(cx, cy, r, clip_x, clip_y, clip_w, clip_h, color);
+    return;
+  }
+
+  int clip_right = clip_x + clip_w - 1;
+  int clip_bottom = clip_y + clip_h - 1;
+  int y0 = (int)floorf((float)cy - r);
+  int y1 = (int)ceilf((float)cy + r);
+  if (y0 < clip_y) y0 = clip_y;
+  if (y1 > clip_bottom) y1 = clip_bottom;
+
+  float rr = r * r;
+  int tl_cx = clip_x + tl;
+  int tl_cy = clip_y + tl;
+  int tr_cx = clip_x + clip_w - tr - 1;
+  int tr_cy = clip_y + tr;
+  int br_cx = clip_x + clip_w - br - 1;
+  int br_cy = clip_y + clip_h - br - 1;
+  int bl_cx = clip_x + bl;
+  int bl_cy = clip_y + clip_h - bl - 1;
+
+  for (int y = y0; y <= y1; y++) {
+    float py = (float)y + 0.5f;
+    float dy = py - (float)cy;
+    float dx_sq = rr - (dy * dy);
+    if (dx_sq < 0.0f) continue;
+    float dx = sqrtf(dx_sq);
+    int c_left = (int)ceilf((float)cx - dx);
+    int c_right = (int)floorf((float)cx + dx);
+
+    int s_left = clip_x;
+    int s_right = clip_right;
+
+    if (tl > 0 && y < clip_y + tl) {
+      float qy = py - (float)tl_cy;
+      float qx_sq = (float)(tl * tl) - (qy * qy);
+      int left = (qx_sq <= 0.0f) ? tl_cx : (int)ceilf((float)tl_cx - sqrtf(qx_sq));
+      if (left > s_left) s_left = left;
+    }
+    if (bl > 0 && y > clip_y + clip_h - bl - 1) {
+      float qy = py - (float)bl_cy;
+      float qx_sq = (float)(bl * bl) - (qy * qy);
+      int left = (qx_sq <= 0.0f) ? bl_cx : (int)ceilf((float)bl_cx - sqrtf(qx_sq));
+      if (left > s_left) s_left = left;
+    }
+    if (tr > 0 && y < clip_y + tr) {
+      float qy = py - (float)tr_cy;
+      float qx_sq = (float)(tr * tr) - (qy * qy);
+      int right = (qx_sq <= 0.0f) ? tr_cx : (int)floorf((float)tr_cx + sqrtf(qx_sq));
+      if (right < s_right) s_right = right;
+    }
+    if (br > 0 && y > clip_y + clip_h - br - 1) {
+      float qy = py - (float)br_cy;
+      float qx_sq = (float)(br * br) - (qy * qy);
+      int right = (qx_sq <= 0.0f) ? br_cx : (int)floorf((float)br_cx + sqrtf(qx_sq));
+      if (right < s_right) s_right = right;
+    }
+
+    int left = c_left > s_left ? c_left : s_left;
+    int right = c_right < s_right ? c_right : s_right;
+    if (right >= left) {
+      cogito_backend->draw_rect(left, y, right - left + 1, 1, color);
+    }
+  }
+}
+
 static void cogito_draw_corner_outline(int cx, int cy, int r, int sx, int sy, int sw, int sh, CogitoColor color, int thickness) {
   if (r <= 0 || sw <= 0 || sh <= 0 || thickness <= 0) return;
   if (!cogito_backend) return;
@@ -187,6 +266,18 @@ static void cogito_resolve_node_radii(const CogitoNode* n, const CogitoStyle* s,
   if (out_tr) *out_tr = tr;
   if (out_br) *out_br = br;
   if (out_bl) *out_bl = bl;
+}
+
+static void cogito_draw_circle_clipped_node(const CogitoNode* n, const CogitoStyle* s,
+                                            int fallback_radius, int cx, int cy, float r,
+                                            CogitoColor color) {
+  if (!n) return;
+  int tl = fallback_radius;
+  int tr = fallback_radius;
+  int br = fallback_radius;
+  int bl = fallback_radius;
+  cogito_resolve_node_radii(n, s, fallback_radius, n->w, n->h, &tl, &tr, &br, &bl);
+  cogito_draw_circle_clipped_radii(cx, cy, r, n->x, n->y, n->w, n->h, tl, tr, br, bl, color);
 }
 
 static void cogito_draw_rect_node(const CogitoNode* n, const CogitoStyle* s,
