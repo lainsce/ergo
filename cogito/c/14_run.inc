@@ -1,7 +1,6 @@
 #include <SDL3/SDL.h>
 
 static CogitoNode* cogito_find_stepper_hit(CogitoNode* n, int x, int y);
-static CogitoNode* cogito_find_timepicker_hit(CogitoNode* n, int x, int y);
 
 #include "widgets/util/text_editing.inc"
 
@@ -260,6 +259,18 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   }
   cogito_backend->window_show(window);
 
+  bool prev_main_pointer_valid = false;
+  int prev_main_mx = 0;
+  int prev_main_my = 0;
+  bool prev_main_mouse_inside = false;
+  bool prev_route_main_pointer = false;
+  bool prev_inspector_pointer_known = false;
+  int prev_inspector_mx = 0;
+  int prev_inspector_my = 0;
+  bool prev_inspector_mouse_inside = false;
+  bool prev_inspector_mouse_in_frame = false;
+  CogitoNode* prev_hover_node = NULL;
+
   // Main event loop
   while (!cogito_backend->window_should_close(window) && !win->should_close) {
     // On macOS, wrap the entire loop body in an autoreleasepool.
@@ -417,30 +428,66 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     cogito_main_pointer_down = left_down;
     cogito_main_pointer_pressed = left_pressed;
 
-    // Update stepper hit states for hover effects.
-    if (route_main_pointer) {
+    bool main_pointer_changed = !prev_main_pointer_valid ||
+      mx != prev_main_mx || my != prev_main_my ||
+      main_mouse_inside != prev_main_mouse_inside ||
+      route_main_pointer != prev_route_main_pointer;
+    bool inspector_pointer_changed = false;
+    if (inspector_window) {
+      inspector_pointer_changed = !prev_inspector_pointer_known ||
+        inspector_mouse_known != prev_inspector_pointer_known ||
+        imx != prev_inspector_mx || imy != prev_inspector_my ||
+        inspector_mouse_inside != prev_inspector_mouse_inside ||
+        inspector_mouse_in_frame != prev_inspector_mouse_in_frame;
+    } else if (prev_inspector_pointer_known || prev_inspector_mouse_inside || prev_inspector_mouse_in_frame) {
+      inspector_pointer_changed = true;
+    }
+
+    // Update stepper hit states for hover effects only when pointer routing/position changes.
+    if (main_pointer_changed && route_main_pointer) {
       CogitoNode* stepper_hit = cogito_find_stepper_hit(win, mx, my);
       if (stepper_hit) {
         cogito_stepper_hit_test(stepper_hit, mx, my);
       }
     }
 
-    // Update timepicker hit states for hover effects.
-    if (route_main_pointer) {
-      CogitoNode* timepicker_hit = cogito_find_timepicker_hit(win, mx, my);
-      (void)timepicker_hit;  // Currently just for future hover effects
-    }
-
     // GTK-style hover-change detection: only redraw on mouse motion if the
     // hovered interactive widget changed (enter/leave a button, slider, etc.)
-    {
-      static CogitoNode* prev_hover_node = NULL;
+    if (main_pointer_changed) {
       CogitoNode* cur_hover = route_main_pointer
           ? cogito_find_clickable(win, mx, my) : NULL;
       if (cur_hover != prev_hover_node) {
         prev_hover_node = cur_hover;
         cogito_queue_draw(win);
       }
+      // Menu hover highlight follows pointer even when underlying clickable node doesn't change.
+      if (cogito_menu.open) {
+        cogito_queue_draw(win);
+      }
+      // Overlay inspector (single-window mode) tracks pointer in the main window.
+      if (cogito_inspector_open && !inspector_window) {
+        cogito_queue_draw(win);
+      }
+    }
+    if (inspector_pointer_changed && cogito_inspector_open && inspector_window) {
+      cogito_queue_draw(win);
+    }
+
+    prev_main_pointer_valid = true;
+    prev_main_mx = mx;
+    prev_main_my = my;
+    prev_main_mouse_inside = main_mouse_inside;
+    prev_route_main_pointer = route_main_pointer;
+    if (inspector_window) {
+      prev_inspector_pointer_known = inspector_mouse_known;
+      prev_inspector_mx = imx;
+      prev_inspector_my = imy;
+      prev_inspector_mouse_inside = inspector_mouse_inside;
+      prev_inspector_mouse_in_frame = inspector_mouse_in_frame;
+    } else {
+      prev_inspector_pointer_known = false;
+      prev_inspector_mouse_inside = false;
+      prev_inspector_mouse_in_frame = false;
     }
 
     int inspector_btn_close_x = -1;
@@ -1528,8 +1575,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     double now = cogito_backend->get_time();
     bool anim_running = now < cogito_anim_end_time;
     bool need_redraw = !window_being_dragged && (cogito_draw_pending(win) || anim_running
-        || (cogito_carousel_animating_count > 0)
-        || cogito_menu.open || cogito_inspector_open);
+        || (cogito_carousel_animating_count > 0));
 
     // Debug redraw: set COGITO_DEBUG_REDRAW=1 to see why each frame redraws
     {
@@ -1544,10 +1590,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           if (_dbg_redraw_streak <= 3 || _dbg_redraw_streak % 60 == 0) {
             fprintf(stderr, "[redraw] frame=%d streak=%d reason:", _dbg_frame, _dbg_redraw_streak);
             if (cogito_draw_pending(win)) fprintf(stderr, " draw_pending");
-            if (anim_running) fprintf(stderr, " anim(%.0fms)", cogito_anim_end_time - now);
+            if (anim_running) fprintf(stderr, " anim(%.0fms)", (cogito_anim_end_time - now) * 1000.0);
             if (cogito_carousel_animating_count > 0) fprintf(stderr, " carousel(%d)", cogito_carousel_animating_count);
-            if (cogito_menu.open) fprintf(stderr, " menu");
-            if (cogito_inspector_open) fprintf(stderr, " inspector");
             fprintf(stderr, "\n");
           }
         } else {

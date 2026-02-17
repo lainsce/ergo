@@ -139,20 +139,6 @@ static void cogito_timepicker_set_time(ErgoVal nodev, ErgoVal hourv, ErgoVal min
   cogito_window_relayout(cogito_node_window(n));
 }
 
-static CogitoNode* cogito_find_timepicker_hit(CogitoNode* n, int x, int y) {
-  if (!n) return NULL;
-  if (n->kind == COGITO_TIMEPICKER) {
-    if (x >= n->x && x < n->x + n->w && y >= n->y && y < n->y + n->h) {
-      return n;
-    }
-  }
-  for (size_t i = 0; i < n->len; i++) {
-    CogitoNode* hit = cogito_find_timepicker_hit(n->children[i], x, y);
-    if (hit) return hit;
-  }
-  return NULL;
-}
-
 static void cogito_timepicker_click(CogitoNode* n, int mx, int my) {
   if (cogito_timepicker_hit(n, mx, my, true)) {
     cogito_invoke_change(n);

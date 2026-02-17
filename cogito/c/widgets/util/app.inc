@@ -28,6 +28,7 @@ static CogitoApp* cogito_app_new_obj(void) {
   app->system_dark = false;
   app->system_accent = cogito_rgba(114, 222, 194, 255);
   app->system_accent_set = false;
+  app->system_theme_next_check = 0.0;
   app->app_icon = NULL;
   return app;
 }
@@ -51,6 +52,14 @@ static void cogito_app_update_theme(CogitoApp* app) {
 
 static void cogito_update_system_theme(CogitoApp* app) {
   if (!app) return;
+  if (cogito_backend && cogito_backend->get_time) {
+    double now = cogito_backend->get_time();
+    if (app->system_theme_next_check > 0.0 && now < app->system_theme_next_check) {
+      return;
+    }
+    // Poll at a short interval instead of every loop iteration.
+    app->system_theme_next_check = now + 0.25;
+  }
   bool dark = cogito_system_is_dark();
   CogitoColor acc = {0};
   bool has_acc = cogito_system_accent(&acc);

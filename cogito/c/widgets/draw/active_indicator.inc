@@ -75,7 +75,7 @@ case COGITO_ACTIVE_INDICATOR: {
   }
 
   // Request continuous redraw for animation
-  double anim_end = now + 32.0;  // Request ~2 frames more of animation
+  double anim_end = now + 0.032;  // Request ~2 frames more of animation
   if (anim_end > cogito_anim_end_time) cogito_anim_end_time = anim_end;
   break;
 }

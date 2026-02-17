@@ -68,6 +68,7 @@ typedef struct CogitoApp {
   bool system_dark;
   CogitoColor system_accent;
   bool system_accent_set;
+  double system_theme_next_check;
   ErgoStr* app_icon;  // path to app icon (png/svg/jpg/bmp)
 } CogitoApp;
 
@@ -962,7 +963,7 @@ static CogitoColor cogito_anim_color(CogitoNode* n, CogitoColor target, CogitoCo
     *tgt = target;
     if (start) *start = now;
     if (n->anim_ms > 0) {
-      double end_time = now + (double)n->anim_ms;
+      double end_time = now + ((double)n->anim_ms / 1000.0);
       if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
     }
   }
@@ -1003,7 +1004,7 @@ static int cogito_anim_int(CogitoNode* n, int target, int* cur, int* from, int* 
     *tgt = target;
     if (start) *start = now;
     if (n->anim_ms > 0) {
-      double end_time = now + (double)n->anim_ms;
+      double end_time = now + ((double)n->anim_ms / 1000.0);
       if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
     }
   }
@@ -1047,7 +1048,7 @@ static float cogito_anim_float(CogitoNode* n, float target, float* cur, float* f
     *tgt = target;
     if (start) *start = now;
     if (n->anim_ms > 0) {
-      double end_time = now + (double)n->anim_ms;
+      double end_time = now + ((double)n->anim_ms / 1000.0);
       if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
     }
   }

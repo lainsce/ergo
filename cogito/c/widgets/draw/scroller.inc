@@ -63,13 +63,13 @@ case COGITO_SCROLLER: {
             if (n->scroller.bar_alpha > 0) {
               // Request continued redraw via frame counter instead of queue_draw
               // Request continuous redraw for animation
-              double anim_end = now + 16.0;  // Request ~1 frame more of animation
+              double anim_end = now + 0.016;  // Request ~1 frame more of animation
               if (anim_end > cogito_anim_end_time) cogito_anim_end_time = anim_end;
             }
           }
         }
         if (bar_alpha_changed || prev_bar_hovered != n->scroller.bar_hovered) {
-          double anim_end = now + 16.0;
+          double anim_end = now + 0.016;
           if (anim_end > cogito_anim_end_time) cogito_anim_end_time = anim_end;
         }
         if (n->scroller.bar_alpha > 0) {
