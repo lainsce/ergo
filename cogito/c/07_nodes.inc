@@ -42,6 +42,10 @@ static void cogito_node_drop(ErgoObj* o) {
     ergo_release_val(EV_STR(n->subtitle));
     n->subtitle = NULL;
   }
+  if (n->hint) {
+    ergo_release_val(EV_STR(n->hint));
+    n->hint = NULL;
+  }
   if (n->tooltip) {
     ergo_release_val(EV_STR(n->tooltip));
     n->tooltip = NULL;
@@ -244,6 +248,13 @@ static void cogito_node_set_subtitle(CogitoNode* n, ErgoStr* s) {
   if (s) ergo_retain_val(EV_STR(s));
   if (n->subtitle) ergo_release_val(EV_STR(n->subtitle));
   n->subtitle = s;
+}
+
+static void cogito_node_set_hint(CogitoNode* n, ErgoStr* s) {
+  if (!n) return;
+  if (s) ergo_retain_val(EV_STR(s));
+  if (n->hint) ergo_release_val(EV_STR(n->hint));
+  n->hint = s;
 }
 
 static void cogito_node_set_tooltip(CogitoNode* n, ErgoStr* s) {

@@ -1,9 +1,8 @@
 case COGITO_BOTTOM_SHEET: {
   // BottomSheet uses VStack-like layout below the drag handle
-  CogitoStyle s = cogito_theme_resolve_node(n);
-  int pad_l = s.has_padding_left ? s.padding_left : 16;
-  int pad_t = s.has_padding_top ? s.padding_top : 16;
-  int pad_r = s.has_padding_right ? s.padding_right : pad_l;
+  int pad_l = n->padding_left;
+  int pad_t = n->padding_top;
+  int pad_r = n->padding_right;
   int handle_h = 28;
   int gap = n->gap > 0 ? n->gap : 8;
   int avail_w = n->w - pad_l - pad_r;

@@ -1,0 +1,245 @@
+cask main
+
+bring stdr
+bring cogito
+
+def ?tasks = []: [string]
+def ?completed = []: [bool]
+def sheet_open_state = cogito.state(false)
+def ?draft_task = @""
+
+fun trim_text(text = string) (( string )) {
+    let n = len(text)
+    if n == 0 {
+        return @""
+    }
+
+    let ?start = 0
+    for (; start < n; start += 1) {
+        let ch = text[start]
+        if ch != @" " && ch != @"\t" && ch != @"\n" && ch != @"\r" {
+            break
+        }
+    }
+    if start >= n {
+        return @""
+    }
+
+    let ?end = n - 1
+    for (; end >= start; end -= 1) {
+        let ch = text[end]
+        if ch != @" " && ch != @"\t" && ch != @"\n" && ch != @"\r" {
+            break
+        }
+    }
+
+    let ?out = @""
+    for (let ?i = start; i <= end; i += 1) {
+        out = @"$out$text[i]"
+    }
+    return out
+}
+
+fun request_rebuild() (( -- )) {
+    let is_open = sheet_open_state.get()
+    sheet_open_state.set(is_open)
+}
+
+fun open_create_sheet() (( -- )) {
+    draft_task = @""
+    sheet_open_state.set(true)
+}
+
+fun close_create_sheet() (( -- )) {
+    draft_task = @""
+    sheet_open_state.set(false)
+}
+
+fun add_task_from_sheet() (( -- )) {
+    let text = trim_text(draft_task)
+    if len(text) == 0 {
+        return
+    }
+    completed.add(false)
+    tasks.add(text)
+    close_create_sheet()
+}
+
+fun set_task_done(index = num, checked = bool) (( -- )) {
+    if index < 0 || index >= len(completed) {
+        return
+    }
+    completed[index] = checked
+    request_rebuild()
+}
+
+fun remove_task(index = num) (( -- )) {
+    if index < 0 || index >= len(tasks) {
+        return
+    }
+
+    tasks.remove(index)
+    if index >= 0 && index < len(completed) {
+        completed.remove(index)
+    }
+
+    request_rebuild()
+}
+
+fun completed_count() (( num )) {
+    let ?count = 0
+    for (let ?i = 0; i < len(completed); i += 1) {
+        if completed[i] {
+            count += 1
+        }
+    }
+    return count
+}
+
+fun task_label(text = string, checked = bool) (( string )) {
+    return if checked { @"[x] $text" } else { @"[ ] $text" }
+}
+
+fun build_task_sheet() (( cogito.BottomSheet )) {
+    let sheet = cogito.bottom_sheet(@"Create Task")
+    sheet.set_class(@"task-sheet")
+    sheet.set_gap(10)
+
+    let input = cogito.textfield(draft_task)
+    input.set_class(@"sheet-input")
+    input.set_hexpand(true)
+    input.set_hint_text(@"Enter task details, like what, when, and how often.")
+    input.on_change((tf = cogito.TextField) => {
+        draft_task = tf.text()
+    })
+    sheet.add(input)
+
+    let actions = cogito.hstack()
+    actions.set_gap(8)
+    actions.set_hexpand(true)
+
+    let cancel_btn = cogito.button(@"Cancel")
+    cancel_btn.set_class(@"outline")
+    cancel_btn.set_hexpand(true)
+    cancel_btn.on_click((b = cogito.Button) => {
+        close_create_sheet()
+    })
+    actions.add(cancel_btn)
+
+    let add_btn = cogito.button(@"Add Task")
+    add_btn.set_hexpand(true)
+    add_btn.on_click((b = cogito.Button) => {
+        add_task_from_sheet()
+    })
+    actions.add(add_btn)
+
+    sheet.add(actions)
+    return sheet
+}
+
+fun build_main_content() (( cogito.VStack )) {
+    let total = len(tasks)
+    let done = completed_count()
+
+    let content = cogito.vstack()
+    content.set_gap(10)
+    content.set_hexpand(true)
+    content.set_vexpand(true)
+    content.set_padding(14, 14, 14, 90)
+
+    if total == 0 {
+        let empty = cogito.empty_page(@"No Tasks Yet")
+        empty.set_description(@"Tap the + button to create your first task.")
+        empty.set_icon(@"sf:checklist")
+        empty.set_action(@"Create Task", (b = any) => {
+            open_create_sheet()
+        })
+        empty.set_hexpand(true)
+        empty.set_class(@"task-empty")
+        content.add(empty)
+        return content
+    }
+
+    let list = cogito.list()
+    list.set_hexpand(true)
+    list.set_vexpand(true)
+    list.set_class(@"task-list")
+
+    let done_len = len(completed)
+    for (let ?i = 0; i < total; i += 1) {
+        let checked = if i < done_len { completed[i] } else { false }
+        let text = tasks[i] ?? @""
+        let item = cogito.label(task_label(text, checked))
+        item.set_wrap(true)
+        item.set_class(if checked { @"task-item-done" } else { @"task-item" })
+        list.add(item)
+    }
+    list.on_select((idx = num) => {
+        if idx >= 0 && idx < len(tasks) {
+            let was_done = if idx < len(completed) { completed[idx] } else { false }
+            set_task_done(idx, !was_done)
+        }
+    })
+    list.on_activate((idx = num) => {
+        remove_task(idx)
+    })
+
+    content.add(list)
+    return content
+}
+
+fun build_window(win = cogito.Window) (( -- )) {
+    let total = len(tasks)
+    let done = completed_count()
+    let is_sheet_open = sheet_open_state.get() == true
+
+    let bar = cogito.appbar(@"ErgoTask", @"$done of $total done")
+    bar.set_hexpand(true)
+    win.add(bar)
+
+    win.add(build_main_content())
+
+    if is_sheet_open {
+        let sheet_layer = cogito.zstack()
+        sheet_layer.set_hexpand(true)
+        sheet_layer.set_vexpand(true)
+        sheet_layer.set_align(7)
+        sheet_layer.set_padding(12, 12, 12, 12)
+        sheet_layer.add(build_task_sheet())
+        win.add(sheet_layer)
+        return
+    }
+
+    let fab_layer = cogito.zstack()
+    fab_layer.set_hexpand(true)
+    fab_layer.set_vexpand(true)
+    fab_layer.set_align(8)
+    fab_layer.set_padding(0, 0, 18, 18)
+
+    let fab = cogito.fab(@"plus")
+    fab.set_class(@"task-fab")
+    cogito.set_tooltip(fab, @"Create task")
+    fab.on_click((f = cogito.FAB) => {
+        open_create_sheet()
+    })
+    fab_layer.add(fab)
+    win.add(fab_layer)
+}
+
+entry() (( -- )) {
+    let app = cogito.app()
+    app.set_appid(@"ergo.cogito.ErgoTask")
+    app.set_app_name(@"ErgoTask")
+    app.set_accent_color(@"#008888", false)
+
+    cogito.load_sum(@"ergotask.sum")
+
+    let win = cogito.window_size(@"ErgoTask", 460, 720)
+    win.set_autosize(false)
+    win.set_resizable(true)
+    win.build((w = cogito.Window) => {
+        build_window(w)
+    })
+
+    app.run(win)
+}

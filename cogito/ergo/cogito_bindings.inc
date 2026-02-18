@@ -96,6 +96,8 @@
 #undef cogito_switch_set_checked
 #undef cogito_textfield_set_text
 #undef cogito_textfield_get_text
+#undef cogito_textfield_set_hint
+#undef cogito_textfield_get_hint
 #undef cogito_textview_set_text
 #undef cogito_textview_get_text
 #undef cogito_searchfield_set_text
@@ -1085,6 +1087,14 @@ static void __cogito_image_set_icon(ErgoVal imgv, ErgoVal iconv) {
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
 
+static void __cogito_image_set_source(ErgoVal imgv, ErgoVal sourcev) {
+  cogito_node* n = cogito_node_from_val(imgv);
+  ErgoStr* tmp = NULL;
+  const char* source = cogito_required_cstr(sourcev, &tmp);
+  cogito_image_set_source(n, source);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
 static void __cogito_image_set_size(ErgoVal imgv, ErgoVal wv, ErgoVal hv) {
   cogito_node* n = cogito_node_from_val(imgv);
   int w = (int)ergo_as_int(wv);
@@ -1150,6 +1160,16 @@ static ErgoVal __cogito_dialog(ErgoVal titlev) {
   cogito_node* n = cogito_dialog_new(title);
   if (tmp) ergo_release_val(EV_STR(tmp));
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+static void __cogito_dialog_close(ErgoVal dialogv) {
+  cogito_node* dialog = cogito_node_from_val(dialogv);
+  cogito_dialog_close(dialog);
+}
+
+static void __cogito_dialog_remove(ErgoVal dialogv) {
+  cogito_node* dialog = cogito_node_from_val(dialogv);
+  cogito_dialog_remove(dialog);
 }
 
 static ErgoVal __cogito_dialog_slot(void) {
@@ -1709,6 +1729,20 @@ static ErgoVal __cogito_textfield_get_text(ErgoVal tfv) {
   return EV_STR(stdr_str_lit(text ? text : ""));
 }
 
+static void __cogito_textfield_set_hint(ErgoVal tfv, ErgoVal hintv) {
+  cogito_node* tf = cogito_node_from_val(tfv);
+  ErgoStr* tmp = NULL;
+  const char* hint = cogito_required_cstr(hintv, &tmp);
+  cogito_textfield_set_hint(tf, hint);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
+static ErgoVal __cogito_textfield_get_hint(ErgoVal tfv) {
+  cogito_node* tf = cogito_node_from_val(tfv);
+  const char* hint = cogito_textfield_get_hint(tf);
+  return EV_STR(stdr_str_lit(hint ? hint : ""));
+}
+
 static void __cogito_textfield_on_change(ErgoVal tfv, ErgoVal handler) {
   cogito_node* tf = cogito_node_from_val(tfv);
   CogitoHandle* h = (CogitoHandle*)tfv.as.p;
@@ -2149,6 +2183,10 @@ static void __cogito_view_switcher_add(ErgoVal vsv, ErgoVal idv, ErgoVal builder
   cogito_view_switcher_add_lazy_ergo(nvs, idv, builderv);
 }
 
+static void __cogito_view_switcher_add_lazy(ErgoVal vsv, ErgoVal idv, ErgoVal builderv) {
+  __cogito_view_switcher_add(vsv, idv, builderv);
+}
+
 static void __cogito_progress_set_value(ErgoVal pv, ErgoVal valuev) {
   cogito_node* p = cogito_node_from_val(pv);
   cogito_progress_set_value(p, ergo_as_float(valuev));
@@ -2421,6 +2459,8 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_view_switcher_add __cogito_view_switcher_add
 #define cogito_textfield_set_text __cogito_textfield_set_text
 #define cogito_textfield_get_text __cogito_textfield_get_text
+#define cogito_textfield_set_hint __cogito_textfield_set_hint
+#define cogito_textfield_get_hint __cogito_textfield_get_hint
 #define cogito_searchfield_set_text __cogito_searchfield_set_text
 #define cogito_searchfield_get_text __cogito_searchfield_get_text
 #define cogito_searchfield_on_change __cogito_searchfield_on_change

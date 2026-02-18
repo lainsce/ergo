@@ -1816,6 +1816,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
                 sig->recv_mut = recv_mut;
                 sig->owner_class = ci->qname;
                 sig->cask_path = m->path;
+                sig->extern_stub = false;
 
                 // check duplicate method name
                 for (size_t k = 0; k < m_i; k++) {
@@ -1890,6 +1891,10 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
                     params[p] = pty;
                     pnames[p] = pp->name;
                 }
+                bool is_empty_body = fd->body && fd->body->kind == STMT_BLOCK && fd->body->as.block_s.stmts_len == 0;
+                bool has_internal_prefix = fd->name.len >= 2 && fd->name.data[0] == '_' && fd->name.data[1] == '_';
+                // Empty-body "__*" declarations are external C stubs (except stdr intrinsics).
+                bool extern_stub = is_empty_body && has_internal_prefix && !str_eq_c(mod_name, "stdr");
                 env->funs[findex].name = fd->name;
                 env->funs[findex].cask = mod_name;
                 env->funs[findex].params = params;
@@ -1902,6 +1907,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
                 env->funs[findex].owner_class.data = NULL;
                 env->funs[findex].owner_class.len = 0;
                 env->funs[findex].cask_path = m->path;
+                env->funs[findex].extern_stub = extern_stub;
                 findex++;
             }
             if (d->kind == DECL_ENTRY) {

@@ -13,6 +13,36 @@ static void cogito_appbar_button_metrics(int* size, int* gap, int* pad_top, int*
   if (pad_right) *pad_right = 9;
 }
 
+static bool cogito_tree_has_visible_bottom_sheet_above_y(const CogitoNode* n, int y_limit) {
+  if (!n) return false;
+  if (n->kind == COGITO_BOTTOM_SHEET && n->w > 0 && n->h > 0 && n->y <= y_limit) return true;
+  for (size_t i = 0; i < n->len; i++) {
+    if (cogito_tree_has_visible_bottom_sheet_above_y(n->children[i], y_limit)) return true;
+  }
+  return false;
+}
+
+static bool cogito_appbar_bottom_sheet_active(const CogitoNode* appbar) {
+  if (!appbar) return false;
+  CogitoNode* win = cogito_node_window((CogitoNode*)appbar);
+  if (!win) return false;
+  int appbar_bottom = appbar->y + appbar->h;
+  return cogito_tree_has_visible_bottom_sheet_above_y(win, appbar_bottom);
+}
+
+static int cogito_appbar_titlebar_inset(void) {
+  int btn_size = 12;
+  int btn_gap = 9;
+  int btn_pad_top = 9;
+  int btn_pad_right = 9;
+  cogito_appbar_button_metrics(&btn_size, &btn_gap, &btn_pad_top, &btn_pad_right);
+  if (btn_size < 2) btn_size = 2;
+  if (btn_pad_top < 0) btn_pad_top = 0;
+  int inset = btn_pad_top + btn_size + 6;
+  if (inset <= 0) inset = COGITO_BOTTOM_SHEET_TOP_INSET;
+  return inset;
+}
+
 static int cogito_appbar_ctrl_index(char c) {
   if (c == 'C') return 0;
   if (c == 'I') return 1;

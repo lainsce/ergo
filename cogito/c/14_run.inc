@@ -29,6 +29,13 @@ static const char* cogito_about_window_action_url(CogitoNode* btn, CogitoNode* a
   return NULL;
 }
 
+static bool cogito_node_is_or_descends_from_kind(CogitoNode* n, CogitoKind kind) {
+  for (CogitoNode* p = n; p; p = p->parent) {
+    if (p->kind == kind) return true;
+  }
+  return false;
+}
+
 static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (appv.tag != EVT_OBJ) ergo_trap("cogito.run expects app");
   if (winv.tag != EVT_OBJ) ergo_trap("cogito.run expects window");
@@ -981,6 +988,50 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       }
     }
 
+    // Bottom sheet active handling
+    if (cogito_bottom_sheet_active) {
+      if (cogito_backend->is_mouse_button_down(0)) {
+        CogitoNode* bs = cogito_bottom_sheet_active;
+        CogitoNode* host = bs->parent;
+        if (host) {
+          int host_y = host->y;
+          int host_h = host->h;
+          if (host->kind == COGITO_ZSTACK && host->parent && host->parent->kind == COGITO_WINDOW) {
+            host_y = 0;
+            host_h = host->parent->h;
+          }
+          int dy = bs->bottom_sheet.drag_start_y - my;
+          bs->bottom_sheet.desired_h = bs->bottom_sheet.drag_start_h + dy;
+          int clamped_h = cogito_bottom_sheet_target_height(bs, host_y, host_h);
+          bs->bottom_sheet.desired_h = clamped_h;
+          int top_inset = cogito_bottom_sheet_top_inset(host_y);
+          bs->bottom_sheet.expanded = clamped_h >= (host_h - top_inset - 8);
+          cogito_window_relayout(win);
+        }
+      } else {
+        CogitoNode* bs = cogito_bottom_sheet_active;
+        CogitoNode* host = bs->parent;
+        if (host) {
+          int host_y = host->y;
+          int host_h = host->h;
+          if (host->kind == COGITO_ZSTACK && host->parent && host->parent->kind == COGITO_WINDOW) {
+            host_y = 0;
+            host_h = host->parent->h;
+          }
+          int snap_h = cogito_bottom_sheet_snap_height(bs, host_y, host_h, bs->h);
+          bs->bottom_sheet.desired_h = snap_h;
+          int top_inset = cogito_bottom_sheet_top_inset(host_y);
+          bs->bottom_sheet.expanded = snap_h >= (host_h - top_inset - 8);
+          cogito_window_relayout(win);
+        }
+        bs->bottom_sheet.dragging = false;
+        if (cogito_pointer_capture == bs) {
+          cogito_pointer_capture = NULL;
+        }
+        cogito_bottom_sheet_active = NULL;
+      }
+    }
+
     // Color picker active handling
     if (cogito_colorpicker_active) {
       if (cogito_backend->is_mouse_button_down(0)) {
@@ -1258,8 +1309,13 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             cogito_popover_close(EV_OBJ(win));
           }
         }
+        bool appbar_blocked_by_bottom_sheet = false;
+        if (!active_dialog) {
+          CogitoNode* appbar_pre_hit = cogito_find_clickable(win, mx, my);
+          appbar_blocked_by_bottom_sheet = cogito_node_is_or_descends_from_kind(appbar_pre_hit, COGITO_BOTTOM_SHEET);
+        }
         // Check for traffic light clicks on the first appbar
-        if (!active_dialog && appbar) {
+        if (!active_dialog && appbar && !appbar_blocked_by_bottom_sheet) {
           if (appbar->appbar.btn_close_x >= 0 &&
               cogito_hit_rect(mx, my, appbar->appbar.btn_close_x, appbar->appbar.btn_y, appbar->appbar.btn_size, appbar->appbar.btn_size)) {
             cogito_appbar_window_action(win, 0);
@@ -1275,7 +1331,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           }
         }
         // Check if click is on ANY appbar for dragging (only if we didn't handle a button click)
-        if (!handled && !active_dialog) {
+        if (!handled && !active_dialog && !appbar_blocked_by_bottom_sheet) {
           CogitoNode* clicked_appbar = cogito_find_appbar_at_point(win, mx, my);
           if (clicked_appbar && !cogito_point_over_appbar_buttons(clicked_appbar, mx, my)) {
 #if defined(__APPLE__)
@@ -1589,6 +1645,17 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
               hit->chip.selected = !hit->chip.selected;
               cogito_invoke_click(hit);
               cogito_window_relayout(win);
+            }
+          } else if (hit->kind == COGITO_BOTTOM_SHEET) {
+            int hx = 0, hy = 0, hw = 0, hh = 0;
+            cogito_bottom_sheet_handle_rect(hit, &hx, &hy, &hw, &hh);
+            if (cogito_hit_rect(mx, my, hx, hy, hw, hh)) {
+              hit->bottom_sheet.dragging = true;
+              hit->bottom_sheet.drag_start_y = my;
+              hit->bottom_sheet.drag_start_h = hit->h;
+              hit->bottom_sheet.desired_h = hit->h;
+              cogito_bottom_sheet_active = hit;
+              cogito_pointer_capture = hit;
             }
           } else if (hit->kind == COGITO_FAB) {
             cogito_invoke_click(hit);

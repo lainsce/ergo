@@ -124,6 +124,7 @@ struct FunSig {
     bool recv_mut;
     Str owner_class;
     Str cask_path;
+    bool extern_stub;
 };
 
 typedef struct {

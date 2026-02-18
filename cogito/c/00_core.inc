@@ -42,6 +42,9 @@ static void cogito_apply_theme(bool dark, CogitoColor accent);
 #define COGITO_ANIM_DURATION_LONG3 550
 #define COGITO_ANIM_DURATION_LONG4 600
 #define COGITO_ACTIVE_LATCH_MS 90      // Keep pressed visual briefly to avoid click flash
+#define COGITO_BOTTOM_SHEET_DEFAULT_RATIO 0.60f
+#define COGITO_BOTTOM_SHEET_TOP_INSET 56
+#define COGITO_BOTTOM_SHEET_HANDLE_TOUCH_H 32
 
 // Nav Rail Constants (dp)
 // Shared between collapsed and expanded modes
@@ -402,6 +405,7 @@ typedef struct CogitoNode {
   // Content
   ErgoStr* text;
   ErgoStr* subtitle;
+  ErgoStr* hint;
   ErgoStr* icon;
   ErgoStr* tooltip;
   ErgoStr* action_text;
@@ -682,6 +686,13 @@ typedef struct CogitoNode {
     } progress;
     struct { bool outlined, text_style; } button;
     struct { bool selected, has_close; } chip;
+    struct {
+      bool dragging;
+      bool expanded;
+      int drag_start_y;
+      int drag_start_h;
+      int desired_h;
+    } bottom_sheet;
     struct { bool extended; } fab;
     struct { bool vertical, inset; } divider;
     struct { int cls; } label;
@@ -749,6 +760,7 @@ static bool cogito_dialog_slot_force_draw = false;
 static bool cogito_toasts_force_draw = false;
 static CogitoNode* cogito_slider_active = NULL;
 static CogitoNode* cogito_carousel_active = NULL;
+static CogitoNode* cogito_bottom_sheet_active = NULL;
 static int cogito_carousel_animating_count = 0;  // Track number of animating carousels globally
 static double cogito_anim_end_time = 0.0;  // Time when all animations will complete (time-based for smooth animation)
 static CogitoNode* cogito_colorpicker_active = NULL;

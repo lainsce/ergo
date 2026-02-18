@@ -310,60 +310,6 @@ static char *c_escape(Arena *arena, Str s) {
     return out;
 }
 
-static bool codegen_try_text_literal(Expr *e, Str *out) {
-    if (!e || !out || e->kind != EXPR_STR) {
-        return false;
-    }
-    StrParts *parts = e->as.str_lit.parts;
-    if (!parts || parts->len == 0) {
-        out->data = "";
-        out->len = 0;
-        return true;
-    }
-    if (parts->len != 1) {
-        return false;
-    }
-    if (parts->parts[0].kind != STR_PART_TEXT) {
-        return false;
-    }
-    *out = parts->parts[0].text;
-    return true;
-}
-
-static char *codegen_read_literal_file(Arena *arena, Str cask_path, Str literal_path, size_t *out_len) {
-    if (!arena || !literal_path.data || literal_path.len == 0) {
-        return NULL;
-    }
-    char *literal = arena_strndup(arena, literal_path.data, literal_path.len);
-    if (!literal) {
-        return NULL;
-    }
-    Diag ferr = {0};
-    char *src = read_file_arena(literal, arena, out_len, &ferr);
-    if (src) {
-        return src;
-    }
-    if (!cask_path.data || cask_path.len == 0) {
-        return NULL;
-    }
-    char *cask_path_c = arena_strndup(arena, cask_path.data, cask_path.len);
-    if (!cask_path_c) {
-        return NULL;
-    }
-    char *dir = path_dirname(cask_path_c);
-    if (!dir) {
-        return NULL;
-    }
-    char *joined = path_join(dir, literal);
-    free(dir);
-    if (!joined) {
-        return NULL;
-    }
-    src = read_file_arena(joined, arena, out_len, &ferr);
-    free(joined);
-    return src;
-}
-
 static char *mangle_mod(Arena *arena, Str name) {
     if (!arena) return NULL;
     char *buf = (char *)arena_alloc(arena, name.len + 1);
@@ -832,6 +778,10 @@ static ConstEntry *codegen_find_const(ModuleConsts *mc, Str name) {
 static bool is_stdr_prelude(Str name) {
     return str_eq_c(name, "write") || str_eq_c(name, "writef") || str_eq_c(name, "readf") ||
            str_eq_c(name, "len") || str_eq_c(name, "is_null") || str_eq_c(name, "str");
+}
+
+static bool is_extern_stub_sig(FunSig *sig) {
+    return sig && sig->extern_stub;
 }
 
 static Ctx codegen_ctx_for(Codegen *cg, Str path) {
@@ -2260,23 +2210,6 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     if (!sig) {
                         return cg_set_errf(err, path, e->line, e->col, "unknown %.*s.%.*s", (int)mod.len, mod.data, (int)name.len, name.data);
                     }
-                    if (str_eq_c(mod, "cogito") && str_eq_c(name, "load_sum") && e->as.call.args_len == 1) {
-                        Str lit_path = {0};
-                        if (codegen_try_text_literal(e->as.call.args[0], &lit_path) && lit_path.len > 0) {
-                            size_t sum_len = 0;
-                            char *sum_src = codegen_read_literal_file(cg->arena, path, lit_path, &sum_len);
-                            if (sum_src) {
-                                char *esc = c_escape(cg->arena, (Str){sum_src, sum_len});
-                                if (!esc) return cg_set_err(err, path, "out of memory");
-                                w_line(&cg->w, "cogito_load_sum_inline(\"%s\");", esc);
-                                char *t = codegen_new_tmp(cg);
-                                w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
-                                gen_expr_add(out, t);
-                                out->tmp = t;
-                                return true;
-                            }
-                        }
-                    }
                     VEC(char *) arg_ts = VEC_INIT;
                     for (size_t i = 0; i < e->as.call.args_len; i++) {
                         GenExpr ge;
@@ -2286,10 +2219,16 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         gen_expr_free(&ge);
                     }
                     bool ret_void = sig->ret && sig->ret->tag == TY_VOID;
+                    bool direct_extern_stub = is_extern_stub_sig(sig);
                     if (ret_void) {
                         StrBuf line; sb_init(&line);
-                        char *mangled = mangle_global(cg->arena, mod, name);
-                        sb_appendf(&line, "%s(", mangled);
+                        if (direct_extern_stub) {
+                            sb_append_n(&line, name.data, name.len);
+                            sb_append(&line, "(");
+                        } else {
+                            char *mangled = mangle_global(cg->arena, mod, name);
+                            sb_appendf(&line, "%s(", mangled);
+                        }
                         for (size_t i = 0; i < arg_ts.len; i++) {
                             if (i) sb_append(&line, ", ");
                             sb_append(&line, arg_ts.data[i]);
@@ -2309,8 +2248,14 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     }
                     char *t = codegen_new_tmp(cg);
                     StrBuf line; sb_init(&line);
-                    char *mangled = mangle_global(cg->arena, mod, name);
-                    sb_appendf(&line, "ErgoVal %s = %s(", t, mangled);
+                    if (direct_extern_stub) {
+                        sb_appendf(&line, "ErgoVal %s = ", t);
+                        sb_append_n(&line, name.data, name.len);
+                        sb_append(&line, "(");
+                    } else {
+                        char *mangled = mangle_global(cg->arena, mod, name);
+                        sb_appendf(&line, "ErgoVal %s = %s(", t, mangled);
+                    }
                     for (size_t i = 0; i < arg_ts.len; i++) {
                         if (i) sb_append(&line, ", ");
                         sb_append(&line, arg_ts.data[i]);
@@ -2598,8 +2543,6 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
-                    // Cogito intrinsic codegen (lives in cogito/ergo/)
-#include "cogito_codegen.inc"
                     FunSig *sig = codegen_fun_sig(cg, cg->current_cask, fname);
                     if (!sig && is_stdr_prelude(fname)) {
                         bool allow = str_eq_c(cg->current_cask, "stdr");
@@ -2618,10 +2561,16 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                             gen_expr_free(&ge);
                         }
                         bool ret_void = sig->ret && sig->ret->tag == TY_VOID;
-                        char *mangled = mangle_global(cg->arena, sig->cask, fname);
+                        bool direct_extern_stub = is_extern_stub_sig(sig);
                         if (ret_void) {
                             StrBuf line; sb_init(&line);
-                            sb_appendf(&line, "%s(", mangled);
+                            if (direct_extern_stub) {
+                                sb_append_n(&line, fname.data, fname.len);
+                                sb_append(&line, "(");
+                            } else {
+                                char *mangled = mangle_global(cg->arena, sig->cask, fname);
+                                sb_appendf(&line, "%s(", mangled);
+                            }
                             for (size_t i = 0; i < arg_ts.len; i++) {
                                 if (i) sb_append(&line, ", ");
                                 sb_append(&line, arg_ts.data[i]);
@@ -2641,7 +2590,14 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         }
                         char *t = codegen_new_tmp(cg);
                         StrBuf line; sb_init(&line);
-                        sb_appendf(&line, "ErgoVal %s = %s(", t, mangled);
+                        if (direct_extern_stub) {
+                            sb_appendf(&line, "ErgoVal %s = ", t);
+                            sb_append_n(&line, fname.data, fname.len);
+                            sb_append(&line, "(");
+                        } else {
+                            char *mangled = mangle_global(cg->arena, sig->cask, fname);
+                            sb_appendf(&line, "ErgoVal %s = %s(", t, mangled);
+                        }
                         for (size_t i = 0; i < arg_ts.len; i++) {
                             if (i) sb_append(&line, ", ");
                             sb_append(&line, arg_ts.data[i]);
@@ -3487,10 +3443,16 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
                 w_line(&cg->w, "ErgoVal arg%zu = argv[%zu];", p, p);
             }
             bool ret_void = sig->ret && sig->ret->tag == TY_VOID;
-            char *mangled = mangle_global(cg->arena, sig->cask, sig->name);
+            bool direct_extern_stub = is_extern_stub_sig(sig);
             if (ret_void) {
                 StrBuf line; sb_init(&line);
-                sb_appendf(&line, "%s(", mangled);
+                if (direct_extern_stub) {
+                    sb_append_n(&line, sig->name.data, sig->name.len);
+                    sb_append(&line, "(");
+                } else {
+                    char *mangled = mangle_global(cg->arena, sig->cask, sig->name);
+                    sb_appendf(&line, "%s(", mangled);
+                }
                 for (size_t p = 0; p < sig->params_len; p++) {
                     if (p) sb_append(&line, ", ");
                     sb_appendf(&line, "arg%zu", p);
@@ -3501,7 +3463,14 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
                 w_line(&cg->w, "return EV_NULLV;");
             } else {
                 StrBuf line; sb_init(&line);
-                sb_appendf(&line, "return %s(", mangled);
+                if (direct_extern_stub) {
+                    sb_append(&line, "return ");
+                    sb_append_n(&line, sig->name.data, sig->name.len);
+                    sb_append(&line, "(");
+                } else {
+                    char *mangled = mangle_global(cg->arena, sig->cask, sig->name);
+                    sb_appendf(&line, "return %s(", mangled);
+                }
                 for (size_t p = 0; p < sig->params_len; p++) {
                     if (p) sb_append(&line, ", ");
                     sb_appendf(&line, "arg%zu", p);
@@ -3712,7 +3681,9 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
             char *dir = arena_alloc(cg->arena, dir_len + 1);
             memcpy(dir, path, dir_len);
             dir[dir_len] = 0;
-            w_line(&cg->w, "__cogito_set_script_dir(\"%s\");", dir);
+            w_line(&cg->w, "ErgoVal __script_dir = EV_STR(stdr_str_lit(\"%s\"));", dir);
+            w_line(&cg->w, "__cogito_set_script_dir(__script_dir);");
+            w_line(&cg->w, "ergo_release_val(__script_dir);");
         } else {
         }
     } else {
@@ -3722,8 +3693,8 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
     w_line(&cg->w, "}");
     w_line(&cg->w, "#else");
     w_line(&cg->w, "ergo_runtime_init();");
-    // Set script directory for cogito image path resolution
-    if (cg->uses_cogito && cg->entry_path.data) {
+    // Always set script directory when entry_path is available
+    if (cg->entry_path.data && cg->entry_path.len > 0) {
         const char *path = cg->entry_path.data;
         size_t len = cg->entry_path.len;
         const char *last_slash = NULL;
@@ -3735,7 +3706,9 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
             char *dir = arena_alloc(cg->arena, dir_len + 1);
             memcpy(dir, path, dir_len);
             dir[dir_len] = 0;
-            w_line(&cg->w, "__cogito_set_script_dir(\"%s\");", dir);
+            w_line(&cg->w, "ErgoVal __script_dir = EV_STR(stdr_str_lit(\"%s\"));", dir);
+            w_line(&cg->w, "__cogito_set_script_dir(__script_dir);");
+            w_line(&cg->w, "ergo_release_val(__script_dir);");
         }
     }
     w_line(&cg->w, "ergo_entry();");

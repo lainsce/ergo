@@ -24,6 +24,20 @@ static ErgoVal cogito_textfield_get_text(ErgoVal nodev) {
   ergo_retain_val(EV_STR(s));
   return EV_STR(s);
 }
+static void cogito_textfield_set_hint(ErgoVal nodev, ErgoVal hintv) {
+  if (nodev.tag != EVT_OBJ) ergo_trap("cogito.textfield_set_hint expects textfield");
+  CogitoNode* n = (CogitoNode*)nodev.as.p;
+  ErgoStr* hs = stdr_to_string(hintv);
+  cogito_node_set_hint(n, hs);
+  cogito_window_relayout(cogito_node_window(n));
+}
+static ErgoVal cogito_textfield_get_hint(ErgoVal nodev) {
+  if (nodev.tag != EVT_OBJ) ergo_trap("cogito.textfield_get_hint expects textfield");
+  CogitoNode* n = (CogitoNode*)nodev.as.p;
+  ErgoStr* s = n->hint ? n->hint : stdr_str_lit("");
+  ergo_retain_val(EV_STR(s));
+  return EV_STR(s);
+}
 static void cogito_textfield_on_change(ErgoVal nodev, ErgoVal handler) {
   if (nodev.tag != EVT_OBJ) ergo_trap("cogito.textfield_on_change expects textfield");
   if (handler.tag != EVT_FN) ergo_trap("cogito.textfield_on_change expects function");

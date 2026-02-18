@@ -1076,9 +1076,33 @@ static void cogito_apply_default_sum(void) {
   free(src);
 }
 
+static bool cogito_sum_resolve_user_path(const char* path, char* resolved, size_t resolved_cap) {
+  if (!path || !path[0] || !resolved || resolved_cap == 0) return false;
+  resolved[0] = 0;
+  if (sum_path_is_absolute(path)) {
+    snprintf(resolved, resolved_cap, "%s", path);
+    return cogito_file_exists(resolved);
+  }
+
+  const char* rel_path = path;
+  const char* script_dir = cogito_get_script_dir();
+  if (script_dir && script_dir[0]) {
+    sum_path_join(script_dir, rel_path, resolved, resolved_cap);
+    if (cogito_file_exists(resolved)) return true;
+  }
+
+  snprintf(resolved, resolved_cap, "%s", rel_path);
+  return cogito_file_exists(resolved);
+}
+
 static void cogito_load_sum_file(const char* path) {
+  char resolved_path[PATH_MAX];
+  const char* load_path = path;
+  if (cogito_sum_resolve_user_path(path, resolved_path, sizeof(resolved_path))) {
+    load_path = resolved_path;
+  }
   size_t len = 0;
-  char* src = sum_read_file(path, &len);
+  char* src = sum_read_file(load_path, &len);
   if (!src) {
     if (cogito_debug_enabled()) {
       fprintf(stderr, "cogito: sum not found: %s\n", path ? path : "");
@@ -1112,8 +1136,13 @@ static void cogito_load_sum_file(const char* path) {
 static void cogito_load_sum(ErgoVal pathv) {
   ErgoStr* ps = stdr_to_string(pathv);
   if (ps && ps->data) {
+    char resolved_path[PATH_MAX];
+    const char* load_path = ps->data;
+    if (cogito_sum_resolve_user_path(ps->data, resolved_path, sizeof(resolved_path))) {
+      load_path = resolved_path;
+    }
     size_t len = 0;
-    char* src = sum_read_file(ps->data, &len);
+    char* src = sum_read_file(load_path, &len);
     if (src) {
       if (cogito_user_sum) free(cogito_user_sum);
       cogito_user_sum = src;

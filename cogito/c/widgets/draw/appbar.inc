@@ -6,13 +6,21 @@ case COGITO_APPBAR: {
       CogitoColor bg = n->bg;
       CogitoColor border = n->border_color;
       CogitoColor text = s.has_text ? s.text : n->text_color;
+      CogitoColor force_black = cogito_rgba(0, 0, 0, 255);
       int border_w = n->border_width;
       int radius = n->border_radius;
       if (s.has_bg) bg = s.bg;
       if (s.has_border) border = s.border;
       if (s.has_border_width) border_w = s.border_width;
       if (s.has_radius) radius = s.radius;
-      if (n->bg_set || s.has_bg || border_w > 0) {
+      bool bottom_sheet_active = cogito_appbar_bottom_sheet_active(n);
+      if (bottom_sheet_active) {
+        bg = force_black;
+        text = force_black;
+        border = force_black;
+        border_w = 0;
+      }
+      if (bottom_sheet_active || n->bg_set || s.has_bg || border_w > 0) {
         if (n->shadow_set && n->shadow_level > 0) {
           cogito_draw_shadow_node_level(n, &s, n->x, n->y, n->w, n->h, radius, n->shadow_level);
         }
@@ -36,6 +44,7 @@ case COGITO_APPBAR: {
         n->appbar.btn_close_x, n->appbar.btn_min_x, n->appbar.btn_max_x, by, btn,
         mx, my, down, &lights
       );
+
       CogitoColor fallback_btn = s.has_selection ? s.selection : n->selection_color;
       CogitoColor fallback_border = border;
       if (!s.has_border) fallback_border = text;
@@ -64,7 +73,15 @@ case COGITO_APPBAR: {
         cogito_draw_text_size_node(n, n->x + 16, sy, n->subtitle->data, scol, ssz, sbold);
       }
       for (size_t i = 0; i < n->len; i++) {
-        cogito_draw_node(n->children[i]);
+        CogitoNode* c = n->children[i];
+        if (bottom_sheet_active && c) {
+          CogitoColor prev_text = c->text_color;
+          c->text_color = force_black;
+          cogito_draw_node(c);
+          c->text_color = prev_text;
+        } else {
+          cogito_draw_node(c);
+        }
       }
       break;
     }

@@ -1,7 +1,4 @@
 case COGITO_BOTTOM_SHEET: {
-  CogitoStyle s = cogito_theme_resolve_node(n);
-  int pad_t = s.has_padding_top ? s.padding_top : 18;
-  int pad_b = s.has_padding_bottom ? s.padding_bottom : pad_t;
   int handle_h = 28; // drag handle area
   int gap = n->gap > 0 ? n->gap : 8;
   int title_h = 0;
@@ -17,7 +14,8 @@ case COGITO_BOTTOM_SHEET: {
     if (i > 0) content_h += gap;
   }
   w = 324;
-  h = handle_h + title_h + pad_t + content_h + pad_b;
+  // Generic intrinsic sizing adds node padding after this switch.
+  h = handle_h + title_h + content_h;
   if (h < 100) h = 100;
   break;
 }

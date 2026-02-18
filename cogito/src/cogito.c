@@ -207,8 +207,10 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_tabs_set_items cogito_tabs_set_items_ergo
 #define cogito_tabs_set_selected cogito_tabs_set_selected_ergo
 #define cogito_textfield_get_text cogito_textfield_get_text_ergo
+#define cogito_textfield_get_hint cogito_textfield_get_hint_ergo
 #define cogito_textfield_new cogito_textfield_new_ergo
 #define cogito_textfield_on_change cogito_textfield_on_change_ergo
+#define cogito_textfield_set_hint cogito_textfield_set_hint_ergo
 #define cogito_textfield_set_text cogito_textfield_set_text_ergo
 #define cogito_textview_get_text cogito_textview_get_text_ergo
 #define cogito_textview_new cogito_textview_new_ergo
@@ -457,8 +459,10 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_tabs_set_items
 #undef cogito_tabs_set_selected
 #undef cogito_textfield_get_text
+#undef cogito_textfield_get_hint
 #undef cogito_textfield_new
 #undef cogito_textfield_on_change
+#undef cogito_textfield_set_hint
 #undef cogito_textfield_set_text
 #undef cogito_textview_get_text
 #undef cogito_textview_new
@@ -1606,6 +1610,19 @@ void cogito_textfield_set_text(cogito_node* tf, const char* text) {
 const char* cogito_textfield_get_text(cogito_node* tf) {
   if (!tf) return NULL;
   ErgoVal v = cogito_textfield_get_text_ergo(EV_OBJ(tf));
+  return v.tag == EVT_STR ? ((ErgoStr*)v.as.p)->data : NULL;
+}
+
+void cogito_textfield_set_hint(cogito_node* tf, const char* hint) {
+  if (!tf) return;
+  ErgoVal hv = cogito_val_from_cstr(hint);
+  cogito_textfield_set_hint_ergo(EV_OBJ(tf), hv);
+  if (hv.tag == EVT_STR) ergo_release_val(hv);
+}
+
+const char* cogito_textfield_get_hint(cogito_node* tf) {
+  if (!tf) return NULL;
+  ErgoVal v = cogito_textfield_get_hint_ergo(EV_OBJ(tf));
   return v.tag == EVT_STR ? ((ErgoStr*)v.as.p)->data : NULL;
 }
 

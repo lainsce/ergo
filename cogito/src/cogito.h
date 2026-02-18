@@ -298,6 +298,8 @@ void cogito_switch_set_checked(cogito_node* sw, bool checked);
 
 void cogito_textfield_set_text(cogito_node* tf, const char* text);
 const char* cogito_textfield_get_text(cogito_node* tf);
+void cogito_textfield_set_hint(cogito_node* tf, const char* hint);
+const char* cogito_textfield_get_hint(cogito_node* tf);
 void cogito_textview_set_text(cogito_node* tv, const char* text);
 const char* cogito_textview_get_text(cogito_node* tv);
 void cogito_searchfield_set_text(cogito_node* sf, const char* text);

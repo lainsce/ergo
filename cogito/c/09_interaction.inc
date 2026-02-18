@@ -205,6 +205,33 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
     CogitoNode* pop_hit = cogito_find_clickable(n->popover, x, y);
     if (pop_hit) return pop_hit;
   }
+  if (n->kind == COGITO_ZSTACK) {
+    CogitoNode* sheet = NULL;
+    for (size_t i = n->len; i > 0; i--) {
+      CogitoNode* c = n->children[i - 1];
+      if (c && c->kind == COGITO_BOTTOM_SHEET) {
+        sheet = c;
+        break;
+      }
+    }
+    int hit_x = n->x;
+    int hit_y = n->y;
+    int hit_w = n->w;
+    int hit_h = n->h;
+    CogitoNode* win = cogito_node_window(n);
+    if (sheet && win && n->parent == win) {
+      hit_x = 0;
+      hit_y = 0;
+      hit_w = win->w;
+      hit_h = win->h;
+    }
+    if (sheet && cogito_hit_rect(x, y, hit_x, hit_y, hit_w, hit_h)) {
+      // Modal behavior: bottom sheet captures taps across the host area.
+      CogitoNode* child_hit = cogito_find_clickable(sheet, x, y);
+      if (child_hit) return child_hit;
+      return sheet;
+    }
+  }
   if (n->kind == COGITO_DIALOG_SLOT) {
     if (n->dialog && n->dialog_open) {
       return cogito_find_clickable(n->dialog, x, y);
@@ -242,6 +269,7 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
       n->kind == COGITO_SEARCHFIELD ||
       n->kind == COGITO_NAV_RAIL || n->kind == COGITO_BOTTOM_NAV ||
       n->kind == COGITO_TIMEPICKER || n->kind == COGITO_BANNER ||
+      n->kind == COGITO_BOTTOM_SHEET ||
       n->kind == COGITO_SWITCHBAR || n->kind == COGITO_SPLIT_BUTTON ||
       n->kind == COGITO_VIEW_CHOOSER || n->kind == COGITO_VIEW_DUAL ||
       n->kind == COGITO_SETTINGS_WINDOW ||
