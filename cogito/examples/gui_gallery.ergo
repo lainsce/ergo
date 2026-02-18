@@ -1513,7 +1513,7 @@ entry () (( -- )) {
     let main_win = cogito.window_size(@"Cogito Gallery", 800, 600)
     main_win.build(build_ui)
     app.set_appid(@"ergo.cogito.Gallery")
-    app.set_accent_color(@"#75dec2", false)
+    app.set_accent_color(@"#72dec3", false)
     main_win.set_a11y_label(@"Cogito Gallery")
     main_win.set_resizable(true)
     app.run(main_win)

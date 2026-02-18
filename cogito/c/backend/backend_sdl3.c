@@ -291,6 +291,13 @@ CogitoColor cogito_color_mix(CogitoColor a, CogitoColor b, float t) {
     return cogito_color_lerp(a, b, t);
 }
 
+CogitoColor cogito_color_alpha(CogitoColor c, float t) {
+    if (t >= 1.0f) return c;
+    if (t <= 0.0f) return (CogitoColor){c.r, c.g, c.b, 0};
+    c.a = (uint8_t)((float)c.a * t);
+    return c;
+}
+
 CogitoColor cogito_color_on_color(CogitoColor bg) {
     return cogito_color_luma(bg) > 0.55f
         ? (CogitoColor){0, 0, 0, 255}

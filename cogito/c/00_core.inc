@@ -83,6 +83,7 @@ static void cogito_apply_theme(bool dark, CogitoColor accent);
 // Color functions now use backend.h implementations
 #define cogito_luma cogito_color_luma
 #define cogito_mix cogito_color_mix
+#define cogito_alpha cogito_color_alpha
 #define cogito_on_color cogito_color_on_color
 
 typedef struct CogitoApp {

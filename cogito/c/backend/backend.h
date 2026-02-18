@@ -55,6 +55,7 @@ CogitoColor cogito_color_blend(CogitoColor base, CogitoColor over);
 CogitoColor cogito_color_apply_opacity(CogitoColor c, float opacity);
 float cogito_color_luma(CogitoColor c);
 CogitoColor cogito_color_mix(CogitoColor a, CogitoColor b, float t);
+CogitoColor cogito_color_alpha(CogitoColor c, float t);
 CogitoColor cogito_color_on_color(CogitoColor bg);
 
 // ============================================================================
