@@ -193,22 +193,6 @@ button.calc-equals:focus
 iconbtn:focus
   border: 2 solid @primary
 
-dialog
-  background: @surface
-  color: @text
-  border-radius: 18
-  padding: 20
-
-label.about-window-title
-  color: @text
-
-label.about-window-license
-  color: @muted
-
-hstack.about-window-actions
-  background: transparent
-  gap: 10
-
 tooltip
   background: @text
   color: @bg
@@ -249,13 +233,6 @@ iconbtn.conv-swap:active
     background: @dark-surface
   grid.calc-keypad
     background: @dark-keypad
-  dialog
-    background: @dark-surface
-    color: @dark-text
-  label.about-window-title
-    color: @dark-text
-  label.about-window-license
-    color: @dark-muted
   label.calc-display-working
     color: @dark-text
   label.calc-display-expression

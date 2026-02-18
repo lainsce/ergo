@@ -997,10 +997,28 @@ fun build_view_chooser_page() (( cogito.VStack )) {
 fun build_about_window_page() (( cogito.VStack )) {
     let vstack = build_page(@"AboutWindow", @"AboutWindow presents product metadata such as name, version, description, and website.")
 
-    let aw = cogito.about_window(@"Cogito Gallery", @"1.0.0")
-    aw.set_description(@"A showcase of Cogito widgets organized one widget per page.")
-    aw.set_website(@"https://ergo-lang.org")
-    vstack.add(aw)
+    let status = cogito.label(@"Open the about dialog.")
+    status.set_class(@"body")
+    status.set_wrap(true)
+    vstack.add(status)
+
+    let show_btn = cogito.button(@"Show About Dialog")
+    vstack.add(show_btn)
+
+    let slot = cogito.dialog_slot()
+    vstack.add(slot)
+
+    show_btn.on_click((b = cogito.Button) => {
+        let dlg = cogito.dialog(@"")
+        let aw = cogito.about_window(@"Cogito Gallery", @"1.0.0")
+        aw.set_icon(@"sf:sparkles")
+        aw.set_description(@"A showcase of Cogito widgets.")
+        aw.set_website(@"https://github.com/lainsce/ergo")
+        aw.set_issue_url(@"https://github.com/lainsce/ergo/issues")
+        dlg.add(aw)
+        slot.show(dlg)
+        status.set_text(@"About dialog opened.")
+    })
 
     return vstack
 }
@@ -1420,7 +1438,7 @@ entry () (( -- )) {
     let main_win = cogito.window_size(@"Cogito Gallery", 800, 700)
     main_win.build(build_ui)
     app.set_appid(@"ergo.cogito.Gallery")
-    app.set_accent_color(@"#72dec3", false)
+    app.set_accent_color(@"#72dec2", false)
     main_win.set_a11y_label(@"Cogito Gallery")
     main_win.set_autosize(false)
     main_win.set_resizable(true)

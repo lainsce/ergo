@@ -10,6 +10,8 @@ def ?subtitle_text = @"Ready"
 def ?current_path = @""
 def ?suspend_dirty = false
 def ?is_dirty = false
+def ABOUT_MORE_INFO_URL = @"https://github.com/lainsce/ergo"
+def ABOUT_REPORT_BUG_URL = @"https://github.com/lainsce/ergo/issues"
 
 fun is_txt_path(path = string) (( bool )) {
     let n = len(path)
@@ -120,15 +122,30 @@ fun show_save_dialog() (( -- )) {
     }
 }
 
+fun show_about_window(win = cogito.Window) (( -- )) {
+    let dlg = cogito.dialog(@"")
+    let content = cogito.vstack()
+    content.align_center()
+
+    let aw = cogito.about_window(@"Ergo Text Editor", @"MIT License")
+    aw.set_icon(@"sf:doc.text")
+    aw.set_website(ABOUT_MORE_INFO_URL)
+    aw.set_issue_url(ABOUT_REPORT_BUG_URL)
+    content.add(aw)
+
+    dlg.add(content)
+    win.set_dialog(dlg)
+}
+
 entry() (( -- )) {
     let app = cogito.app()
-    app.set_appid(@"org.ergo.texteditor")
-    app.set_app_name(@"Ergo Text Editor")
-    app.set_accent_color(@"#7A6EE6", false)
+    app.set_appid(@"ergo.cogito.TextEditor")
+    app.set_app_name(@"ErgoText")
+    app.set_accent_color(@"#4838d7", false)
 
     cogito.load_sum(@"ergotexteditor.sum")
 
-    let win = cogito.window_size(@"Ergo Text Editor", 900, 640)
+    let win = cogito.window_size(@"ErgoText", 900, 640)
     win.set_autosize(false)
     win.set_resizable(true)
 
@@ -143,20 +160,23 @@ entry() (( -- )) {
     bar.set_subtitle(subtitle_text)
     bar.set_hexpand(true)
 
-    let new_btn = bar.add_button(@"sf:doc.badge.plus", (b = cogito.Button) => {
+    let file_btn = bar.add_button(@"sf:gearshape", (b = cogito.Button) => {
+    })
+    cogito.set_tooltip(file_btn, @"File")
+    file_btn.add_menu(@"New", (b = any) => {
         new_document()
     })
-    cogito.set_tooltip(new_btn, @"New")
-
-    let open_btn = bar.add_button(@"sf:folder", (b = cogito.Button) => {
+    file_btn.add_menu(@"Open…", (b = any) => {
         show_open_dialog()
     })
-    cogito.set_tooltip(open_btn, @"Open .txt")
-
-    let save_btn = bar.add_button(@"sf:square.and.arrow.down", (b = cogito.Button) => {
+    file_btn.add_menu(@"Save As…", (b = any) => {
         show_save_dialog()
     })
-    cogito.set_tooltip(save_btn, @"Save As .txt")
+
+    let about_btn = bar.add_button(@"sf:questionmark", (b = cogito.Button) => {
+        show_about_window(win)
+    })
+    cogito.set_tooltip(about_btn, @"About")
 
     root.add(bar)
 

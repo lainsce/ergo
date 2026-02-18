@@ -1,4 +1,4 @@
 case COGITO_ABOUT_WINDOW:
-  w = 360;
-  h = 320;
+  w = 240;
+  h = 240;
   break;

@@ -188,6 +188,7 @@
 #undef cogito_about_window_set_icon
 #undef cogito_about_window_set_description
 #undef cogito_about_window_set_website
+#undef cogito_about_window_set_issue_url
 #undef cogito_menu_button_new
 #undef cogito_split_button_new
 #undef cogito_split_button_add_menu
@@ -1027,6 +1028,13 @@ static void __cogito_about_window_set_website(ErgoVal awv, ErgoVal urlv) {
   ErgoStr* tmp = NULL;
   const char* url = cogito_required_cstr(urlv, &tmp);
   cogito_about_window_set_website(n, url);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+static void __cogito_about_window_set_issue_url(ErgoVal awv, ErgoVal urlv) {
+  cogito_node* n = cogito_node_from_val(awv);
+  ErgoStr* tmp = NULL;
+  const char* url = cogito_required_cstr(urlv, &tmp);
+  cogito_about_window_set_issue_url(n, url);
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
 
@@ -2559,6 +2567,7 @@ void __cogito_button_on_click(ErgoVal btn, ErgoVal handler);
 #define cogito_about_window_set_icon __cogito_about_window_set_icon
 #define cogito_about_window_set_description __cogito_about_window_set_description
 #define cogito_about_window_set_website __cogito_about_window_set_website
+#define cogito_about_window_set_issue_url __cogito_about_window_set_issue_url
 #define cogito_menu_button_new __cogito_menu_button
 #define cogito_split_button_new __cogito_split_button
 #define cogito_split_button_add_menu __cogito_split_button_add_menu

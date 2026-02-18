@@ -4,6 +4,31 @@ static CogitoNode* cogito_find_stepper_hit(CogitoNode* n, int x, int y);
 
 #include "widgets/util/text_editing.inc"
 
+static bool cogito_about_window_is_actions_row(const CogitoNode* n) {
+  return n && n->kind == COGITO_HSTACK &&
+         n->class_name && n->class_name->data &&
+         strcmp(n->class_name->data, "about-window-actions") == 0;
+}
+
+static CogitoNode* cogito_about_window_for_action_button(CogitoNode* btn) {
+  if (!btn || btn->kind != COGITO_BUTTON) return NULL;
+  CogitoNode* row = btn->parent;
+  if (!cogito_about_window_is_actions_row(row)) return NULL;
+  CogitoNode* aw = row->parent;
+  if (!aw || aw->kind != COGITO_ABOUT_WINDOW) return NULL;
+  return aw;
+}
+
+static const char* cogito_about_window_action_url(CogitoNode* btn, CogitoNode* aw) {
+  if (btn && btn->action_text && btn->action_text->data && btn->action_text->data[0]) {
+    return btn->action_text->data;
+  }
+  if (aw && aw->action_text && aw->action_text->data && aw->action_text->data[0]) {
+    return aw->action_text->data;
+  }
+  return NULL;
+}
+
 static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (appv.tag != EVT_OBJ) ergo_trap("cogito.run expects app");
   if (winv.tag != EVT_OBJ) ergo_trap("cogito.run expects window");
@@ -1371,7 +1396,16 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             cogito_ripple_start(hit, mx, my);
           }
           if (hit->kind == COGITO_BUTTON || hit->kind == COGITO_ICONBTN) {
-            if (hit->menu_len > 0) {
+            CogitoNode* about_host = (hit->kind == COGITO_BUTTON) ? cogito_about_window_for_action_button(hit) : NULL;
+            const char* about_url = cogito_about_window_action_url(hit, about_host);
+            if (about_host && about_url) {
+              if (about_host->on_action) {
+                ErgoVal arg = EV_OBJ(about_host);
+                cogito_invoke(about_host->on_action, 1, &arg);
+              } else if (cogito_backend && cogito_backend->open_url) {
+                cogito_backend->open_url(about_url);
+              }
+            } else if (hit->menu_len > 0) {
               cogito_menu_open_for(hit);
             } else {
               cogito_invoke_click(hit);

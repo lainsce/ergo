@@ -426,6 +426,23 @@
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_about_window_set_issue_url")) {
+                        GenExpr aw, url;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &aw, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &url, err)) { gen_expr_free(&aw); return false; }
+                        w_line(&cg->w, "cogito_about_window_set_issue_url(%s, %s);", aw.tmp, url.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", aw.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", url.tmp);
+                        gen_expr_release_except(cg, &aw, aw.tmp);
+                        gen_expr_release_except(cg, &url, url.tmp);
+                        gen_expr_free(&aw);
+                        gen_expr_free(&url);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     // --- MenuButton ---
                     if (str_eq_c(fname, "__cogito_menu_button")) {
                         GenExpr icon;

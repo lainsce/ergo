@@ -210,6 +210,7 @@ cogito_node* cogito_about_window_new(const char* app_name, const char* version);
 void cogito_about_window_set_icon(cogito_node* aw, const char* icon);
 void cogito_about_window_set_description(cogito_node* aw, const char* desc);
 void cogito_about_window_set_website(cogito_node* aw, const char* url);
+void cogito_about_window_set_issue_url(cogito_node* aw, const char* url);
 cogito_node* cogito_menu_button_new(const char* icon);
 cogito_node* cogito_split_button_new(const char* text);
 void cogito_split_button_add_menu(cogito_node* sb, const char* label, cogito_node_fn fn, void* user);

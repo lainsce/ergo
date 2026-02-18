@@ -262,6 +262,7 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_about_window_set_icon cogito_about_window_set_icon_ergo
 #define cogito_about_window_set_description cogito_about_window_set_description_ergo
 #define cogito_about_window_set_website cogito_about_window_set_website_ergo
+#define cogito_about_window_set_issue_url cogito_about_window_set_issue_url_ergo
 #define cogito_menu_button_new cogito_menu_button_new_ergo
 #define cogito_split_button_new cogito_split_button_new_ergo
 #define cogito_split_button_add_menu cogito_split_button_add_menu_ergo
@@ -511,6 +512,7 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_about_window_set_icon
 #undef cogito_about_window_set_description
 #undef cogito_about_window_set_website
+#undef cogito_about_window_set_issue_url
 #undef cogito_menu_button_new
 #undef cogito_split_button_new
 #undef cogito_split_button_add_menu
@@ -1199,6 +1201,11 @@ void cogito_about_window_set_description(cogito_node* aw, const char* desc) {
 void cogito_about_window_set_website(cogito_node* aw, const char* url) {
   ErgoVal uv = cogito_val_from_cstr(url);
   cogito_about_window_set_website_ergo(EV_OBJ(aw), uv);
+  if (uv.tag == EVT_STR) ergo_release_val(uv);
+}
+void cogito_about_window_set_issue_url(cogito_node* aw, const char* url) {
+  ErgoVal uv = cogito_val_from_cstr(url);
+  cogito_about_window_set_issue_url_ergo(EV_OBJ(aw), uv);
   if (uv.tag == EVT_STR) ergo_release_val(uv);
 }
 cogito_node* cogito_menu_button_new(const char* icon) {
