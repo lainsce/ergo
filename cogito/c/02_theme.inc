@@ -168,7 +168,9 @@ static void cogito_theme_init(void) {
   if (!cogito_theme_initialized) {
     // Use the layered theme pipeline (default sum + dynamic + optional user sum)
     // instead of directly loading a hardcoded file path.
-    cogito_apply_theme(cogito_theme_dark, cogito_theme_accent);
+    CogitoColor accent = cogito_theme_accent;
+    if (accent.a == 0) accent = cogito_rgba(114, 222, 194, 255);
+    cogito_apply_theme(cogito_theme_dark, accent);
   }
 }
 

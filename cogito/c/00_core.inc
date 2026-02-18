@@ -772,7 +772,7 @@ static CogitoApp* cogito_active_app = NULL;
 static CogitoNode* cogito_active_window = NULL;
 static CogitoWindow* cogito_active_backend_window = NULL;
 static bool cogito_theme_dark = false;
-static CogitoColor cogito_theme_accent = {114, 222, 194, 255};
+static CogitoColor cogito_theme_accent = {0, 0, 0, 0};
 enum {
   COGITO_LABEL_CLASS_NONE = 0,
   COGITO_LABEL_CLASS_TITLE,
