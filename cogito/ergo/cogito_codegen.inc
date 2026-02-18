@@ -214,6 +214,30 @@
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_slider_range")) {
+                        GenExpr minv, maxv, startv, endv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &minv, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &maxv, err)) { gen_expr_free(&minv); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[2], &startv, err)) { gen_expr_free(&minv); gen_expr_free(&maxv); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[3], &endv, err)) { gen_expr_free(&minv); gen_expr_free(&maxv); gen_expr_free(&startv); return false; }
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_slider_range_new(%s, %s, %s, %s);", t, minv.tmp, maxv.tmp, startv.tmp, endv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", minv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", maxv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", startv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", endv.tmp);
+                        gen_expr_release_except(cg, &minv, minv.tmp);
+                        gen_expr_release_except(cg, &maxv, maxv.tmp);
+                        gen_expr_release_except(cg, &startv, startv.tmp);
+                        gen_expr_release_except(cg, &endv, endv.tmp);
+                        gen_expr_free(&minv);
+                        gen_expr_free(&maxv);
+                        gen_expr_free(&startv);
+                        gen_expr_free(&endv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_tabs")) {
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w, "ErgoVal %s = cogito_tabs_new();", t);
@@ -1344,6 +1368,160 @@
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_slider_set_size")) {
+                        GenExpr node, sizev;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &sizev, err)) { gen_expr_free(&node); return false; }
+                        w_line(&cg->w, "cogito_slider_set_size(%s, %s);", node.tmp, sizev.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", sizev.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_release_except(cg, &sizev, sizev.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_free(&sizev);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_slider_get_size")) {
+                        GenExpr node;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_slider_get_size(%s);", t, node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_slider_set_icon")) {
+                        GenExpr node, iconv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &iconv, err)) { gen_expr_free(&node); return false; }
+                        w_line(&cg->w, "cogito_slider_set_icon(%s, %s);", node.tmp, iconv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", iconv.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_release_except(cg, &iconv, iconv.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_free(&iconv);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_slider_set_centered")) {
+                        GenExpr node, onv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &onv, err)) { gen_expr_free(&node); return false; }
+                        w_line(&cg->w, "cogito_slider_set_centered(%s, %s);", node.tmp, onv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", onv.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_release_except(cg, &onv, onv.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_free(&onv);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_slider_get_centered")) {
+                        GenExpr node;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_slider_get_centered(%s);", t, node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_slider_set_range")) {
+                        GenExpr node, startv, endv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &startv, err)) { gen_expr_free(&node); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[2], &endv, err)) { gen_expr_free(&node); gen_expr_free(&startv); return false; }
+                        w_line(&cg->w, "cogito_slider_set_range(%s, %s, %s);", node.tmp, startv.tmp, endv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", startv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", endv.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_release_except(cg, &startv, startv.tmp);
+                        gen_expr_release_except(cg, &endv, endv.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_free(&startv);
+                        gen_expr_free(&endv);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_slider_set_range_start")) {
+                        GenExpr node, startv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &startv, err)) { gen_expr_free(&node); return false; }
+                        w_line(&cg->w, "cogito_slider_set_range_start(%s, %s);", node.tmp, startv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", startv.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_release_except(cg, &startv, startv.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_free(&startv);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_slider_set_range_end")) {
+                        GenExpr node, endv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &endv, err)) { gen_expr_free(&node); return false; }
+                        w_line(&cg->w, "cogito_slider_set_range_end(%s, %s);", node.tmp, endv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", endv.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_release_except(cg, &endv, endv.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_free(&endv);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_slider_get_range_start")) {
+                        GenExpr node;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_slider_get_range_start(%s);", t, node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_slider_get_range_end")) {
+                        GenExpr node;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_slider_get_range_end(%s);", t, node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_slider_on_change")) {
                         GenExpr node, fn;
                         if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
@@ -1497,6 +1675,122 @@
                         if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w, "ErgoVal %s = cogito_progress_get_value(%s);", t, node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_progress_set_indeterminate")) {
+                        GenExpr node, on;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &on, err)) { gen_expr_free(&node); return false; }
+                        w_line(&cg->w, "cogito_progress_set_indeterminate(%s, %s);", node.tmp, on.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", on.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_release_except(cg, &on, on.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_free(&on);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_progress_get_indeterminate")) {
+                        GenExpr node;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_progress_get_indeterminate(%s);", t, node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_progress_set_thickness")) {
+                        GenExpr node, px;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &px, err)) { gen_expr_free(&node); return false; }
+                        w_line(&cg->w, "cogito_progress_set_thickness(%s, %s);", node.tmp, px.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", px.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_release_except(cg, &px, px.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_free(&px);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_progress_get_thickness")) {
+                        GenExpr node;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_progress_get_thickness(%s);", t, node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_progress_set_wavy")) {
+                        GenExpr node, on;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &on, err)) { gen_expr_free(&node); return false; }
+                        w_line(&cg->w, "cogito_progress_set_wavy(%s, %s);", node.tmp, on.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", on.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_release_except(cg, &on, on.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_free(&on);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_progress_get_wavy")) {
+                        GenExpr node;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_progress_get_wavy(%s);", t, node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_progress_set_circular")) {
+                        GenExpr node, on;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &on, err)) { gen_expr_free(&node); return false; }
+                        w_line(&cg->w, "cogito_progress_set_circular(%s, %s);", node.tmp, on.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", on.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_release_except(cg, &on, on.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_free(&on);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_progress_get_circular")) {
+                        GenExpr node;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_progress_get_circular(%s);", t, node.tmp);
                         w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
                         gen_expr_release_except(cg, &node, node.tmp);
                         gen_expr_free(&node);

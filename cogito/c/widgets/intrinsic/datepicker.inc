@@ -1,17 +1,14 @@
 case COGITO_DATEPICKER: {
-      CogitoStyle s = cogito_theme_resolve_node(n);
-      int pad_l = s.has_padding_left ? s.padding_left : 10;
-      int pad_t = s.has_padding_top ? s.padding_top : 10;
-      int pad_r = s.has_padding_right ? s.padding_right : pad_l;
-      int pad_b = s.has_padding_bottom ? s.padding_bottom : pad_t;
-      int size = cogito_node_font_size(n);
-      int th = cogito_text_height_size(size);
-      int header_h = th + 8;
-      int cell_h = th + 10;
-      if (cell_h < 28) cell_h = 28;
-      w = 240;
-      h = pad_t + header_h + 6 + cell_h * 6 + pad_b;
-      if (h < 260) h = 260;
-      if (w < pad_l + pad_r + 7 * 24) w = pad_l + pad_r + 7 * 24;
+      if (n->datepicker.popover_panel) {
+        w = COGITO_DATEPICKER_POPOVER_W;
+        h = COGITO_DATEPICKER_POPOVER_H;
+      } else {
+        int pad_w = n->padding_left + n->padding_right;
+        int pad_h = n->padding_top + n->padding_bottom;
+        w = COGITO_DATEPICKER_FIELD_MIN_WIDTH - pad_w;
+        h = COGITO_DATEPICKER_FIELD_HEIGHT - pad_h;
+        if (w < 0) w = 0;
+        if (h < 0) h = 0;
+      }
       break;
     }

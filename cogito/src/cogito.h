@@ -145,6 +145,7 @@ cogito_node* cogito_textview_new(const char* text);
 cogito_node* cogito_searchfield_new(const char* text);
 cogito_node* cogito_dropdown_new(void);
 cogito_node* cogito_slider_new(double min, double max, double value);
+cogito_node* cogito_slider_range_new(double min, double max, double start, double end);
 cogito_node* cogito_tabs_new(void);
 cogito_node* cogito_view_switcher_new(void);
 cogito_node* cogito_progress_new(double value);
@@ -273,6 +274,16 @@ void cogito_bottom_nav_on_change(cogito_node* nav, cogito_index_fn fn, void* use
 
 double cogito_slider_get_value(cogito_node* slider);
 void cogito_slider_set_value(cogito_node* slider, double value);
+void cogito_slider_set_size(cogito_node* slider, int size);
+int cogito_slider_get_size(cogito_node* slider);
+void cogito_slider_set_icon(cogito_node* slider, const char* icon);
+void cogito_slider_set_centered(cogito_node* slider, bool on);
+bool cogito_slider_get_centered(cogito_node* slider);
+void cogito_slider_set_range(cogito_node* slider, double start, double end);
+void cogito_slider_set_range_start(cogito_node* slider, double start);
+void cogito_slider_set_range_end(cogito_node* slider, double end);
+double cogito_slider_get_range_start(cogito_node* slider);
+double cogito_slider_get_range_end(cogito_node* slider);
 
 bool cogito_checkbox_get_checked(cogito_node* cb);
 void cogito_checkbox_set_checked(cogito_node* cb, bool checked);
@@ -293,6 +304,14 @@ const char* cogito_searchfield_get_text(cogito_node* sf);
 
 void cogito_progress_set_value(cogito_node* prog, double value);
 double cogito_progress_get_value(cogito_node* prog);
+void cogito_progress_set_indeterminate(cogito_node* prog, bool on);
+bool cogito_progress_get_indeterminate(cogito_node* prog);
+void cogito_progress_set_thickness(cogito_node* prog, int px);
+int cogito_progress_get_thickness(cogito_node* prog);
+void cogito_progress_set_wavy(cogito_node* prog, bool on);
+bool cogito_progress_get_wavy(cogito_node* prog);
+void cogito_progress_set_circular(cogito_node* prog, bool on);
+bool cogito_progress_get_circular(cogito_node* prog);
 
 void cogito_stepper_set_value(cogito_node* stepper, double value);
 double cogito_stepper_get_value(cogito_node* stepper);

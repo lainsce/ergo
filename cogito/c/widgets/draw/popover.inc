@@ -1,12 +1,9 @@
 case COGITO_POPOVER: {
-      bool hover = false;
-      bool active = false;
-      cogito_node_hover_state(n, &hover, &active);
-      CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
+      CogitoStyle s = cogito_theme_resolve_node(n);
       if (s.has_bg) { n->bg = s.bg; n->bg_set = true; }
       if (s.has_border) { n->border_color = s.border; n->border_color_set = true; }
       if (s.has_border_width) { n->border_width = s.border_width; n->border_width_set = true; }
-      if (s.has_radius) n->border_radius = s.radius;
+      if (s.has_radius && !n->radius_set) n->border_radius = s.radius;
       if (s.has_shadow) { n->shadow_level = s.shadow_level; n->shadow_set = true; }
 
       // Elevation shadow for popovers

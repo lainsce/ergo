@@ -1,6 +1,6 @@
 case COGITO_NAV_RAIL: {
   CogitoStyle s = cogito_theme_resolve_node(n);
-  int rail_w = n->w > 0 ? n->w : COGITO_NAV_RAIL_WIDTH;
+  int rail_w = n->w > 0 ? n->w : COGITO_NAV_RAIL_COLLAPSED_WIDTH;
   int mx = 0, my = 0;
   if (cogito_backend && cogito_backend->get_mouse_position) {
     cogito_backend->get_mouse_position(&mx, &my);
@@ -22,9 +22,9 @@ case COGITO_NAV_RAIL: {
   if (n->nav_rail.show_toggle) {
     int tx = 0, ty = 0, tw = 0, th = 0;
     cogito_nav_rail_toggle_rect(n, &tx, &ty, &tw, &th);
-    int toggle_icon_x = tx + (tw - COGITO_NAV_RAIL_TOGGLE_ICON_SIZE) / 2;
-    int toggle_icon_y = ty + (th - COGITO_NAV_RAIL_TOGGLE_ICON_SIZE) / 2;
-    int toggle_icon_size = COGITO_NAV_RAIL_TOGGLE_ICON_SIZE;
+    int toggle_icon_x = tx + (tw - COGITO_NAV_RAIL_SHARED_TOGGLE_ICON_SIZE) / 2;
+    int toggle_icon_y = ty + (th - COGITO_NAV_RAIL_SHARED_TOGGLE_ICON_SIZE) / 2;
+    int toggle_icon_size = COGITO_NAV_RAIL_SHARED_TOGGLE_ICON_SIZE;
     int line_left = toggle_icon_x + 4;
     int line_right = toggle_icon_x + toggle_icon_size - 4;
     int line_top = toggle_icon_y + 6;
@@ -65,10 +65,15 @@ case COGITO_NAV_RAIL: {
     }
   }
 
-  int item_h = COGITO_NAV_RAIL_ITEM_HEIGHT;
-  int icon_size = 24;
-  int item_step = n->nav_rail.expanded ? COGITO_NAV_RAIL_ITEM_HEIGHT : COGITO_NAV_RAIL_COLLAPSED_ITEM_STEP;
+  int icon_size = COGITO_NAV_RAIL_SHARED_ITEM_ICON_SIZE;
+  int item_step = n->nav_rail.expanded ? COGITO_NAV_RAIL_EXPANDED_ITEM_STEP : COGITO_NAV_RAIL_COLLAPSED_ITEM_STEP;
   int item_y = cogito_nav_rail_items_start_y(n);
+  int expanded_lane_w = rail_w - (COGITO_NAV_RAIL_EXPANDED_SIDE_PADDING * 2);
+  if (expanded_lane_w < COGITO_NAV_RAIL_EXPANDED_INDICATOR_MIN_WIDTH) {
+    expanded_lane_w = COGITO_NAV_RAIL_EXPANDED_INDICATOR_MIN_WIDTH;
+  }
+  int expanded_lane_x = n->x + (rail_w - expanded_lane_w) / 2;
+  int expanded_content_x = expanded_lane_x + COGITO_NAV_RAIL_EXPANDED_CONTENT_INSET;
 
   for (size_t i = 0; i < n->nav_rail.len; i++) {
     bool selected = (int)i == n->nav_rail.selected;
@@ -84,20 +89,38 @@ case COGITO_NAV_RAIL: {
     }
 
     if (n->nav_rail.expanded) {
-      int indicator_w = rail_w - (COGITO_NAV_RAIL_ITEM_SIDE_PADDING * 2);
-      if (indicator_w < 56) indicator_w = 56;
-      int indicator_h = 56;
-      int bg_x = n->x + (rail_w - indicator_w) / 2;
-      int bg_y = item_y + (item_h - indicator_h) / 2;
+      int indicator_h = COGITO_NAV_RAIL_EXPANDED_INDICATOR_HEIGHT;
+      int bg_y = item_y + (item_step - indicator_h) / 2;
+
+      bool has_icon = (n->nav_rail.icons && n->nav_rail.icons[i]);
+      bool has_label = (n->nav_rail.labels && n->nav_rail.labels[i]);
+      int label_size = 16;
+      int label_w = 0;
+      if (has_label) {
+        label_w = cogito_text_width_size_node(n, n->nav_rail.labels[i]->data, label_size);
+      }
+
+      int body_w = 0;
+      if (has_icon) body_w += icon_size;
+      if (has_icon && has_label) body_w += COGITO_NAV_RAIL_EXPANDED_LABEL_GAP;
+      if (has_label) body_w += label_w;
+      if (body_w < icon_size) body_w = icon_size;
+
+      int indicator_w = (COGITO_NAV_RAIL_EXPANDED_CONTENT_INSET * 2) + body_w;
+      if (indicator_w < COGITO_NAV_RAIL_EXPANDED_INDICATOR_MIN_WIDTH) {
+        indicator_w = COGITO_NAV_RAIL_EXPANDED_INDICATOR_MIN_WIDTH;
+      }
+      if (indicator_w > expanded_lane_w) indicator_w = expanded_lane_w;
+      int bg_x = expanded_lane_x;
       if (selected || hover) {
         cogito_draw_rect(bg_x, bg_y, indicator_w, indicator_h, item_bg, 99);
       }
-      int content_x = bg_x + COGITO_NAV_RAIL_EXPANDED_CONTENT_INSET;
-      if (n->nav_rail.icons && n->nav_rail.icons[i]) {
+      int content_x = expanded_content_x;
+      if (has_icon) {
         int badge_value = (n->nav_rail.badges ? n->nav_rail.badges[i] : 0);
         CogitoColor badge_bg = cogito_rgba(220, 38, 38, 255);
         CogitoColor badge_fg = cogito_rgba(255, 255, 255, 255);
-        int icon_y = item_y + (item_h - icon_size) / 2;
+        int icon_y = bg_y + (indicator_h - icon_size) / 2;
         int icon_x = content_x;
         cogito_draw_icon_fallback(n, n->nav_rail.icons[i]->data, icon_x, icon_y, icon_size, content_color);
         if (badge_value != 0) {
@@ -125,22 +148,28 @@ case COGITO_NAV_RAIL: {
             cogito_draw_text_size_node(n, tx, ty, buf, badge_fg, text_size, true);
           }
         }
-        content_x += icon_size + 8;
+        content_x += icon_size + COGITO_NAV_RAIL_EXPANDED_LABEL_GAP;
       }
-      if (n->nav_rail.labels && n->nav_rail.labels[i]) {
-        int size = 18;
-        int label_y = item_y + (item_h - cogito_text_height_size(size)) / 2;
-        cogito_draw_text_size_node(n, content_x, label_y, n->nav_rail.labels[i]->data, content_color, size, false);
+      if (has_label) {
+        int label_y = bg_y + (indicator_h - cogito_text_height_size(label_size)) / 2;
+        cogito_draw_text_size_node(n, content_x, label_y, n->nav_rail.labels[i]->data, content_color, label_size, false);
       }
 
-      item_y += item_h; // No Gap
+      item_y += item_step;
     } else {
       int icon_x = n->x + (rail_w - icon_size) / 2;
-      int icon_y = item_y + 4;
-      int bg_x = n->x + (rail_w - 56) / 2;
+      int icon_y = item_y + COGITO_NAV_RAIL_COLLAPSED_ICON_Y_OFFSET;
+      int bg_x = n->x + (rail_w - COGITO_NAV_RAIL_COLLAPSED_INDICATOR_WIDTH) / 2;
       int bg_y = item_y;
       if (selected || hover) {
-        cogito_draw_rect(bg_x, bg_y, 56, 32, item_bg, 99);
+        cogito_draw_rect(
+          bg_x,
+          bg_y,
+          COGITO_NAV_RAIL_COLLAPSED_INDICATOR_WIDTH,
+          COGITO_NAV_RAIL_COLLAPSED_INDICATOR_HEIGHT,
+          item_bg,
+          99
+        );
       }
       if (n->nav_rail.icons && n->nav_rail.icons[i]) {
         int badge_value = (n->nav_rail.badges ? n->nav_rail.badges[i] : 0);
@@ -178,7 +207,7 @@ case COGITO_NAV_RAIL: {
         CogitoColor label_color = base_color;
         int label_w = cogito_text_width_size_node(n, n->nav_rail.labels[i]->data, size);
         int label_x = n->x + (rail_w - label_w) / 2;
-        int label_y = item_y + 32 + 4;
+        int label_y = item_y + COGITO_NAV_RAIL_COLLAPSED_INDICATOR_HEIGHT + COGITO_NAV_RAIL_COLLAPSED_INDICATOR_LABEL_GAP;
         cogito_draw_text_size_node(n, label_x, label_y, n->nav_rail.labels[i]->data, label_color, size, selected);
       }
 

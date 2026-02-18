@@ -34,6 +34,10 @@ static void cogito_textfield_on_change(ErgoVal nodev, ErgoVal handler) {
 }
 static CogitoNode* cogito_find_text_input(CogitoNode* n, int x, int y) {
   if (!n) return NULL;
+  if (n->kind == COGITO_WINDOW && n->popover_open && n->popover) {
+    CogitoNode* pop_hit = cogito_find_text_input(n->popover, x, y);
+    if (pop_hit) return pop_hit;
+  }
   if (n->kind == COGITO_DIALOG_SLOT && n->dialog && n->dialog_open) {
     return cogito_find_text_input(n->dialog, x, y);
   }

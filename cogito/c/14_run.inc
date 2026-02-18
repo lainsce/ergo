@@ -581,74 +581,86 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
 
     // Mouse wheel scrolling
     if (wheel != 0.0f && route_main_pointer) {
-      CogitoNode* slot = (win->dialog && win->dialog->kind == COGITO_DIALOG_SLOT && win->dialog->dialog_open && win->dialog->dialog)
-        ? win->dialog
-        : cogito_find_dialog_slot(win);
-      CogitoNode* root = (slot && slot->dialog) ? slot->dialog : win;
-      CogitoNode* scroller = cogito_find_scroller(root, mx, my);
-      if (scroller) {
-        int delta = (int)(wheel * 32.0f);
-        bool horiz = scroller->scroller.horz && (cogito_backend->is_key_down(SDL_SCANCODE_LSHIFT) || 
-                                               cogito_backend->is_key_down(SDL_SCANCODE_RSHIFT) || 
-                                               !scroller->scroller.vert);
-        if (horiz) scroller->scroller.scroll_x -= delta;
-        else scroller->scroller.scroll_y -= delta;
-        cogito_window_relayout(win);
-      } else {
-        // Check if mouse is over a carousel — scroll it horizontally
-        CogitoNode* carousel = cogito_find_carousel(root, mx, my);
-        if (carousel && (int)carousel->len > 1) {
-          int max_scroll = 0;
-          CAROUSEL_MAX_SCROLL(carousel, max_scroll);
-          
-          // Calculate unit width to check if leftmost item is wide enough for snapping
-          int inner_w = carousel->w - carousel->padding_left - carousel->padding_right;
-          if (inner_w < 0) inner_w = 0;
-          int gaps = ((int)carousel->len >= 3) ? 2 : ((int)carousel->len - 1);
-          if (gaps < 0) gaps = 0;
-          int avail = inner_w - (gaps * 8);
-          if (avail < 0) avail = 0;
-          int unit_w = avail / 7;
-          
-          // Only snap if leftmost (tertiary) item width >= 56px
-          bool should_snap = unit_w >= 56;
-          
-          // Use wheel delta to scroll (horizontal or vertical wheel both work)
-          double target_xf = carousel->carousel.scroll_xf - (double)(wheel * 80.0f);
-          if (target_xf < 0.0) target_xf = 0.0;
-          if (target_xf > (double)max_scroll) target_xf = (double)max_scroll;
-          
-          int snap_idx = 0;
-          int snap_sx = 0;
-          if (should_snap) {
-            // Snap to nearest item
-            CAROUSEL_NEAREST_INDEX(carousel, target_xf, max_scroll, snap_idx);
-            CAROUSEL_SNAP_SCROLL(carousel, snap_idx, max_scroll, snap_sx);
-          } else {
-            // Without snapping: scroll freely to target position
-            snap_sx = (int)(target_xf + 0.5);
-            // Calculate active index from scroll progress (reverse of CAROUSEL_SNAP_SCROLL)
-            if (max_scroll > 0) {
-              snap_idx = (int)((target_xf / (double)max_scroll) * (double)((int)carousel->len - 1) + 0.5);
+      if (win->popover_open && win->popover) {
+        CogitoNode* pop_hit = cogito_find_clickable(win->popover, mx, my);
+        if (pop_hit && pop_hit->kind == COGITO_DATEPICKER && pop_hit->datepicker.popover_panel) {
+          if (cogito_datepicker_wheel(pop_hit, mx, my, wheel)) {
+            cogito_window_relayout(win);
+            wheel = 0.0f;
+          }
+        }
+      }
+
+      if (wheel != 0.0f) {
+        CogitoNode* slot = (win->dialog && win->dialog->kind == COGITO_DIALOG_SLOT && win->dialog->dialog_open && win->dialog->dialog)
+          ? win->dialog
+          : cogito_find_dialog_slot(win);
+        CogitoNode* root = (slot && slot->dialog) ? slot->dialog : win;
+        CogitoNode* scroller = cogito_find_scroller(root, mx, my);
+        if (scroller) {
+          int delta = (int)(wheel * 32.0f);
+          bool horiz = scroller->scroller.horz && (cogito_backend->is_key_down(SDL_SCANCODE_LSHIFT) || 
+                                                 cogito_backend->is_key_down(SDL_SCANCODE_RSHIFT) || 
+                                                 !scroller->scroller.vert);
+          if (horiz) scroller->scroller.scroll_x -= delta;
+          else scroller->scroller.scroll_y -= delta;
+          cogito_window_relayout(win);
+        } else {
+          // Check if mouse is over a carousel — scroll it horizontally
+          CogitoNode* carousel = cogito_find_carousel(root, mx, my);
+          if (carousel && (int)carousel->len > 1) {
+            int max_scroll = 0;
+            CAROUSEL_MAX_SCROLL(carousel, max_scroll);
+            
+            // Calculate unit width to check if leftmost item is wide enough for snapping
+            int inner_w = carousel->w - carousel->padding_left - carousel->padding_right;
+            if (inner_w < 0) inner_w = 0;
+            int gaps = ((int)carousel->len >= 3) ? 2 : ((int)carousel->len - 1);
+            if (gaps < 0) gaps = 0;
+            int avail = inner_w - (gaps * 8);
+            if (avail < 0) avail = 0;
+            int unit_w = avail / 7;
+            
+            // Only snap if leftmost (tertiary) item width >= 56px
+            bool should_snap = unit_w >= 56;
+            
+            // Use wheel delta to scroll (horizontal or vertical wheel both work)
+            double target_xf = carousel->carousel.scroll_xf - (double)(wheel * 80.0f);
+            if (target_xf < 0.0) target_xf = 0.0;
+            if (target_xf > (double)max_scroll) target_xf = (double)max_scroll;
+            
+            int snap_idx = 0;
+            int snap_sx = 0;
+            if (should_snap) {
+              // Snap to nearest item
+              CAROUSEL_NEAREST_INDEX(carousel, target_xf, max_scroll, snap_idx);
+              CAROUSEL_SNAP_SCROLL(carousel, snap_idx, max_scroll, snap_sx);
             } else {
-              snap_idx = 0;
+              // Without snapping: scroll freely to target position
+              snap_sx = (int)(target_xf + 0.5);
+              // Calculate active index from scroll progress (reverse of CAROUSEL_SNAP_SCROLL)
+              if (max_scroll > 0) {
+                snap_idx = (int)((target_xf / (double)max_scroll) * (double)((int)carousel->len - 1) + 0.5);
+              } else {
+                snap_idx = 0;
+              }
+              if (snap_idx < 0) snap_idx = 0;
+              if (snap_idx >= (int)carousel->len) snap_idx = (int)carousel->len - 1;
             }
-            if (snap_idx < 0) snap_idx = 0;
-            if (snap_idx >= (int)carousel->len) snap_idx = (int)carousel->len - 1;
+            
+            // Start snap animation only if position actually changes
+            carousel->carousel.anim_from = carousel->carousel.scroll_xf;
+            carousel->carousel.anim_to = (double)snap_sx;
+            if (carousel->carousel.anim_from != carousel->carousel.anim_to) {
+              carousel->carousel.anim_start = cogito_backend->get_time();
+              if (!carousel->carousel.animating) cogito_carousel_animating_count++;
+              carousel->carousel.animating = true;
+            } else {
+              carousel->carousel.animating = false;
+              carousel->carousel.scroll_xf = carousel->carousel.anim_to;
+            }
+            carousel->carousel.active_index = snap_idx;
           }
-          
-          // Start snap animation only if position actually changes
-          carousel->carousel.anim_from = carousel->carousel.scroll_xf;
-          carousel->carousel.anim_to = (double)snap_sx;
-          if (carousel->carousel.anim_from != carousel->carousel.anim_to) {
-            carousel->carousel.anim_start = cogito_backend->get_time();
-            if (!carousel->carousel.animating) cogito_carousel_animating_count++;
-            carousel->carousel.animating = true;
-          } else {
-            carousel->carousel.animating = false;
-            carousel->carousel.scroll_xf = carousel->carousel.anim_to;
-          }
-          carousel->carousel.active_index = snap_idx;
         }
       }
     }
@@ -779,7 +791,12 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     if (cogito_slider_active) {
       if (cogito_backend->is_mouse_button_down(0)) {
         CogitoNode* sld = cogito_slider_active;
-        int pad = 8;
+        int rail_h = 16;
+        if (sld->slider.size == COGITO_SLIDER_SIZE_S) rail_h = 24;
+        if (sld->slider.size == COGITO_SLIDER_SIZE_M) rail_h = 40;
+        if (sld->slider.size == COGITO_SLIDER_SIZE_L) rail_h = 56;
+        if (sld->slider.size == COGITO_SLIDER_SIZE_XL) rail_h = 96;
+        int pad = rail_h / 2 + 7;
         int x0 = sld->x + pad;
         int x1 = sld->x + sld->w - pad;
         if (x1 < x0) x1 = x0;
@@ -787,8 +804,26 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         if (t < 0.0) t = 0.0;
         if (t > 1.0) t = 1.0;
         double v = sld->slider.min + t * (sld->slider.max - sld->slider.min);
-        if (v != sld->slider.value) {
-          sld->slider.value = v;
+        bool changed = false;
+        if (sld->slider.mode == COGITO_SLIDER_MODE_RANGE) {
+          double prev0 = sld->slider.value;
+          double prev1 = sld->slider.value2;
+          if (sld->slider.active_handle == 2) {
+            sld->slider.value2 = v;
+            if (sld->slider.value2 < sld->slider.value) sld->slider.value2 = sld->slider.value;
+          } else {
+            sld->slider.value = v;
+            if (sld->slider.value > sld->slider.value2) sld->slider.value = sld->slider.value2;
+          }
+          changed = (sld->slider.value != prev0) || (sld->slider.value2 != prev1);
+        } else {
+          if (v != sld->slider.value) {
+            sld->slider.value = v;
+            sld->slider.value2 = v;
+            changed = true;
+          }
+        }
+        if (changed) {
           cogito_invoke_change(sld);
           cogito_window_relayout(win);
         }
@@ -796,6 +831,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         if (cogito_pointer_capture == cogito_slider_active) {
           cogito_pointer_capture = NULL;
         }
+        cogito_slider_active->slider.dragging = false;
         cogito_slider_active = NULL;
       }
     }
@@ -919,6 +955,20 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         }
         cogito_colorpicker_active = NULL;
         cogito_colorpicker_channel = -1;
+      }
+    }
+
+    // Time picker dial drag handling
+    if (cogito_timepicker_active) {
+      if (cogito_backend->is_mouse_button_down(0)) {
+        if (cogito_timepicker_drag_update(cogito_timepicker_active, mx, my)) {
+          cogito_window_relayout(win);
+        }
+      } else {
+        if (cogito_pointer_capture == cogito_timepicker_active) {
+          cogito_pointer_capture = NULL;
+        }
+        cogito_timepicker_active = NULL;
       }
     }
 
@@ -1158,6 +1208,13 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         CogitoNode* active_dialog = (slot && slot->dialog)
           ? slot->dialog
           : ((win->dialog_open && win->dialog && win->dialog->kind == COGITO_DIALOG) ? win->dialog : NULL);
+        if (win->popover_open && win->popover) {
+          bool inside_popover = cogito_hit_node(win->popover, mx, my);
+          bool inside_anchor = (win->popover_anchor && cogito_hit_node(win->popover_anchor, mx, my));
+          if (!inside_popover && !inside_anchor) {
+            cogito_popover_close(EV_OBJ(win));
+          }
+        }
         // Check for traffic light clicks on the first appbar
         if (!active_dialog && appbar) {
           if (appbar->appbar.btn_close_x >= 0 &&
@@ -1205,6 +1262,9 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         if (!handled) {
           CogitoNode* root = (slot && slot->dialog_open && slot->dialog) ? slot->dialog : (win->dialog_open && win->dialog ? win->dialog : win);
           hit = cogito_find_overlay_toast(root, mx, my);
+          if (!hit && win->popover_open && win->popover) {
+            hit = cogito_find_clickable(win->popover, mx, my);
+          }
           if (!hit) {
             hit = (slot && slot->dialog_open && slot->dialog) ? cogito_find_clickable(slot->dialog, mx, my)
                                          : (win->dialog_open && win->dialog ? cogito_find_clickable(win->dialog, mx, my)
@@ -1233,7 +1293,13 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         }
         if (hit && hit->disabled) hit = NULL;
         CogitoNode* root = (slot && slot->dialog_open && slot->dialog) ? slot->dialog : (win->dialog_open && win->dialog ? win->dialog : win);
-        CogitoNode* focus_hit = cogito_find_text_input(root, mx, my);
+        CogitoNode* focus_hit = NULL;
+        if (win->popover_open && win->popover) {
+          focus_hit = cogito_find_text_input(win->popover, mx, my);
+        }
+        if (!focus_hit) {
+          focus_hit = cogito_find_text_input(root, mx, my);
+        }
         if (focus_hit && focus_hit->disabled) focus_hit = NULL;
         if (focus_hit) {
           if (cogito_focused && cogito_focused != focus_hit && cogito_focused->kind == COGITO_COLORPICKER) {
@@ -1325,6 +1391,42 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           } else if (hit->kind == COGITO_SLIDER) {
             cogito_slider_active = hit;
             cogito_pointer_capture = hit;
+            hit->slider.dragging = true;
+            if (hit->slider.mode == COGITO_SLIDER_MODE_RANGE) {
+              double span = hit->slider.max - hit->slider.min;
+              int rail_h = 16;
+              if (hit->slider.size == COGITO_SLIDER_SIZE_S) rail_h = 24;
+              if (hit->slider.size == COGITO_SLIDER_SIZE_M) rail_h = 40;
+              if (hit->slider.size == COGITO_SLIDER_SIZE_L) rail_h = 56;
+              if (hit->slider.size == COGITO_SLIDER_SIZE_XL) rail_h = 96;
+              int pad = rail_h / 2 + 7;
+              int x0 = hit->x + pad;
+              int x1 = hit->x + hit->w - pad;
+              if (x1 < x0) x1 = x0;
+              double t0 = 0.0;
+              double t1 = 0.0;
+              if (span > 0.0) {
+                t0 = (hit->slider.value - hit->slider.min) / span;
+                t1 = (hit->slider.value2 - hit->slider.min) / span;
+              }
+              if (t0 < 0.0) t0 = 0.0;
+              if (t0 > 1.0) t0 = 1.0;
+              if (t1 < 0.0) t1 = 0.0;
+              if (t1 > 1.0) t1 = 1.0;
+              int k0 = x0 + (int)lround((double)(x1 - x0) * t0);
+              int k1 = x0 + (int)lround((double)(x1 - x0) * t1);
+              int d0 = abs(mx - k0);
+              int d1 = abs(mx - k1);
+              if (d1 < d0) {
+                hit->slider.active_handle = 2;
+              } else if (d0 < d1) {
+                hit->slider.active_handle = 1;
+              } else {
+                hit->slider.active_handle = (mx >= (k0 + k1) / 2) ? 2 : 1;
+              }
+            } else {
+              hit->slider.active_handle = 0;
+            }
           } else if (hit->kind == COGITO_CAROUSEL_ITEM) {
             // Click on a carousel item: scroll to it and make it active
             CogitoNode* item = hit;
@@ -1390,17 +1492,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
               cogito_window_relayout(win);
             }
           } else if (hit->kind == COGITO_DATEPICKER) {
-            int header_hit = cogito_datepicker_hit_header(hit, mx, my);
-            if (header_hit < 0) {
-              cogito_datepicker_shift_month(hit, -1);
-            } else if (header_hit > 0) {
-              cogito_datepicker_shift_month(hit, 1);
-            } else {
-              int day = cogito_datepicker_hit_day(hit, mx, my);
-              if (day > 0) hit->datepicker.day = day;
-            }
-            cogito_invoke_change(hit);
-            cogito_window_relayout(win);
+            cogito_datepicker_click(hit, mx, my);
           } else if (hit->kind == COGITO_COLORPICKER) {
             int chan = cogito_colorpicker_hit_slider(hit, mx, my);
             if (chan >= 0) {

@@ -44,18 +44,32 @@ static void cogito_apply_theme(bool dark, CogitoColor accent);
 #define COGITO_ACTIVE_LATCH_MS 90      // Keep pressed visual briefly to avoid click flash
 
 // Nav Rail Constants (dp)
-#define COGITO_NAV_RAIL_WIDTH 80       // Collapsed nav rail width in pixels
+// Shared between collapsed and expanded modes
+#define COGITO_NAV_RAIL_SHARED_TOGGLE_BUTTON_SIZE 48
+#define COGITO_NAV_RAIL_SHARED_TOGGLE_ICON_SIZE 24
+#define COGITO_NAV_RAIL_SHARED_ITEM_ICON_SIZE 24
+
+// Collapsed mode
+#define COGITO_NAV_RAIL_COLLAPSED_WIDTH 96
+#define COGITO_NAV_RAIL_COLLAPSED_TOP_OFFSET 24
+#define COGITO_NAV_RAIL_COLLAPSED_SECTION_GAP 36
+#define COGITO_NAV_RAIL_COLLAPSED_ITEM_STEP 96
+#define COGITO_NAV_RAIL_COLLAPSED_INDICATOR_WIDTH 56
+#define COGITO_NAV_RAIL_COLLAPSED_INDICATOR_HEIGHT 32
+#define COGITO_NAV_RAIL_COLLAPSED_ICON_Y_OFFSET 4
+#define COGITO_NAV_RAIL_COLLAPSED_INDICATOR_LABEL_GAP 4
+
+// Expanded mode
 #define COGITO_NAV_RAIL_EXPANDED_MIN_WIDTH 220
 #define COGITO_NAV_RAIL_EXPANDED_MAX_WIDTH 360
-#define COGITO_NAV_RAIL_ITEM_HEIGHT 56
-#define COGITO_NAV_RAIL_COLLAPSED_ITEM_STEP 72
-#define COGITO_NAV_RAIL_ITEM_WIDTH 56
-#define COGITO_NAV_RAIL_TOGGLE_BUTTON_SIZE 48
-#define COGITO_NAV_RAIL_TOGGLE_ICON_SIZE 24
-#define COGITO_NAV_RAIL_ITEM_SIDE_PADDING 12
+#define COGITO_NAV_RAIL_EXPANDED_TOP_OFFSET 24
+#define COGITO_NAV_RAIL_EXPANDED_SECTION_GAP 20
+#define COGITO_NAV_RAIL_EXPANDED_ITEM_STEP 72
+#define COGITO_NAV_RAIL_EXPANDED_INDICATOR_HEIGHT 56
+#define COGITO_NAV_RAIL_EXPANDED_INDICATOR_MIN_WIDTH 112
+#define COGITO_NAV_RAIL_EXPANDED_SIDE_PADDING 24
 #define COGITO_NAV_RAIL_EXPANDED_CONTENT_INSET 16
-#define COGITO_NAV_RAIL_TOP_OFFSET 12
-#define COGITO_NAV_RAIL_SECTION_GAP 16
+#define COGITO_NAV_RAIL_EXPANDED_LABEL_GAP 12
 
 // Animation Easing Functions
 #define COGITO_EASING_LINEAR 0
@@ -567,7 +581,11 @@ typedef struct CogitoNode {
 
     struct {
       double min, max, value;
+      double value2;
       bool dragging;
+      uint8_t mode;
+      uint8_t active_handle;
+      uint8_t size;
     } slider;
 
     struct {
@@ -577,6 +595,11 @@ typedef struct CogitoNode {
 
     struct {
       int year, month, day;
+      int view_year, view_month;
+      int list_start;
+      bool popover_panel;
+      uint8_t mode;
+      struct CogitoNode* owner;
     } datepicker;
 
     struct {
@@ -587,6 +610,11 @@ typedef struct CogitoNode {
     struct {
       int hour, minute;
       bool ampm;
+      bool initialized;
+      bool popover_panel;
+      bool dial_visible;
+      uint8_t mode; // 0: hour dial, 1: minute dial
+      struct CogitoNode* owner;
     } timepicker;
 
     struct {
@@ -644,7 +672,12 @@ typedef struct CogitoNode {
     } bottom_nav;
 
     struct { int count; } badge;
-    struct { double value; } progress;
+    struct {
+      double value;
+      bool indeterminate;
+      bool circular;
+      uint8_t shape;
+    } progress;
     struct { bool outlined, text_style; } button;
     struct { bool selected, has_close; } chip;
     struct { bool extended; } fab;
@@ -712,6 +745,7 @@ static int cogito_carousel_animating_count = 0;  // Track number of animating ca
 static double cogito_anim_end_time = 0.0;  // Time when all animations will complete (time-based for smooth animation)
 static CogitoNode* cogito_colorpicker_active = NULL;
 static int cogito_colorpicker_channel = -1;
+static CogitoNode* cogito_timepicker_active = NULL;
 static CogitoNode* cogito_pointer_capture = NULL;
 static CogitoNode* cogito_tooltip_hovered = NULL;
 static CogitoApp* cogito_active_app = NULL;
@@ -731,6 +765,22 @@ enum {
   COGITO_STYLE_CLASS_TABULAR,
   COGITO_STYLE_CLASS_OUTLINED,
   COGITO_STYLE_CLASS_TEXT
+};
+enum {
+  COGITO_PROGRESS_SHAPE_FLAT = 0,
+  COGITO_PROGRESS_SHAPE_WAVY
+};
+enum {
+  COGITO_SLIDER_MODE_NORMAL = 0,
+  COGITO_SLIDER_MODE_CENTERED,
+  COGITO_SLIDER_MODE_RANGE
+};
+enum {
+  COGITO_SLIDER_SIZE_XS = 0,
+  COGITO_SLIDER_SIZE_S,
+  COGITO_SLIDER_SIZE_M,
+  COGITO_SLIDER_SIZE_L,
+  COGITO_SLIDER_SIZE_XL
 };
 static bool cogito_drag_active = false;
 static CogitoVec2 cogito_drag_start_mouse = {0};

@@ -154,8 +154,16 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_pointer_capture_clear cogito_pointer_capture_clear_ergo
 #define cogito_pointer_capture_set cogito_pointer_capture_set_ergo
 #define cogito_progress_get_value cogito_progress_get_value_ergo
+#define cogito_progress_get_indeterminate cogito_progress_get_indeterminate_ergo
+#define cogito_progress_get_thickness cogito_progress_get_thickness_ergo
+#define cogito_progress_get_wavy cogito_progress_get_wavy_ergo
+#define cogito_progress_get_circular cogito_progress_get_circular_ergo
 #define cogito_progress_new cogito_progress_new_ergo
 #define cogito_progress_set_value cogito_progress_set_value_ergo
+#define cogito_progress_set_indeterminate cogito_progress_set_indeterminate_ergo
+#define cogito_progress_set_thickness cogito_progress_set_thickness_ergo
+#define cogito_progress_set_wavy cogito_progress_set_wavy_ergo
+#define cogito_progress_set_circular cogito_progress_set_circular_ergo
 #define cogito_run cogito_run_ergo
 #define cogito_scroller_new cogito_scroller_new_ergo
 #define cogito_scroller_set_axes cogito_scroller_set_axes_ergo
@@ -168,9 +176,20 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_searchfield_set_text cogito_searchfield_set_text_ergo
 #define cogito_segmented_new cogito_segmented_new_ergo
 #define cogito_segmented_on_select cogito_segmented_on_select_ergo
+#define cogito_slider_get_centered cogito_slider_get_centered_ergo
+#define cogito_slider_get_range_end cogito_slider_get_range_end_ergo
+#define cogito_slider_get_range_start cogito_slider_get_range_start_ergo
+#define cogito_slider_get_size cogito_slider_get_size_ergo
 #define cogito_slider_get_value cogito_slider_get_value_ergo
 #define cogito_slider_new cogito_slider_new_ergo
+#define cogito_slider_range_new cogito_slider_range_new_ergo
 #define cogito_slider_on_change cogito_slider_on_change_ergo
+#define cogito_slider_set_centered cogito_slider_set_centered_ergo
+#define cogito_slider_set_icon cogito_slider_set_icon_ergo
+#define cogito_slider_set_range cogito_slider_set_range_ergo
+#define cogito_slider_set_range_end cogito_slider_set_range_end_ergo
+#define cogito_slider_set_range_start cogito_slider_set_range_start_ergo
+#define cogito_slider_set_size cogito_slider_set_size_ergo
 #define cogito_slider_set_value cogito_slider_set_value_ergo
 #define cogito_stepper_get_value cogito_stepper_get_value_ergo
 #define cogito_stepper_new cogito_stepper_new_ergo
@@ -387,8 +406,16 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_pointer_capture_clear
 #undef cogito_pointer_capture_set
 #undef cogito_progress_get_value
+#undef cogito_progress_get_indeterminate
+#undef cogito_progress_get_thickness
+#undef cogito_progress_get_wavy
+#undef cogito_progress_get_circular
 #undef cogito_progress_new
 #undef cogito_progress_set_value
+#undef cogito_progress_set_indeterminate
+#undef cogito_progress_set_thickness
+#undef cogito_progress_set_wavy
+#undef cogito_progress_set_circular
 #undef cogito_run
 #undef cogito_scroller_new
 #undef cogito_scroller_set_axes
@@ -400,7 +427,18 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_segmented_on_select
 #undef cogito_slider_get_value
 #undef cogito_slider_new
+#undef cogito_slider_range_new
 #undef cogito_slider_on_change
+#undef cogito_slider_set_centered
+#undef cogito_slider_get_centered
+#undef cogito_slider_set_icon
+#undef cogito_slider_set_range
+#undef cogito_slider_set_range_start
+#undef cogito_slider_set_range_end
+#undef cogito_slider_get_range_start
+#undef cogito_slider_get_range_end
+#undef cogito_slider_set_size
+#undef cogito_slider_get_size
 #undef cogito_slider_set_value
 #undef cogito_stepper_get_value
 #undef cogito_stepper_new
@@ -869,6 +907,9 @@ cogito_node* cogito_searchfield_new(const char* text) {
 cogito_node* cogito_dropdown_new(void) { return cogito_from_val(cogito_dropdown_new_ergo()); }
 cogito_node* cogito_slider_new(double min, double max, double value) {
   return cogito_from_val(cogito_slider_new_ergo(EV_FLOAT(min), EV_FLOAT(max), EV_FLOAT(value)));
+}
+cogito_node* cogito_slider_range_new(double min, double max, double start, double end) {
+  return cogito_from_val(cogito_slider_range_new_ergo(EV_FLOAT(min), EV_FLOAT(max), EV_FLOAT(start), EV_FLOAT(end)));
 }
 cogito_node* cogito_tabs_new(void) { return cogito_from_val(cogito_tabs_new_ergo()); }
 cogito_node* cogito_view_switcher_new(void) { return cogito_from_val(cogito_view_switcher_new_ergo()); }
@@ -1466,6 +1507,66 @@ void cogito_slider_set_value(cogito_node* slider, double value) {
   cogito_slider_set_value_ergo(EV_OBJ(slider), EV_FLOAT(value));
 }
 
+void cogito_slider_set_size(cogito_node* slider, int size) {
+  if (!slider) return;
+  cogito_slider_set_size_ergo(EV_OBJ(slider), EV_INT(size));
+}
+
+int cogito_slider_get_size(cogito_node* slider) {
+  if (!slider) return 0;
+  ErgoVal v = cogito_slider_get_size_ergo(EV_OBJ(slider));
+  return (int)ergo_as_int(v);
+}
+
+void cogito_slider_set_icon(cogito_node* slider, const char* icon) {
+  if (!slider) return;
+  if (icon) {
+    ErgoVal iv = cogito_val_from_cstr(icon);
+    cogito_slider_set_icon_ergo(EV_OBJ(slider), iv);
+    if (iv.tag == EVT_STR) ergo_release_val(iv);
+  } else {
+    cogito_slider_set_icon_ergo(EV_OBJ(slider), EV_NULLV);
+  }
+}
+
+void cogito_slider_set_centered(cogito_node* slider, bool on) {
+  if (!slider) return;
+  cogito_slider_set_centered_ergo(EV_OBJ(slider), EV_BOOL(on));
+}
+
+bool cogito_slider_get_centered(cogito_node* slider) {
+  if (!slider) return false;
+  ErgoVal v = cogito_slider_get_centered_ergo(EV_OBJ(slider));
+  return ergo_as_bool(v);
+}
+
+void cogito_slider_set_range(cogito_node* slider, double start, double end) {
+  if (!slider) return;
+  cogito_slider_set_range_ergo(EV_OBJ(slider), EV_FLOAT(start), EV_FLOAT(end));
+}
+
+void cogito_slider_set_range_start(cogito_node* slider, double start) {
+  if (!slider) return;
+  cogito_slider_set_range_start_ergo(EV_OBJ(slider), EV_FLOAT(start));
+}
+
+void cogito_slider_set_range_end(cogito_node* slider, double end) {
+  if (!slider) return;
+  cogito_slider_set_range_end_ergo(EV_OBJ(slider), EV_FLOAT(end));
+}
+
+double cogito_slider_get_range_start(cogito_node* slider) {
+  if (!slider) return 0.0;
+  ErgoVal v = cogito_slider_get_range_start_ergo(EV_OBJ(slider));
+  return ergo_as_float(v);
+}
+
+double cogito_slider_get_range_end(cogito_node* slider) {
+  if (!slider) return 0.0;
+  ErgoVal v = cogito_slider_get_range_end_ergo(EV_OBJ(slider));
+  return ergo_as_float(v);
+}
+
 bool cogito_checkbox_get_checked(cogito_node* cb) {
   if (!cb) return false;
   ErgoVal v = cogito_checkbox_get_checked_ergo(EV_OBJ(cb));
@@ -1536,6 +1637,50 @@ double cogito_progress_get_value(cogito_node* prog) {
   if (!prog) return 0.0;
   ErgoVal v = cogito_progress_get_value_ergo(EV_OBJ(prog));
   return ergo_as_float(v);
+}
+
+void cogito_progress_set_indeterminate(cogito_node* prog, bool on) {
+  if (!prog) return;
+  cogito_progress_set_indeterminate_ergo(EV_OBJ(prog), EV_BOOL(on));
+}
+
+bool cogito_progress_get_indeterminate(cogito_node* prog) {
+  if (!prog) return false;
+  ErgoVal v = cogito_progress_get_indeterminate_ergo(EV_OBJ(prog));
+  return ergo_as_bool(v);
+}
+
+void cogito_progress_set_thickness(cogito_node* prog, int px) {
+  if (!prog) return;
+  cogito_progress_set_thickness_ergo(EV_OBJ(prog), EV_INT(px));
+}
+
+int cogito_progress_get_thickness(cogito_node* prog) {
+  if (!prog) return 4;
+  ErgoVal v = cogito_progress_get_thickness_ergo(EV_OBJ(prog));
+  return (int)ergo_as_int(v);
+}
+
+void cogito_progress_set_wavy(cogito_node* prog, bool on) {
+  if (!prog) return;
+  cogito_progress_set_wavy_ergo(EV_OBJ(prog), EV_BOOL(on));
+}
+
+bool cogito_progress_get_wavy(cogito_node* prog) {
+  if (!prog) return false;
+  ErgoVal v = cogito_progress_get_wavy_ergo(EV_OBJ(prog));
+  return ergo_as_bool(v);
+}
+
+void cogito_progress_set_circular(cogito_node* prog, bool on) {
+  if (!prog) return;
+  cogito_progress_set_circular_ergo(EV_OBJ(prog), EV_BOOL(on));
+}
+
+bool cogito_progress_get_circular(cogito_node* prog) {
+  if (!prog) return false;
+  ErgoVal v = cogito_progress_get_circular_ergo(EV_OBJ(prog));
+  return ergo_as_bool(v);
 }
 
 void cogito_stepper_set_value(cogito_node* stepper, double value) {

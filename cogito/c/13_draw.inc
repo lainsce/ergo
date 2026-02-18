@@ -406,6 +406,363 @@ static void cogito_draw_line(int x1, int y1, int x2, int y2, CogitoColor color) 
   }
 }
 
+typedef bool (*CogitoAASampleFn)(double px, double py, void* user);
+
+static int cogito_aa_coverage_4x4(int x, int y, CogitoAASampleFn sample_fn, void* user) {
+  if (!sample_fn) return 0;
+  static const double sub[4] = {0.125, 0.375, 0.625, 0.875};
+  int hit = 0;
+  for (int yi = 0; yi < 4; yi++) {
+    for (int xi = 0; xi < 4; xi++) {
+      double px = (double)x + sub[xi];
+      double py = (double)y + sub[yi];
+      if (sample_fn(px, py, user)) hit++;
+    }
+  }
+  return hit;
+}
+
+static void cogito_draw_aa_bbox(int min_x, int min_y, int max_x, int max_y,
+                                CogitoColor color,
+                                CogitoAASampleFn sample_fn,
+                                void* user) {
+  if (!cogito_backend || !cogito_backend->draw_rect || color.a == 0) return;
+  if (!sample_fn) return;
+  if (min_x > max_x || min_y > max_y) return;
+  const int samples = 16;
+  for (int y = min_y; y <= max_y; y++) {
+    for (int x = min_x; x <= max_x; x++) {
+      int hit = cogito_aa_coverage_4x4(x, y, sample_fn, user);
+      if (hit <= 0) continue;
+      CogitoColor c = color;
+      int a = (int)lround((double)color.a * ((double)hit / (double)samples));
+      if (a < 1) continue;
+      if (a > 255) a = 255;
+      c.a = (uint8_t)a;
+      cogito_backend->draw_rect(x, y, 1, 1, c);
+    }
+  }
+}
+
+typedef struct {
+  double x0;
+  double y0;
+  double x1;
+  double y1;
+  double tl;
+  double tr;
+  double br;
+  double bl;
+} CogitoRectRadiiAACtx;
+
+static bool cogito_rect_radii_sample(double px, double py, void* user) {
+  CogitoRectRadiiAACtx* ctx = (CogitoRectRadiiAACtx*)user;
+  if (!ctx) return false;
+  if (px < ctx->x0 || py < ctx->y0 || px > ctx->x1 || py > ctx->y1) return false;
+
+  if (ctx->tl > 0.0 && px < ctx->x0 + ctx->tl && py < ctx->y0 + ctx->tl) {
+    double cx = ctx->x0 + ctx->tl;
+    double cy = ctx->y0 + ctx->tl;
+    double dx = px - cx;
+    double dy = py - cy;
+    if (dx * dx + dy * dy > ctx->tl * ctx->tl) return false;
+  }
+
+  if (ctx->tr > 0.0 && px > ctx->x1 - ctx->tr && py < ctx->y0 + ctx->tr) {
+    double cx = ctx->x1 - ctx->tr;
+    double cy = ctx->y0 + ctx->tr;
+    double dx = px - cx;
+    double dy = py - cy;
+    if (dx * dx + dy * dy > ctx->tr * ctx->tr) return false;
+  }
+
+  if (ctx->br > 0.0 && px > ctx->x1 - ctx->br && py > ctx->y1 - ctx->br) {
+    double cx = ctx->x1 - ctx->br;
+    double cy = ctx->y1 - ctx->br;
+    double dx = px - cx;
+    double dy = py - cy;
+    if (dx * dx + dy * dy > ctx->br * ctx->br) return false;
+  }
+
+  if (ctx->bl > 0.0 && px < ctx->x0 + ctx->bl && py > ctx->y1 - ctx->bl) {
+    double cx = ctx->x0 + ctx->bl;
+    double cy = ctx->y1 - ctx->bl;
+    double dx = px - cx;
+    double dy = py - cy;
+    if (dx * dx + dy * dy > ctx->bl * ctx->bl) return false;
+  }
+
+  return true;
+}
+
+static void cogito_draw_rect_radii_aa(int x, int y, int w, int h, CogitoColor bg, int tl, int tr, int br, int bl) {
+  if (w <= 0 || h <= 0 || bg.a == 0) return;
+  cogito_clamp_corner_radii(w, h, &tl, &tr, &br, &bl);
+  if (!cogito_backend || !cogito_backend->draw_rect) {
+    cogito_draw_rect_radii(x, y, w, h, bg, tl, tr, br, bl);
+    return;
+  }
+  if (tl == 0 && tr == 0 && br == 0 && bl == 0) {
+    cogito_draw_rect_plain(x, y, w, h, bg);
+    return;
+  }
+  if (cogito_corner_radii_uniform(tl, tr, br, bl)) {
+    cogito_draw_rect(x, y, w, h, bg, tl);
+    return;
+  }
+
+  CogitoRectRadiiAACtx ctx;
+  ctx.x0 = (double)x;
+  ctx.y0 = (double)y;
+  ctx.x1 = (double)(x + w);
+  ctx.y1 = (double)(y + h);
+  ctx.tl = (double)tl;
+  ctx.tr = (double)tr;
+  ctx.br = (double)br;
+  ctx.bl = (double)bl;
+
+  cogito_draw_aa_bbox(x - 1, y - 1, x + w, y + h, bg, cogito_rect_radii_sample, &ctx);
+}
+
+static double cogito_dist2_point_segment(double px, double py,
+                                         double x0, double y0,
+                                         double x1, double y1) {
+  double vx = x1 - x0;
+  double vy = y1 - y0;
+  double wx = px - x0;
+  double wy = py - y0;
+  double c1 = wx * vx + wy * vy;
+  if (c1 <= 0.0) return wx * wx + wy * wy;
+  double c2 = vx * vx + vy * vy;
+  if (c2 <= 1e-12) return wx * wx + wy * wy;
+  if (c1 >= c2) {
+    double dx = px - x1;
+    double dy = py - y1;
+    return dx * dx + dy * dy;
+  }
+  double t = c1 / c2;
+  double projx = x0 + t * vx;
+  double projy = y0 + t * vy;
+  double dx = px - projx;
+  double dy = py - projy;
+  return dx * dx + dy * dy;
+}
+
+static double cogito_wave_y(double x, double x0, double cy,
+                            double amp, double period, double phase) {
+  return cy + sin(((x - x0) / period) * 6.28318530717958647692 + phase) * amp;
+}
+
+typedef struct {
+  int x0;
+  int x1;
+  int seg_count;
+  double cy;
+  double amp;
+  double period;
+  double phase;
+  double cover_r2;
+  double start_y;
+  double end_y;
+} CogitoWavyLineAACtx;
+
+static bool cogito_wavy_line_sample(double px, double py, void* user) {
+  CogitoWavyLineAACtx* ctx = (CogitoWavyLineAACtx*)user;
+  if (!ctx) return false;
+
+  int k = (int)floor(px) - ctx->x0;
+  int i0 = k - 3;
+  int i1 = k + 3;
+  if (i0 < 0) i0 = 0;
+  if (i1 > ctx->seg_count - 1) i1 = ctx->seg_count - 1;
+
+  for (int i = i0; i <= i1; i++) {
+    double sx0 = (double)(ctx->x0 + i);
+    double sx1 = sx0 + 1.0;
+    double sy0 = cogito_wave_y(sx0, (double)ctx->x0, ctx->cy, ctx->amp, ctx->period, ctx->phase);
+    double sy1 = cogito_wave_y(sx1, (double)ctx->x0, ctx->cy, ctx->amp, ctx->period, ctx->phase);
+    if (cogito_dist2_point_segment(px, py, sx0, sy0, sx1, sy1) <= ctx->cover_r2) {
+      return true;
+    }
+  }
+
+  double dsx = px - (double)ctx->x0;
+  double dsy = py - ctx->start_y;
+  double dex = px - (double)ctx->x1;
+  double dey = py - ctx->end_y;
+  return (dsx * dsx + dsy * dsy <= ctx->cover_r2) ||
+         (dex * dex + dey * dey <= ctx->cover_r2);
+}
+
+static void cogito_draw_wavy_line_aa(int x0, int x1, int cy,
+                                     double thickness,
+                                     double amp, double period, double phase,
+                                     CogitoColor color) {
+  if (!cogito_backend || !cogito_backend->draw_rect || color.a == 0) return;
+  if (x1 <= x0 || thickness <= 0.0) return;
+  if (period < 1.0) period = 1.0;
+
+  const double half_t = thickness * 0.5;
+  const double edge_pad = 0.35;
+  const double cover_r = half_t + edge_pad;
+  const double cover_r2 = cover_r * cover_r;
+  double abs_amp = fabs(amp);
+
+  int min_x = (int)floor((double)x0 - cover_r) - 1;
+  int max_x = (int)ceil((double)x1 + cover_r) + 1;
+  int min_y = (int)floor((double)cy - abs_amp - cover_r) - 1;
+  int max_y = (int)ceil((double)cy + abs_amp + cover_r) + 1;
+
+  int seg_count = x1 - x0;
+  if (seg_count < 1) return;
+
+  CogitoWavyLineAACtx ctx;
+  ctx.x0 = x0;
+  ctx.x1 = x1;
+  ctx.seg_count = seg_count;
+  ctx.cy = (double)cy;
+  ctx.amp = amp;
+  ctx.period = period;
+  ctx.phase = phase;
+  ctx.cover_r2 = cover_r2;
+  ctx.start_y = cogito_wave_y((double)x0, (double)x0, (double)cy, amp, period, phase);
+  ctx.end_y = cogito_wave_y((double)x1, (double)x0, (double)cy, amp, period, phase);
+  cogito_draw_aa_bbox(min_x, min_y, max_x, max_y, color, cogito_wavy_line_sample, &ctx);
+}
+
+static double cogito_norm_angle_rad(double a) {
+  const double tau = 6.28318530717958647692;
+  while (a < 0.0) a += tau;
+  while (a >= tau) a -= tau;
+  return a;
+}
+
+static bool cogito_angle_in_arc_rad(double a, double start, double end) {
+  a = cogito_norm_angle_rad(a);
+  start = cogito_norm_angle_rad(start);
+  end = cogito_norm_angle_rad(end);
+  if (start <= end) return a >= start && a <= end;
+  return a >= start || a <= end;
+}
+
+static double cogito_ring_wave_radius(double base_r, bool wavy, double wave_amp, double wave_phase, double angle, double start_angle) {
+  if (!wavy) return base_r;
+  double local = angle - start_angle;
+  while (local < 0.0) local += 6.28318530717958647692;
+  return base_r + sin(local * 6.0 + wave_phase) * wave_amp;
+}
+
+typedef struct {
+  int cx;
+  int cy;
+  double base_r;
+  double half_t;
+  double start;
+  double end;
+  double start_norm;
+  bool full_arc;
+  bool wavy;
+  double wave_phase;
+  double wave_amp;
+  double edge_pad;
+  double sx;
+  double sy;
+  double ex;
+  double ey;
+  double cap_r2;
+} CogitoRingArcAACtx;
+
+static bool cogito_ring_arc_sample(double px, double py, void* user) {
+  CogitoRingArcAACtx* ctx = (CogitoRingArcAACtx*)user;
+  if (!ctx) return false;
+
+  double dx = px - (double)ctx->cx;
+  double dy = py - (double)ctx->cy;
+  double dist = sqrt(dx * dx + dy * dy);
+  double angle = cogito_norm_angle_rad(atan2(dy, dx));
+
+  bool covered = false;
+  if (ctx->full_arc || cogito_angle_in_arc_rad(angle, ctx->start, ctx->end)) {
+    double rr = cogito_ring_wave_radius(ctx->base_r, ctx->wavy, ctx->wave_amp, ctx->wave_phase, angle, ctx->start_norm);
+    double inner = rr - ctx->half_t;
+    double outer = rr + ctx->half_t;
+    covered = (dist >= inner - ctx->edge_pad && dist <= outer + ctx->edge_pad);
+  }
+  if (!covered && !ctx->full_arc) {
+    double dsx = px - ctx->sx;
+    double dsy = py - ctx->sy;
+    double dex = px - ctx->ex;
+    double dey = py - ctx->ey;
+    covered = (dsx * dsx + dsy * dsy <= ctx->cap_r2) || (dex * dex + dey * dey <= ctx->cap_r2);
+  }
+  return covered;
+}
+
+static void cogito_draw_ring_arc_aa(int cx, int cy,
+                                    double base_r, double thickness,
+                                    double start_deg, double end_deg,
+                                    CogitoColor color,
+                                    bool wavy, double wave_phase, double wave_amp) {
+  if (!cogito_backend || !cogito_backend->draw_rect || color.a == 0) return;
+  if (thickness <= 0.0 || base_r <= 0.0) return;
+
+  const double deg_to_rad = 0.01745329251994329577;
+  const double tau = 6.28318530717958647692;
+  const double start = start_deg * deg_to_rad;
+  const double end = end_deg * deg_to_rad;
+  const double start_norm = cogito_norm_angle_rad(start);
+  double span = fabs(end - start);
+  while (span > tau) span -= tau;
+  bool full_arc = span >= (tau - 1e-4);
+  const double half_t = thickness * 0.5;
+
+  if (half_t <= 0.0) return;
+
+  double wave_extra = wavy ? (fabs(wave_amp) + 1.5) : 1.0;
+  double outer_bound = base_r + half_t + wave_extra;
+  if (outer_bound < 1.0) outer_bound = 1.0;
+
+  int min_x = (int)floor((double)cx - outer_bound) - 1;
+  int max_x = (int)ceil((double)cx + outer_bound) + 1;
+  int min_y = (int)floor((double)cy - outer_bound) - 1;
+  int max_y = (int)ceil((double)cy + outer_bound) + 1;
+
+  double sx = 0.0;
+  double sy = 0.0;
+  double ex = 0.0;
+  double ey = 0.0;
+  const double edge_pad = 0.35;
+  double cap_r2 = (half_t + edge_pad) * (half_t + edge_pad);
+  if (!full_arc) {
+    double start_rr = cogito_ring_wave_radius(base_r, wavy, wave_amp, wave_phase, cogito_norm_angle_rad(start), start_norm);
+    double end_rr = cogito_ring_wave_radius(base_r, wavy, wave_amp, wave_phase, cogito_norm_angle_rad(end), start_norm);
+    sx = (double)cx + cos(start) * start_rr;
+    sy = (double)cy + sin(start) * start_rr;
+    ex = (double)cx + cos(end) * end_rr;
+    ey = (double)cy + sin(end) * end_rr;
+  }
+
+  CogitoRingArcAACtx ctx;
+  ctx.cx = cx;
+  ctx.cy = cy;
+  ctx.base_r = base_r;
+  ctx.half_t = half_t;
+  ctx.start = start;
+  ctx.end = end;
+  ctx.start_norm = start_norm;
+  ctx.full_arc = full_arc;
+  ctx.wavy = wavy;
+  ctx.wave_phase = wave_phase;
+  ctx.wave_amp = wave_amp;
+  ctx.edge_pad = edge_pad;
+  ctx.sx = sx;
+  ctx.sy = sy;
+  ctx.ex = ex;
+  ctx.ey = ey;
+  ctx.cap_r2 = cap_r2;
+  cogito_draw_aa_bbox(min_x, min_y, max_x, max_y, color, cogito_ring_arc_sample, &ctx);
+}
+
 static const char* cogito_icon_text_fallback(const char* icon) {
   if (!icon || !icon[0]) return "?";
   if (strncmp(icon, "sf:", 3) == 0) return cogito_icon_text_fallback(icon + 3);

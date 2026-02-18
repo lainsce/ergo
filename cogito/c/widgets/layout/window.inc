@@ -119,6 +119,14 @@ static void cogito_layout_window(CogitoNode* win) {
       cogito_layout_node(win->dialog, dx, dy, dw, dh);
     }
   }
+  if (win->popover_open && win->popover) {
+    int pw = 0;
+    int ph = 0;
+    cogito_intrinsic_size(win->popover, &pw, &ph);
+    if (pw <= 0) pw = 280;
+    if (ph <= 0) ph = 180;
+    cogito_layout_node(win->popover, 0, 0, pw, ph);
+  }
 }
 
 static void cogito_window_desired_size(CogitoNode* win, int* out_w, int* out_h) {

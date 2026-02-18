@@ -87,8 +87,8 @@ case COGITO_TABS: {
         if (ind_x < n->x) ind_x = n->x;
         if (ind_x + ind_w > n->x + n->w) ind_x = n->x + n->w - ind_w;
         if (ind_x < n->x) ind_x = n->x;
-        cogito_draw_rect_radii(ind_x, indicator_y, ind_w, indicator_h, sel,
-                               indicator_radius, indicator_radius, 0, 0);
+        cogito_draw_rect_radii_aa(ind_x, indicator_y, ind_w, indicator_h, sel,
+                                  indicator_radius, indicator_radius, 0, 0);
       }
       break;
     }

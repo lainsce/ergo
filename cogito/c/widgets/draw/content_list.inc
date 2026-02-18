@@ -61,7 +61,7 @@ case COGITO_CONTENT_LIST: {
     
     // Draw child background with position-specific rounded corners
     if (item_bg.a > 0) {
-      cogito_draw_rect_radii(child->x, child->y, child->w, child->h, item_bg, tl, tr, br, bl);
+      cogito_draw_rect_radii_aa(child->x, child->y, child->w, child->h, item_bg, tl, tr, br, bl);
     }
     
     // Draw the child

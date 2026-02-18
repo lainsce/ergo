@@ -158,25 +158,30 @@ static void cogito_nav_rail_toggle_rect(CogitoNode* n, int* out_x, int* out_y, i
     if (out_h) *out_h = 0;
     return;
   }
-  int rail_w = n->w > 0 ? n->w : COGITO_NAV_RAIL_WIDTH;
-  int x = n->x + (rail_w - COGITO_NAV_RAIL_TOGGLE_BUTTON_SIZE) / 2;
+  int rail_w = n->w > 0 ? n->w : COGITO_NAV_RAIL_COLLAPSED_WIDTH;
+  int x = n->x + (rail_w - COGITO_NAV_RAIL_SHARED_TOGGLE_BUTTON_SIZE) / 2;
   if (n->nav_rail.expanded) {
-    int indicator_w = rail_w - (COGITO_NAV_RAIL_ITEM_SIDE_PADDING * 2);
-    if (indicator_w < 96) indicator_w = 96;
+    int indicator_w = rail_w - (COGITO_NAV_RAIL_EXPANDED_SIDE_PADDING * 2);
+    if (indicator_w < COGITO_NAV_RAIL_EXPANDED_INDICATOR_MIN_WIDTH) {
+      indicator_w = COGITO_NAV_RAIL_EXPANDED_INDICATOR_MIN_WIDTH;
+    }
     int bg_x = n->x + (rail_w - indicator_w) / 2;
     int content_x = bg_x + COGITO_NAV_RAIL_EXPANDED_CONTENT_INSET;
-    int align_x = content_x - (COGITO_NAV_RAIL_TOGGLE_BUTTON_SIZE - COGITO_NAV_RAIL_TOGGLE_ICON_SIZE) / 2;
+    int align_x = content_x - (COGITO_NAV_RAIL_SHARED_TOGGLE_BUTTON_SIZE - COGITO_NAV_RAIL_SHARED_TOGGLE_ICON_SIZE) / 2;
     int min_x = n->x;
-    int max_x = n->x + rail_w - COGITO_NAV_RAIL_TOGGLE_BUTTON_SIZE;
+    int max_x = n->x + rail_w - COGITO_NAV_RAIL_SHARED_TOGGLE_BUTTON_SIZE;
     if (align_x < min_x) align_x = min_x;
     if (align_x > max_x) align_x = max_x;
     x = align_x;
   }
-  int y = n->y + n->padding_top + COGITO_NAV_RAIL_TOP_OFFSET;
+  int top_offset = n->nav_rail.expanded
+    ? COGITO_NAV_RAIL_EXPANDED_TOP_OFFSET
+    : COGITO_NAV_RAIL_COLLAPSED_TOP_OFFSET;
+  int y = n->y + n->padding_top + top_offset;
   if (out_x) *out_x = x;
   if (out_y) *out_y = y;
-  if (out_w) *out_w = COGITO_NAV_RAIL_TOGGLE_BUTTON_SIZE;
-  if (out_h) *out_h = COGITO_NAV_RAIL_TOGGLE_BUTTON_SIZE;
+  if (out_w) *out_w = COGITO_NAV_RAIL_SHARED_TOGGLE_BUTTON_SIZE;
+  if (out_h) *out_h = COGITO_NAV_RAIL_SHARED_TOGGLE_BUTTON_SIZE;
 }
 
 static bool cogito_nav_rail_hit_toggle(CogitoNode* n, int x, int y) {
@@ -188,14 +193,20 @@ static bool cogito_nav_rail_hit_toggle(CogitoNode* n, int x, int y) {
 
 static int cogito_nav_rail_items_start_y(CogitoNode* n) {
   if (!n) return 0;
-  int item_y = n->y + n->padding_top + COGITO_NAV_RAIL_TOP_OFFSET + COGITO_NAV_RAIL_SECTION_GAP;
+  int top_offset = n->nav_rail.expanded
+    ? COGITO_NAV_RAIL_EXPANDED_TOP_OFFSET
+    : COGITO_NAV_RAIL_COLLAPSED_TOP_OFFSET;
+  int section_gap = n->nav_rail.expanded
+    ? COGITO_NAV_RAIL_EXPANDED_SECTION_GAP
+    : COGITO_NAV_RAIL_COLLAPSED_SECTION_GAP;
+  int item_y = n->y + n->padding_top + top_offset + section_gap;
   if (n->nav_rail.show_toggle) {
-    item_y += COGITO_NAV_RAIL_TOGGLE_BUTTON_SIZE;
+    item_y += COGITO_NAV_RAIL_SHARED_TOGGLE_BUTTON_SIZE;
   }
   for (size_t i = 0; i < n->len; i++) {
     CogitoNode* c = n->children[i];
     if (!c || c->kind != COGITO_FAB || c->w <= 0 || c->h <= 0) continue;
-    int min_item_y = c->y + c->h + COGITO_NAV_RAIL_SECTION_GAP;
+    int min_item_y = c->y + c->h + section_gap;
     if (item_y < min_item_y) item_y = min_item_y;
     break;
   }
@@ -203,13 +214,13 @@ static int cogito_nav_rail_items_start_y(CogitoNode* n) {
 }
 
 static int cogito_nav_rail_item_step(const CogitoNode* n) {
-  if (n && n->nav_rail.expanded) return COGITO_NAV_RAIL_ITEM_HEIGHT;
+  if (n && n->nav_rail.expanded) return COGITO_NAV_RAIL_EXPANDED_ITEM_STEP;
   return COGITO_NAV_RAIL_COLLAPSED_ITEM_STEP;
 }
 
 static int cogito_nav_rail_hit_index(CogitoNode* n, int x, int y) {
   if (!n || n->kind != COGITO_NAV_RAIL) return -1;
-  int rail_w = n->w > 0 ? n->w : COGITO_NAV_RAIL_WIDTH;
+  int rail_w = n->w > 0 ? n->w : COGITO_NAV_RAIL_COLLAPSED_WIDTH;
   if (x < n->x || x >= n->x + rail_w || y < n->y || y >= n->y + n->h) return -1;
   if (cogito_nav_rail_hit_toggle(n, x, y)) return -1;
 

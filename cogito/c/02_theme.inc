@@ -612,8 +612,9 @@ static void cogito_apply_style_to_node(CogitoNode* n) {
   }
   if (s.has_box_shadow) { n->box_shadow = s.box_shadow; n->box_shadow_set = true; }
   else { n->box_shadow_set = false; }
-  if (s.has_track_height) { n->track_height = s.track_height; n->track_height_set = true; }
-  else { n->track_height_set = false; }
+  // Preserve explicit widget overrides (e.g. progress.set_thickness()).
+  // Style track-height only provides the fallback value.
+  if (!n->track_height_set && s.has_track_height) { n->track_height = s.track_height; }
   if (s.has_font_size) {
     if (n->kind == COGITO_WINDOW) {
       int sz = s.font_size;

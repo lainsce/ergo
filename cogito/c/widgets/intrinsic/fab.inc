@@ -1,8 +1,16 @@
 case COGITO_FAB: {
-  if (n->fab.extended) {
+  bool nav_rail_expanded = (n->parent &&
+    n->parent->kind == COGITO_NAV_RAIL &&
+    n->parent->nav_rail.expanded);
+  bool effective_extended = n->fab.extended || nav_rail_expanded;
+  const char* label = (n->subtitle && n->subtitle->data && n->subtitle->data[0])
+    ? n->subtitle->data
+    : "Create";
+
+  if (effective_extended) {
     // Extended FAB: icon + label + padding
     int size = cogito_node_font_size(n);
-    int label_w = n->subtitle ? cogito_text_width_size_node(n, n->subtitle->data, size) : 0;
+    int label_w = cogito_text_width_size_node(n, label, size);
     w = 16 + 24 + 12 + label_w + 16;  // padding + icon + gap + label + padding
     h = 56;
   } else {

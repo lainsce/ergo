@@ -254,8 +254,9 @@ viewswitcher
 
 progress
   background: #dddddd
-  border-radius: 6
-  min-height: 10
+  border-radius: 100
+  track-height: 4
+  min-height: 12
   min-width: 120
 
 progress:selection

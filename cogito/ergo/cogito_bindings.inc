@@ -29,6 +29,7 @@
 #undef cogito_searchfield_new
 #undef cogito_dropdown_new
 #undef cogito_slider_new
+#undef cogito_slider_range_new
 #undef cogito_tabs_new
 #undef cogito_view_switcher_new
 #undef cogito_progress_new
@@ -79,6 +80,16 @@
 #undef cogito_tabs_bind
 #undef cogito_slider_get_value
 #undef cogito_slider_set_value
+#undef cogito_slider_set_size
+#undef cogito_slider_get_size
+#undef cogito_slider_set_icon
+#undef cogito_slider_get_centered
+#undef cogito_slider_set_centered
+#undef cogito_slider_set_range
+#undef cogito_slider_set_range_start
+#undef cogito_slider_set_range_end
+#undef cogito_slider_get_range_start
+#undef cogito_slider_get_range_end
 #undef cogito_checkbox_get_checked
 #undef cogito_checkbox_set_checked
 #undef cogito_switch_get_checked
@@ -91,6 +102,14 @@
 #undef cogito_searchfield_get_text
 #undef cogito_progress_set_value
 #undef cogito_progress_get_value
+#undef cogito_progress_set_indeterminate
+#undef cogito_progress_get_indeterminate
+#undef cogito_progress_set_thickness
+#undef cogito_progress_get_thickness
+#undef cogito_progress_set_wavy
+#undef cogito_progress_get_wavy
+#undef cogito_progress_set_circular
+#undef cogito_progress_get_circular
 #undef cogito_stepper_set_value
 #undef cogito_stepper_get_value
 #undef cogito_stepper_on_change
@@ -1353,6 +1372,11 @@ static ErgoVal __cogito_slider(ErgoVal minv, ErgoVal maxv, ErgoVal valuev) {
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
 }
 
+static ErgoVal __cogito_slider_range(ErgoVal minv, ErgoVal maxv, ErgoVal startv, ErgoVal endv) {
+  cogito_node* n = cogito_slider_range_new(ergo_as_float(minv), ergo_as_float(maxv), ergo_as_float(startv), ergo_as_float(endv));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
 static ErgoVal __cogito_tabs(void) {
   cogito_node* n = cogito_tabs_new();
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
@@ -1765,6 +1789,67 @@ static ErgoVal __cogito_slider_get_value(ErgoVal slv) {
   return EV_FLOAT(cogito_slider_get_value(sl));
 }
 
+static void __cogito_slider_set_size(ErgoVal slv, ErgoVal sizev) {
+  cogito_node* sl = cogito_node_from_val(slv);
+  cogito_slider_set_size(sl, (int)ergo_as_int(sizev));
+}
+
+static ErgoVal __cogito_slider_get_size(ErgoVal slv) {
+  cogito_node* sl = cogito_node_from_val(slv);
+  return EV_INT(cogito_slider_get_size(sl));
+}
+
+static void __cogito_slider_set_icon(ErgoVal slv, ErgoVal iconv) {
+  cogito_node* sl = cogito_node_from_val(slv);
+  if (iconv.tag == EVT_NULL) {
+    cogito_slider_set_icon(sl, NULL);
+    return;
+  }
+  if (iconv.tag == EVT_STR) {
+    ErgoStr* s = (ErgoStr*)iconv.as.p;
+    cogito_slider_set_icon(sl, s ? s->data : NULL);
+    return;
+  }
+  ErgoStr* s = stdr_to_string(iconv);
+  cogito_slider_set_icon(sl, s ? s->data : NULL);
+  if (s) ergo_release_val(EV_STR(s));
+}
+
+static void __cogito_slider_set_centered(ErgoVal slv, ErgoVal onv) {
+  cogito_node* sl = cogito_node_from_val(slv);
+  cogito_slider_set_centered(sl, ergo_as_bool(onv));
+}
+
+static ErgoVal __cogito_slider_get_centered(ErgoVal slv) {
+  cogito_node* sl = cogito_node_from_val(slv);
+  return EV_BOOL(cogito_slider_get_centered(sl));
+}
+
+static void __cogito_slider_set_range(ErgoVal slv, ErgoVal startv, ErgoVal endv) {
+  cogito_node* sl = cogito_node_from_val(slv);
+  cogito_slider_set_range(sl, ergo_as_float(startv), ergo_as_float(endv));
+}
+
+static void __cogito_slider_set_range_start(ErgoVal slv, ErgoVal startv) {
+  cogito_node* sl = cogito_node_from_val(slv);
+  cogito_slider_set_range_start(sl, ergo_as_float(startv));
+}
+
+static void __cogito_slider_set_range_end(ErgoVal slv, ErgoVal endv) {
+  cogito_node* sl = cogito_node_from_val(slv);
+  cogito_slider_set_range_end(sl, ergo_as_float(endv));
+}
+
+static ErgoVal __cogito_slider_get_range_start(ErgoVal slv) {
+  cogito_node* sl = cogito_node_from_val(slv);
+  return EV_FLOAT(cogito_slider_get_range_start(sl));
+}
+
+static ErgoVal __cogito_slider_get_range_end(ErgoVal slv) {
+  cogito_node* sl = cogito_node_from_val(slv);
+  return EV_FLOAT(cogito_slider_get_range_end(sl));
+}
+
 static void __cogito_slider_on_change(ErgoVal slv, ErgoVal handler) {
   cogito_node* sl = cogito_node_from_val(slv);
   CogitoHandle* h = (CogitoHandle*)slv.as.p;
@@ -2066,6 +2151,46 @@ static ErgoVal __cogito_progress_get_value(ErgoVal pv) {
   return EV_FLOAT(cogito_progress_get_value(p));
 }
 
+static void __cogito_progress_set_indeterminate(ErgoVal pv, ErgoVal onv) {
+  cogito_node* p = cogito_node_from_val(pv);
+  cogito_progress_set_indeterminate(p, ergo_as_bool(onv));
+}
+
+static ErgoVal __cogito_progress_get_indeterminate(ErgoVal pv) {
+  cogito_node* p = cogito_node_from_val(pv);
+  return EV_BOOL(cogito_progress_get_indeterminate(p));
+}
+
+static void __cogito_progress_set_thickness(ErgoVal pv, ErgoVal pxv) {
+  cogito_node* p = cogito_node_from_val(pv);
+  cogito_progress_set_thickness(p, (int)ergo_as_int(pxv));
+}
+
+static ErgoVal __cogito_progress_get_thickness(ErgoVal pv) {
+  cogito_node* p = cogito_node_from_val(pv);
+  return EV_INT(cogito_progress_get_thickness(p));
+}
+
+static void __cogito_progress_set_wavy(ErgoVal pv, ErgoVal onv) {
+  cogito_node* p = cogito_node_from_val(pv);
+  cogito_progress_set_wavy(p, ergo_as_bool(onv));
+}
+
+static ErgoVal __cogito_progress_get_wavy(ErgoVal pv) {
+  cogito_node* p = cogito_node_from_val(pv);
+  return EV_BOOL(cogito_progress_get_wavy(p));
+}
+
+static void __cogito_progress_set_circular(ErgoVal pv, ErgoVal onv) {
+  cogito_node* p = cogito_node_from_val(pv);
+  cogito_progress_set_circular(p, ergo_as_bool(onv));
+}
+
+static ErgoVal __cogito_progress_get_circular(ErgoVal pv) {
+  cogito_node* p = cogito_node_from_val(pv);
+  return EV_BOOL(cogito_progress_get_circular(p));
+}
+
 static void __cogito_toast_set_text(ErgoVal tv, ErgoVal textv) {
   cogito_node* t = cogito_node_from_val(tv);
   ErgoStr* tmp = NULL;
@@ -2221,6 +2346,7 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_datepicker_new __cogito_datepicker
 #define cogito_stepper_new __cogito_stepper
 #define cogito_slider_new __cogito_slider
+#define cogito_slider_range_new __cogito_slider_range
 #define cogito_tabs_new __cogito_tabs
 #define cogito_nav_rail_new __cogito_nav_rail
 #define cogito_bottom_nav_new __cogito_bottom_nav
@@ -2301,6 +2427,16 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_dropdown_on_change __cogito_dropdown_on_change
 #define cogito_slider_set_value __cogito_slider_set_value
 #define cogito_slider_get_value __cogito_slider_get_value
+#define cogito_slider_set_size __cogito_slider_set_size
+#define cogito_slider_get_size __cogito_slider_get_size
+#define cogito_slider_set_icon __cogito_slider_set_icon
+#define cogito_slider_set_centered __cogito_slider_set_centered
+#define cogito_slider_get_centered __cogito_slider_get_centered
+#define cogito_slider_set_range __cogito_slider_set_range
+#define cogito_slider_set_range_start __cogito_slider_set_range_start
+#define cogito_slider_set_range_end __cogito_slider_set_range_end
+#define cogito_slider_get_range_start __cogito_slider_get_range_start
+#define cogito_slider_get_range_end __cogito_slider_get_range_end
 #define cogito_slider_on_change __cogito_slider_on_change
 #define cogito_colorpicker_on_change __cogito_colorpicker_on_change
 #define cogito_tabs_set_items __cogito_tabs_set_items
@@ -2321,6 +2457,14 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_bottom_nav_on_change __cogito_bottom_nav_on_change
 #define cogito_progress_set_value __cogito_progress_set_value
 #define cogito_progress_get_value __cogito_progress_get_value
+#define cogito_progress_set_indeterminate __cogito_progress_set_indeterminate
+#define cogito_progress_get_indeterminate __cogito_progress_get_indeterminate
+#define cogito_progress_set_thickness __cogito_progress_set_thickness
+#define cogito_progress_get_thickness __cogito_progress_get_thickness
+#define cogito_progress_set_wavy __cogito_progress_set_wavy
+#define cogito_progress_get_wavy __cogito_progress_get_wavy
+#define cogito_progress_set_circular __cogito_progress_set_circular
+#define cogito_progress_get_circular __cogito_progress_get_circular
 #define cogito_toast_set_text __cogito_toast_set_text
 #define cogito_toast_on_click __cogito_toast_on_click
 #define cogito_toast_set_action __cogito_toast_set_action

@@ -74,7 +74,7 @@ case COGITO_SEGMENTED: {
                            mx >= sx && mx < sx + sw &&
                            my >= n->y && my < n->y + n->h);
         CogitoColor seg_bg = is_sel ? sel_bg : bg;
-        cogito_draw_rect_radii(sx, n->y, sw, n->h, seg_bg, rtl, rtr, rbr, rbl);
+        cogito_draw_rect_radii_aa(sx, n->y, sw, n->h, seg_bg, rtl, rtr, rbr, rbl);
         if (is_hovered) {
           // Draw hover as a smooth overlay so edge segments don't show stitched corners.
           CogitoColor hover_col = text_col;

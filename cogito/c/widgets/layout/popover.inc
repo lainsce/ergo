@@ -19,10 +19,19 @@ case COGITO_POPOVER: {
           pop_y = anchor->y - n->h - 8;
         }
 
+        if (n->x != pop_x || n->y != pop_y) {
+          n->x = pop_x;
+          n->y = pop_y;
+          cogito_layout_mark_changed();
+        }
         cogito_layout_vstack(n, pop_x, pop_y);
       } else {
+        if (n->x != x || n->y != y) {
+          n->x = x;
+          n->y = y;
+          cogito_layout_mark_changed();
+        }
         cogito_layout_vstack(n, x, y);
       }
       break;
     }
-

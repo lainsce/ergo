@@ -167,32 +167,44 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   const char* chipsel = secc;
 
   // === SUM output ===
-  cogito_sum_append(out, cap, &off, "*\n  color: %s\n  font-size: 13\n", ons);
-  cogito_sum_append(out, cap, &off, ".body\n  color: %s\n  font-size: 13\n  font-weight: normal\n", ons);
-  cogito_sum_append(out, cap, &off, ".error-container\n  background: %s\n  color: %s\n", errc, oerrc);
-  cogito_sum_append(out, cap, &off, ".error\n  color: %s\n", err);
-  cogito_sum_append(out, cap, &off, ".inverse-primary\n  color: %s\n", invp);
-  cogito_sum_append(out, cap, &off, ".inverse-surface\n  background: %s\n  color: %s\n", invsrf, invons);
-  cogito_sum_append(out, cap, &off, ".monospace\n  font-size: 13\n  font-weight: normal\n");
-  cogito_sum_append(out, cap, &off, ".on-error\n  background: %s\n  color: %s\n", err, oerr);
-  cogito_sum_append(out, cap, &off, ".outline-variant\n  border-color: %s\n", outlv);
-  cogito_sum_append(out, cap, &off, ".primary-container\n  background: %s\n  color: %s\n", pc, opc);
-  cogito_sum_append(out, cap, &off, ".scrim\n  background: %s\n", scrm);
-  cogito_sum_append(out, cap, &off, ".secondary-container\n  background: %s\n  color: %s\n", secc, osecc);
-  cogito_sum_append(out, cap, &off, ".secondary\n  background: %s\n  color: %s\n", sec, osec);
-  cogito_sum_append(out, cap, &off, ".subtitle\n  color: %s\n  font-size: 20\n  font-weight: normal\n", ons);
-  cogito_sum_append(out, cap, &off, ".surface-bright\n  background: %s\n", surfbrt);
+  cogito_sum_append(out, cap, &off, "*\n  color: %s\n  font-size: 14\n", ons);
+
+  cogito_sum_append(out, cap, &off, ".surface\n  background: %s\n", surf);
   cogito_sum_append(out, cap, &off, ".surface-container-high\n  background: %s\n", sch);
   cogito_sum_append(out, cap, &off, ".surface-container-highest\n  background: %s\n", schi);
   cogito_sum_append(out, cap, &off, ".surface-container-low\n  background: %s\n", sclo);
   cogito_sum_append(out, cap, &off, ".surface-container-lowest\n  background: %s\n", scl);
   cogito_sum_append(out, cap, &off, ".surface-container\n  background: %s\n", sc);
+  cogito_sum_append(out, cap, &off, ".surface-bright\n  background: %s\n", surfbrt);
   cogito_sum_append(out, cap, &off, ".surface-dim\n  background: %s\n", surfdim);
   cogito_sum_append(out, cap, &off, ".surface-variant\n  background: %s\n  color: %s\n", surfvar, osurfvar);
-  cogito_sum_append(out, cap, &off, ".tabular\n  font-size: 13\n  font-weight: normal\n");
-  cogito_sum_append(out, cap, &off, ".tertiary-container\n  background: %s\n  color: %s\n", tertc, otertc);
+
+  cogito_sum_append(out, cap, &off, ".inverse-primary\n  color: %s\n", invp);
+  cogito_sum_append(out, cap, &off, ".inverse-surface\n  background: %s\n  color: %s\n", invsrf, invons);
+
+  cogito_sum_append(out, cap, &off, ".error\n  background: %s\n  color: %s\n", err, oerr);
+  cogito_sum_append(out, cap, &off, ".error-container\n  background: %s\n  color: %s\n", errc, oerrc);
+
+  cogito_sum_append(out, cap, &off, ".primary\n  background: %s\n  color: %s\n", p, op);
+  cogito_sum_append(out, cap, &off, ".primary-container\n  background: %s\n  color: %s\n", pc, opc);
+  cogito_sum_append(out, cap, &off, ".secondary\n  background: %s\n  color: %s\n", sec, osec);
+  cogito_sum_append(out, cap, &off, ".secondary-container\n  background: %s\n  color: %s\n", secc, osecc);
   cogito_sum_append(out, cap, &off, ".tertiary\n  background: %s\n  color: %s\n", tert, otert);
+  cogito_sum_append(out, cap, &off, ".tertiary-container\n  background: %s\n  color: %s\n", tertc, otertc);
+
+  cogito_sum_append(out, cap, &off, ".outline\n  border-color: %s\n", outl);
+  cogito_sum_append(out, cap, &off, ".outline-variant\n  border-color: %s\n", outlv);
+
+  cogito_sum_append(out, cap, &off, ".scrim\n  background: %s\n", scrm);
+  cogito_sum_append(out, cap, &off, ".shadow\n  background: %s\n", scrm);
+
   cogito_sum_append(out, cap, &off, ".title\n  color: %s\n  font-size: 32\n  font-weight: normal\n", ons);
+  cogito_sum_append(out, cap, &off, ".subtitle\n  color: %s\n  font-size: 20\n  font-weight: normal\n", ons);
+  cogito_sum_append(out, cap, &off, ".body\n  color: %s\n  font-size: 14\n  font-weight: normal\n", ons);
+  cogito_sum_append(out, cap, &off, ".caption\n  color: %s\n  font-size: 11\n  font-weight: normal\n", ons);
+  cogito_sum_append(out, cap, &off, ".tabular\n  font-size: 13\n  font-weight: normal\n");
+  cogito_sum_append(out, cap, &off, ".monospace\n  font-size: 13\n  font-weight: normal\n");
+
   cogito_sum_append(out, cap, &off, "about_window\n  background: %s\n  color: %s\n  border-radius: 26\n  padding: 24\n", surf, ons);
   cogito_sum_append(out, cap, &off, "active_indicator\n  color: %s\n", p);
   cogito_sum_append(out, cap, &off, "appbar .button:active\n  background: %s\n", outl);
@@ -262,7 +274,8 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "content_list=last\n  border-radius: 8 8 12 12\n");
   cogito_sum_append(out, cap, &off, "content_list=middle\n  border-radius: 8\n");
   cogito_sum_append(out, cap, &off, "content_list=single\n  border-radius: 12\n");
-  cogito_sum_append(out, cap, &off, "datepicker, .datepicker\n  background: %s\n  color: %s\n  border-radius: 18\n  min-height: 260\n  transition: 220 standard\n", sc, ons);
+  cogito_sum_append(out, cap, &off, "datepicker:hover, .datepicker:hover\n  background: %s\n", surfth);
+  cogito_sum_append(out, cap, &off, "datepicker, .datepicker\n  background: %s\n  color: %s\n  border: 1 solid %s\n  border-radius: 8\n  min-height: 56\n  min-width: 220\n  transition: 180 standard\n", sc, ons, outl);
   cogito_sum_append(out, cap, &off, "datepicker:selection, .datepicker:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, "dialog\n  background: %s\n  color: %s\n  border-radius: 26\n  min-width: 280\n  min-height: 160\n  padding: 24\n", surf, ons);
   cogito_sum_append(out, cap, &off, "dialogslot\n  background: %s66\n  color: %s\n", scrm, ons);
@@ -293,7 +306,7 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "nav-rail\n  background: %s\n  color: %s\n  min-width: 80\n  padding: 4 0\n  transition: 220 standard\n", navbg, ons);
   cogito_sum_append(out, cap, &off, "popover\n  background: %s\n  border-radius: 12\n  padding: 16\n  box-shadow: [ 0 2 8 0 #0000001f ]\n", sc);
   cogito_sum_append(out, cap, &off, "progress:selection\n  background: %s\n", p);
-  cogito_sum_append(out, cap, &off, "progress\n  background: %s\n  border-radius: 6\n  min-height: 10\n  min-width: 120\n  transition: 200 standard\n", progbg);
+  cogito_sum_append(out, cap, &off, "progress\n  background: %s\n  border-radius: 100\n  track-height: 4\n  min-height: 12\n  min-width: 120\n  transition: 200 standard\n", progbg);
   cogito_sum_append(out, cap, &off, "radio .box:active\n  border-color: %s\n", p);
   cogito_sum_append(out, cap, &off, "radio .box:hover\n  border-color: %s\n", ons);
   cogito_sum_append(out, cap, &off, "radio .box\n  background: transparent\n  border-radius: 100\n  border: 2 solid %s\n", outl);
@@ -320,7 +333,7 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "settings_window\n  background: %s\n  color: %s\n", bg, ons);
   cogito_sum_append(out, cap, &off, "slider:active\n  color: %s\n", pa);
   cogito_sum_append(out, cap, &off, "slider:hover\n  color: %s\n", ph);
-  cogito_sum_append(out, cap, &off, "slider\n  background: %s\n  color: %s\n  track-height: 4\n  min-height: 48\n  min-width: 200\n  transition: 120 standard\n", outl, p);
+  cogito_sum_append(out, cap, &off, "slider\n  background: %s\n  color: %s\n  track-height: 4\n  min-height: 48\n  min-width: 200\n  transition: 120 standard\n", secc, p);
   cogito_sum_append(out, cap, &off, "split_button\n  background: %s\n  color: %s\n  border-radius: 20\n", p, op);
   cogito_sum_append(out, cap, &off, "stepper\n  background: %s\n  color: %s\n  border-radius: 100\n  min-height: 42\n  min-width: 120\n  border: 1 solid %s\n  padding: 4 8\n  transition: 150 standard\n", surf, ons, outl);
   cogito_sum_append(out, cap, &off, "switch .knob:active\n  background: %s\n", knoba);
@@ -350,7 +363,8 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "textview:selection, .textview:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, "textview\n  background: %s\n  color: %s\n  border-radius: 8\n  min-height: 96\n  transition: 180 standard\n", sc, ons);
   cogito_sum_append(out, cap, &off, "timepicker:selection\n  background: %s\n", p);
-  cogito_sum_append(out, cap, &off, "timepicker\n  background: %s\n  color: %s\n  border-radius: 18\n  min-height: 200\n  min-width: 180\n  transition: 220 standard\n", sc, ons);
+  cogito_sum_append(out, cap, &off, "timepicker:hover\n  background: %s\n", surfth);
+  cogito_sum_append(out, cap, &off, "timepicker\n  background: %s\n  color: %s\n  border: 1 solid %s\n  border-radius: 8\n  min-height: 56\n  min-width: 220\n  transition: 180 standard\n", sc, ons, outl);
   cogito_sum_append(out, cap, &off, "tip_view\n  background: %s\n  color: %s\n  border-radius: 8\n  padding: 12\n", secc, osecc);
   cogito_sum_append(out, cap, &off, "toast:selection\n  background: %s\n", invp);
   cogito_sum_append(out, cap, &off, "toast\n  background: %s\n  color: %s\n  border-radius: 10\n  min-height: 34\n  padding: 0 12\n  transition: 220 standard\n", toastbg, toastfg);

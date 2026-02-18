@@ -39,6 +39,25 @@ static void cogito_popover_close(ErgoVal windowv) {
   CogitoNode* win = (CogitoNode*)windowv.as.p;
 
   if (win->popover) {
+    CogitoNode* cur = cogito_pointer_capture;
+    while (cur) {
+      if (cur == win->popover) {
+        cogito_pointer_capture = NULL;
+        break;
+      }
+      cur = cur->parent;
+    }
+    cur = cogito_timepicker_active;
+    while (cur) {
+      if (cur == win->popover) {
+        cogito_timepicker_active = NULL;
+        break;
+      }
+      cur = cur->parent;
+    }
+  }
+
+  if (win->popover) {
     ergo_release_val(EV_OBJ(win->popover));
     win->popover = NULL;
   }
