@@ -237,6 +237,9 @@ static void cogito_draw_rect_lines_radii(int x, int y, int w, int h, CogitoColor
   cogito_draw_corner_outline(x + bl, y + h - bl - 1, bl, x, y + h - bl - thickness, bl + thickness, bl + thickness, border, thickness);
 }
 
+static void cogito_draw_rect_radii_aa(int x, int y, int w, int h, CogitoColor bg, int tl, int tr, int br, int bl);
+static void cogito_draw_rect_lines_radii_aa(int x, int y, int w, int h, CogitoColor border, int tl, int tr, int br, int bl, int thickness);
+
 static void cogito_resolve_node_radii(const CogitoNode* n, const CogitoStyle* s, int fallback_radius,
                                       int w, int h, int* out_tl, int* out_tr, int* out_br, int* out_bl) {
   int tl = fallback_radius;
@@ -284,14 +287,14 @@ static void cogito_draw_rect_node(const CogitoNode* n, const CogitoStyle* s,
                                   int x, int y, int w, int h, CogitoColor bg, int fallback_radius) {
   int tl = fallback_radius, tr = fallback_radius, br = fallback_radius, bl = fallback_radius;
   cogito_resolve_node_radii(n, s, fallback_radius, w, h, &tl, &tr, &br, &bl);
-  cogito_draw_rect_radii(x, y, w, h, bg, tl, tr, br, bl);
+  cogito_draw_rect_radii_aa(x, y, w, h, bg, tl, tr, br, bl);
 }
 
 static void cogito_draw_rect_lines_node(const CogitoNode* n, const CogitoStyle* s,
                                         int x, int y, int w, int h, CogitoColor border, int fallback_radius, int thickness) {
   int tl = fallback_radius, tr = fallback_radius, br = fallback_radius, bl = fallback_radius;
   cogito_resolve_node_radii(n, s, fallback_radius, w, h, &tl, &tr, &br, &bl);
-  cogito_draw_rect_lines_radii(x, y, w, h, border, tl, tr, br, bl, thickness);
+  cogito_draw_rect_lines_radii_aa(x, y, w, h, border, tl, tr, br, bl, thickness);
 }
 
 static float cogito_shadow_gauss(float x, float sigma) {
@@ -455,8 +458,7 @@ typedef struct {
   double bl;
 } CogitoRectRadiiAACtx;
 
-static bool cogito_rect_radii_sample(double px, double py, void* user) {
-  CogitoRectRadiiAACtx* ctx = (CogitoRectRadiiAACtx*)user;
+static bool cogito_rect_radii_contains(const CogitoRectRadiiAACtx* ctx, double px, double py) {
   if (!ctx) return false;
   if (px < ctx->x0 || py < ctx->y0 || px > ctx->x1 || py > ctx->y1) return false;
 
@@ -495,6 +497,25 @@ static bool cogito_rect_radii_sample(double px, double py, void* user) {
   return true;
 }
 
+static bool cogito_rect_radii_sample(double px, double py, void* user) {
+  CogitoRectRadiiAACtx* ctx = (CogitoRectRadiiAACtx*)user;
+  return cogito_rect_radii_contains(ctx, px, py);
+}
+
+typedef struct {
+  CogitoRectRadiiAACtx outer;
+  CogitoRectRadiiAACtx inner;
+  bool has_inner;
+} CogitoRectRadiiOutlineAACtx;
+
+static bool cogito_rect_radii_outline_sample(double px, double py, void* user) {
+  CogitoRectRadiiOutlineAACtx* ctx = (CogitoRectRadiiOutlineAACtx*)user;
+  if (!ctx) return false;
+  if (!cogito_rect_radii_contains(&ctx->outer, px, py)) return false;
+  if (ctx->has_inner && cogito_rect_radii_contains(&ctx->inner, px, py)) return false;
+  return true;
+}
+
 static void cogito_draw_rect_radii_aa(int x, int y, int w, int h, CogitoColor bg, int tl, int tr, int br, int bl) {
   if (w <= 0 || h <= 0 || bg.a == 0) return;
   cogito_clamp_corner_radii(w, h, &tl, &tr, &br, &bl);
@@ -522,6 +543,56 @@ static void cogito_draw_rect_radii_aa(int x, int y, int w, int h, CogitoColor bg
   ctx.bl = (double)bl;
 
   cogito_draw_aa_bbox(x - 1, y - 1, x + w, y + h, bg, cogito_rect_radii_sample, &ctx);
+}
+
+static void cogito_draw_rect_lines_radii_aa(int x, int y, int w, int h, CogitoColor border, int tl, int tr, int br, int bl, int thickness) {
+  if (w <= 0 || h <= 0 || thickness <= 0 || border.a == 0) return;
+  cogito_clamp_corner_radii(w, h, &tl, &tr, &br, &bl);
+  if (!cogito_backend || !cogito_backend->draw_rect) {
+    cogito_draw_rect_lines_radii(x, y, w, h, border, tl, tr, br, bl, thickness);
+    return;
+  }
+  if (tl == 0 && tr == 0 && br == 0 && bl == 0) {
+    cogito_draw_rect_lines(x, y, w, h, border, 0, thickness);
+    return;
+  }
+  if (cogito_corner_radii_uniform(tl, tr, br, bl)) {
+    cogito_draw_rect_lines(x, y, w, h, border, tl, thickness);
+    return;
+  }
+
+  CogitoRectRadiiOutlineAACtx ctx;
+  ctx.outer.x0 = (double)x;
+  ctx.outer.y0 = (double)y;
+  ctx.outer.x1 = (double)(x + w);
+  ctx.outer.y1 = (double)(y + h);
+  ctx.outer.tl = (double)tl;
+  ctx.outer.tr = (double)tr;
+  ctx.outer.br = (double)br;
+  ctx.outer.bl = (double)bl;
+
+  int ix = x + thickness;
+  int iy = y + thickness;
+  int iw = w - thickness * 2;
+  int ih = h - thickness * 2;
+  ctx.has_inner = iw > 0 && ih > 0;
+  if (ctx.has_inner) {
+    int itl = tl - thickness;
+    int itr = tr - thickness;
+    int ibr = br - thickness;
+    int ibl = bl - thickness;
+    cogito_clamp_corner_radii(iw, ih, &itl, &itr, &ibr, &ibl);
+    ctx.inner.x0 = (double)ix;
+    ctx.inner.y0 = (double)iy;
+    ctx.inner.x1 = (double)(ix + iw);
+    ctx.inner.y1 = (double)(iy + ih);
+    ctx.inner.tl = (double)itl;
+    ctx.inner.tr = (double)itr;
+    ctx.inner.br = (double)ibr;
+    ctx.inner.bl = (double)ibl;
+  }
+
+  cogito_draw_aa_bbox(x - 1, y - 1, x + w, y + h, border, cogito_rect_radii_outline_sample, &ctx);
 }
 
 static double cogito_dist2_point_segment(double px, double py,

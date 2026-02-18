@@ -51,16 +51,16 @@ case COGITO_SPLIT_BUTTON: {
   cogito_draw_rect_radii_aa(n->x, n->y, main_w, n->h, bg,
                             outer_radius, main_inner_radius, main_inner_radius, outer_radius);
   if (border_w > 0) {
-    cogito_draw_rect_lines_radii(n->x, n->y, main_w, n->h, border_color,
-                                 outer_radius, main_inner_radius, main_inner_radius, outer_radius, border_w);
+    cogito_draw_rect_lines_radii_aa(n->x, n->y, main_w, n->h, border_color,
+                                    outer_radius, main_inner_radius, main_inner_radius, outer_radius, border_w);
   }
 
   // Draw menu button with reversed corner radii; when menu is active make it fully circular.
   cogito_draw_rect_radii_aa(menu_x, n->y, menu_w, n->h, bg,
                             menu_inner_radius, outer_radius, outer_radius, menu_inner_radius);
   if (border_w > 0) {
-    cogito_draw_rect_lines_radii(menu_x, n->y, menu_w, n->h, border_color,
-                                 menu_inner_radius, outer_radius, outer_radius, menu_inner_radius, border_w);
+    cogito_draw_rect_lines_radii_aa(menu_x, n->y, menu_w, n->h, border_color,
+                                    menu_inner_radius, outer_radius, outer_radius, menu_inner_radius, border_w);
   }
 
   // Draw main button text
