@@ -3,6 +3,10 @@ case COGITO_ICONBTN: {
       bool active = false;
       cogito_node_hover_state(n, &hover, &active);
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
+      bool has_custom_class = n->class_name && n->class_name->data && n->class_name->data[0];
+      bool in_toolbar = n->parent && n->parent->kind == COGITO_TOOLBAR;
+      bool toolbar_floating = in_toolbar ? cogito_toolbar_is_floating(n->parent) : false;
+      bool toolbar_compact = in_toolbar ? cogito_toolbar_is_compact(n->parent) : false;
       if (n->parent && n->parent->kind == COGITO_APPBAR) {
         int mx = 0, my = 0;
         if (cogito_backend && cogito_backend->get_mouse_position) {
@@ -43,6 +47,11 @@ case COGITO_ICONBTN: {
 	        int min_dim = n->w < n->h ? n->w : n->h;
 	        if (min_dim > 0) radius = min_dim / 2;
 	      }
+        if (in_toolbar && (!toolbar_floating || toolbar_compact) && !has_custom_class) {
+          bg = cogito_rgba(0, 0, 0, 0);
+          border_w = 0;
+          if (!n->radius_set) radius = 0;
+        }
 	      if (s.has_text) icon_color = s.text;
 	      else if (cogito_has_selection_text) icon_color = cogito_selection_text;
 	      cogito_anim_apply(n, &s, &bg, &icon_color, &border, NULL);

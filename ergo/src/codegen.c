@@ -11,6 +11,7 @@
 #include "arena.h"
 #include "file.h"
 #include "platform.h"
+#include "runtime_embedded.h"
 #include "str.h"
 #include "typecheck.h"
 #include "vec.h"
@@ -147,13 +148,6 @@ static bool w_line(Writer *w, const char *fmt, ...) {
         return false;
     }
     return true;
-}
-
-static bool w_raw(Writer *w, const char *s) {
-    if (!w || !w->buf) {
-        return false;
-    }
-    return sb_append(w->buf, s);
 }
 
 // -----------------
@@ -3343,9 +3337,11 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
     (void)uses_cogito;  // Parameter unused - Cogito integration handled at link time
     codegen_collect_lambdas(cg);
 
-    const char *runtime_path = getenv("ERGO_RUNTIME");
+    const char *runtime_override = getenv("ERGO_RUNTIME");
+    bool runtime_forced = runtime_override && runtime_override[0];
+    const char *runtime_path = runtime_forced ? runtime_override : NULL;
     char *exe_runtime_path = NULL;  // heap-allocated, freed below
-    if (!runtime_path || !runtime_path[0]) {
+    if (!runtime_path) {
         const char *runtime_candidates[] = {
             "src/runtime.inc",
             "ergo/src/runtime.inc",
@@ -3382,21 +3378,26 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
                 free(exe_dir);
             }
         }
-        if (!runtime_path) {
-            runtime_path = "ergo/src/runtime.inc";  // last resort fallback for error message
-        }
     }
     Arena tmp_arena;
     arena_init(&tmp_arena);
     size_t runtime_len = 0;
-    Diag rerr = {0};
-    char *runtime_src = read_file_with_includes(runtime_path, "// @include", &tmp_arena, &runtime_len, &rerr);
-    if (!runtime_src) {
-        arena_free(&tmp_arena);
-        free(exe_runtime_path);
-        return cg_set_err(err, (Str){runtime_path, runtime_path ? strlen(runtime_path) : 0}, "failed to read runtime.inc");
+    const char *runtime_src = NULL;
+    if (runtime_path && runtime_path[0]) {
+        char *runtime_file_src = read_file_with_includes(runtime_path, "// @include", &tmp_arena, &runtime_len, NULL);
+        if (runtime_file_src) {
+            runtime_src = runtime_file_src;
+        } else if (runtime_forced) {
+            arena_free(&tmp_arena);
+            free(exe_runtime_path);
+            return cg_set_err(err, (Str){runtime_path, strlen(runtime_path)}, "failed to read runtime.inc");
+        }
     }
-    w_raw(&cg->w, runtime_src);
+    if (!runtime_src) {
+        runtime_src = (const char *)ergo_runtime_embedded;
+        runtime_len = (size_t)ergo_runtime_embedded_len;
+    }
+    sb_append_n(&cg->out, runtime_src, runtime_len);
     if (runtime_len == 0 || runtime_src[runtime_len - 1] != '\n') {
         sb_append_char(&cg->out, '\n');
     }

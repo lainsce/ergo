@@ -289,6 +289,7 @@ typedef struct CogitoStyle {
 } CogitoStyle;
 
 #define COGITO_MAX_CUSTOM_CLASSES 32
+#define COGITO_LABEL_CLASS_COUNT 12
 
 typedef struct CogitoCustomClassStyle {
   char name[64];
@@ -309,12 +310,12 @@ typedef struct CogitoTheme {
   CogitoStyle per_kind_focused[COGITO_KIND_COUNT];
   CogitoStyle per_kind_checked[COGITO_KIND_COUNT];
   CogitoStyle per_kind_disabled[COGITO_KIND_COUNT];
-  CogitoStyle label_class[4];
-  CogitoStyle label_class_hover[4];
-  CogitoStyle label_class_active[4];
-  CogitoStyle label_class_focused[4];
-  CogitoStyle label_class_checked[4];
-  CogitoStyle label_class_disabled[4];
+  CogitoStyle label_class[COGITO_LABEL_CLASS_COUNT];
+  CogitoStyle label_class_hover[COGITO_LABEL_CLASS_COUNT];
+  CogitoStyle label_class_active[COGITO_LABEL_CLASS_COUNT];
+  CogitoStyle label_class_focused[COGITO_LABEL_CLASS_COUNT];
+  CogitoStyle label_class_checked[COGITO_LABEL_CLASS_COUNT];
+  CogitoStyle label_class_disabled[COGITO_LABEL_CLASS_COUNT];
   CogitoStyle class_mono;
   CogitoStyle class_mono_hover;
   CogitoStyle class_mono_active;
@@ -715,15 +716,21 @@ static bool cogito_backend_ready = false;
 static CogitoMenu cogito_menu = {0};
 static CogitoFont* cogito_font = NULL;
 static bool cogito_font_ready = false;
+static CogitoFont* cogito_font_serif = NULL;
+static bool cogito_font_serif_ready = false;
 static CogitoFont* cogito_font_mono = NULL;
 static bool cogito_font_mono_ready = false;
+static bool cogito_font_serif_from_env = false;
 static bool cogito_font_mono_from_env = false;
+static const char* cogito_font_serif_path_active = NULL;
 static const char* cogito_font_mono_path_active = NULL;
+static int cogito_font_serif_loaded_size = 0;
 static int cogito_font_mono_loaded_size = 0;
 static CogitoFont* cogito_font_bold = NULL;
 static bool cogito_font_bold_ready = false;
 static bool cogito_font_bold_variable = false;
 static CogitoFontCacheEntry cogito_font_cache[8];
+static CogitoFontCacheEntry cogito_font_serif_cache[8];
 static CogitoFontCacheEntry cogito_font_bold_cache[8];
 static CogitoFontCacheEntry cogito_font_tabular_cache[8];
 static int cogito_font_size_value = 16;
@@ -758,7 +765,15 @@ enum {
   COGITO_LABEL_CLASS_NONE = 0,
   COGITO_LABEL_CLASS_TITLE,
   COGITO_LABEL_CLASS_SUBTITLE,
-  COGITO_LABEL_CLASS_BODY
+  COGITO_LABEL_CLASS_BODY,
+  COGITO_LABEL_CLASS_BIG_DISPLAY,
+  COGITO_LABEL_CLASS_DISPLAY,
+  COGITO_LABEL_CLASS_VIEW_TITLE,
+  COGITO_LABEL_CLASS_VIEW_SUBTITLE,
+  COGITO_LABEL_CLASS_HEADING,
+  COGITO_LABEL_CLASS_CONTENT_TITLE,
+  COGITO_LABEL_CLASS_CONTENT_SUBTITLE,
+  COGITO_LABEL_CLASS_CAPTION
 };
 enum {
   COGITO_STYLE_CLASS_NONE = 0,
@@ -965,11 +980,31 @@ static bool cogito_macos_apply_app_name(const char* name) {
 // Use cogito_color from backend.h instead
 #define cogito_rgba cogito_color
 
-static CogitoFont* cogito_font_for_node(const CogitoNode* n) {
-  if (n && n->font_tabular) {
-    return cogito_font;
+static bool cogito_font_family_eq(const char* a, const char* b) {
+  if (!a || !b) return false;
+  while (*a && *b) {
+    if (tolower((unsigned char)*a) != tolower((unsigned char)*b)) return false;
+    a++;
+    b++;
   }
-  if (n && n->font_mono && cogito_font_mono_ready) return cogito_font_mono;
+  return *a == '\0' && *b == '\0';
+}
+
+static CogitoFont* cogito_font_for_node(const CogitoNode* n) {
+  if (n && n->font_mono && cogito_font_mono_ready) {
+    return cogito_font_mono;
+  }
+  if (n && n->font_family_set && n->font_family[0]) {
+    if ((cogito_font_family_eq(n->font_family, "monospace") ||
+         cogito_font_family_eq(n->font_family, "mono")) &&
+        cogito_font_mono_ready) {
+      return cogito_font_mono;
+    }
+    if (cogito_font_family_eq(n->font_family, "serif") &&
+        cogito_font_serif_ready) {
+      return cogito_font_serif;
+    }
+  }
   return cogito_font;
 }
 

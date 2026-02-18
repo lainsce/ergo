@@ -27,9 +27,30 @@ static void cogito_style_set_radius(CogitoStyle* s, int tl, int tr, int br, int 
 
 static int cogito_label_class_from_name(const char* s) {
   if (!s || !s[0]) return COGITO_LABEL_CLASS_NONE;
-  if (strcmp(s, "title") == 0) return COGITO_LABEL_CLASS_TITLE;
-  if (strcmp(s, "subtitle") == 0 || strcmp(s, "sub-title") == 0) return COGITO_LABEL_CLASS_SUBTITLE;
-  if (strcmp(s, "body") == 0) return COGITO_LABEL_CLASS_BODY;
+  char key[64];
+  size_t k = 0;
+  for (size_t i = 0; s[i] && (k + 1) < sizeof(key); i++) {
+    unsigned char ch = (unsigned char)s[i];
+    if (ch == '_' || ch == ' ') ch = '-';
+    ch = (unsigned char)tolower(ch);
+    if ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-') {
+      key[k++] = (char)ch;
+    }
+  }
+  key[k] = 0;
+  if (!key[0]) return COGITO_LABEL_CLASS_NONE;
+
+  if (strcmp(key, "title") == 0) return COGITO_LABEL_CLASS_TITLE;
+  if (strcmp(key, "subtitle") == 0 || strcmp(key, "sub-title") == 0) return COGITO_LABEL_CLASS_SUBTITLE;
+  if (strcmp(key, "body") == 0) return COGITO_LABEL_CLASS_BODY;
+  if (strcmp(key, "big-display") == 0 || strcmp(key, "bigdisplay") == 0) return COGITO_LABEL_CLASS_BIG_DISPLAY;
+  if (strcmp(key, "display") == 0) return COGITO_LABEL_CLASS_DISPLAY;
+  if (strcmp(key, "view-title") == 0 || strcmp(key, "viewtitle") == 0) return COGITO_LABEL_CLASS_VIEW_TITLE;
+  if (strcmp(key, "view-subtitle") == 0 || strcmp(key, "viewsubtitle") == 0) return COGITO_LABEL_CLASS_VIEW_SUBTITLE;
+  if (strcmp(key, "heading") == 0) return COGITO_LABEL_CLASS_HEADING;
+  if (strcmp(key, "content-title") == 0 || strcmp(key, "contenttitle") == 0) return COGITO_LABEL_CLASS_CONTENT_TITLE;
+  if (strcmp(key, "content-subtitle") == 0 || strcmp(key, "contentsubtitle") == 0) return COGITO_LABEL_CLASS_CONTENT_SUBTITLE;
+  if (strcmp(key, "caption") == 0) return COGITO_LABEL_CLASS_CAPTION;
   return COGITO_LABEL_CLASS_NONE;
 }
 
@@ -43,7 +64,7 @@ static void cogito_theme_set_defaults(void) {
     cogito_style_clear(&cogito_theme.per_kind_checked[i]);
     cogito_style_clear(&cogito_theme.per_kind_disabled[i]);
   }
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < COGITO_LABEL_CLASS_COUNT; i++) {
     cogito_style_clear(&cogito_theme.label_class[i]);
     cogito_style_clear(&cogito_theme.label_class_hover[i]);
     cogito_style_clear(&cogito_theme.label_class_active[i]);
@@ -246,7 +267,9 @@ static CogitoStyle cogito_theme_resolve(CogitoKind kind) {
 
 static CogitoStyle cogito_theme_resolve_node(const CogitoNode* n) {
   CogitoStyle s = cogito_theme_resolve(n->kind);
-  if (n->kind == COGITO_LABEL && n->label.cls > COGITO_LABEL_CLASS_NONE && n->label.cls < 4) {
+  if (n->kind == COGITO_LABEL &&
+      n->label.cls > COGITO_LABEL_CLASS_NONE &&
+      n->label.cls < COGITO_LABEL_CLASS_COUNT) {
     s = cogito_style_merge(&s, &cogito_theme.label_class[n->label.cls]);
   }
   if (n->font_mono) {
@@ -428,7 +451,9 @@ static CogitoStyle cogito_theme_resolve_node_state(const CogitoNode* n, bool hov
   else if (active) s = cogito_style_merge(&s, &cogito_theme.per_kind_active[n->kind]);
   else if (focused) s = cogito_style_merge(&s, &cogito_theme.per_kind_focused[n->kind]);
   else if (hover) s = cogito_style_merge(&s, &cogito_theme.per_kind_hover[n->kind]);
-  if (n->kind == COGITO_LABEL && n->label.cls > COGITO_LABEL_CLASS_NONE && n->label.cls < 4) {
+  if (n->kind == COGITO_LABEL &&
+      n->label.cls > COGITO_LABEL_CLASS_NONE &&
+      n->label.cls < COGITO_LABEL_CLASS_COUNT) {
     if (checked) s = cogito_style_merge(&s, &cogito_theme.label_class_checked[n->label.cls]);
     if (disabled) {
       s = cogito_style_merge(&s, &cogito_theme.label_class_disabled[n->label.cls]);
@@ -644,6 +669,18 @@ static void cogito_apply_style_to_node(CogitoNode* n) {
             }
           }
         }
+        if (cogito_backend_ready && cogito_font_serif_ready && cogito_font_serif_from_env) {
+          const char* serif_path = cogito_font_serif_path_active;
+          if (serif_path && serif_path[0] && cogito_font_serif_loaded_size != sz) {
+            cogito_backend->font_unload(cogito_font_serif);
+            if (cogito_load_font_file(&cogito_font_serif, serif_path, sz, cogito_font_weight_normal())) {
+              cogito_font_serif_ready = true;
+              cogito_font_serif_loaded_size = sz;
+            } else {
+              cogito_font_serif_ready = false;
+            }
+          }
+        }
         if (cogito_backend_ready && cogito_font_bold_ready && cogito_font_bold_from_env) {
           const char* bold_path = cogito_font_bold_path_active;
           if (bold_path && bold_path[0] && cogito_font_bold_loaded_size != sz) {
@@ -729,16 +766,24 @@ static int cogito_node_font_size(const CogitoNode* n);
 #include "widgets/util/style_dump.inc"
 
 static int cogito_font_size(void) {
-  return cogito_font_size_value > 0 ? cogito_font_size_value : 16;
+  return cogito_font_size_value > 0 ? cogito_font_size_value : 14;
 }
 
 static int cogito_label_font_size(const CogitoNode* n) {
   if (!n) return cogito_font_size();
   if (n->font_size_set && n->font_size > 0) return n->font_size;
   switch (n->label.cls) {
-    case COGITO_LABEL_CLASS_TITLE: return 32;
-    case COGITO_LABEL_CLASS_SUBTITLE: return 26;
-    case COGITO_LABEL_CLASS_BODY: return 16;
+    case COGITO_LABEL_CLASS_BIG_DISPLAY: return 56;
+    case COGITO_LABEL_CLASS_DISPLAY: return 36;
+    case COGITO_LABEL_CLASS_VIEW_TITLE:
+    case COGITO_LABEL_CLASS_TITLE: return 24;
+    case COGITO_LABEL_CLASS_VIEW_SUBTITLE:
+    case COGITO_LABEL_CLASS_SUBTITLE: return 18;
+    case COGITO_LABEL_CLASS_HEADING: return 16;
+    case COGITO_LABEL_CLASS_CONTENT_TITLE: return 16;
+    case COGITO_LABEL_CLASS_CONTENT_SUBTITLE:
+    case COGITO_LABEL_CLASS_BODY: return 14;
+    case COGITO_LABEL_CLASS_CAPTION: return 12;
     default: return cogito_font_size();
   }
 }
@@ -777,12 +822,15 @@ static void cogito_apply_size_constraints(const CogitoNode* n, int* w, int* h) {
 static bool cogito_label_bold(const CogitoNode* n) {
   if (!n) return false;
   if (n->font_weight_set) return n->font_weight >= 600;
-  return n->label.cls == COGITO_LABEL_CLASS_TITLE;
+  return n->label.cls == COGITO_LABEL_CLASS_SUBTITLE ||
+         n->label.cls == COGITO_LABEL_CLASS_VIEW_SUBTITLE ||
+         n->label.cls == COGITO_LABEL_CLASS_CONTENT_TITLE ||
+         n->label.cls == COGITO_LABEL_CLASS_CAPTION;
 }
 
 static int cogito_label_class_font_size(int cls, int fallback) {
   cogito_theme_init();
-  if (cls > COGITO_LABEL_CLASS_NONE && cls < 4) {
+  if (cls > COGITO_LABEL_CLASS_NONE && cls < COGITO_LABEL_CLASS_COUNT) {
     CogitoStyle* s = &cogito_theme.label_class[cls];
     if (s->has_font_size && s->font_size > 0) return s->font_size;
   }
@@ -791,7 +839,7 @@ static int cogito_label_class_font_size(int cls, int fallback) {
 
 static bool cogito_label_class_bold(int cls, bool fallback) {
   cogito_theme_init();
-  if (cls > COGITO_LABEL_CLASS_NONE && cls < 4) {
+  if (cls > COGITO_LABEL_CLASS_NONE && cls < COGITO_LABEL_CLASS_COUNT) {
     CogitoStyle* s = &cogito_theme.label_class[cls];
     if (s->has_font_weight) return s->font_weight >= 600;
   }
@@ -800,7 +848,7 @@ static bool cogito_label_class_bold(int cls, bool fallback) {
 
 static CogitoColor cogito_label_class_color(int cls, CogitoColor fallback) {
   cogito_theme_init();
-  if (cls > COGITO_LABEL_CLASS_NONE && cls < 4) {
+  if (cls > COGITO_LABEL_CLASS_NONE && cls < COGITO_LABEL_CLASS_COUNT) {
     CogitoStyle* s = &cogito_theme.label_class[cls];
     if (s->has_text) return s->text;
   }

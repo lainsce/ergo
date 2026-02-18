@@ -165,12 +165,12 @@ static void cogito_node_set_class(ErgoVal nodev, ErgoVal classv) {
   n->button.text_style = false;
   if (n->kind == COGITO_LABEL) n->label.cls = COGITO_LABEL_CLASS_NONE;
   if (s && s[0]) {
-    if (strcmp(s, "title") == 0) {
-      n->label.cls = COGITO_LABEL_CLASS_TITLE;
-    } else if (strcmp(s, "subtitle") == 0 || strcmp(s, "sub-title") == 0) {
-      n->label.cls = COGITO_LABEL_CLASS_SUBTITLE;
-    } else if (strcmp(s, "body") == 0) {
-      n->label.cls = COGITO_LABEL_CLASS_BODY;
+    int label_cls = COGITO_LABEL_CLASS_NONE;
+    if (n->kind == COGITO_LABEL) {
+      label_cls = cogito_label_class_from_name(s);
+    }
+    if (label_cls != COGITO_LABEL_CLASS_NONE) {
+      n->label.cls = label_cls;
     } else if (strcmp(s, "monospace") == 0 || strcmp(s, "mono") == 0) {
       n->font_mono = true;
     } else if (strcmp(s, "tabular") == 0 || strcmp(s, "tnum") == 0 || strcmp(s, "tabular-nums") == 0) {

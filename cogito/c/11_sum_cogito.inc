@@ -264,15 +264,52 @@ void cogito_sum_apply_property(CogitoStyle* style, const char* prop, const char*
   if (strcmp(prop, "font-family") == 0) {
     const char* s = *p;
     char ident[64];
+    char family[64];
+    bool family_set = false;
+    bool parsed_any = false;
     bool mono = false;
-    while (cogito_css_read_ident(&s, ident, sizeof(ident))) {
+    bool serif = false;
+    while (*s) {
+      while (*s && (isspace((unsigned char)*s) || *s == ',')) s++;
+      if (!*s) break;
+
+      ident[0] = '\0';
+      if (*s == '"' || *s == '\'') {
+        char quote = *s++;
+        size_t i = 0;
+        while (*s && *s != quote && i + 1 < sizeof(ident)) ident[i++] = *s++;
+        ident[i] = '\0';
+        if (*s == quote) s++;
+      } else {
+        if (!cogito_css_read_ident(&s, ident, sizeof(ident))) break;
+      }
+
+      if (!ident[0]) continue;
+      parsed_any = true;
+      if (!family_set) {
+        strncpy(family, ident, sizeof(family) - 1);
+        family[sizeof(family) - 1] = '\0';
+        family_set = true;
+      }
       if (strcmp(ident, "monospace") == 0 || strcmp(ident, "mono") == 0) {
         mono = true;
+      } else if (strcmp(ident, "serif") == 0) {
+        serif = true;
       }
-      while (*s && (isspace((unsigned char)*s) || *s == ',')) s++;
     }
-    style->has_font_mono = true;
-    style->font_mono = mono;
+    if (family_set) {
+      if (serif) {
+        strncpy(family, "serif", sizeof(family) - 1);
+        family[sizeof(family) - 1] = '\0';
+      }
+      strncpy(style->font_family, family, sizeof(style->font_family) - 1);
+      style->font_family[sizeof(style->font_family) - 1] = '\0';
+      style->has_font_family = true;
+    }
+    if (parsed_any) {
+      style->has_font_mono = true;
+      style->font_mono = mono;
+    }
     *p = s;
     return;
   }

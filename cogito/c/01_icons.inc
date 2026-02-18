@@ -416,6 +416,10 @@ static void cogito_icon_add_candidate(char out[][128], int* count, int max, cons
 
 static const char* cogito_icon_alias_sf(const char* token) {
   if (!token || !token[0]) return token;
+  if (strcmp(token, "bold") == 0) return "textformat.bold";
+  if (strcmp(token, "italic") == 0) return "textformat.italic";
+  if (strcmp(token, "underline") == 0) return "textformat.underline";
+  if (strcmp(token, "character") == 0) return "textformat";
   if (strcmp(token, "x") == 0 || strcmp(token, "close") == 0 || strcmp(token, "window-close") == 0) return "xmark";
   if (strcmp(token, "window-min") == 0 || strcmp(token, "minimize") == 0) return "minus";
   if (strcmp(token, "window-max") == 0 || strcmp(token, "maximize") == 0) return "plus.square";
@@ -434,6 +438,10 @@ static const char* cogito_icon_alias_sf(const char* token) {
 #if !defined(__APPLE__)
 static const char* cogito_icon_alias_theme(const char* token) {
   if (!token || !token[0]) return token;
+  if (strcmp(token, "bold") == 0 || strcmp(token, "textformat.bold") == 0) return "format-text-bold-symbolic";
+  if (strcmp(token, "italic") == 0 || strcmp(token, "textformat.italic") == 0) return "format-text-italic-symbolic";
+  if (strcmp(token, "underline") == 0 || strcmp(token, "textformat.underline") == 0) return "format-text-underline-symbolic";
+  if (strcmp(token, "character") == 0 || strcmp(token, "textformat") == 0) return "format-text-size-symbolic";
   if (strcmp(token, "x") == 0 || strcmp(token, "xmark") == 0 || strcmp(token, "close") == 0 || strcmp(token, "window-close") == 0) return "window-close-symbolic";
   if (strcmp(token, "window-min") == 0 || strcmp(token, "minimize") == 0 || strcmp(token, "minus") == 0) return "window-minimize-symbolic";
   if (strcmp(token, "window-max") == 0 || strcmp(token, "maximize") == 0) return "window-maximize-symbolic";
@@ -464,6 +472,11 @@ static int cogito_icon_candidates(const char* name, char out[][128], int max) {
   const char* sf = cogito_icon_alias_sf(token);
   snprintf(sf_name, sizeof(sf_name), "sf:%s", sf);
   cogito_icon_add_candidate(out, &count, max, sf_name);
+  if (strcmp(sf, token) != 0) {
+    char sf_orig[128];
+    snprintf(sf_orig, sizeof(sf_orig), "sf:%s", token);
+    cogito_icon_add_candidate(out, &count, max, sf_orig);
+  }
 #else
   const char* themed = cogito_icon_alias_theme(token);
   cogito_icon_add_candidate(out, &count, max, themed);

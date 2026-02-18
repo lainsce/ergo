@@ -1,3 +1,104 @@
+enum {
+  COGITO_BOTTOM_TOOLBAR_MAX_SLOTS = 6,
+  COGITO_BOTTOM_TOOLBAR_DOCKED_GAP = 32,
+  COGITO_BOTTOM_TOOLBAR_FLOATING_GAP = 8,
+  COGITO_BOTTOM_TOOLBAR_FLOATING_COMPACT_GAP = 4,
+  COGITO_BOTTOM_TOOLBAR_FLOATING_COMPACT_SIDE_PADDING = 8,
+  COGITO_BOTTOM_TOOLBAR_OUTER_PADDING = 16,
+  COGITO_BOTTOM_TOOLBAR_FLOATING_BOTTOM_OFFSET = 40,
+  COGITO_BOTTOM_TOOLBAR_FLOATING_MIN_SLOT_WIDTH = 88
+};
+
+static bool cogito_toolbar_has_class(const CogitoNode* toolbar, const char* token) {
+  if (!toolbar || !toolbar->class_name || !toolbar->class_name->data || !token || !token[0]) return false;
+  const char* cls = toolbar->class_name->data;
+  return strstr(cls, token) != NULL;
+}
+
+static bool cogito_toolbar_is_floating(const CogitoNode* toolbar) {
+  return cogito_toolbar_has_class(toolbar, "floating");
+}
+
+static bool cogito_toolbar_is_compact(const CogitoNode* toolbar) {
+  return cogito_toolbar_has_class(toolbar, "compact");
+}
+
+static int cogito_toolbar_reserved_height(const CogitoNode* toolbar, int toolbar_h) {
+  if (!toolbar || toolbar_h <= 0) return 0;
+  int reserve = toolbar_h;
+  if (cogito_toolbar_is_floating(toolbar)) {
+    reserve += COGITO_BOTTOM_TOOLBAR_FLOATING_BOTTOM_OFFSET;
+  }
+  return reserve;
+}
+
+static int cogito_toolbar_floating_width(const CogitoNode* toolbar, int window_w) {
+  int max_w = window_w - (COGITO_BOTTOM_TOOLBAR_OUTER_PADDING * 2);
+  if (max_w < 1) max_w = window_w;
+
+  bool compact = cogito_toolbar_is_compact(toolbar);
+  if (compact) {
+    int count = 0;
+    int content_w = 0;
+    if (toolbar) {
+      size_t max_count = toolbar->len;
+      if (max_count > COGITO_BOTTOM_TOOLBAR_MAX_SLOTS) max_count = COGITO_BOTTOM_TOOLBAR_MAX_SLOTS;
+      for (size_t i = 0; i < max_count; i++) {
+        CogitoNode* c = toolbar->children[i];
+        if (!c) continue;
+        int cw = 0;
+        int ch = 0;
+        cogito_intrinsic_size(c, &cw, &ch);
+        if (cw < 1) cw = 1;
+        if (c->kind == COGITO_BUTTON && !c->hexpand) {
+          int font_px = cogito_node_font_size(c);
+          int text_w = 0;
+          if (c->text && c->text->data && c->text->data[0]) {
+            text_w = cogito_text_width_size_node(c, c->text->data, font_px);
+          }
+          int pad_x = c->padding_left + c->padding_right;
+          if (pad_x <= 0) pad_x = 24;
+          int compact_w = text_w + pad_x;
+          int min_tap = ch > 0 ? ch : 40;
+          if (min_tap < 32) min_tap = 32;
+          if (compact_w < min_tap) compact_w = min_tap;
+          cw = compact_w;
+        }
+        content_w += cw;
+        count++;
+      }
+    }
+    if (count > 1) {
+      content_w += COGITO_BOTTOM_TOOLBAR_FLOATING_COMPACT_GAP * (count - 1);
+    }
+    int preferred_w = (COGITO_BOTTOM_TOOLBAR_FLOATING_COMPACT_SIDE_PADDING * 2) + content_w;
+    if (preferred_w > max_w) preferred_w = max_w;
+    if (preferred_w < 1) preferred_w = 1;
+    return preferred_w;
+  }
+
+  int slot_w = COGITO_BOTTOM_TOOLBAR_FLOATING_MIN_SLOT_WIDTH;
+  if (toolbar) {
+    size_t count = toolbar->len;
+    if (count > COGITO_BOTTOM_TOOLBAR_MAX_SLOTS) count = COGITO_BOTTOM_TOOLBAR_MAX_SLOTS;
+    for (size_t i = 0; i < count; i++) {
+      CogitoNode* c = toolbar->children[i];
+      if (!c) continue;
+      int cw = 0;
+      int ch = 0;
+      cogito_intrinsic_size(c, &cw, &ch);
+      if (cw > slot_w) slot_w = cw;
+    }
+  }
+
+  int preferred_w = (COGITO_BOTTOM_TOOLBAR_OUTER_PADDING * 2) +
+                    (slot_w * COGITO_BOTTOM_TOOLBAR_MAX_SLOTS) +
+                    (COGITO_BOTTOM_TOOLBAR_FLOATING_GAP * (COGITO_BOTTOM_TOOLBAR_MAX_SLOTS - 1));
+  if (preferred_w > max_w) preferred_w = max_w;
+  if (preferred_w < 1) preferred_w = 1;
+  return preferred_w;
+}
+
 static void cogito_layout_window(CogitoNode* win) {
   win->x = 0;
   win->y = 0;
@@ -5,8 +106,10 @@ static void cogito_layout_window(CogitoNode* win) {
   int cy = win->padding_top;
   int appbar_h = 0;
   int toolbar_h = 0;
+  int toolbar_reserved_h = 0;
   int nav_rail_w = 0;
   int bottom_nav_h = 0;
+  bool toolbar_floating = false;
   CogitoNode* appbar = NULL;
   CogitoNode* toolbar = NULL;
   CogitoNode* nav_rail = NULL;
@@ -42,15 +145,32 @@ static void cogito_layout_window(CogitoNode* win) {
   }
   if (toolbar) {
     cogito_intrinsic_size(toolbar, NULL, &toolbar_h);
+    toolbar_floating = cogito_toolbar_is_floating(toolbar);
+    toolbar_reserved_h = cogito_toolbar_reserved_height(toolbar, toolbar_h);
+    int tx = 0;
+    int tw = win->w;
     int ty = win->h - toolbar_h;
+    if (toolbar_floating) {
+      tw = cogito_toolbar_floating_width(toolbar, win->w);
+      tx = (win->w - tw) / 2;
+      int min_x = COGITO_BOTTOM_TOOLBAR_OUTER_PADDING;
+      int max_x = win->w - COGITO_BOTTOM_TOOLBAR_OUTER_PADDING - tw;
+      if (max_x < min_x) {
+        min_x = 0;
+        max_x = 0;
+      }
+      if (tx < min_x) tx = min_x;
+      if (tx > max_x) tx = max_x;
+      ty -= COGITO_BOTTOM_TOOLBAR_FLOATING_BOTTOM_OFFSET;
+    }
     if (ty < 0) ty = 0;
-    cogito_layout_node(toolbar, 0, ty, win->w, toolbar_h);
+    cogito_layout_node(toolbar, tx, ty, tw, toolbar_h);
   }
   if (nav_rail) {
     cogito_intrinsic_size(nav_rail, &nav_rail_w, NULL);
     int rail_y = appbar ? appbar_h : 0;
     int rail_h = win->h - rail_y;
-    if (toolbar) rail_h -= toolbar_h;
+    if (toolbar) rail_h -= toolbar_reserved_h;
     if (bottom_nav) rail_h -= 80;  // Reserve space for bottom nav
     if (rail_h < 0) rail_h = 0;
     cogito_layout_node(nav_rail, 0, rail_y, nav_rail_w, rail_h);
@@ -63,13 +183,13 @@ static void cogito_layout_window(CogitoNode* win) {
     cogito_layout_node(bottom_nav, 0, nav_y, win->w, bottom_nav_h);
   }
   int appbar_gap = appbar ? 6 : 0;
-  int toolbar_gap = toolbar ? 6 : 0;
+  int toolbar_gap = toolbar ? (toolbar_floating ? 0 : 6) : 0;
 
   // Calculate available space for expanding widgets
   int avail_w = win->w - win->padding_left - win->padding_right;
   int avail_h = win->h - win->padding_top - win->padding_bottom;
   if (appbar) avail_h -= appbar_h + appbar_gap;
-  if (toolbar) avail_h -= toolbar_h + toolbar_gap;
+  if (toolbar) avail_h -= toolbar_reserved_h + toolbar_gap;
   if (bottom_nav) avail_h -= bottom_nav_h;
   if (nav_rail) avail_w -= nav_rail_w;
   if (avail_w < 0) avail_w = 0;
@@ -134,6 +254,7 @@ static void cogito_window_desired_size(CogitoNode* win, int* out_w, int* out_h) 
   int cy = win->padding_top;
   int appbar_h = 0;
   int toolbar_h = 0;
+  int toolbar_reserved_h = 0;
   for (size_t i = 0; i < win->len; i++) {
     CogitoNode* c = win->children[i];
     if (c->kind == COGITO_APPBAR) {
@@ -147,13 +268,14 @@ static void cogito_window_desired_size(CogitoNode* win, int* out_w, int* out_h) 
     CogitoNode* c = win->children[i];
     if (c->kind == COGITO_TOOLBAR) {
       cogito_intrinsic_size(c, NULL, &toolbar_h);
+      toolbar_reserved_h = cogito_toolbar_reserved_height(c, toolbar_h);
       int row_w = win->padding_left + win->w;
       if (row_w > max_w) max_w = row_w;
       break;
     }
   }
   if (appbar_h > 0) cy += appbar_h;
-  if (toolbar_h > 0) cy += toolbar_h;
+  if (toolbar_reserved_h > 0) cy += toolbar_reserved_h;
   // Check if any child wants to expand
   bool has_vexpanding_child = false;
   for (size_t i = 0; i < win->len; i++) {

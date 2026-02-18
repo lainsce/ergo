@@ -119,6 +119,24 @@ button.text:active
 button.text:disabled
   color: #1d1b2061
 
+button.toolbar_format
+  background: transparent
+  color: @primary
+  border-radius: 100
+  min-width: 40
+  min-height: 48
+  padding: 0 8
+  box-shadow: none
+
+button.toolbar_format_active
+  background: @primary
+  color: @on-primary
+  border-radius: 100
+  min-width: 56
+  min-height: 48
+  padding: 0 20
+  box-shadow: none
+
 fab
   background: #6750a4
   color: #ffffff
@@ -131,6 +149,14 @@ fab:hover
 
 fab:active
   background: #5a3f8e
+
+fab.toolbar_plus
+  background: #f7dde8
+  color: #6f4258
+  border-radius: 20
+  min-width: 56
+  min-height: 56
+  elevation: 3
 
 chip
   background: transparent
@@ -289,10 +315,21 @@ colorpicker
   ]
 
 toolbar
-  background: #f6f6f6
+  background: #ecebf0
   color: #222222
-  min-height: 44
-  padding: 8 12
+  min-height: 64
+  padding: 8 16
+
+toolbar.floating
+  border-radius: 999
+  border: 1 solid #0000001f
+  elevation: 1
+
+toolbar.floating_compact
+  border-radius: 999
+  border: 1 solid #0000001f
+  elevation: 1
+  padding: 8
 
 iconbtn
   background: #0000000d
@@ -300,6 +337,21 @@ iconbtn
   border-radius: 99
   min-width: 48
   min-height: 48
+
+iconbtn.toolbar_float_icon
+  background: #f6f6f6
+  color: #222222
+  border-radius: 99
+  min-width: 48
+  min-height: 48
+
+iconbtn.toolbar_plus
+  background: #f7dde8
+  color: #6f4258
+  border-radius: 20
+  min-width: 56
+  min-height: 56
+  elevation: 3
 
 label
   color: #222222
@@ -411,18 +463,47 @@ switch knob:active
 .tabular
   font-size: 13
   font-weight: normal
+  font-variant-numeric: tnum
 
-.title
-  font-size: 32
+.big-display
+  font-family: serif
+  font-size: 56
   font-weight: normal
 
+.display
+  font-family: serif
+  font-size: 36
+  font-weight: normal
+
+.view-title
+.title
+  font-size: 24
+  font-weight: normal
+
+.view-subtitle
 .subtitle
-  font-size: 20
+  font-size: 18
+  font-weight: bold
+
+.heading
+  font-size: 16
+  font-weight: normal
+
+.content-title
+  font-size: 16
+  font-weight: bold
+
+.content-subtitle
+  font-size: 14
   font-weight: normal
 
 .body
-  font-size: 11
+  font-size: 14
   font-weight: normal
+
+.caption
+  font-size: 12
+  font-weight: bold
 
 list
   background: #ffffff

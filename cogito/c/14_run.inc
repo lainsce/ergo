@@ -129,6 +129,24 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     cogito_font_path_active = NULL;
   }
 
+  // Serif font
+  const char* serif_font_path = getenv("COGITO_FONT_SERIF");
+  if (!serif_font_path || !serif_font_path[0]) {
+    serif_font_path = cogito_guess_serif_font_path(font_path);
+  }
+  if (serif_font_path && serif_font_path[0]) {
+    if (cogito_load_font_file(&cogito_font_serif, serif_font_path, cogito_font_size(), cogito_font_weight_normal())) {
+      cogito_font_serif_ready = true;
+      cogito_font_serif_loaded_size = cogito_font_size();
+      cogito_font_serif_from_env = true;
+      cogito_font_serif_path_active = serif_font_path;
+    }
+  }
+  if (!cogito_font_serif_ready) {
+    cogito_font_serif_from_env = false;
+    cogito_font_serif_path_active = NULL;
+  }
+
   // Mono font
   const char* mono_font_path = getenv("COGITO_FONT_MONO");
   if (!mono_font_path || !mono_font_path[0]) {
@@ -1818,6 +1836,9 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   cogito_hit_test_cleanup();
   if (cogito_font_ready && cogito_font_from_env && cogito_font) {
     cogito_backend->font_unload(cogito_font);
+  }
+  if (cogito_font_serif_ready && cogito_font_serif_from_env && cogito_font_serif) {
+    cogito_backend->font_unload(cogito_font_serif);
   }
   if (cogito_font_mono_ready && cogito_font_mono_from_env && cogito_font_mono) {
     cogito_backend->font_unload(cogito_font_mono);

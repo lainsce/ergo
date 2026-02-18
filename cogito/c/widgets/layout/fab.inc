@@ -40,6 +40,13 @@ case COGITO_FAB: {
         break;
       }
 
+      // Inside normal layout containers (HStack/VStack/etc.), keep the slot
+      // position assigned by the parent layout pass. Only free-position FABs
+      // when they are direct children of a window.
+      if (p->kind != COGITO_WINDOW) {
+        break;
+      }
+
       int col = n->align % 3;
       if (col < 0 || col > 2) col = 2;  // FAB defaults to right lane.
       if (col == 0) {

@@ -212,7 +212,9 @@ static void cogito_style_dump_print_node(const CogitoNode* n, int depth) {
   cogito_style_dump_apply_source(&s, &origins, &cogito_theme.base, "base:*");
   cogito_style_dump_apply_source(&s, &origins, &cogito_theme.per_kind[n->kind], kind_origin);
 
-  if (n->kind == COGITO_LABEL && n->label.cls > COGITO_LABEL_CLASS_NONE && n->label.cls < 4) {
+  if (n->kind == COGITO_LABEL &&
+      n->label.cls > COGITO_LABEL_CLASS_NONE &&
+      n->label.cls < COGITO_LABEL_CLASS_COUNT) {
     cogito_style_dump_apply_source(&s, &origins, &cogito_theme.label_class[n->label.cls], "class:label");
   }
   if (n->font_mono) {
@@ -272,7 +274,9 @@ static void cogito_style_dump_print_node(const CogitoNode* n, int depth) {
   else if (active) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.per_kind_active[n->kind], state_active);
   else if (focused) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.per_kind_focused[n->kind], state_focused);
   else if (hover) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.per_kind_hover[n->kind], state_hover);
-  if (n->kind == COGITO_LABEL && n->label.cls > COGITO_LABEL_CLASS_NONE && n->label.cls < 4) {
+  if (n->kind == COGITO_LABEL &&
+      n->label.cls > COGITO_LABEL_CLASS_NONE &&
+      n->label.cls < COGITO_LABEL_CLASS_COUNT) {
     if (checked) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.label_class_checked[n->label.cls], state_checked);
     if (disabled) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.label_class_disabled[n->label.cls], state_disabled);
     else if (active) cogito_style_dump_apply_source(&s, &origins, &cogito_theme.label_class_active[n->label.cls], state_active);

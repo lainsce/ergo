@@ -156,11 +156,11 @@ static void cogito_appbar_row_positions(
     cogito_intrinsic_size(title_widget, &tw, &title_h);
     if (title_h <= 0) title_h = btn_size;
   } else if (has_title_text) {
-    int tsz = cogito_label_class_font_size(COGITO_LABEL_CLASS_TITLE, 32);
+    int tsz = cogito_label_class_font_size(COGITO_LABEL_CLASS_TITLE, 24);
     title_h = cogito_text_height_size(tsz);
   }
   if (has_subtitle) {
-    int ssz = cogito_label_class_font_size(COGITO_LABEL_CLASS_SUBTITLE, 20);
+    int ssz = cogito_label_class_font_size(COGITO_LABEL_CLASS_SUBTITLE, 18);
     subtitle_h = cogito_text_height_size(ssz);
   }
 

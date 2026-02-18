@@ -376,10 +376,63 @@ button:focus, button.text:focus, button.outlined:focus, iconbtn:focus, fab:focus
 ; textfield/searchfield/textview focus border handled in code (focus_from_keyboard only)
 
 .monospace
+  font-size: 13
+  font-weight: normal
+
 .tabular
+  font-size: 13
+  font-weight: normal
+
+.big-display
+  font-family: serif
+  font-size: 56
+  font-weight: normal
+
+.display
+  font-family: serif
+  font-size: 36
+  font-weight: normal
+
+.view-title
 .title
+  font-size: 24
+  font-weight: normal
+
+.view-subtitle
 .subtitle
+  font-size: 18
+  font-weight: bold
+
+.heading
+  font-size: 16
+  font-weight: normal
+
+.content-title
+  font-size: 16
+  font-weight: bold
+
+.content-subtitle
 .body
+  font-size: 14
+  font-weight: normal
+
+.caption
+  font-size: 12
+  font-weight: bold
+
+.monospace
+.tabular
+.big-display
+.display
+.view-title
+.title
+.view-subtitle
+.subtitle
+.heading
+.content-title
+.content-subtitle
+.body
+.caption
   color: #f2f2f7
 
 list

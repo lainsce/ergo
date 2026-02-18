@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <ctype.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -1494,6 +1495,66 @@ static void sdl3_draw_circle_lines(int x, int y, float radius, CogitoColor color
 // Text (SDL_ttf)
 // ============================================================================
 
+static bool sdl3_str_eq_ci(const char* a, const char* b) {
+    if (!a || !b) return false;
+    while (*a && *b) {
+        if (tolower((unsigned char)*a) != tolower((unsigned char)*b)) return false;
+        a++;
+        b++;
+    }
+    return *a == '\0' && *b == '\0';
+}
+
+static bool sdl3_str_contains_ci(const char* haystack, const char* needle) {
+    if (!haystack || !needle || !needle[0]) return false;
+    size_t nlen = strlen(needle);
+    for (const char* p = haystack; *p; p++) {
+        size_t i = 0;
+        while (i < nlen && p[i] &&
+               tolower((unsigned char)p[i]) == tolower((unsigned char)needle[i])) {
+            i++;
+        }
+        if (i == nlen) return true;
+    }
+    return false;
+}
+
+static int sdl3_parse_hinting(const char* name, int fallback) {
+    if (!name || !name[0]) return fallback;
+    if (sdl3_str_eq_ci(name, "normal")) return TTF_HINTING_NORMAL;
+    if (sdl3_str_eq_ci(name, "light")) return TTF_HINTING_LIGHT;
+    if (sdl3_str_eq_ci(name, "light-subpixel") || sdl3_str_eq_ci(name, "subpixel")) return TTF_HINTING_LIGHT_SUBPIXEL;
+    if (sdl3_str_eq_ci(name, "mono") || sdl3_str_eq_ci(name, "monochrome")) return TTF_HINTING_MONO;
+    if (sdl3_str_eq_ci(name, "none")) return TTF_HINTING_NONE;
+    return fallback;
+}
+
+static bool sdl3_font_path_looks_serif(const char* path) {
+    if (!path || !path[0]) return false;
+    return sdl3_str_contains_ci(path, "serif") ||
+           sdl3_str_contains_ci(path, "times") ||
+           sdl3_str_contains_ci(path, "georgia") ||
+           sdl3_str_contains_ci(path, "newyork") ||
+           sdl3_str_contains_ci(path, "garamond") ||
+           sdl3_str_contains_ci(path, "baskerville") ||
+           sdl3_str_contains_ci(path, "palatino") ||
+           sdl3_str_contains_ci(path, "cambria");
+}
+
+static int sdl3_font_hinting_for_path(const char* path) {
+    int hinting = TTF_HINTING_LIGHT_SUBPIXEL;
+    const char* global_override = getenv("COGITO_FONT_HINTING");
+    hinting = sdl3_parse_hinting(global_override, hinting);
+    if (sdl3_font_path_looks_serif(path)) {
+        // Serif faces retain small anti-aliased detail better with light hinting.
+        int serif_hinting = TTF_HINTING_LIGHT;
+        const char* serif_override = getenv("COGITO_FONT_HINTING_SERIF");
+        serif_hinting = sdl3_parse_hinting(serif_override, serif_hinting);
+        return serif_hinting;
+    }
+    return hinting;
+}
+
 static CogitoFont* sdl3_font_load(const char* path, int size) {
     if (!path || !path[0] || size <= 0) return NULL;
     
@@ -1513,7 +1574,7 @@ static CogitoFont* sdl3_font_load(const char* path, int size) {
     font->size = size;
     font->ttf_font = ttf;
     TTF_SetFontKerning(ttf, true);
-    TTF_SetFontHinting(ttf, TTF_HINTING_LIGHT_SUBPIXEL);
+    TTF_SetFontHinting(ttf, sdl3_font_hinting_for_path(path));
     font->ascent = TTF_GetFontAscent(ttf);
     font->descent = TTF_GetFontDescent(ttf);
     font->height = TTF_GetFontHeight(ttf);
@@ -1546,7 +1607,7 @@ static CogitoFont* sdl3_font_load_face(const char* path, int size, int face_inde
     font->size = size;
     font->ttf_font = ttf;
     TTF_SetFontKerning(ttf, true);
-    TTF_SetFontHinting(ttf, TTF_HINTING_LIGHT_SUBPIXEL);
+    TTF_SetFontHinting(ttf, sdl3_font_hinting_for_path(path));
     font->ascent = TTF_GetFontAscent(ttf);
     font->descent = TTF_GetFontDescent(ttf);
     font->height = TTF_GetFontHeight(ttf);

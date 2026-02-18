@@ -85,6 +85,79 @@ static int run_binary(const char *path) {
     return system(cmd);
 }
 
+#if defined(__APPLE__)
+static bool write_text_file(const char *path, const char *text) {
+    if (!path || !text) return false;
+    FILE *f = fopen(path, "wb");
+    if (!f) return false;
+    size_t n = strlen(text);
+    bool ok = fwrite(text, 1, n, f) == n;
+    fclose(f);
+    return ok;
+}
+
+static bool prepare_macos_app_bundle(const char *exe_path, const char *bundle_id, const char *bundle_name) {
+    if (!exe_path || !bundle_id || !bundle_id[0] || !bundle_name || !bundle_name[0]) return false;
+
+    const char *marker = "/Contents/MacOS/";
+    const char *m = strstr(exe_path, marker);
+    if (!m) return false;
+    const char *exec_name = m + strlen(marker);
+    if (!exec_name[0] || strchr(exec_name, '/')) return false;
+
+    size_t bundle_root_len = (size_t)(m - exe_path);
+    char *bundle_root = (char *)malloc(bundle_root_len + 1);
+    if (!bundle_root) return false;
+    memcpy(bundle_root, exe_path, bundle_root_len);
+    bundle_root[bundle_root_len] = '\0';
+
+    char *contents_dir = path_join(bundle_root, "Contents");
+    char *macos_dir = contents_dir ? path_join(contents_dir, "MacOS") : NULL;
+    char *resources_dir = contents_dir ? path_join(contents_dir, "Resources") : NULL;
+    char *plist_path = contents_dir ? path_join(contents_dir, "Info.plist") : NULL;
+
+    bool ok = contents_dir && macos_dir && resources_dir && plist_path;
+    if (ok) {
+        ok = ensure_dir(bundle_root) &&
+             ensure_dir(contents_dir) &&
+             ensure_dir(macos_dir) &&
+             ensure_dir(resources_dir);
+    }
+
+    if (ok) {
+        char plist[4096];
+        int n = snprintf(
+            plist, sizeof(plist),
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
+            "<plist version=\"1.0\">\n"
+            "<dict>\n"
+            "  <key>CFBundleDevelopmentRegion</key><string>en</string>\n"
+            "  <key>CFBundleExecutable</key><string>%s</string>\n"
+            "  <key>CFBundleIdentifier</key><string>%s</string>\n"
+            "  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>\n"
+            "  <key>CFBundleName</key><string>%s</string>\n"
+            "  <key>CFBundleDisplayName</key><string>%s</string>\n"
+            "  <key>CFBundlePackageType</key><string>APPL</string>\n"
+            "  <key>CFBundleShortVersionString</key><string>1.0</string>\n"
+            "  <key>CFBundleVersion</key><string>1</string>\n"
+            "  <key>NSHighResolutionCapable</key><true/>\n"
+            "</dict>\n"
+            "</plist>\n",
+            exec_name, bundle_id, bundle_name, bundle_name
+        );
+        ok = n > 0 && (size_t)n < sizeof(plist) && write_text_file(plist_path, plist);
+    }
+
+    free(bundle_root);
+    free(contents_dir);
+    free(macos_dir);
+    free(resources_dir);
+    free(plist_path);
+    return ok;
+}
+#endif
+
 static bool expr_string_literal_as_filename(Expr *e, char *out, size_t out_cap);
 
 // Cogito build integration (lives in cogito/ergo/)
@@ -438,7 +511,7 @@ int main(int argc, char **argv) {
         }
 
         // Generate unique binary name from app id (if statically set) or entry file basename.
-        char unique_bin_name[256];
+        char unique_bin_name[1024];
         const char *entry_basename = strrchr(entry, '/');
         if (!entry_basename) {
             entry_basename = strrchr(entry, '\\');
@@ -467,6 +540,20 @@ int main(int argc, char **argv) {
         snprintf(unique_bin_name, sizeof(unique_bin_name), "%s.exe", name_without_ext);
 #else
         snprintf(unique_bin_name, sizeof(unique_bin_name), "%s", name_without_ext);
+#endif
+
+#if defined(__APPLE__)
+        bool macos_bundle_mode = uses_cogito;
+        char macos_bundle_id[256];
+        macos_bundle_id[0] = '\0';
+        if (macos_bundle_mode) {
+            if (strchr(name_without_ext, '.')) {
+                snprintf(macos_bundle_id, sizeof(macos_bundle_id), "%s", name_without_ext);
+            } else {
+                snprintf(macos_bundle_id, sizeof(macos_bundle_id), "org.ergo.%s", name_without_ext);
+            }
+            snprintf(unique_bin_name, sizeof(unique_bin_name), "%s.app/Contents/MacOS/%s", name_without_ext, name_without_ext);
+        }
 #endif
 
         uint64_t build_hash = proj_hash;
@@ -563,7 +650,7 @@ int main(int argc, char **argv) {
         const char *c_path = cache_c ? cache_c : ".ergo_run.c";
         const char *bin_path = cache_bin ? cache_bin : unique_bin_name;
 
-        char run_cmd_buf[512];
+        char run_cmd_buf[1024];
 #if defined(_WIN32)
         snprintf(run_cmd_buf, sizeof(run_cmd_buf), ".\\%s", unique_bin_name);
 #else
@@ -579,6 +666,19 @@ int main(int argc, char **argv) {
             arena_free(&arena);
             return 1;
         }
+#if defined(__APPLE__)
+        if (macos_bundle_mode) {
+            if (!prepare_macos_app_bundle(bin_path, macos_bundle_id, name_without_ext)) {
+                fprintf(stderr, "error: failed to prepare macOS app bundle (%s)\n", name_without_ext);
+                free(cache_base);
+                free(cache_dir);
+                free(cache_c);
+                free(cache_bin);
+                arena_free(&arena);
+                return 1;
+            }
+        }
+#endif
         char cmd[4096];
         int n = snprintf(cmd, sizeof(cmd), "%s %s %s %s -o %s %s",
                          cc_path(), cc_flags(), extra_cflags, c_path, bin_path, extra_ldflags);

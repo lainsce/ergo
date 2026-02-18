@@ -146,3 +146,42 @@ static const char* cogito_guess_mono_font_path(const char* regular_path) {
   }
   return NULL;
 }
+
+static const char* cogito_guess_serif_font_path(const char* regular_path) {
+  static char buf[PATH_MAX];
+  bool has_regular = regular_path && regular_path[0];
+  if (has_regular) {
+    const struct { const char* find; const char* repl; } swaps[] = {
+      {"Sans", "Serif"},
+      {"sans", "serif"}
+    };
+    for (size_t i = 0; i < sizeof(swaps) / sizeof(swaps[0]); i++) {
+      if (cogito_replace_once(regular_path, swaps[i].find, swaps[i].repl, buf, sizeof(buf))) {
+        if (cogito_file_exists(buf)) return buf;
+      }
+    }
+  }
+#if defined(__APPLE__)
+  const char* candidates[] = {
+    "/System/Library/Fonts/Supplemental/Times New Roman.ttf",
+    "/System/Library/Fonts/Supplemental/Georgia.ttf",
+    "/System/Library/Fonts/NewYork.ttf",
+    "/System/Library/Fonts/Times.ttc"
+  };
+#elif defined(_WIN32)
+  const char* candidates[] = {
+    "C:\\\\Windows\\\\Fonts\\\\times.ttf",
+    "C:\\\\Windows\\\\Fonts\\\\georgia.ttf"
+  };
+#else
+  const char* candidates[] = {
+    "/usr/share/fonts/truetype/noto/NotoSerif-Regular.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf"
+  };
+#endif
+  for (size_t i = 0; i < sizeof(candidates) / sizeof(candidates[0]); i++) {
+    if (cogito_file_exists(candidates[i])) return candidates[i];
+  }
+  return NULL;
+}

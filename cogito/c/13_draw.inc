@@ -837,6 +837,10 @@ static void cogito_draw_ring_arc_aa(int cx, int cy,
 static const char* cogito_icon_text_fallback(const char* icon) {
   if (!icon || !icon[0]) return "?";
   if (strncmp(icon, "sf:", 3) == 0) return cogito_icon_text_fallback(icon + 3);
+  if (strstr(icon, "textformat.bold") || strstr(icon, "format-text-bold") || strcmp(icon, "bold") == 0) return "B";
+  if (strstr(icon, "textformat.italic") || strstr(icon, "format-text-italic") || strcmp(icon, "italic") == 0) return "I";
+  if (strstr(icon, "textformat.underline") || strstr(icon, "format-text-underline") || strcmp(icon, "underline") == 0) return "U";
+  if (strstr(icon, "textformat") || strstr(icon, "format-text-size") || strstr(icon, "character")) return "Aa";
   if (strstr(icon, "window-close")) return "x";
   if (strstr(icon, "window-minimize")) return "-";
   if (strstr(icon, "window-maximize")) return "+";
