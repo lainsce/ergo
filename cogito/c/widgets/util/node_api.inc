@@ -152,6 +152,7 @@ static void cogito_node_set_class(ErgoVal nodev, ErgoVal classv) {
     temp = true;
   }
   const char* s = cs ? cs->data : "";
+  bool is_button = (n->kind == COGITO_BUTTON);
   
   // Clear old class name
   if (n->class_name) {
@@ -161,8 +162,10 @@ static void cogito_node_set_class(ErgoVal nodev, ErgoVal classv) {
   
   n->font_mono = false;
   n->font_tabular = false;
-  n->button.outlined = false;
-  n->button.text_style = false;
+  if (is_button) {
+    n->button.outlined = false;
+    n->button.text_style = false;
+  }
   if (n->kind == COGITO_LABEL) n->label.cls = COGITO_LABEL_CLASS_NONE;
   if (s && s[0]) {
     int label_cls = COGITO_LABEL_CLASS_NONE;
@@ -175,9 +178,9 @@ static void cogito_node_set_class(ErgoVal nodev, ErgoVal classv) {
       n->font_mono = true;
     } else if (strcmp(s, "tabular") == 0 || strcmp(s, "tnum") == 0 || strcmp(s, "tabular-nums") == 0) {
       n->font_tabular = true;
-    } else if (strcmp(s, "outlined") == 0) {
+    } else if (is_button && strcmp(s, "outlined") == 0) {
       n->button.outlined = true;
-    } else if (strcmp(s, "text") == 0) {
+    } else if (is_button && strcmp(s, "text") == 0) {
       n->button.text_style = true;
     } else {
       // Store custom class name

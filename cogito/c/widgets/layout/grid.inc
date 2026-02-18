@@ -71,8 +71,9 @@ static void cogito_layout_grid(CogitoNode* n, int x, int y) {
   }
   int *row_heights = (int*)calloc((size_t)row_count, sizeof(int));
   bool *row_expand = (bool*)calloc((size_t)row_count, sizeof(bool));
-  if (!row_heights) {
+  if (!row_heights || !row_expand) {
     free(rows); free(cols_out); free(span_x); free(span_y); free(occ);
+    free(row_heights);
     free(row_expand);
     return;
   }
@@ -86,20 +87,29 @@ static void cogito_layout_grid(CogitoNode* n, int x, int y) {
       int row_idx = rows[i] + rr;
       if (row_idx >= row_count) break;
       if (per_row > row_heights[row_idx]) row_heights[row_idx] = per_row;
+      if (c->vexpand) row_expand[row_idx] = true;
     }
   }
   if (row_expand) {
-    for (int r = 0; r < row_count; r++) row_expand[r] = true;
-    int avail_h = n->h - n->padding_top - n->padding_bottom;
-    if (avail_h < 0) avail_h = 0;
-    int total_gap_h = row_count > 0 ? (row_count - 1) * gap_y : 0;
-    int avail_row_h = avail_h - total_gap_h;
-    if (avail_row_h < 0) avail_row_h = 0;
-    int* row_out = (int*)calloc((size_t)row_count, sizeof(int));
-    if (row_out) {
-      cogito_distribute_axis_sizes((size_t)row_count, row_heights, row_expand, avail_row_h, row_out);
-      for (int r = 0; r < row_count; r++) row_heights[r] = row_out[r];
-      free(row_out);
+    bool any_expand = false;
+    for (int r = 0; r < row_count; r++) {
+      if (row_expand[r]) {
+        any_expand = true;
+        break;
+      }
+    }
+    if (any_expand) {
+      int avail_h = n->h - n->padding_top - n->padding_bottom;
+      if (avail_h < 0) avail_h = 0;
+      int total_gap_h = row_count > 0 ? (row_count - 1) * gap_y : 0;
+      int avail_row_h = avail_h - total_gap_h;
+      if (avail_row_h < 0) avail_row_h = 0;
+      int* row_out = (int*)calloc((size_t)row_count, sizeof(int));
+      if (row_out) {
+        cogito_distribute_axis_sizes((size_t)row_count, row_heights, row_expand, avail_row_h, row_out);
+        for (int r = 0; r < row_count; r++) row_heights[r] = row_out[r];
+        free(row_out);
+      }
     }
   }
   int *row_y = (int*)calloc((size_t)row_count, sizeof(int));

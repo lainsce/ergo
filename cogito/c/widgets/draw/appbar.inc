@@ -43,6 +43,7 @@ case COGITO_APPBAR: {
       cogito_draw_traffic_lights_styled(
         &s, fallback_btn, fallback_border,
         n->appbar.btn_close_x, n->appbar.btn_min_x, n->appbar.btn_max_x,
+        by, btn,
         &lights
       );
       CogitoNode* title_widget = cogito_appbar_title_widget(n);

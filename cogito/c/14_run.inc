@@ -1795,6 +1795,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       cogito_draw_traffic_lights_styled(
         &inspector_appbar_style, inspector_fallback_btn, inspector_fallback_border,
         inspector_btn_close_x, inspector_btn_min_x, inspector_btn_max_x,
+        inspector_btn_y, inspector_traffic_btn,
         &inspector_lights
       );
       int title_size = 20;

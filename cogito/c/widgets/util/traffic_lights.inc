@@ -64,14 +64,49 @@ static void cogito_traffic_lights_compute(int close_x, int min_x, int max_x, int
   out->state_max = out->over_max ? (down ? 2 : 1) : 0;
 }
 
+#if !defined(__APPLE__)
+static void cogito_draw_window_button_stroke_icon(int btn_x, int btn_y, int btn, int kind, CogitoColor color) {
+  if (btn_x < 0 || btn <= 0) return;
+  int inset = btn / 4;
+  if (inset < 2) inset = 2;
+  if (inset > (btn / 2) - 1) inset = (btn / 2) - 1;
+  if (inset < 1) inset = 1;
+  int x0 = btn_x + inset;
+  int y0 = btn_y + inset;
+  int x1 = btn_x + btn - inset - 1;
+  int y1 = btn_y + btn - inset - 1;
+  if (x1 < x0) x1 = x0;
+  if (y1 < y0) y1 = y0;
+  int cy = btn_y + (btn - 1) / 2;
+
+  if (kind == 0) {
+    cogito_draw_line(x0, y0, x1, y1, color);
+    cogito_draw_line(x1, y0, x0, y1, color);
+    return;
+  }
+  if (kind == 1) {
+    cogito_draw_line(x0, cy, x1, cy, color);
+    return;
+  }
+  cogito_draw_line(x0, y0, x1, y0, color);
+  cogito_draw_line(x1, y0, x1, y1, color);
+  cogito_draw_line(x1, y1, x0, y1, color);
+  cogito_draw_line(x0, y1, x0, y0, color);
+}
+#endif
+
 static void cogito_draw_traffic_lights_styled(const CogitoStyle* base_style,
                                               CogitoColor fallback_btn,
                                               CogitoColor fallback_border,
                                               int close_x, int min_x, int max_x,
+                                              int by, int btn,
                                               const CogitoTrafficLightsState* st) {
   if (!st) return;
   CogitoStyle empty = {0};
   const CogitoStyle* s = base_style ? base_style : &empty;
+#if defined(__APPLE__)
+  (void)by;
+  (void)btn;
 
   CogitoStyle close_s = cogito_appbar_win_btn_style(0, st->state_close);
   CogitoStyle min_s = cogito_appbar_win_btn_style(1, st->state_min);
@@ -157,4 +192,21 @@ static void cogito_draw_traffic_lights_styled(const CogitoStyle* base_style,
     cogito_draw_line(x0, y, x1, y, max_glyph);
     cogito_draw_line(x, y0, x, y1, max_glyph);
   }
+#else
+  (void)fallback_btn;
+  (void)fallback_border;
+
+  CogitoStyle close_s = cogito_appbar_win_btn_style(0, st->state_close);
+  CogitoStyle min_s = cogito_appbar_win_btn_style(1, st->state_min);
+  CogitoStyle max_s = cogito_appbar_win_btn_style(2, st->state_max);
+
+  CogitoColor glyph_fallback = s->has_text ? s->text : cogito_rgba(24, 24, 24, 220);
+  CogitoColor close_glyph = close_s.has_text ? close_s.text : glyph_fallback;
+  CogitoColor min_glyph = min_s.has_text ? min_s.text : glyph_fallback;
+  CogitoColor max_glyph = max_s.has_text ? max_s.text : glyph_fallback;
+
+  cogito_draw_window_button_stroke_icon(close_x, by, btn, 0, close_glyph);
+  cogito_draw_window_button_stroke_icon(min_x, by, btn, 1, min_glyph);
+  cogito_draw_window_button_stroke_icon(max_x, by, btn, 2, max_glyph);
+#endif
 }

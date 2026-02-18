@@ -72,17 +72,21 @@ grid.calc-keypad
   background: @surface
   border-radius: 16
   padding: 12 18 18
-  gap: 12
 
 button
   background: @primary-container
   color: @primary
   border-radius: 10
-  min-height: 46
-  padding: 8 12
+  min-width: 56
+  max-width: 56
+  min-height: 56
+  max-height: 56
 
-label.calc-spacer
-  color: transparent
+button.calc-op
+  background: alpha(@primary, 0%)
+  color: @primary
+  border-radius: 10
+  border: 1 solid alpha(@primary, 35%)
 
 button:hover
   background: @primary-hover
@@ -100,6 +104,8 @@ button.outlined
   background: alpha(@primary, 0%)
   color: @primary
   border-radius: 10
+  min-width: 160
+  max-width: 160
   border: 1 solid alpha(@primary, 35%)
 
 button.outlined:hover
@@ -112,13 +118,36 @@ button.outlined:active
   color: @primary
   border-radius: 21
 
+button.calc-op:hover
+  background: @primary-hover
+  color: @primary
+  border-color: @primary-hover
+
+button.calc-op:active
+  background: @primary-active
+  color: @primary
+  border-radius: 21
+
+button.calc-op:focus
+  border: 2 solid @primary
+
 button.text
   background: @pink
   color: @muted
   border-radius: 10
-  padding: 8 12
+
+button.calc-clear
+  background: @pink
+  color: @muted
+  border-radius: 10
+  min-width: 127
+  max-width: 127
 
 button.text:hover
+  background: @pink-hover
+  color: @muted
+
+button.calc-clear:hover
   background: @pink-hover
   color: @muted
 
@@ -127,13 +156,27 @@ button.text:active
   color: @muted
   border-radius: 21
 
+button.calc-clear:active
+  background: @pink-active
+  color: @muted
+  border-radius: 21
+
 button.text:focus
+  border: 2 solid @primary
+
+button.calc-clear:focus
   border: 2 solid @primary
 
 button.calc-equals
   background: @primary
   color: @surface
   border: 0 none #000
+  min-width: 127
+  max-width: 127
+
+button.calc-zero
+  min-width: 198
+  max-width: 198
 
 button.calc-equals:hover
   background: @primary-active
