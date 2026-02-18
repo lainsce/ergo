@@ -684,7 +684,7 @@ typedef struct CogitoNode {
       bool circular;
       uint8_t shape;
     } progress;
-    struct { bool outlined, text_style; } button;
+    struct { bool outlined, text_style; uint8_t size; } button;
     struct { bool selected, has_close; } chip;
     struct {
       bool dragging;
@@ -772,7 +772,7 @@ static CogitoApp* cogito_active_app = NULL;
 static CogitoNode* cogito_active_window = NULL;
 static CogitoWindow* cogito_active_backend_window = NULL;
 static bool cogito_theme_dark = false;
-static CogitoColor cogito_theme_accent = {0, 0, 0, 0};
+static CogitoColor cogito_theme_accent = {114, 222, 194, 255};
 enum {
   COGITO_LABEL_CLASS_NONE = 0,
   COGITO_LABEL_CLASS_TITLE,
@@ -810,6 +810,52 @@ enum {
   COGITO_SLIDER_SIZE_L,
   COGITO_SLIDER_SIZE_XL
 };
+enum {
+  COGITO_BUTTON_SIZE_XS = 1,
+  COGITO_BUTTON_SIZE_S,
+  COGITO_BUTTON_SIZE_M,
+  COGITO_BUTTON_SIZE_L,
+  COGITO_BUTTON_SIZE_XL
+};
+
+static uint8_t cogito_button_clamp_size_int(int size) {
+  if (size < COGITO_BUTTON_SIZE_XS) return (uint8_t)COGITO_BUTTON_SIZE_XS;
+  if (size > COGITO_BUTTON_SIZE_XL) return (uint8_t)COGITO_BUTTON_SIZE_XL;
+  return (uint8_t)size;
+}
+
+static void cogito_button_size_metrics(int size, int* out_h, int* out_pad_x, int* out_icon, int* out_gap) {
+  int h = 40;
+  int pad_x = 16;
+  int icon = 20;
+  int gap = 8;
+  uint8_t clamped = cogito_button_clamp_size_int(size);
+  if (clamped == COGITO_BUTTON_SIZE_XS) {
+    h = 32;
+    pad_x = 12;
+    icon = 20;
+    gap = 4;
+  } else if (clamped == COGITO_BUTTON_SIZE_M) {
+    h = 56;
+    pad_x = 24;
+    icon = 24;
+    gap = 8;
+  } else if (clamped == COGITO_BUTTON_SIZE_L) {
+    h = 96;
+    pad_x = 48;
+    icon = 32;
+    gap = 12;
+  } else if (clamped == COGITO_BUTTON_SIZE_XL) {
+    h = 136;
+    pad_x = 64;
+    icon = 40;
+    gap = 16;
+  }
+  if (out_h) *out_h = h;
+  if (out_pad_x) *out_pad_x = pad_x;
+  if (out_icon) *out_icon = icon;
+  if (out_gap) *out_gap = gap;
+}
 static bool cogito_drag_active = false;
 static CogitoVec2 cogito_drag_start_mouse = {0};
 static CogitoVec2 cogito_drag_start_win = {0};

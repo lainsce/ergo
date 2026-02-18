@@ -1,5 +1,6 @@
 ; Cogito dark theme
 @diagnostics: warn
+
 @primary: #d0bcff
 @on-primary: #381e72
 @surface: #111111
@@ -9,7 +10,6 @@
 
 *
   color: @on-surface
-  font-size: 16
 
 window
   background: @surface
@@ -33,28 +33,19 @@ fixed
 scroller
   background: #f5f5f5
   color: #f2f2f7
-  padding: 0
 
 scroller.sidebar
   background: #111111
-  padding: 0
 
 carousel
   background: transparent
   color: #f2f2f7
-  min-height: 240
-  min-width: 400
-  border-radius: 26
 
 carousel_item
   background: #4f378b
   color: #f2f2f7
-  border-radius: 16
-  padding: 16
 
 label.carousel-item-label
-  font-size: 21
-  font-weight: bold
   color: #ffffff
 
 dialogslot
@@ -64,10 +55,6 @@ dialogslot
 button
   background: @primary
   color: @on-primary
-  border-radius: 100
-  min-width: 120
-  min-height: 56
-  padding: 10 24
 
 button:hover
   background: #e0cfff
@@ -78,11 +65,7 @@ button:active
 button.outlined
   background: transparent
   color: @primary
-  border-radius: 20
-  min-width: 0
-  min-height: 40
   border: 1 solid @outline
-  box-shadow: none
 
 button.outlined:hover
   background: alpha(@primary, 12%)
@@ -98,11 +81,6 @@ button.outlined:disabled
 button.text
   background: transparent
   color: @primary
-  border-radius: 20
-  min-width: 0
-  min-height: 40
-  box-shadow: none
-  padding: 10 12
 
 button.text:hover
   background: alpha(@primary, 12%)
@@ -110,19 +88,12 @@ button.text:hover
 button.text:active
   background: alpha(@primary, 20%)
 
-@when light
-  window
-    background: #ffffff
-
 button.text:disabled
   color: #cac4d061
 
 fab
   background: #d0bcff
   color: #381e72
-  border-radius: 100
-  min-width: 56
-  min-height: 56
 
 fab:hover
   background: #e0cfff
@@ -133,8 +104,6 @@ fab:active
 nav-rail
   background: #2b2930
   color: #f2f2f7
-  min-width: 80
-  padding: 4 0
 
 nav-rail:selection
   background: #4a4458
@@ -143,9 +112,6 @@ nav-rail:selection
 textfield
   background: #322f35
   color: #f2f2f7
-  border-radius: 4 4 0 0
-  min-height: 56
-  padding: 8 16
 
 textfield:hover
   background: #3f3c42
@@ -171,10 +137,6 @@ dropdown
 datepicker
   background: #2c2c2e
   color: #f2f2f7
-  border-radius: 12
-  min-width: 320
-  min-height: 320
-  padding: 16
 
 datepicker:selection
   background: #3a3a3c
@@ -182,9 +144,6 @@ datepicker:selection
 slider
   background: #938f99
   color: #d0bcff
-  track-height: 4
-  min-height: 48
-  min-width: 200
 
 slider:hover
   color: #e0cfff
@@ -213,16 +172,11 @@ viewswitcher
 
 progress
   background: #3a3a3c
-  border-radius: 100
-  track-height: 4
-  min-height: 12
-  min-width: 120
 
 progress:selection
   background: #6b6b6f
 
 toasts
-  padding: 12
   color: #f2f2f7
 
 toast
@@ -236,10 +190,6 @@ treeview
 colorpicker
   background: #2c2c2e
   color: #f2f2f7
-  border-radius: 12
-  min-width: 320
-  min-height: 320
-  padding: 16
 
 colorpicker:selection
   background: #3a3a3c
@@ -247,15 +197,10 @@ colorpicker:selection
 toolbar
   background: #2c2c2e
   color: #f2f2f7
-  min-height: 44
-  padding: 8 12
 
 iconbtn
   background: #2c2c2e
   color: #f2f2f7
-  border-radius: 99
-  min-width: 48
-  min-height: 48
 
 label
   color: #f2f2f7
@@ -264,22 +209,14 @@ label
   background: #111111
   color: #f2f2f7
 
-image.about-window-icon
-  min-width: 128
-  min-height: 128
-
 label.about-window-title
   color: #f2f2f7
-  font-size: 28
-  font-weight: bold
 
 label.about-window-license
   color: #a0a0a6
-  font-size: 14
 
 hstack.about-window-actions
   background: transparent
-  padding: 4 0 0 0
 
 tooltip
   background: #3a3a3c
@@ -304,9 +241,6 @@ radio:checked .check
 chip
   background: #322f35
   color: #e6e1e5
-  border-radius: 100
-  min-height: 32
-  padding: 0 16
 
 chip:hover
   background: #3f3c42
@@ -360,8 +294,6 @@ switch track:active
 
 switch knob
   background: #ffffff
-  min-width: 32
-  min-height: 24
 
 switch knob:hover
   background: #f4f4f4
@@ -372,53 +304,6 @@ switch knob:active
 ; Keyboard focus ring
 button:focus, button.text:focus, button.outlined:focus, iconbtn:focus, fab:focus, chip:focus, checkbox:focus, radio:focus, slider:focus, stepper:focus, segmented:focus, dropdown:focus, datepicker:focus, colorpicker:focus, nav-rail:focus, bottom-nav:focus
   border: 2 solid @primary
-
-; textfield/searchfield/textview focus border handled in code (focus_from_keyboard only)
-
-.monospace
-  font-size: 13
-  font-weight: normal
-
-.tabular
-  font-size: 13
-  font-weight: normal
-
-.big-display
-  font-family: serif
-  font-size: 56
-  font-weight: normal
-
-.display
-  font-family: serif
-  font-size: 36
-  font-weight: normal
-
-.view-title
-.title
-  font-size: 24
-  font-weight: normal
-
-.view-subtitle
-.subtitle
-  font-size: 18
-  font-weight: bold
-
-.heading
-  font-size: 16
-  font-weight: normal
-
-.content-title
-  font-size: 16
-  font-weight: bold
-
-.content-subtitle
-.body
-  font-size: 14
-  font-weight: normal
-
-.caption
-  font-size: 12
-  font-weight: bold
 
 .monospace
 .tabular
@@ -466,19 +351,15 @@ scroller.sidebar
 
 dialog
   background: #2c2c2e
-  border-radius: 26
 
 popover
   background: #2c2c2e
-  border-radius: 12
-  padding: 16
   box-shadow: [
     0 2 8 0 #0000001f
   ]
 
 appbar .window-button
   border-color: #00000022
-  border-width: 1
 
 appbar .window-close
   background: #ff5f57
@@ -533,8 +414,6 @@ menu item
 bottom-nav
   background: #1c1b1f
   color: #f2f2f7
-  min-height: 80
-  padding: 0 8
 
 bottom-nav:selection
   background: #4a4458
@@ -543,10 +422,6 @@ bottom-nav:selection
 .datepicker
   background: #2c2c2e
   color: #f2f2f7
-  border-radius: 12
-  min-width: 320
-  min-height: 320
-  padding: 16
 
 .datepicker:selection
   background: #3a3a3c
@@ -565,7 +440,6 @@ searchfield:hover
 
 searchfield:active
   border-color: #d0bcff
-  border-width: 2
 
 searchfield:selection
   background: #3a3a3c
@@ -598,8 +472,6 @@ switch .track:active
 
 switch .knob
   background: #ffffff
-  min-width: 32
-  min-height: 24
 
 switch .knob:hover
   background: #f4f4f4
@@ -682,21 +554,6 @@ toast:selection
 content-list
   background: #1c1c1e
   color: @on-surface
-  border-radius: 12
 
 content-list label
-  padding: 0 16
-  min-height: 80
   background: transparent
-
-content-list=first
-  border-radius: 12 12 8 8
-
-content-list=last
-  border-radius: 8 8 12 12
-
-content-list=middle
-  border-radius: 8
-
-content-list=single
-  border-radius: 12

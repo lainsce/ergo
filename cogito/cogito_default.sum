@@ -67,9 +67,9 @@ button
   background: @primary
   color: @on-primary
   border-radius: 100
-  min-width: 120
-  min-height: 56
-  padding: 10 24
+  min-width: 0
+  min-height: 40
+  padding: 0
 
 button:hover
   background: #7965af
@@ -102,7 +102,7 @@ button.text
   border-radius: 20
   min-width: 0
   min-height: 40
-  padding: 10 12
+  padding: 0
 
 button.text:hover
   background: alpha(@primary, 12%)
@@ -335,8 +335,8 @@ iconbtn
   background: #0000000d
   color: #222222
   border-radius: 99
-  min-width: 48
-  min-height: 48
+  min-width: 40
+  min-height: 40
 
 iconbtn.toolbar_float_icon
   background: #f6f6f6

@@ -222,6 +222,10 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
       n->slider.active_handle = 0;
       n->slider.size = COGITO_SLIDER_SIZE_XS;
       break;
+    case COGITO_BUTTON:
+    case COGITO_ICONBTN:
+      n->button.size = COGITO_BUTTON_SIZE_S;
+      break;
     case COGITO_STEPPER: n->stepper.max = 100.0; n->stepper.step = 1.0; break;
     case COGITO_GRID: n->grid.cols = 1; n->grid.gap_x = 6; n->grid.gap_y = 6; break;
     case COGITO_IMAGE: case COGITO_AVATAR: n->image.avg_lum = 0.5f; break;

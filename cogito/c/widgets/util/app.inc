@@ -43,7 +43,17 @@ static CogitoColor cogito_app_effective_accent(const CogitoApp* app) {
 static void cogito_app_update_theme(CogitoApp* app) {
   bool dark = app ? app->system_dark : false;
   CogitoColor accent = app ? cogito_app_effective_accent(app) : cogito_rgba(114, 222, 194, 255);
-  if (dark != cogito_theme_dark ||
+  if (getenv("COGITO_THEME_TRACE")) {
+    fprintf(stderr,
+            "cogito: app_update_theme dark=%d accent=#%02X%02X%02X override=%d accent_set=%d system_accent_set=%d\n",
+            (int)dark, accent.r, accent.g, accent.b,
+            app ? (int)app->accent_override : 0,
+            app ? (int)app->accent_set : 0,
+            app ? (int)app->system_accent_set : 0);
+    fflush(stderr);
+  }
+  if (!cogito_theme_initialized ||
+      dark != cogito_theme_dark ||
       accent.r != cogito_theme_accent.r || accent.g != cogito_theme_accent.g ||
       accent.b != cogito_theme_accent.b) {
     cogito_apply_theme(dark, accent);
@@ -133,6 +143,14 @@ static void cogito_app_set_accent_color(ErgoVal appv, ErgoVal colorv, ErgoVal fo
     if (s && s->data && cogito_hex_to_color(s->data, &c)) {
       app->accent_color = c;
       app->accent_set = true;
+      if (getenv("COGITO_THEME_TRACE")) {
+        fprintf(stderr, "cogito: app_set_accent_color color=%s parsed=#%02X%02X%02X follow_system=%d\n",
+                s->data ? s->data : "", c.r, c.g, c.b, (int)follow_system);
+        fflush(stderr);
+      }
+    } else if (getenv("COGITO_THEME_TRACE")) {
+      fprintf(stderr, "cogito: app_set_accent_color failed to parse color=%s\n", (s && s->data) ? s->data : "");
+      fflush(stderr);
     }
     if (temp && s) ergo_release_val(EV_STR(s));
   }
@@ -170,5 +188,7 @@ static ErgoVal cogito_app_new(void) {
     fprintf(stderr, "cogito: app_new\n");
     fflush(stderr);
   }
-  return EV_OBJ(cogito_app_new_obj());
+  CogitoApp* app = cogito_app_new_obj();
+  cogito_app_update_theme(app);
+  return EV_OBJ(app);
 }

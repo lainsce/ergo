@@ -1,5 +1,5 @@
 case COGITO_ICONBTN:
-      w = 48;
-      h = 48;
+      cogito_button_size_metrics((int)n->button.size, &h, NULL, NULL, NULL);
+      w = h;
       break;
     

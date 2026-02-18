@@ -75,10 +75,12 @@ case COGITO_ICONBTN: {
 	        if (border_w > 0) {
 	          cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border, radius, border_w);
 	        }
-	      }
+      }
       if (n->text) {
         int btn_min = n->w < n->h ? n->w : n->h;
-        int target = s.has_icon_size ? s.icon_size : 24;
+        int default_icon = 20;
+        cogito_button_size_metrics((int)n->button.size, NULL, NULL, &default_icon, NULL);
+        int target = s.has_icon_size ? s.icon_size : default_icon;
         if (target < 8) target = 8;
         if (btn_min > 0 && target > btn_min) target = btn_min;
         int ix = n->x + (n->w - target) / 2;

@@ -136,6 +136,8 @@
 #undef cogito_grid_set_span
 #undef cogito_grid_set_align
 #undef cogito_button_set_text
+#undef cogito_button_set_size
+#undef cogito_button_get_size
 #undef cogito_button_add_menu
 #undef cogito_iconbtn_add_menu
 #undef cogito_checkbox_on_change
@@ -1641,6 +1643,16 @@ static void __cogito_button_set_text(ErgoVal btnv, ErgoVal textv) {
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
 
+static void __cogito_button_set_size(ErgoVal btnv, ErgoVal sizev) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  cogito_button_set_size(btn, (int)ergo_as_int(sizev));
+}
+
+static ErgoVal __cogito_button_get_size(ErgoVal btnv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  return EV_INT(cogito_button_get_size(btn));
+}
+
 static void __cogito_button_on_click(ErgoVal btnv, ErgoVal handler) {
   cogito_node* btn = cogito_node_from_val(btnv);
   CogitoHandle* h = (CogitoHandle*)btnv.as.p;
@@ -2529,6 +2541,8 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_state_get __cogito_state_get
 #define cogito_state_set __cogito_state_set
 #define cogito_button_set_text __cogito_button_set_text
+#define cogito_button_set_size __cogito_button_set_size
+#define cogito_button_get_size __cogito_button_get_size
 #define cogito_image_set_icon __cogito_image_set_icon
 #define cogito_image_set_size __cogito_image_set_size
 #define cogito_image_set_radius __cogito_image_set_radius

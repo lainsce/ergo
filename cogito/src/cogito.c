@@ -50,7 +50,9 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_bottom_nav_set_selected cogito_bottom_nav_set_selected_ergo
 #define cogito_build cogito_build_ergo
 #define cogito_button_add_menu cogito_button_add_menu_ergo
+#define cogito_button_get_size cogito_button_get_size_ergo
 #define cogito_button_new cogito_button_new_ergo
+#define cogito_button_set_size cogito_button_set_size_ergo
 #define cogito_button_set_text cogito_button_set_text_ergo
 #define cogito_carousel_new cogito_carousel_new_ergo
 #define cogito_carousel_item_new cogito_carousel_item_new_ergo
@@ -305,7 +307,9 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_bottom_nav_set_selected
 #undef cogito_build
 #undef cogito_button_add_menu
+#undef cogito_button_get_size
 #undef cogito_button_new
+#undef cogito_button_set_size
 #undef cogito_button_set_text
 #undef cogito_carousel_new
 #undef cogito_carousel_item_new
@@ -1920,6 +1924,17 @@ void cogito_button_set_text(cogito_node* button, const char* text) {
   ErgoVal tv = cogito_val_from_cstr(text);
   cogito_button_set_text_ergo(EV_OBJ(button), tv);
   if (tv.tag == EVT_STR) ergo_release_val(tv);
+}
+
+void cogito_button_set_size(cogito_node* button, int size) {
+  if (!button) return;
+  cogito_button_set_size_ergo(EV_OBJ(button), EV_INT(size));
+}
+
+int cogito_button_get_size(cogito_node* button) {
+  if (!button) return 2;
+  ErgoVal v = cogito_button_get_size_ergo(EV_OBJ(button));
+  return (int)ergo_as_int(v);
 }
 
 void cogito_button_add_menu(cogito_node* button, const char* label, cogito_node_fn fn, void* user) {

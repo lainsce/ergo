@@ -12,6 +12,9 @@ static ErgoVal cogito_button_new(ErgoVal text) {
   CogitoNode* btn = cogito_button_new_obj(ts);
   return EV_OBJ(btn);
 }
+static bool cogito_button_accepts_size(const CogitoNode* n) {
+  return n && (n->kind == COGITO_BUTTON || n->kind == COGITO_ICONBTN);
+}
 static void cogito_button_set_text(ErgoVal btnv, ErgoVal text) {
   if (btnv.tag != EVT_OBJ) ergo_trap("cogito.button_set_text expects button");
   CogitoNode* btn = (CogitoNode*)btnv.as.p;
@@ -37,6 +40,20 @@ static void cogito_button_set_text(ErgoVal btnv, ErgoVal text) {
     fprintf(stderr, "cogito: button_set_text relayout done\n");
     fflush(stderr);
   }
+}
+static void cogito_button_set_size(ErgoVal btnv, ErgoVal sizev) {
+  if (btnv.tag != EVT_OBJ) ergo_trap("cogito.button_set_size expects button");
+  CogitoNode* btn = (CogitoNode*)btnv.as.p;
+  if (!cogito_button_accepts_size(btn)) ergo_trap("cogito.button_set_size expects button");
+  btn->button.size = cogito_button_clamp_size_int((int)ergo_as_int(sizev));
+  cogito_window_relayout(cogito_node_window(btn));
+}
+
+static ErgoVal cogito_button_get_size(ErgoVal btnv) {
+  if (btnv.tag != EVT_OBJ) ergo_trap("cogito.button_get_size expects button");
+  CogitoNode* btn = (CogitoNode*)btnv.as.p;
+  if (!cogito_button_accepts_size(btn)) ergo_trap("cogito.button_get_size expects button");
+  return EV_INT((int)cogito_button_clamp_size_int((int)btn->button.size));
 }
 void cogito_button_on_click(ErgoVal btnv, ErgoVal handler) {
   if (btnv.tag != EVT_OBJ) ergo_trap("cogito.button_on_click expects button");

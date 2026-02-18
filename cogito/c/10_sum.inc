@@ -934,6 +934,8 @@ static const char* sum_default_path(void) {
     snprintf(buf, sizeof(buf), "%s/cogito_default.sum", stdlib);
     if (cogito_file_exists(buf)) return buf;
   }
+  if (cogito_file_exists("cogito/cogito_default.sum")) return "cogito/cogito_default.sum";
+  if (cogito_file_exists("cogito_default.sum")) return "cogito_default.sum";
   return NULL;
 }
 
@@ -944,6 +946,8 @@ static const char* sum_dark_path(void) {
     snprintf(buf, sizeof(buf), "%s/cogito_dark.sum", stdlib);
     if (cogito_file_exists(buf)) return buf;
   }
+  if (cogito_file_exists("cogito/cogito_dark.sum")) return "cogito/cogito_dark.sum";
+  if (cogito_file_exists("cogito_dark.sum")) return "cogito_dark.sum";
   return NULL;
 }
 

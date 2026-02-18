@@ -166,12 +166,9 @@ static void cogito_theme_set_defaults(void) {
 
 static void cogito_theme_init(void) {
   if (!cogito_theme_initialized) {
-    cogito_theme_initialized = true;
-    cogito_theme_set_defaults();
-    if (!cogito_sum_default_loaded) {
-      cogito_sum_default_loaded = true;
-      cogito_load_sum_file("cogito/cogito_default.sum");
-    }
+    // Use the layered theme pipeline (default sum + dynamic + optional user sum)
+    // instead of directly loading a hardcoded file path.
+    cogito_apply_theme(cogito_theme_dark, cogito_theme_accent);
   }
 }
 

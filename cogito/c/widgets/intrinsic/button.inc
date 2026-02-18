@@ -1,12 +1,12 @@
 case COGITO_BUTTON:
       {
-        int pad = 24;
-        int min_w = 120;
-        int min_h = 56;
-        w = text_w + pad * 2;
-        h = text_h + 16;
-        if (w < min_w) w = min_w;
-        if (h < min_h) h = min_h;
+        int btn_h = 40;
+        int pad_x = 16;
+        cogito_button_size_metrics((int)n->button.size, &btn_h, &pad_x, NULL, NULL);
+        w = text_w + pad_x * 2;
+        h = btn_h;
+        int min_text_h = text_h + 8;
+        if (h < min_text_h) h = min_text_h;
       }
       break;
     

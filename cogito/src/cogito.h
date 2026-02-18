@@ -369,6 +369,8 @@ void cogito_grid_set_align(cogito_node* child, int halign, int valign);
 
 // Widget event helpers
 void cogito_button_set_text(cogito_node* button, const char* text);
+void cogito_button_set_size(cogito_node* button, int size);
+int cogito_button_get_size(cogito_node* button);
 void cogito_button_add_menu(cogito_node* button, const char* label, cogito_node_fn fn, void* user);
 void cogito_iconbtn_add_menu(cogito_node* button, const char* label, cogito_node_fn fn, void* user);
 

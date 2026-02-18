@@ -1110,13 +1110,11 @@ static void cogito_load_sum_file(const char* path) {
     }
     return;
   }
-  cogito_theme_initialized = true;
-  cogito_theme_set_defaults();
-  sum_parse(src);
-  free(src);
+  if (cogito_user_sum) free(cogito_user_sum);
+  cogito_user_sum = src;
+  cogito_apply_theme(cogito_theme_dark, cogito_theme_accent);
   extern CogitoNode* cogito_active_window;
   if (cogito_active_window) {
-    cogito_apply_style_tree(cogito_active_window);
     if (cogito_active_window->auto_size) {
       int dw = 0;
       int dh = 0;
