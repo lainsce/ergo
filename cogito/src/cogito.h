@@ -226,6 +226,7 @@ void cogito_about_window_set_issue_url(cogito_node* aw, const char* url);
 cogito_node* cogito_menu_button_new(const char* icon);
 cogito_node* cogito_split_button_new(const char* text);
 void cogito_split_button_add_menu(cogito_node* sb, const char* label, cogito_node_fn fn, void* user);
+void cogito_split_button_add_menu_section(cogito_node* sb, const char* label, cogito_node_fn fn, void* user);
 
 // Tree / layout
 void cogito_node_add(cogito_node* parent, cogito_node* child);
@@ -384,7 +385,17 @@ void cogito_button_set_text(cogito_node* button, const char* text);
 void cogito_button_set_size(cogito_node* button, int size);
 int cogito_button_get_size(cogito_node* button);
 void cogito_button_add_menu(cogito_node* button, const char* label, cogito_node_fn fn, void* user);
+void cogito_button_add_menu_section(cogito_node* button, const char* label, cogito_node_fn fn, void* user);
 void cogito_iconbtn_add_menu(cogito_node* button, const char* label, cogito_node_fn fn, void* user);
+void cogito_iconbtn_add_menu_section(cogito_node* button, const char* label, cogito_node_fn fn, void* user);
+void cogito_button_set_menu_divider(cogito_node* button, bool divider);
+bool cogito_button_get_menu_divider(cogito_node* button);
+void cogito_button_set_menu_item_gap(cogito_node* button, int gap);
+int cogito_button_get_menu_item_gap(cogito_node* button);
+void cogito_iconbtn_set_menu_divider(cogito_node* iconbtn, bool divider);
+bool cogito_iconbtn_get_menu_divider(cogito_node* iconbtn);
+void cogito_iconbtn_set_menu_item_gap(cogito_node* iconbtn, int gap);
+int cogito_iconbtn_get_menu_item_gap(cogito_node* iconbtn);
 
 void cogito_checkbox_on_change(cogito_node* cb, cogito_node_fn fn, void* user);
 void cogito_chip_on_click(cogito_node* chip, cogito_node_fn fn, void* user);

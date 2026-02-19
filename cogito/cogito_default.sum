@@ -663,6 +663,14 @@ menu item
   padding: 8 12
   min-height: 42
 
+menu_section
+  background: transparent
+
+menu_section item
+  border-radius: 0
+  padding: 8 12
+  min-height: 42
+
 bottom-nav
   background: #fffbfe
   color: #222222

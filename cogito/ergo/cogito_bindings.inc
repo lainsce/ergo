@@ -1,201 +1,204 @@
 // ---- Cogito bindings (shared library) ----
 #include <cogito.h>
 
-#undef cogito_app_new
-#undef cogito_app_free
-#undef cogito_app_run
-#undef cogito_app_set_appid
-#undef cogito_app_set_app_name
-#undef cogito_app_set_accent_color
-#undef cogito_app_set_icon
-#undef cogito_app_get_icon
-#undef cogito_open_url
-#undef cogito_window_new
-#undef cogito_window_free
-#undef cogito_window_set_resizable
-#undef cogito_window_set_autosize
-#undef cogito_window_set_a11y_label
-#undef cogito_window_set_builder
-#undef cogito_rebuild_active_window
-#undef cogito_node_new
-#undef cogito_grid_new_with_cols
-#undef cogito_label_new
-#undef cogito_button_new
-#undef cogito_iconbtn_new
-#undef cogito_checkbox_new
-#undef cogito_switch_new
-#undef cogito_textfield_new
-#undef cogito_textview_new
-#undef cogito_searchfield_new
-#undef cogito_dropdown_new
-#undef cogito_slider_new
-#undef cogito_slider_range_new
-#undef cogito_tabs_new
-#undef cogito_view_switcher_new
-#undef cogito_progress_new
-#undef cogito_datepicker_new
-#undef cogito_colorpicker_new
-#undef cogito_stepper_new
-#undef cogito_segmented_new
-#undef cogito_treeview_new
-#undef cogito_toasts_new
-#undef cogito_toast_new
-#undef cogito_bottom_toolbar_new
-#undef cogito_dialog_new
-#undef cogito_dialog_slot_new
-#undef cogito_appbar_new
-#undef cogito_image_new
-#undef cogito_node_add
-#undef cogito_node_remove
-#undef cogito_node_free
-#undef cogito_node_set_margins
-#undef cogito_node_set_padding
-#undef cogito_node_set_align
-#undef cogito_node_set_halign
-#undef cogito_node_set_valign
-#undef cogito_node_set_id
-#undef cogito_node_set_text
-#undef cogito_node_get_text
-#undef cogito_node_set_disabled
-#undef cogito_node_set_editable
-#undef cogito_node_get_editable
-#undef cogito_node_set_class
-#undef cogito_node_set_a11y_label
-#undef cogito_node_set_a11y_role
-#undef cogito_node_set_tooltip
-#undef cogito_node_build
-#undef cogito_node_on_click
-#undef cogito_node_on_change
-#undef cogito_node_on_select
-#undef cogito_node_on_activate
-#undef cogito_pointer_capture
-#undef cogito_pointer_release
-#undef cogito_dropdown_set_items
-#undef cogito_dropdown_get_selected
-#undef cogito_dropdown_set_selected
-#undef cogito_tabs_set_items
-#undef cogito_tabs_set_ids
-#undef cogito_tabs_get_selected
-#undef cogito_tabs_set_selected
-#undef cogito_tabs_bind
-#undef cogito_slider_get_value
-#undef cogito_slider_set_value
-#undef cogito_slider_set_size
-#undef cogito_slider_get_size
-#undef cogito_slider_set_icon
-#undef cogito_slider_get_centered
-#undef cogito_slider_set_centered
-#undef cogito_slider_set_range
-#undef cogito_slider_set_range_start
-#undef cogito_slider_set_range_end
-#undef cogito_slider_get_range_start
-#undef cogito_slider_get_range_end
-#undef cogito_checkbox_get_checked
-#undef cogito_checkbox_set_checked
-#undef cogito_switch_get_checked
-#undef cogito_switch_set_checked
-#undef cogito_textfield_set_text
-#undef cogito_textfield_get_text
-#undef cogito_textfield_set_hint
-#undef cogito_textfield_get_hint
-#undef cogito_textview_set_text
-#undef cogito_textview_get_text
-#undef cogito_searchfield_set_text
-#undef cogito_searchfield_get_text
-#undef cogito_progress_set_value
-#undef cogito_progress_get_value
-#undef cogito_progress_set_indeterminate
-#undef cogito_progress_get_indeterminate
-#undef cogito_progress_set_thickness
-#undef cogito_progress_get_thickness
-#undef cogito_progress_set_wavy
-#undef cogito_progress_get_wavy
-#undef cogito_progress_set_circular
-#undef cogito_progress_get_circular
-#undef cogito_stepper_set_value
-#undef cogito_stepper_get_value
-#undef cogito_stepper_on_change
-#undef cogito_segmented_on_select
-#undef cogito_load_sum_file
-#undef cogito_label_set_text
-#undef cogito_label_set_wrap
-#undef cogito_label_set_ellipsis
-#undef cogito_label_set_align
-#undef cogito_image_set_icon
-#undef cogito_appbar_add_button
-#undef cogito_appbar_set_controls
-#undef cogito_appbar_set_title
-#undef cogito_appbar_set_subtitle
-#undef cogito_dialog_slot_show
-#undef cogito_dialog_slot_clear
-#undef cogito_window_set_dialog
-#undef cogito_window_clear_dialog
-#undef cogito_fixed_set_pos
-#undef cogito_scroller_set_axes
-#undef cogito_grid_set_gap
-#undef cogito_grid_set_span
-#undef cogito_grid_set_align
-#undef cogito_button_set_text
-#undef cogito_button_set_size
-#undef cogito_button_get_size
-#undef cogito_button_add_menu
-#undef cogito_iconbtn_add_menu
-#undef cogito_checkbox_on_change
-#undef cogito_switch_on_change
-#undef cogito_textfield_on_change
-#undef cogito_textview_on_change
-#undef cogito_searchfield_on_change
-#undef cogito_dropdown_on_change
-#undef cogito_slider_on_change
-#undef cogito_tabs_on_change
-#undef cogito_datepicker_on_change
-#undef cogito_colorpicker_on_change
-#undef cogito_list_on_select
-#undef cogito_list_on_activate
-#undef cogito_grid_on_select
-#undef cogito_grid_on_activate
-#undef cogito_view_switcher_set_active
-#undef cogito_toast_on_click
-#undef cogito_toast_set_action
-#undef cogito_node_window
-#undef cogito_find_parent
-#undef cogito_find_children
-#undef cogito_carousel_item_set_text
-#undef cogito_carousel_item_set_halign
-#undef cogito_carousel_item_set_valign
+#undef cogito_about_window_new
+#undef cogito_about_window_set_description
+#undef cogito_about_window_set_icon
+#undef cogito_about_window_set_issue_url
+#undef cogito_about_window_set_website
 #undef cogito_active_indicator_new
-#undef cogito_switchbar_new
-#undef cogito_switchbar_get_checked
-#undef cogito_switchbar_set_checked
-#undef cogito_switchbar_on_change
+#undef cogito_app_free
+#undef cogito_app_get_icon
+#undef cogito_app_new
+#undef cogito_app_run
+#undef cogito_app_set_accent_color
+#undef cogito_app_set_app_name
+#undef cogito_app_set_appid
+#undef cogito_app_set_icon
+#undef cogito_appbar_add_button
+#undef cogito_appbar_new
+#undef cogito_appbar_set_controls
+#undef cogito_appbar_set_subtitle
+#undef cogito_appbar_set_title
+#undef cogito_bottom_toolbar_new
+#undef cogito_button_add_menu
+#undef cogito_button_add_menu_section
+#undef cogito_button_get_size
+#undef cogito_button_new
+#undef cogito_button_set_size
+#undef cogito_button_set_text
+#undef cogito_carousel_item_set_halign
+#undef cogito_carousel_item_set_text
+#undef cogito_carousel_item_set_valign
+#undef cogito_checkbox_get_checked
+#undef cogito_checkbox_new
+#undef cogito_checkbox_on_change
+#undef cogito_checkbox_set_checked
+#undef cogito_colorpicker_new
+#undef cogito_colorpicker_on_change
 #undef cogito_content_list_new
+#undef cogito_datepicker_new
+#undef cogito_datepicker_on_change
+#undef cogito_dialog_new
+#undef cogito_dialog_slot_clear
+#undef cogito_dialog_slot_new
+#undef cogito_dialog_slot_show
+#undef cogito_dropdown_get_selected
+#undef cogito_dropdown_new
+#undef cogito_dropdown_on_change
+#undef cogito_dropdown_set_items
+#undef cogito_dropdown_set_selected
 #undef cogito_empty_page_new
+#undef cogito_empty_page_set_action
 #undef cogito_empty_page_set_description
 #undef cogito_empty_page_set_icon
-#undef cogito_empty_page_set_action
+#undef cogito_find_children
+#undef cogito_find_parent
+#undef cogito_fixed_set_pos
+#undef cogito_grid_new_with_cols
+#undef cogito_grid_on_activate
+#undef cogito_grid_on_select
+#undef cogito_grid_set_align
+#undef cogito_grid_set_gap
+#undef cogito_grid_set_span
+#undef cogito_iconbtn_add_menu
+#undef cogito_iconbtn_add_menu_section
+#undef cogito_iconbtn_new
+#undef cogito_image_new
+#undef cogito_image_set_icon
+#undef cogito_label_new
+#undef cogito_label_set_align
+#undef cogito_label_set_ellipsis
+#undef cogito_label_set_text
+#undef cogito_label_set_wrap
+#undef cogito_list_on_activate
+#undef cogito_list_on_select
+#undef cogito_load_sum_file
+#undef cogito_menu_button_new
+#undef cogito_node_add
+#undef cogito_node_build
+#undef cogito_node_free
+#undef cogito_node_get_editable
+#undef cogito_node_get_text
+#undef cogito_node_new
+#undef cogito_node_on_activate
+#undef cogito_node_on_change
+#undef cogito_node_on_click
+#undef cogito_node_on_select
+#undef cogito_node_remove
+#undef cogito_node_set_a11y_label
+#undef cogito_node_set_a11y_role
+#undef cogito_node_set_align
+#undef cogito_node_set_class
+#undef cogito_node_set_disabled
+#undef cogito_node_set_editable
+#undef cogito_node_set_halign
+#undef cogito_node_set_id
+#undef cogito_node_set_margins
+#undef cogito_node_set_padding
+#undef cogito_node_set_text
+#undef cogito_node_set_tooltip
+#undef cogito_node_set_valign
+#undef cogito_node_window
+#undef cogito_open_url
+#undef cogito_pointer_capture
+#undef cogito_pointer_release
+#undef cogito_progress_get_circular
+#undef cogito_progress_get_indeterminate
+#undef cogito_progress_get_thickness
+#undef cogito_progress_get_value
+#undef cogito_progress_get_wavy
+#undef cogito_progress_new
+#undef cogito_progress_set_circular
+#undef cogito_progress_set_indeterminate
+#undef cogito_progress_set_thickness
+#undef cogito_progress_set_value
+#undef cogito_progress_set_wavy
+#undef cogito_rebuild_active_window
+#undef cogito_scroller_set_axes
+#undef cogito_searchfield_get_text
+#undef cogito_searchfield_new
+#undef cogito_searchfield_on_change
+#undef cogito_searchfield_set_text
+#undef cogito_segmented_new
+#undef cogito_segmented_on_select
+#undef cogito_settings_list_new
+#undef cogito_settings_page_new
+#undef cogito_settings_row_new
+#undef cogito_settings_window_new
+#undef cogito_slider_get_centered
+#undef cogito_slider_get_range_end
+#undef cogito_slider_get_range_start
+#undef cogito_slider_get_size
+#undef cogito_slider_get_value
+#undef cogito_slider_new
+#undef cogito_slider_on_change
+#undef cogito_slider_range_new
+#undef cogito_slider_set_centered
+#undef cogito_slider_set_icon
+#undef cogito_slider_set_range
+#undef cogito_slider_set_range_end
+#undef cogito_slider_set_range_start
+#undef cogito_slider_set_size
+#undef cogito_slider_set_value
+#undef cogito_split_button_add_menu
+#undef cogito_split_button_add_menu_section
+#undef cogito_split_button_new
+#undef cogito_stepper_get_value
+#undef cogito_stepper_new
+#undef cogito_stepper_on_change
+#undef cogito_stepper_set_value
+#undef cogito_switch_get_checked
+#undef cogito_switch_new
+#undef cogito_switch_on_change
+#undef cogito_switch_set_checked
+#undef cogito_switchbar_get_checked
+#undef cogito_switchbar_new
+#undef cogito_switchbar_on_change
+#undef cogito_switchbar_set_checked
+#undef cogito_tabs_bind
+#undef cogito_tabs_get_selected
+#undef cogito_tabs_new
+#undef cogito_tabs_on_change
+#undef cogito_tabs_set_ids
+#undef cogito_tabs_set_items
+#undef cogito_tabs_set_selected
+#undef cogito_textfield_get_hint
+#undef cogito_textfield_get_text
+#undef cogito_textfield_new
+#undef cogito_textfield_on_change
+#undef cogito_textfield_set_hint
+#undef cogito_textfield_set_text
+#undef cogito_textview_get_text
+#undef cogito_textview_new
+#undef cogito_textview_on_change
+#undef cogito_textview_set_text
 #undef cogito_tip_view_new
 #undef cogito_tip_view_set_title
-#undef cogito_settings_window_new
-#undef cogito_settings_page_new
-#undef cogito_settings_list_new
-#undef cogito_settings_row_new
-#undef cogito_welcome_screen_new
-#undef cogito_welcome_screen_set_description
-#undef cogito_welcome_screen_set_icon
-#undef cogito_welcome_screen_set_action
-#undef cogito_view_dual_new
-#undef cogito_view_dual_set_ratio
+#undef cogito_toast_new
+#undef cogito_toast_on_click
+#undef cogito_toast_set_action
+#undef cogito_toasts_new
+#undef cogito_treeview_new
+#undef cogito_view_chooser_bind
 #undef cogito_view_chooser_new
 #undef cogito_view_chooser_set_items
-#undef cogito_view_chooser_bind
-#undef cogito_about_window_new
-#undef cogito_about_window_set_icon
-#undef cogito_about_window_set_description
-#undef cogito_about_window_set_website
-#undef cogito_about_window_set_issue_url
-#undef cogito_menu_button_new
-#undef cogito_split_button_new
-#undef cogito_split_button_add_menu
+#undef cogito_view_dual_new
+#undef cogito_view_dual_set_ratio
+#undef cogito_view_switcher_new
+#undef cogito_view_switcher_set_active
+#undef cogito_welcome_screen_new
+#undef cogito_welcome_screen_set_action
+#undef cogito_welcome_screen_set_description
+#undef cogito_welcome_screen_set_icon
+#undef cogito_window_clear_dialog
+#undef cogito_window_free
+#undef cogito_window_new
+#undef cogito_window_set_a11y_label
+#undef cogito_window_set_autosize
+#undef cogito_window_set_builder
+#undef cogito_window_set_dialog
+#undef cogito_window_set_resizable
 
 static bool cogito_debug_enabled(void) {
   const char* env = getenv("COGITO_DEBUG");
@@ -1073,6 +1076,20 @@ static void __cogito_split_button_add_menu(ErgoVal btnv, ErgoVal labelv, ErgoVal
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
 
+static void __cogito_split_button_add_menu_section(ErgoVal btnv, ErgoVal labelv, ErgoVal handlerv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  CogitoHandle* h = (CogitoHandle*)btnv.as.p;
+  ErgoStr* tmp = NULL;
+  const char* label = cogito_required_cstr(labelv, &tmp);
+  if (handlerv.tag == EVT_FN) {
+    cogito_set_handler(h, &h->on_action, handlerv);
+    cogito_split_button_add_menu_section(btn, label, cogito_cb_action, h);
+  } else {
+    cogito_split_button_add_menu_section(btn, label, NULL, NULL);
+  }
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
 static ErgoVal __cogito_image(ErgoVal iconv) {
   ErgoStr* tmp = NULL;
   const char* icon = cogito_required_cstr(iconv, &tmp);
@@ -1674,12 +1691,30 @@ static void __cogito_button_add_menu(ErgoVal btnv, ErgoVal labelv, ErgoVal handl
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
 
+static void __cogito_button_add_menu_section(ErgoVal btnv, ErgoVal labelv, ErgoVal handler) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  ErgoStr* tmp = NULL;
+  const char* label = cogito_required_cstr(labelv, &tmp);
+  CogitoMenuHandler* mh = handler.tag == EVT_FN ? cogito_menu_handler_new(handler) : NULL;
+  cogito_button_add_menu_section(btn, label, mh ? cogito_cb_menu : NULL, mh);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
 static void __cogito_iconbtn_add_menu(ErgoVal btnv, ErgoVal labelv, ErgoVal handler) {
   cogito_node* btn = cogito_node_from_val(btnv);
   ErgoStr* tmp = NULL;
   const char* label = cogito_required_cstr(labelv, &tmp);
   CogitoMenuHandler* mh = handler.tag == EVT_FN ? cogito_menu_handler_new(handler) : NULL;
   cogito_iconbtn_add_menu(btn, label, mh ? cogito_cb_menu : NULL, mh);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
+static void __cogito_iconbtn_add_menu_section(ErgoVal btnv, ErgoVal labelv, ErgoVal handler) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  ErgoStr* tmp = NULL;
+  const char* label = cogito_required_cstr(labelv, &tmp);
+  CogitoMenuHandler* mh = handler.tag == EVT_FN ? cogito_menu_handler_new(handler) : NULL;
+  cogito_iconbtn_add_menu_section(btn, label, mh ? cogito_cb_menu : NULL, mh);
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
 
@@ -1742,6 +1777,46 @@ static void __cogito_iconbtn_set_size(ErgoVal btnv, ErgoVal sizev) {
 static ErgoVal __cogito_iconbtn_get_size(ErgoVal btnv) {
   cogito_node* btn = cogito_node_from_val(btnv);
   return EV_INT(cogito_iconbtn_get_size(btn));
+}
+
+static void __cogito_iconbtn_set_menu_divider(ErgoVal btnv, ErgoVal dividerv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  cogito_button_set_menu_divider(btn, ergo_as_bool(dividerv));
+}
+
+static ErgoVal __cogito_iconbtn_get_menu_divider(ErgoVal btnv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  return EV_BOOL(cogito_button_get_menu_divider(btn));
+}
+
+static void __cogito_iconbtn_set_menu_item_gap(ErgoVal btnv, ErgoVal gapv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  cogito_button_set_menu_item_gap(btn, (int)ergo_as_int(gapv));
+}
+
+static ErgoVal __cogito_iconbtn_get_menu_item_gap(ErgoVal btnv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  return EV_INT(cogito_button_get_menu_item_gap(btn));
+}
+
+static void __cogito_button_set_menu_divider(ErgoVal btnv, ErgoVal dividerv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  cogito_button_set_menu_divider(btn, ergo_as_bool(dividerv));
+}
+
+static ErgoVal __cogito_button_get_menu_divider(ErgoVal btnv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  return EV_BOOL(cogito_button_get_menu_divider(btn));
+}
+
+static void __cogito_button_set_menu_item_gap(ErgoVal btnv, ErgoVal gapv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  cogito_button_set_menu_item_gap(btn, (int)ergo_as_int(gapv));
+}
+
+static ErgoVal __cogito_button_get_menu_item_gap(ErgoVal btnv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  return EV_INT(cogito_button_get_menu_item_gap(btn));
 }
 
 static void __cogito_iconbtn_on_click(ErgoVal btnv, ErgoVal handler) {
@@ -2629,11 +2704,12 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_list_on_activate __cogito_list_on_activate
 #define cogito_grid_on_select __cogito_grid_on_select
 #define cogito_grid_on_activate __cogito_grid_on_activate
-// Forward declare FFI functions with ErgoVal signature
 void __cogito_button_on_click(ErgoVal btn, ErgoVal handler);
 #define cogito_button_on_click __cogito_button_on_click
 #define cogito_button_add_menu __cogito_button_add_menu
+#define cogito_button_add_menu_section __cogito_button_add_menu_section
 #define cogito_iconbtn_add_menu __cogito_iconbtn_add_menu
+#define cogito_iconbtn_add_menu_section __cogito_iconbtn_add_menu_section
 #define cogito_iconbtn_set_shape __cogito_iconbtn_set_shape
 #define cogito_iconbtn_get_shape __cogito_iconbtn_get_shape
 #define cogito_iconbtn_set_color_style __cogito_iconbtn_set_color_style
@@ -2712,4 +2788,5 @@ void __cogito_button_on_click(ErgoVal btn, ErgoVal handler);
 #define cogito_menu_button_new __cogito_menu_button
 #define cogito_split_button_new __cogito_split_button
 #define cogito_split_button_add_menu __cogito_split_button_add_menu
+#define cogito_split_button_add_menu_section __cogito_split_button_add_menu_section
 // cogito_set_script_dir is provided by the cogito library

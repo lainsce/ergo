@@ -2253,6 +2253,122 @@
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_iconbtn_set_menu_divider")) {
+                        GenExpr btn, divider;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &divider, err)) { gen_expr_free(&btn); return false; }
+                        w_line(&cg->w, "cogito_iconbtn_set_menu_divider(%s, %s);", btn.tmp, divider.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", divider.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_release_except(cg, &divider, divider.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_free(&divider);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_iconbtn_get_menu_divider")) {
+                        GenExpr btn;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_BOOL(cogito_iconbtn_get_menu_divider(%s));", t, btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_iconbtn_set_menu_item_gap")) {
+                        GenExpr btn, gap;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &gap, err)) { gen_expr_free(&btn); return false; }
+                        w_line(&cg->w, "cogito_iconbtn_set_menu_item_gap(%s, %s);", btn.tmp, gap.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", gap.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_release_except(cg, &gap, gap.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_free(&gap);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_iconbtn_get_menu_item_gap")) {
+                        GenExpr btn;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_INT(cogito_iconbtn_get_menu_item_gap(%s));", t, btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_button_set_menu_divider")) {
+                        GenExpr btn, divider;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &divider, err)) { gen_expr_free(&btn); return false; }
+                        w_line(&cg->w, "cogito_button_set_menu_divider(%s, %s);", btn.tmp, divider.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", divider.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_release_except(cg, &divider, divider.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_free(&divider);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_button_get_menu_divider")) {
+                        GenExpr btn;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_BOOL(cogito_button_get_menu_divider(%s));", t, btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_button_set_menu_item_gap")) {
+                        GenExpr btn, gap;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &gap, err)) { gen_expr_free(&btn); return false; }
+                        w_line(&cg->w, "cogito_button_set_menu_item_gap(%s, %s);", btn.tmp, gap.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", gap.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_release_except(cg, &gap, gap.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_free(&gap);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_button_get_menu_item_gap")) {
+                        GenExpr btn;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_INT(cogito_button_get_menu_item_gap(%s));", t, btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_appbar_add_button")) {
                         GenExpr app, text, handler;
                         if (!gen_expr(cg, path, e->as.call.args[0], &app, err)) return false;

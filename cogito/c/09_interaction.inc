@@ -119,6 +119,7 @@ static void cogito_container_remove_child(CogitoNode* parent, CogitoNode* child)
 #include "widgets/interaction/about_window.inc"
 #include "widgets/interaction/split_button.inc"
 #include "widgets/interaction/menu_button.inc"
+#include "widgets/interaction/menu_section.inc"
 #include "widgets/interaction/fab.inc"
 #include "widgets/interaction/fixed.inc"
 #include "widgets/interaction/grid.inc"

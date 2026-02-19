@@ -1066,6 +1066,8 @@ case COGITO_TOASTS:
 
     #include "widgets/draw/divider.inc"
 
+    #include "widgets/draw/menu_section.inc"
+
     #include "widgets/draw/card.inc"
 
     #include "widgets/draw/avatar.inc"

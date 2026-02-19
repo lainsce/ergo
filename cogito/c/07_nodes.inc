@@ -102,8 +102,10 @@ static void cogito_node_drop(ErgoObj* o) {
     }
     free(n->menu_labels);
     free(n->menu_handlers);
+    free(n->menu_section_after);
     n->menu_labels = NULL;
     n->menu_handlers = NULL;
+    n->menu_section_after = NULL;
     n->menu_len = 0;
     n->menu_cap = 0;
   }
@@ -292,13 +294,27 @@ static void cogito_node_add_menu(CogitoNode* n, ErgoStr* label, ErgoFn* handler)
     size_t next = n->menu_cap == 0 ? 4 : n->menu_cap * 2;
     n->menu_labels = (ErgoStr**)realloc(n->menu_labels, sizeof(ErgoStr*) * next);
     n->menu_handlers = (ErgoFn**)realloc(n->menu_handlers, sizeof(ErgoFn*) * next);
+    n->menu_section_after = (bool*)realloc(n->menu_section_after, sizeof(bool) * next);
     n->menu_cap = next;
   }
   n->menu_labels[n->menu_len] = label;
   n->menu_handlers[n->menu_len] = handler;
+  // Default: no divider after each item (will be set explicitly via cogito_node_add_menu_section)
+  n->menu_section_after[n->menu_len] = false;
   if (label) ergo_retain_val(EV_STR(label));
   if (handler) ergo_retain_val(EV_FN(handler));
   n->menu_len++;
+}
+
+// Add a menu item with a section divider after it
+void cogito_node_add_menu_section(CogitoNode* n, ErgoStr* label, ErgoFn* handler) {
+  if (!n) return;
+  // Mark the last item as having a section divider after it
+  if (n->menu_len > 0) {
+    n->menu_section_after[n->menu_len - 1] = true;
+  }
+  // Now add the new item
+  cogito_node_add_menu(n, label, handler);
 }
 
 static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
@@ -361,6 +377,8 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
     #include "widgets/intrinsic/progress.inc"
 
     #include "widgets/intrinsic/divider.inc"
+
+    #include "widgets/intrinsic/menu_section.inc"
 
     #include "widgets/intrinsic/card.inc"
 

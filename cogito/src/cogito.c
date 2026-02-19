@@ -50,10 +50,16 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_bottom_nav_set_selected cogito_bottom_nav_set_selected_ergo
 #define cogito_build cogito_build_ergo
 #define cogito_button_add_menu cogito_button_add_menu_ergo
+#define cogito_button_add_menu_section cogito_button_add_menu_section_ergo
+#define cogito_iconbtn_add_menu_section cogito_iconbtn_add_menu_section_ergo
 #define cogito_button_get_size cogito_button_get_size_ergo
 #define cogito_button_new cogito_button_new_ergo
 #define cogito_button_set_size cogito_button_set_size_ergo
 #define cogito_button_set_text cogito_button_set_text_ergo
+#define cogito_button_set_menu_divider cogito_button_set_menu_divider_ergo
+#define cogito_button_get_menu_divider cogito_button_get_menu_divider_ergo
+#define cogito_button_set_menu_item_gap cogito_button_set_menu_item_gap_ergo
+#define cogito_button_get_menu_item_gap cogito_button_get_menu_item_gap_ergo
 #define cogito_carousel_new cogito_carousel_new_ergo
 #define cogito_carousel_item_new cogito_carousel_item_new_ergo
 #define cogito_carousel_item_set_halign cogito_carousel_item_set_halign_ergo
@@ -128,6 +134,10 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_iconbtn_get_checked cogito_iconbtn_get_checked_ergo
 #define cogito_iconbtn_get_size cogito_iconbtn_get_size_ergo
 #define cogito_iconbtn_set_size cogito_iconbtn_set_size_ergo
+#define cogito_iconbtn_set_menu_divider cogito_iconbtn_set_menu_divider_ergo
+#define cogito_iconbtn_get_menu_divider cogito_iconbtn_get_menu_divider_ergo
+#define cogito_iconbtn_set_menu_item_gap cogito_iconbtn_set_menu_item_gap_ergo
+#define cogito_iconbtn_get_menu_item_gap cogito_iconbtn_get_menu_item_gap_ergo
 #define cogito_image_new cogito_image_new_ergo
 #define cogito_image_set_icon cogito_image_set_icon_ergo
 #define cogito_image_set_source cogito_image_set_source_ergo
@@ -282,6 +292,7 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_menu_button_new cogito_menu_button_new_ergo
 #define cogito_split_button_new cogito_split_button_new_ergo
 #define cogito_split_button_add_menu cogito_split_button_add_menu_ergo
+#define cogito_split_button_add_menu_section cogito_split_button_add_menu_section_ergo
 
 // Internal engine (same order as previous runtime include).
 #include "../c/00_core.inc"
@@ -319,6 +330,8 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_bottom_nav_set_selected
 #undef cogito_build
 #undef cogito_button_add_menu
+#undef cogito_button_add_menu_section
+#undef cogito_iconbtn_add_menu_section
 #undef cogito_button_get_size
 #undef cogito_button_new
 #undef cogito_button_set_size
@@ -397,6 +410,14 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_iconbtn_get_checked
 #undef cogito_iconbtn_set_size
 #undef cogito_iconbtn_get_size
+#undef cogito_iconbtn_set_menu_divider
+#undef cogito_iconbtn_get_menu_divider
+#undef cogito_iconbtn_set_menu_item_gap
+#undef cogito_iconbtn_get_menu_item_gap
+#undef cogito_button_set_menu_divider
+#undef cogito_button_get_menu_divider
+#undef cogito_button_set_menu_item_gap
+#undef cogito_button_get_menu_item_gap
 #undef cogito_image_new
 #undef cogito_image_set_icon
 #undef cogito_image_set_source
@@ -548,6 +569,7 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_menu_button_new
 #undef cogito_split_button_new
 #undef cogito_split_button_add_menu
+#undef cogito_split_button_add_menu_section
 
 // Public C API implementations for node hierarchy (use internal functions)
 cogito_node* cogito_node_get_parent(cogito_node* node) {
@@ -1262,6 +1284,21 @@ void cogito_split_button_add_menu(cogito_node* sb, const char* label, cogito_nod
     env->user = user;
     ErgoFn* wrap = cogito_make_fn(cogito_cb_node, env);
     cogito_split_button_add_menu_ergo(EV_OBJ(sb), lv, EV_FN(wrap));
+    ergo_release_val(EV_FN(wrap));
+  }
+  if (lv.tag == EVT_STR) ergo_release_val(lv);
+}
+
+void cogito_split_button_add_menu_section(cogito_node* sb, const char* label, cogito_node_fn fn, void* user) {
+  ErgoVal lv = cogito_val_from_cstr(label);
+  if (!fn) {
+    cogito_split_button_add_menu_section_ergo(EV_OBJ(sb), lv, EV_NULLV);
+  } else {
+    CogitoCbNode* env = (CogitoCbNode*)calloc(1, sizeof(*env));
+    env->fn = fn;
+    env->user = user;
+    ErgoFn* wrap = cogito_make_fn(cogito_cb_node, env);
+    cogito_split_button_add_menu_section_ergo(EV_OBJ(sb), lv, EV_FN(wrap));
     ergo_release_val(EV_FN(wrap));
   }
   if (lv.tag == EVT_STR) ergo_release_val(lv);
@@ -1988,6 +2025,38 @@ void cogito_button_add_menu(cogito_node* button, const char* label, cogito_node_
   if (handler.tag == EVT_FN) ergo_release_val(handler);
 }
 
+void cogito_button_add_menu_section(cogito_node* button, const char* label, cogito_node_fn fn, void* user) {
+  if (!button) return;
+  ErgoVal lv = cogito_val_from_cstr(label);
+  ErgoVal handler = EV_NULLV;
+  if (fn) {
+    CogitoCbNode* env = (CogitoCbNode*)calloc(1, sizeof(*env));
+    env->fn = fn;
+    env->user = user;
+    ErgoFn* wrap = cogito_make_fn(cogito_cb_node, env);
+    handler = EV_FN(wrap);
+  }
+  cogito_button_add_menu_section_ergo(EV_OBJ(button), lv, handler);
+  if (lv.tag == EVT_STR) ergo_release_val(lv);
+  if (handler.tag == EVT_FN) ergo_release_val(handler);
+}
+
+void cogito_iconbtn_add_menu_section(cogito_node* button, const char* label, cogito_node_fn fn, void* user) {
+  if (!button) return;
+  ErgoVal lv = cogito_val_from_cstr(label);
+  ErgoVal handler = EV_NULLV;
+  if (fn) {
+    CogitoCbNode* env = (CogitoCbNode*)calloc(1, sizeof(*env));
+    env->fn = fn;
+    env->user = user;
+    ErgoFn* wrap = cogito_make_fn(cogito_cb_node, env);
+    handler = EV_FN(wrap);
+  }
+  cogito_iconbtn_add_menu_section_ergo(EV_OBJ(button), lv, handler);
+  if (lv.tag == EVT_STR) ergo_release_val(lv);
+  if (handler.tag == EVT_FN) ergo_release_val(handler);
+}
+
 void cogito_iconbtn_set_shape(cogito_node* button, int shape) {
   if (!button) return;
   cogito_iconbtn_set_shape_ergo(EV_OBJ(button), EV_INT(shape));
@@ -2048,6 +2117,50 @@ void cogito_iconbtn_add_menu(cogito_node* button, const char* label, cogito_node
   cogito_iconbtn_add_menu_ergo(EV_OBJ(button), lv, handler);
   if (lv.tag == EVT_STR) ergo_release_val(lv);
   if (handler.tag == EVT_FN) ergo_release_val(handler);
+}
+
+void cogito_iconbtn_set_menu_divider(cogito_node* iconbtn, bool divider) {
+  if (!iconbtn) return;
+  cogito_iconbtn_set_menu_divider_ergo(EV_OBJ(iconbtn), EV_BOOL(divider));
+}
+
+bool cogito_iconbtn_get_menu_divider(cogito_node* iconbtn) {
+  if (!iconbtn) return false;
+  ErgoVal v = cogito_iconbtn_get_menu_divider_ergo(EV_OBJ(iconbtn));
+  return ergo_as_bool(v);
+}
+
+void cogito_iconbtn_set_menu_item_gap(cogito_node* iconbtn, int gap) {
+  if (!iconbtn) return;
+  cogito_iconbtn_set_menu_item_gap_ergo(EV_OBJ(iconbtn), EV_INT(gap));
+}
+
+int cogito_iconbtn_get_menu_item_gap(cogito_node* iconbtn) {
+  if (!iconbtn) return 0;
+  ErgoVal v = cogito_iconbtn_get_menu_item_gap_ergo(EV_OBJ(iconbtn));
+  return (int)ergo_as_int(v);
+}
+
+void cogito_button_set_menu_divider(cogito_node* button, bool divider) {
+  if (!button) return;
+  cogito_button_set_menu_divider_ergo(EV_OBJ(button), EV_BOOL(divider));
+}
+
+bool cogito_button_get_menu_divider(cogito_node* button) {
+  if (!button) return false;
+  ErgoVal v = cogito_button_get_menu_divider_ergo(EV_OBJ(button));
+  return ergo_as_bool(v);
+}
+
+void cogito_button_set_menu_item_gap(cogito_node* button, int gap) {
+  if (!button) return;
+  cogito_button_set_menu_item_gap_ergo(EV_OBJ(button), EV_INT(gap));
+}
+
+int cogito_button_get_menu_item_gap(cogito_node* button) {
+  if (!button) return 0;
+  ErgoVal v = cogito_button_get_menu_item_gap_ergo(EV_OBJ(button));
+  return (int)ergo_as_int(v);
 }
 
 void cogito_checkbox_on_change(cogito_node* cb, cogito_node_fn fn, void* user) {

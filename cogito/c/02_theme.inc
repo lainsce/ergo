@@ -242,9 +242,10 @@ static void cogito_style_merge_into(const CogitoStyle* base, const CogitoStyle* 
   if (over->has_margin_top) { out->has_margin_top = true; out->margin_top = over->margin_top; }
   if (over->has_margin_right) { out->has_margin_right = true; out->margin_right = over->margin_right; }
   if (over->has_margin_bottom) { out->has_margin_bottom = true; out->margin_bottom = over->margin_bottom; }
-
   if (over->has_opacity) { out->has_opacity = true; out->opacity = over->opacity; }
   if (over->has_track_height) { out->has_track_height = true; out->track_height = over->track_height; }
+  if (over->has_divider) { out->has_divider = true; out->divider = over->divider; }
+  if (over->has_item_gap) { out->has_item_gap = true; out->item_gap = over->item_gap; }
 }
 
 // Legacy wrapper for compatibility

@@ -543,16 +543,29 @@ void cogito_sum_apply_property(CogitoStyle* style, const char* prop, const char*
     }
     return;
   }
-  if (strcmp(prop, "opacity") == 0) {
-    double v;
-    if (cogito_css_read_number(p, &v)) {
-      if (v < 0.0) v = 0.0;
-      if (v > 1.0) v = 1.0;
-      style->has_opacity = true;
-      style->opacity = (float)v;
-    }
-    return;
-  }
+   if (strcmp(prop, "opacity") == 0) {
+     double v;
+     if (cogito_css_read_number(p, &v)) {
+       if (v < 0.0) v = 0.0;
+       if (v > 1.0) v = 1.0;
+       style->has_opacity = true;
+       style->opacity = (float)v;
+     }
+     return;
+   }
+   if (strcmp(prop, "divider") == 0) {
+     style->has_divider = true;
+     style->divider = true;
+     return;
+   }
+   if (strcmp(prop, "item-gap") == 0 || strcmp(prop, "menu-item-gap") == 0) {
+     double v;
+     if (cogito_css_read_number(p, &v)) {
+       style->has_item_gap = true;
+       style->item_gap = (int)lround(v);
+     }
+     return;
+   }
   if (strcmp(prop, "border") == 0) {
     double bw;
     if (cogito_css_read_number(p, &bw)) {
@@ -698,6 +711,7 @@ static bool cogito_sum_selector_kind(const char* sel, CogitoKind* out_kind, bool
   if (strcmp(s, "label") == 0) { if (out_kind) *out_kind = COGITO_LABEL; return true; }
   if (strcmp(s, "list") == 0) { if (out_kind) *out_kind = COGITO_LIST; return true; }
   if (strcmp(s, "menu") == 0) { if (out_menu) *out_menu = true; return true; }
+  if (strcmp(s, "menu-section") == 0 || strcmp(s, "menu_section") == 0 || strcmp(s, "menusection") == 0) { if (out_kind) *out_kind = COGITO_MENU_SECTION; return true; }
   if (strcmp(s, "nav-rail") == 0) { if (out_kind) *out_kind = COGITO_NAV_RAIL; return true; }
   if (strcmp(s, "popover") == 0) { if (out_kind) *out_kind = COGITO_POPOVER; return true; }
   if (strcmp(s, "progress") == 0) { if (out_kind) *out_kind = COGITO_PROGRESS; return true; }

@@ -15,6 +15,10 @@ static void cogito_iconbtn_add_menu(ErgoVal btnv, ErgoVal label, ErgoVal handler
   cogito_button_add_menu(btnv, label, handler);
 }
 
+static void cogito_iconbtn_add_menu_section(ErgoVal btnv, ErgoVal label, ErgoVal handler) {
+  cogito_button_add_menu_section(btnv, label, handler);
+}
+
 // Icon button setters/getters
 static void cogito_iconbtn_set_shape(ErgoVal btnv, ErgoVal shapev) {
   if (btnv.tag != EVT_OBJ) ergo_trap("cogito.iconbtn_set_shape expects iconbtn");
@@ -122,6 +126,37 @@ static ErgoVal cogito_iconbtn_get_size(ErgoVal btnv) {
   CogitoNode* btn = (CogitoNode*)btnv.as.p;
   if (!cogito_iconbtn_accepts_size(btn)) ergo_trap("cogito.iconbtn_get_size expects iconbtn");
   return EV_INT((int)cogito_iconbtn_clamp_size_int((int)btn->button.size));
+}
+
+void cogito_iconbtn_set_menu_divider(ErgoVal btnv, ErgoVal dividerv) {
+  if (btnv.tag != EVT_OBJ) ergo_trap("cogito.iconbtn_set_menu_divider expects iconbtn");
+  CogitoNode* btn = (CogitoNode*)btnv.as.p;
+  if (btn->kind != COGITO_ICONBTN) ergo_trap("cogito.iconbtn_set_menu_divider expects iconbtn");
+  btn->button.menu_divider = ergo_as_bool(dividerv);
+  cogito_window_relayout(cogito_node_window(btn));
+}
+
+ErgoVal cogito_iconbtn_get_menu_divider(ErgoVal btnv) {
+  if (btnv.tag != EVT_OBJ) ergo_trap("cogito.iconbtn_get_menu_divider expects iconbtn");
+  CogitoNode* btn = (CogitoNode*)btnv.as.p;
+  if (btn->kind != COGITO_ICONBTN) ergo_trap("cogito.iconbtn_get_menu_divider expects iconbtn");
+  return EV_BOOL(btn->button.menu_divider);
+}
+
+void cogito_iconbtn_set_menu_item_gap(ErgoVal btnv, ErgoVal gapv) {
+  if (btnv.tag != EVT_OBJ) ergo_trap("cogito.iconbtn_set_menu_item_gap expects iconbtn");
+  CogitoNode* btn = (CogitoNode*)btnv.as.p;
+  if (btn->kind != COGITO_ICONBTN) ergo_trap("cogito.iconbtn_set_menu_item_gap expects iconbtn");
+  btn->button.menu_item_gap = (int)ergo_as_int(gapv);
+  if (btn->button.menu_item_gap < 0) btn->button.menu_item_gap = 0;
+  cogito_window_relayout(cogito_node_window(btn));
+}
+
+ErgoVal cogito_iconbtn_get_menu_item_gap(ErgoVal btnv) {
+  if (btnv.tag != EVT_OBJ) ergo_trap("cogito.iconbtn_get_menu_item_gap expects iconbtn");
+  CogitoNode* btn = (CogitoNode*)btnv.as.p;
+  if (btn->kind != COGITO_ICONBTN) ergo_trap("cogito.iconbtn_get_menu_item_gap expects iconbtn");
+  return EV_INT(btn->button.menu_item_gap);
 }
 
 void cogito_iconbtn_on_click(ErgoVal btnv, ErgoVal handler) {

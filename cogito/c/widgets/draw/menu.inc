@@ -39,16 +39,43 @@ static void cogito_draw_menu(void) {
   }
   int hover = cogito_menu_hit(&cogito_menu, mx, my);
   int item_radius = cogito_theme.menu_item.has_radius ? cogito_theme.menu_item.radius : 0;
+  // Use section dividers if available, otherwise fall back to menu_divider
+  bool use_section = cogito_menu.owner->menu_section_after != NULL;
+  bool use_divider = use_section || cogito_menu.owner->button.menu_divider;
+  int item_gap = (cogito_menu.owner->button.menu_item_gap > 0) ? cogito_menu.owner->button.menu_item_gap : 
+                 (cogito_theme.menu.has_item_gap ? cogito_theme.menu.item_gap : (use_divider ? 0 : 4));
+  int divider_h = use_divider ? 1 : 0;
+  int current_y = y + cogito_menu.pad_top;
+  
   for (size_t i = 0; i < cogito_menu.owner->menu_len; i++) {
-    int iy = y + cogito_menu.pad_top + (int)i * cogito_menu.item_h;
     if ((int)i == hover) {
       int sel_radius = item_radius;
       if (sel_radius < 0) sel_radius = 0;
-      cogito_draw_rect(x, iy, w, cogito_menu.item_h, sel, sel_radius);
+      cogito_draw_rect(x, current_y, w, cogito_menu.item_h, sel, sel_radius);
     }
     const char* text = cogito_menu.owner->menu_labels[i] ? cogito_menu.owner->menu_labels[i]->data : "";
     int th = cogito_text_height_size(font_size);
-    int ty = iy + (cogito_menu.item_h - th) / 2;
+    int ty = current_y + (cogito_menu.item_h - th) / 2;
     cogito_draw_text_size_node(cogito_menu.owner, x + cogito_menu.pad_x, ty, text, text_color, font_size, false);
+    
+    // Draw divider if needed (check per-item section divider)
+    bool has_divider_after = false;
+    if (use_section) {
+      has_divider_after = cogito_menu.owner->menu_section_after[i];
+    } else if (cogito_menu.owner->button.menu_divider) {
+      has_divider_after = true;
+    }
+    if (has_divider_after && i < cogito_menu.owner->menu_len - 1) {
+      int divider_y = current_y + cogito_menu.item_h + item_gap;
+      CogitoColor divider_color = cogito_theme.menu.has_border ? cogito_theme.menu.border : cogito_rgba(180, 180, 180, 255);
+      int divider_inset = 16; // Inset from left and right
+      cogito_draw_line(x + divider_inset, divider_y, x + w - divider_inset, divider_y, divider_color);
+    }
+    
+    // Move to next item position
+    current_y += cogito_menu.item_h + item_gap;
+    if (has_divider_after && i < cogito_menu.owner->menu_len - 1) {
+      current_y += divider_h;
+    }
   }
 }

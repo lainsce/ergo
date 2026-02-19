@@ -167,6 +167,7 @@ typedef enum {
   COGITO_VIEW_CHOOSER,
   COGITO_ABOUT_WINDOW,
   COGITO_SPLIT_BUTTON,
+  COGITO_MENU_SECTION,
   COGITO_KIND_COUNT
 } CogitoKind;
 
@@ -239,6 +240,8 @@ typedef struct CogitoStyle {
   bool has_shadow;
   bool has_opacity;
   bool has_track_height;
+  bool has_divider;
+  bool has_item_gap;
   CogitoColor bg;
   CogitoColor text;
   CogitoColor border;
@@ -278,6 +281,8 @@ typedef struct CogitoStyle {
   int appbar_btn_pad_top;
   int appbar_btn_pad_right;
   int appbar_btn_border_width;
+  bool divider;
+  int item_gap;
   int shadow_level;
   int padding_left;
   int padding_top;
@@ -439,6 +444,8 @@ typedef struct CogitoNode {
   ErgoFn** menu_handlers;
   size_t menu_len;
   size_t menu_cap;
+  // Menu sections for intelligent dividers
+  bool* menu_section_after;
   ErgoStr** tab_labels;
   ErgoStr** tab_icons;
   ErgoStr** tab_ids;
@@ -697,7 +704,16 @@ typedef struct CogitoNode {
       bool circular;
       uint8_t shape;
     } progress;
-    struct { bool outlined, text_style; uint8_t size; int icon_shape; int icon_color_style; int icon_width; bool icon_toggle; } button;
+    struct {
+      bool outlined, text_style;
+      uint8_t size;
+      int icon_shape;
+      int icon_color_style;
+      int icon_width;
+      bool icon_toggle;
+      bool menu_divider;
+      int menu_item_gap;
+    } button;
     struct { bool selected, has_close; } chip;
     struct {
       bool dragging;
@@ -712,6 +728,7 @@ typedef struct CogitoNode {
     struct { double angle; double last_time; } indicator;
     struct { float ratio; bool dragging; int drag_offset; } view_dual;
     struct { int arrow_x; } split_btn;
+    struct { bool has_divider_before; bool has_divider_after; } menu_section;
   };
 } CogitoNode;
 

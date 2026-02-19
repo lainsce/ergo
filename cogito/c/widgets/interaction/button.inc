@@ -88,3 +88,42 @@ static void cogito_button_add_menu(ErgoVal btnv, ErgoVal label, ErgoVal handler)
   ErgoFn* fn = handler.tag == EVT_FN ? (ErgoFn*)handler.as.p : NULL;
   cogito_node_add_menu(btn, ts, fn);
 }
+
+static void cogito_button_add_menu_section(ErgoVal btnv, ErgoVal label, ErgoVal handler) {
+  if (btnv.tag != EVT_OBJ) ergo_trap("cogito.button_add_menu_section expects button");
+  CogitoNode* btn = (CogitoNode*)btnv.as.p;
+  ErgoStr* ts = stdr_to_string(label);
+  ErgoFn* fn = handler.tag == EVT_FN ? (ErgoFn*)handler.as.p : NULL;
+  cogito_node_add_menu_section(btn, ts, fn);
+}
+
+void cogito_button_set_menu_divider(ErgoVal btnv, ErgoVal dividerv) {
+  if (btnv.tag != EVT_OBJ) ergo_trap("cogito.button_set_menu_divider expects button");
+  CogitoNode* btn = (CogitoNode*)btnv.as.p;
+  if (btn->kind != COGITO_ICONBTN) ergo_trap("cogito.button_set_menu_divider expects button");
+  btn->button.menu_divider = ergo_as_bool(dividerv);
+  cogito_window_relayout(cogito_node_window(btn));
+}
+
+ErgoVal cogito_button_get_menu_divider(ErgoVal btnv) {
+  if (btnv.tag != EVT_OBJ) ergo_trap("cogito.button_get_menu_divider expects button");
+  CogitoNode* btn = (CogitoNode*)btnv.as.p;
+  if (btn->kind != COGITO_ICONBTN) ergo_trap("cogito.button_get_menu_divider expects button");
+  return EV_BOOL(btn->button.menu_divider);
+}
+
+void cogito_button_set_menu_item_gap(ErgoVal btnv, ErgoVal gapv) {
+  if (btnv.tag != EVT_OBJ) ergo_trap("cogito.button_set_menu_item_gap expects button");
+  CogitoNode* btn = (CogitoNode*)btnv.as.p;
+  if (btn->kind != COGITO_ICONBTN) ergo_trap("cogito.button_set_menu_item_gap expects button");
+  btn->button.menu_item_gap = (int)ergo_as_int(gapv);
+  if (btn->button.menu_item_gap < 0) btn->button.menu_item_gap = 0;
+  cogito_window_relayout(cogito_node_window(btn));
+}
+
+ErgoVal cogito_button_get_menu_item_gap(ErgoVal btnv) {
+  if (btnv.tag != EVT_OBJ) ergo_trap("cogito.button_get_menu_item_gap expects button");
+  CogitoNode* btn = (CogitoNode*)btnv.as.p;
+  if (btn->kind != COGITO_ICONBTN) ergo_trap("cogito.button_get_menu_item_gap expects button");
+  return EV_INT(btn->button.menu_item_gap);
+}

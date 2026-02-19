@@ -469,6 +469,13 @@ menu item
   background: #2c2c2e
   color: #f2f2f7
 
+menu_section
+  background: transparent
+
+menu_section item
+  background: #2c2c2e
+  color: #f2f2f7
+
 bottom-nav
   background: #1c1b1f
   color: #f2f2f7
