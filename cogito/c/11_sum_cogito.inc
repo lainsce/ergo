@@ -619,6 +619,18 @@ static bool cogito_sum_selector_kind(const char* sel, CogitoKind* out_kind, bool
       if (out_class) *out_class = COGITO_STYLE_CLASS_TEXT;
       return true;
     }
+    if (strcmp(class_part, "filled") == 0) {
+      if (out_class) *out_class = COGITO_STYLE_CLASS_FILLED;
+      return true;
+    }
+    if (strcmp(class_part, "tonal") == 0) {
+      if (out_class) *out_class = COGITO_STYLE_CLASS_TONAL;
+      return true;
+    }
+    if (strcmp(class_part, "iconic") == 0) {
+      if (out_class) *out_class = COGITO_STYLE_CLASS_ICONIC;
+      return true;
+    }
     int cls = cogito_label_class_from_name(class_part);
     if (cls != COGITO_LABEL_CLASS_NONE) {
       if (s[0] == 0 || strcmp(s, "label") == 0) {
@@ -630,6 +642,11 @@ static bool cogito_sum_selector_kind(const char* sel, CogitoKind* out_kind, bool
     if (out_custom_class && custom_class_cap > 0) {
       strncpy(out_custom_class, class_part, custom_class_cap - 1);
       out_custom_class[custom_class_cap - 1] = 0;
+    }
+    // Class-only selector (e.g. ".primary"): no widget type prefix → universal class
+    if (s[0] == 0) {
+      if (out_kind) *out_kind = COGITO_KIND_COUNT; // sentinel: matches any widget kind
+      return true;
     }
   }
   if (strcmp(s, "appbar") == 0) { if (out_kind) *out_kind = COGITO_APPBAR; return true; }
@@ -846,17 +863,35 @@ void cogito_sum_add_styles(const char* parent, const char* child, CogitoStyle** 
           else if (hover) style = &cogito_theme.class_tabular_hover;
           else style = &cogito_theme.class_tabular;
         } else if (class_kind == COGITO_STYLE_CLASS_OUTLINED) {
-          if (disabled) style = &cogito_theme.button_outlined_disabled;
-          else if (active) style = &cogito_theme.button_outlined_active;
-          else if (focused) style = &cogito_theme.button_outlined_focused;
-          else if (hover) style = &cogito_theme.button_outlined_hover;
-          else style = &cogito_theme.button_outlined;
+          if (kind == COGITO_ICONBTN) {
+            if (active) style = &cogito_theme.iconbtn_outlined_active;
+            else if (hover) style = &cogito_theme.iconbtn_outlined_hover;
+            else style = &cogito_theme.iconbtn_outlined;
+          } else {
+            if (disabled) style = &cogito_theme.button_outlined_disabled;
+            else if (active) style = &cogito_theme.button_outlined_active;
+            else if (focused) style = &cogito_theme.button_outlined_focused;
+            else if (hover) style = &cogito_theme.button_outlined_hover;
+            else style = &cogito_theme.button_outlined;
+          }
         } else if (class_kind == COGITO_STYLE_CLASS_TEXT) {
           if (disabled) style = &cogito_theme.button_text_disabled;
           else if (active) style = &cogito_theme.button_text_active;
           else if (focused) style = &cogito_theme.button_text_focused;
           else if (hover) style = &cogito_theme.button_text_hover;
           else style = &cogito_theme.button_text;
+        } else if (class_kind == COGITO_STYLE_CLASS_FILLED) {
+          if (active) style = &cogito_theme.iconbtn_filled_active;
+          else if (hover) style = &cogito_theme.iconbtn_filled_hover;
+          else style = &cogito_theme.iconbtn_filled;
+        } else if (class_kind == COGITO_STYLE_CLASS_TONAL) {
+          if (active) style = &cogito_theme.iconbtn_tonal_active;
+          else if (hover) style = &cogito_theme.iconbtn_tonal_hover;
+          else style = &cogito_theme.iconbtn_tonal;
+        } else if (class_kind == COGITO_STYLE_CLASS_ICONIC) {
+          if (active) style = &cogito_theme.iconbtn_iconic_active;
+          else if (hover) style = &cogito_theme.iconbtn_iconic_hover;
+          else style = &cogito_theme.iconbtn_iconic;
         }
       } else if (label_class != COGITO_LABEL_CLASS_NONE) {
         if (checked) style = &cogito_theme.label_class_checked[label_class];

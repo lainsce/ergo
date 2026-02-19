@@ -242,7 +242,8 @@ static void cogito_style_dump_print_node(const CogitoNode* n, int depth) {
   if (n->class_name && n->class_name->data && n->class_name->len > 0) {
     for (int i = 0; i < cogito_theme.custom_class_count; i++) {
       if (strcmp(cogito_theme.custom_classes[i].name, n->class_name->data) == 0 &&
-          cogito_theme.custom_classes[i].kind == n->kind) {
+          (cogito_theme.custom_classes[i].kind == n->kind ||
+           cogito_theme.custom_classes[i].kind == COGITO_KIND_COUNT)) {
         custom_index = i;
         snprintf(custom_origin, sizeof(custom_origin), "custom:%s", cogito_theme.custom_classes[i].name);
         CogitoColor saved_bg = s.bg;

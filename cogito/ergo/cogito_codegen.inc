@@ -2345,6 +2345,151 @@
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_iconbtn_set_shape")) {
+                        GenExpr btn, shape;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &shape, err)) { gen_expr_free(&btn); return false; }
+                        w_line(&cg->w, "cogito_iconbtn_set_shape(%s, %s);", btn.tmp, shape.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", shape.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_release_except(cg, &shape, shape.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_free(&shape);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_iconbtn_get_shape")) {
+                        GenExpr btn;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_iconbtn_get_shape(%s);", t, btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_iconbtn_set_color_style")) {
+                        GenExpr btn, style;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &style, err)) { gen_expr_free(&btn); return false; }
+                        w_line(&cg->w, "cogito_iconbtn_set_color_style(%s, %s);", btn.tmp, style.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", style.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_release_except(cg, &style, style.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_free(&style);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_iconbtn_get_color_style")) {
+                        GenExpr btn;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_iconbtn_get_color_style(%s);", t, btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_iconbtn_set_width")) {
+                        GenExpr btn, width;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &width, err)) { gen_expr_free(&btn); return false; }
+                        w_line(&cg->w, "cogito_iconbtn_set_width(%s, %s);", btn.tmp, width.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", width.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_release_except(cg, &width, width.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_free(&width);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_iconbtn_get_width")) {
+                        GenExpr btn;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_iconbtn_get_width(%s);", t, btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_iconbtn_set_toggle")) {
+                        GenExpr btn, toggle;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &toggle, err)) { gen_expr_free(&btn); return false; }
+                        w_line(&cg->w, "cogito_iconbtn_set_toggle(%s, %s);", btn.tmp, toggle.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", toggle.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_release_except(cg, &toggle, toggle.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_free(&toggle);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_iconbtn_get_toggle")) {
+                        GenExpr btn;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_iconbtn_get_toggle(%s);", t, btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_iconbtn_set_checked")) {
+                        GenExpr btn, checked;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &checked, err)) { gen_expr_free(&btn); return false; }
+                        w_line(&cg->w, "cogito_iconbtn_set_checked(%s, %s);", btn.tmp, checked.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", checked.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_release_except(cg, &checked, checked.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_free(&checked);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_iconbtn_get_checked")) {
+                        GenExpr btn;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_iconbtn_get_checked(%s);", t, btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_run")) {
                         GenExpr app, win;
                         if (!gen_expr(cg, path, e->as.call.args[0], &app, err)) return false;

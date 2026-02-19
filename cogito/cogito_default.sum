@@ -66,10 +66,6 @@ dialogslot
 button
   background: @primary
   color: @on-primary
-  border-radius: 100
-  min-width: 0
-  min-height: 40
-  padding: 0
 
 button:hover
   background: #7965af
@@ -80,9 +76,6 @@ button:active
 button.outlined
   background: transparent
   color: @primary
-  border-radius: 20
-  min-width: 0
-  min-height: 40
   border: 1 solid @outline
 
 button.outlined:hover
@@ -99,10 +92,6 @@ button.outlined:disabled
 button.text
   background: transparent
   color: @primary
-  border-radius: 20
-  min-width: 0
-  min-height: 40
-  padding: 0
 
 button.text:hover
   background: alpha(@primary, 12%)
@@ -322,35 +311,25 @@ toolbar
 
 toolbar.floating
   border-radius: 999
-  border: 1 solid #0000001f
   elevation: 1
+  padding: 8
 
 toolbar.floating_compact
   border-radius: 999
-  border: 1 solid #0000001f
   elevation: 1
   padding: 8
 
 iconbtn
   background: #0000000d
   color: #222222
-  border-radius: 99
-  min-width: 40
-  min-height: 40
 
 iconbtn.toolbar_float_icon
   background: #f6f6f6
   color: #222222
-  border-radius: 99
-  min-width: 48
-  min-height: 48
 
 iconbtn.toolbar_plus
   background: #f7dde8
   color: #6f4258
-  border-radius: 20
-  min-width: 56
-  min-height: 56
   elevation: 3
 
 label

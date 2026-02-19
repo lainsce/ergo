@@ -116,6 +116,18 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_hstack_new cogito_hstack_new_ergo
 #define cogito_iconbtn_add_menu cogito_iconbtn_add_menu_ergo
 #define cogito_iconbtn_new cogito_iconbtn_new_ergo
+#define cogito_iconbtn_set_shape cogito_iconbtn_set_shape_ergo
+#define cogito_iconbtn_get_shape cogito_iconbtn_get_shape_ergo
+#define cogito_iconbtn_set_color_style cogito_iconbtn_set_color_style_ergo
+#define cogito_iconbtn_get_color_style cogito_iconbtn_get_color_style_ergo
+#define cogito_iconbtn_set_width cogito_iconbtn_set_width_ergo
+#define cogito_iconbtn_get_width cogito_iconbtn_get_width_ergo
+#define cogito_iconbtn_set_toggle cogito_iconbtn_set_toggle_ergo
+#define cogito_iconbtn_get_toggle cogito_iconbtn_get_toggle_ergo
+#define cogito_iconbtn_set_checked cogito_iconbtn_set_checked_ergo
+#define cogito_iconbtn_get_checked cogito_iconbtn_get_checked_ergo
+#define cogito_iconbtn_get_size cogito_iconbtn_get_size_ergo
+#define cogito_iconbtn_set_size cogito_iconbtn_set_size_ergo
 #define cogito_image_new cogito_image_new_ergo
 #define cogito_image_set_icon cogito_image_set_icon_ergo
 #define cogito_image_set_source cogito_image_set_source_ergo
@@ -373,6 +385,18 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_hstack_new
 #undef cogito_iconbtn_add_menu
 #undef cogito_iconbtn_new
+#undef cogito_iconbtn_set_shape
+#undef cogito_iconbtn_get_shape
+#undef cogito_iconbtn_set_color_style
+#undef cogito_iconbtn_get_color_style
+#undef cogito_iconbtn_set_width
+#undef cogito_iconbtn_get_width
+#undef cogito_iconbtn_set_toggle
+#undef cogito_iconbtn_get_toggle
+#undef cogito_iconbtn_set_checked
+#undef cogito_iconbtn_get_checked
+#undef cogito_iconbtn_set_size
+#undef cogito_iconbtn_get_size
 #undef cogito_image_new
 #undef cogito_image_set_icon
 #undef cogito_image_set_source
@@ -1937,6 +1961,17 @@ int cogito_button_get_size(cogito_node* button) {
   return (int)ergo_as_int(v);
 }
 
+void cogito_iconbtn_set_size(cogito_node* iconbtn, int size) {
+  if (!iconbtn) return;
+  cogito_iconbtn_set_size_ergo(EV_OBJ(iconbtn), EV_INT(size));
+}
+
+int cogito_iconbtn_get_size(cogito_node* iconbtn) {
+  if (!iconbtn) return 2;
+  ErgoVal v = cogito_iconbtn_get_size_ergo(EV_OBJ(iconbtn));
+  return (int)ergo_as_int(v);
+}
+
 void cogito_button_add_menu(cogito_node* button, const char* label, cogito_node_fn fn, void* user) {
   if (!button) return;
   ErgoVal lv = cogito_val_from_cstr(label);
@@ -1951,6 +1986,52 @@ void cogito_button_add_menu(cogito_node* button, const char* label, cogito_node_
   cogito_button_add_menu_ergo(EV_OBJ(button), lv, handler);
   if (lv.tag == EVT_STR) ergo_release_val(lv);
   if (handler.tag == EVT_FN) ergo_release_val(handler);
+}
+
+void cogito_iconbtn_set_shape(cogito_node* button, int shape) {
+  if (!button) return;
+  cogito_iconbtn_set_shape_ergo(EV_OBJ(button), EV_INT(shape));
+}
+int cogito_iconbtn_get_shape(cogito_node* button) {
+  if (!button) return 0;
+  ErgoVal v = cogito_iconbtn_get_shape_ergo(EV_OBJ(button));
+  return (int)ergo_as_int(v);
+}
+void cogito_iconbtn_set_color_style(cogito_node* button, int style) {
+  if (!button) return;
+  cogito_iconbtn_set_color_style_ergo(EV_OBJ(button), EV_INT(style));
+}
+int cogito_iconbtn_get_color_style(cogito_node* button) {
+  if (!button) return 1;
+  ErgoVal v = cogito_iconbtn_get_color_style_ergo(EV_OBJ(button));
+  return (int)ergo_as_int(v);
+}
+void cogito_iconbtn_set_width(cogito_node* button, int width) {
+  if (!button) return;
+  cogito_iconbtn_set_width_ergo(EV_OBJ(button), EV_INT(width));
+}
+int cogito_iconbtn_get_width(cogito_node* button) {
+  if (!button) return 1;
+  ErgoVal v = cogito_iconbtn_get_width_ergo(EV_OBJ(button));
+  return (int)ergo_as_int(v);
+}
+void cogito_iconbtn_set_toggle(cogito_node* button, bool on) {
+  if (!button) return;
+  cogito_iconbtn_set_toggle_ergo(EV_OBJ(button), EV_BOOL(on));
+}
+bool cogito_iconbtn_get_toggle(cogito_node* button) {
+  if (!button) return false;
+  ErgoVal v = cogito_iconbtn_get_toggle_ergo(EV_OBJ(button));
+  return ergo_as_bool(v);
+}
+void cogito_iconbtn_set_checked(cogito_node* button, bool checked) {
+  if (!button) return;
+  cogito_iconbtn_set_checked_ergo(EV_OBJ(button), EV_BOOL(checked));
+}
+bool cogito_iconbtn_get_checked(cogito_node* button) {
+  if (!button) return false;
+  ErgoVal v = cogito_iconbtn_get_checked_ergo(EV_OBJ(button));
+  return ergo_as_bool(v);
 }
 
 void cogito_iconbtn_add_menu(cogito_node* button, const char* label, cogito_node_fn fn, void* user) {

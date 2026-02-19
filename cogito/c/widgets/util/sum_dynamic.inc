@@ -256,14 +256,14 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "button.outlined:active\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, "button.outlined:disabled\n  color: %s61\n  border-color: %s12\n", ons, ons);
   cogito_sum_append(out, cap, &off, "button.outlined:hover\n  background: %s\n  border-color: %s\n", p, p);
-  cogito_sum_append(out, cap, &off, "button.outlined\n  background: transparent\n  color: %s\n  border-radius: 100\n  min-height: 40\n  border: 1 solid %s\n", p, outl);
+  cogito_sum_append(out, cap, &off, "button.outlined\n  background: transparent\n  color: %s\n  border: 1 solid %s\n", p, outl);
   cogito_sum_append(out, cap, &off, "button.text:active\n  background: %s1f\n", p);
   cogito_sum_append(out, cap, &off, "button.text:disabled\n  color: %s61\n", ons);
   cogito_sum_append(out, cap, &off, "button.text:hover\n  background: %s12\n  color: %s\n", p, ons);
-  cogito_sum_append(out, cap, &off, "button.text\n  background: transparent\n  color: %s\n  border-radius: 100\n  min-height: 40\n  box-shadow: none\n  padding: 0\n", p);
-  cogito_sum_append(out, cap, &off, "button.toolbar_format\n  background: transparent\n  color: %s\n  border-radius: 100\n  min-width: 40\n  min-height: 48\n  padding: 0 8\n  box-shadow: none\n", p);
-  cogito_sum_append(out, cap, &off, "button.toolbar_format_active\n  background: %s\n  color: %s\n  border-radius: 100\n  min-width: 56\n  min-height: 48\n  padding: 0 20\n  box-shadow: none\n", p, op);
-  cogito_sum_append(out, cap, &off, "button\n  background: %s\n  color: %s\n  border-radius: 100\n  font-weight: bold\n  min-width: 0\n  min-height: 40\n  padding: 0\n  transition: 180 standard\n", p, op);
+  cogito_sum_append(out, cap, &off, "button.text\n  background: transparent\n  color: %s\n  box-shadow: none\n  padding: 0\n", p);
+  cogito_sum_append(out, cap, &off, "button.toolbar_format\n  background: transparent\n  color: %s\n  min-width: 40\n  min-height: 48\n  padding: 0 8\n  box-shadow: none\n", p);
+  cogito_sum_append(out, cap, &off, "button.toolbar_format_active\n  background: %s\n  color: %s\n  min-width: 56\n  min-height: 56\n  padding: 0 16\n  box-shadow: none\n", p, op);
+  cogito_sum_append(out, cap, &off, "button\n  background: %s\n  color: %s\n  font-weight: bold\n  transition: 180 standard\n", p, op);
   cogito_sum_append(out, cap, &off, "card:hover\n  box-shadow: [ 0 2 8 0 #0000002a ]\n");
   cogito_sum_append(out, cap, &off, "card\n  background: %s\n  color: %s\n  border-radius: 12\n  padding: 16\n  transition: 200 standard\n", sc, ons);
   cogito_sum_append(out, cap, &off, "carousel_item\n  background: %s\n  color: %s\n  border-radius: 26\n  padding: 16\n", sc, ons);
@@ -310,11 +310,29 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "grid:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off, "grid\n  background: %s\n  color: %s\n  border-radius: 12\n", sc, ons);
   cogito_sum_append(out, cap, &off, "hstack\n  background: %s\n  color: %s\n", bg, ons);
-  cogito_sum_append(out, cap, &off, "iconbtn:active\n  background: %s\n  border-radius: 99\n  min-width: 40\n  min-height: 40\n  color: %s\n", p, op);
-  cogito_sum_append(out, cap, &off, "iconbtn:hover\n  background: %s\n  border-radius: 99\n  min-width: 40\n  min-height: 40\n  color: %s\n", outl, ons);
+  // Default iconbtn (Iconic style - no background)
+  cogito_sum_append(out, cap, &off, "iconbtn\n  background: transparent\n  color: %s\n  transition: 150 standard\n", osurfvar);
+  cogito_sum_append(out, cap, &off, "iconbtn:hover\n  background: %s\n  color: %s\n", surfvar, osurfvar);
+  cogito_sum_append(out, cap, &off, "iconbtn:active\n  background: %s\n  color: %s\n", surfvar, p);
+  // Filled (color_style=0): primary bg, on_primary icon
+  cogito_sum_append(out, cap, &off, "iconbtn.filled\n  background: %s\n  color: %s\n  transition: 150 standard\n", p, op);
+  cogito_sum_append(out, cap, &off, "iconbtn.filled:hover\n  background: %s\n  color: %s\n", pc, opc);
+  cogito_sum_append(out, cap, &off, "iconbtn.filled:active\n  background: %s\n  color: %s\n", pc, opc);
+  // Tonal (color_style=1): primary_container bg, on_primary_container icon
+  cogito_sum_append(out, cap, &off, "iconbtn.tonal\n  background: %s\n  color: %s\n  transition: 150 standard\n", pc, opc);
+  cogito_sum_append(out, cap, &off, "iconbtn.tonal:hover\n  background: %s\n  color: %s\n", p, op);
+  cogito_sum_append(out, cap, &off, "iconbtn.tonal:active\n  background: %s\n  color: %s\n", p, op);
+  // Outlined (color_style=2): transparent bg, outline border, on_surface_variant icon
+  cogito_sum_append(out, cap, &off, "iconbtn.outlined\n  background: transparent\n  color: %s\n  border-color: %s\n  transition: 150 standard\n", osurfvar, outl);
+  cogito_sum_append(out, cap, &off, "iconbtn.outlined:hover\n  background: %s\n  color: %s\n  border-color: %s\n", surfvar, osurfvar, outl);
+  cogito_sum_append(out, cap, &off, "iconbtn.outlined:active\n  background: %s\n  color: %s\n  border-color: %s\n", p, op, p);
+  // Iconic (color_style=3): no bg, no border, on_surface_variant icon (same as default)
+  cogito_sum_append(out, cap, &off, "iconbtn.iconic\n  background: transparent\n  color: %s\n  transition: 150 standard\n", osurfvar);
+  cogito_sum_append(out, cap, &off, "iconbtn.iconic:hover\n  background: %s\n  color: %s\n", surfvar, osurfvar);
+  cogito_sum_append(out, cap, &off, "iconbtn.iconic:active\n  background: %s\n  color: %s\n", surfvar, p);
+  // Toolbar variants
   cogito_sum_append(out, cap, &off, "iconbtn.toolbar_float_icon\n  background: %s\n  color: %s\n  border-radius: 99\n  min-width: 48\n  min-height: 48\n", sc, ons);
   cogito_sum_append(out, cap, &off, "iconbtn.toolbar_plus\n  background: %s\n  color: %s\n  border-radius: 20\n  min-width: 56\n  min-height: 56\n  elevation: 3\n", secc, osecc);
-  cogito_sum_append(out, cap, &off, "iconbtn\n  background: %s\n  border-radius: 99\n  min-width: 40\n  min-height: 40\n  color: %s\n  transition: 150 standard\n", sclo, ons);
   cogito_sum_append(out, cap, &off, "image\n  background: transparent\n");
   cogito_sum_append(out, cap, &off, "label.carousel-item-label\n  font-size: 21\n  font-weight: bold\n  color: #ffffff\n");
   cogito_sum_append(out, cap, &off, "label\n  color: %s\n", ons);

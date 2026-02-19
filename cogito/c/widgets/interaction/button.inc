@@ -1,5 +1,6 @@
 static CogitoNode* cogito_button_new_obj(ErgoStr* label) {
   CogitoNode* btn = cogito_node_new(COGITO_BUTTON);
+  btn->button.size = COGITO_BUTTON_SIZE_M; // Default to M size
   cogito_node_set_text(btn, label);
   return btn;
 }
@@ -13,7 +14,7 @@ static ErgoVal cogito_button_new(ErgoVal text) {
   return EV_OBJ(btn);
 }
 static bool cogito_button_accepts_size(const CogitoNode* n) {
-  return n && (n->kind == COGITO_BUTTON || n->kind == COGITO_ICONBTN);
+  return n && (n->kind == COGITO_BUTTON);
 }
 static void cogito_button_set_text(ErgoVal btnv, ErgoVal text) {
   if (btnv.tag != EVT_OBJ) ergo_trap("cogito.button_set_text expects button");

@@ -33,7 +33,7 @@ fun build_button_page() (( cogito.VStack )) {
     vstack.add(filled)
 
     let outlined = cogito.button(@"Outlined")
-    outlined.set_class(@"outlined")
+    outlined.set_class(@"outlined") 
     outlined.on_click((b = cogito.Button) => {
         status.set_text(@"Outlined button clicked.")
     })
@@ -49,35 +49,160 @@ fun build_button_page() (( cogito.VStack )) {
     return vstack
 }
 
-fun build_iconbtn_page() (( cogito.VStack )) {
-    let vstack = build_page(@"Icon Button", @"Icon buttons are compact action targets that prioritize iconography over labels.")
+fun make_iconbtn_row(label_text = string, icon = string, color_style = num, shape = num) (( cogito.HStack )) {
+    let row = cogito.hstack()
+    row.set_gap(12)
+    row.set_padding(0, 0, 0, 0)
 
-    let status = cogito.label(@"Try the icon buttons.")
+    let lbl = cogito.label(label_text)
+    lbl.set_class(@"body")
+    lbl.set_hexpand(true)
+    row.add(lbl)
+
+    -- XS
+    let xs = cogito.iconbtn(icon)
+    xs.set_xs()
+    xs.set_color_style(color_style)
+    xs.set_shape(shape)
+    row.add(xs)
+
+    -- S (default)
+    let s = cogito.iconbtn(icon)
+    s.set_s()
+    s.set_color_style(color_style)
+    s.set_shape(shape)
+    row.add(s)
+
+    -- M
+    let m = cogito.iconbtn(icon)
+    m.set_color_style(color_style)
+    m.set_shape(shape)
+    row.add(m)
+    return row
+}
+
+fun build_iconbtn_page() (( cogito.VStack )) {
+    let vstack = build_page(@"Icon Button", @"Icon buttons come in 4 color styles (Filled, Tonal, Outlined, Iconic), 2 shapes (Circle, Rounded Square), and 3 widths (Narrow, Default, Wide).")
+
+    let status = cogito.label(@"Tap an icon button.")
     status.set_class(@"body")
     vstack.add(status)
 
-    let row = cogito.hstack()
-    row.set_gap(12)
+    -- Section: Color Styles (circle shape, default width)
+    let sec1 = cogito.label(@"Color Styles")
+    sec1.set_class(@"heading")
+    vstack.add(sec1)
 
-    let star = cogito.iconbtn(@"star")
-    star.on_click((b = cogito.Button) => {
-        status.set_text(@"Star clicked.")
+    -- Filled row
+    let filled_row = make_iconbtn_row(@"Filled", @"sf:pencil", 0, 0)
+    vstack.add(filled_row)
+
+    -- Tonal row
+    let tonal_row = make_iconbtn_row(@"Tonal", @"sf:pencil", 1, 0)
+    vstack.add(tonal_row)
+
+    -- Outlined row
+    let outlined_row = make_iconbtn_row(@"Outlined", @"sf:pencil", 2, 0)
+    vstack.add(outlined_row)
+
+    -- Iconic row
+    let iconic_row = make_iconbtn_row(@"Iconic", @"sf:pencil", 3, 0)
+    vstack.add(iconic_row)
+
+    -- Section: Shapes
+    let sec2 = cogito.label(@"Shapes")
+    sec2.set_class(@"heading")
+    vstack.add(sec2)
+
+    let shape_row = cogito.hstack()
+    shape_row.set_gap(12)
+
+    let circle_lbl = cogito.label(@"Circle")
+    circle_lbl.set_class(@"body")
+    shape_row.add(circle_lbl)
+
+    let circle_btn = cogito.iconbtn(@"sf:star.fill")
+    circle_btn.set_color_style(0)
+    circle_btn.set_shape(0)
+    shape_row.add(circle_btn)
+
+    let sq_lbl = cogito.label(@"Rounded Square")
+    sq_lbl.set_class(@"body")
+    shape_row.add(sq_lbl)
+
+    let sq_btn = cogito.iconbtn(@"sf:star.fill")
+    sq_btn.set_color_style(0)
+    sq_btn.set_shape(1)
+    shape_row.add(sq_btn)
+
+    vstack.add(shape_row)
+
+    -- Section: Widths
+    let sec3 = cogito.label(@"Widths")
+    sec3.set_class(@"heading")
+    vstack.add(sec3)
+
+    let width_row = cogito.hstack()
+    width_row.set_gap(12)
+
+    let narrow_lbl = cogito.label(@"Narrow")
+    narrow_lbl.set_class(@"body")
+    width_row.add(narrow_lbl)
+
+    let narrow_btn = cogito.iconbtn(@"sf:pencil")
+    narrow_btn.set_color_style(1)
+    narrow_btn.set_width(0)
+    width_row.add(narrow_btn)
+
+    let default_lbl = cogito.label(@"Default")
+    default_lbl.set_class(@"body")
+    width_row.add(default_lbl)
+
+    let default_btn = cogito.iconbtn(@"sf:pencil")
+    default_btn.set_color_style(1)
+    default_btn.set_width(1)
+    width_row.add(default_btn)
+
+    let wide_lbl = cogito.label(@"Wide")
+    wide_lbl.set_class(@"body")
+    width_row.add(wide_lbl)
+
+    let wide_btn = cogito.iconbtn(@"sf:pencil")
+    wide_btn.set_color_style(1)
+    wide_btn.set_width(2)
+    width_row.add(wide_btn)
+
+    vstack.add(width_row)
+
+    -- Section: Toggle
+    let sec4 = cogito.label(@"Toggle")
+    sec4.set_class(@"heading")
+    vstack.add(sec4)
+
+    let toggle_row = cogito.hstack()
+    toggle_row.set_gap(12)
+
+    let toggle_btn = cogito.iconbtn(@"sf:heart")
+    toggle_btn.set_color_style(0)
+    toggle_btn.set_shape(0)
+    toggle_btn.set_toggle(true)
+    toggle_btn.on_click((b = cogito.Button) => {
+        let state = if toggle_btn.checked() { @"on" } else { @"off" }
+        status.set_text(@"Toggle: $state")
     })
-    row.add(star)
+    toggle_row.add(toggle_btn)
 
-    let heart = cogito.iconbtn(@"heart")
-    heart.on_click((b = cogito.Button) => {
-        status.set_text(@"Heart clicked.")
+    let toggle_tonal = cogito.iconbtn(@"sf:bookmark")
+    toggle_tonal.set_color_style(1)
+    toggle_tonal.set_toggle(true)
+    toggle_tonal.on_click((b = cogito.Button) => {
+        let state = if toggle_tonal.checked() { @"bookmarked" } else { @"not bookmarked" }
+        status.set_text(@"Bookmark: $state")
     })
-    row.add(heart)
+    toggle_row.add(toggle_tonal)
 
-    let trash = cogito.iconbtn(@"trash")
-    trash.on_click((b = cogito.Button) => {
-        status.set_text(@"Trash clicked.")
-    })
-    row.add(trash)
+    vstack.add(toggle_row)
 
-    vstack.add(row)
     return vstack
 }
 

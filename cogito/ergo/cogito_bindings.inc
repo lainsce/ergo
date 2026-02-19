@@ -1683,6 +1683,79 @@ static void __cogito_iconbtn_add_menu(ErgoVal btnv, ErgoVal labelv, ErgoVal hand
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
 
+// Icon button setters/getters
+static void __cogito_iconbtn_set_shape(ErgoVal btnv, ErgoVal shapev) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  cogito_iconbtn_set_shape(btn, (int)ergo_as_int(shapev));
+}
+
+static ErgoVal __cogito_iconbtn_get_shape(ErgoVal btnv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  return EV_INT(cogito_iconbtn_get_shape(btn));
+}
+
+static void __cogito_iconbtn_set_color_style(ErgoVal btnv, ErgoVal stylev) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  cogito_iconbtn_set_color_style(btn, (int)ergo_as_int(stylev));
+}
+
+static ErgoVal __cogito_iconbtn_get_color_style(ErgoVal btnv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  return EV_INT(cogito_iconbtn_get_color_style(btn));
+}
+
+static void __cogito_iconbtn_set_width(ErgoVal btnv, ErgoVal widthv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  cogito_iconbtn_set_width(btn, (int)ergo_as_int(widthv));
+}
+
+static ErgoVal __cogito_iconbtn_get_width(ErgoVal btnv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  return EV_INT(cogito_iconbtn_get_width(btn));
+}
+
+static void __cogito_iconbtn_set_toggle(ErgoVal btnv, ErgoVal togglev) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  cogito_iconbtn_set_toggle(btn, ergo_as_bool(togglev));
+}
+
+static ErgoVal __cogito_iconbtn_get_toggle(ErgoVal btnv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  return EV_BOOL(cogito_iconbtn_get_toggle(btn));
+}
+
+static void __cogito_iconbtn_set_checked(ErgoVal btnv, ErgoVal checkedv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  cogito_iconbtn_set_checked(btn, ergo_as_bool(checkedv));
+}
+
+static ErgoVal __cogito_iconbtn_get_checked(ErgoVal btnv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  return EV_BOOL(cogito_iconbtn_get_checked(btn));
+}
+
+static void __cogito_iconbtn_set_size(ErgoVal btnv, ErgoVal sizev) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  cogito_iconbtn_set_size(btn, (int)ergo_as_int(sizev));
+}
+
+static ErgoVal __cogito_iconbtn_get_size(ErgoVal btnv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  return EV_INT(cogito_iconbtn_get_size(btn));
+}
+
+static void __cogito_iconbtn_on_click(ErgoVal btnv, ErgoVal handler) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  CogitoHandle* h = (CogitoHandle*)btnv.as.p;
+  if (handler.tag != EVT_FN) {
+    cogito_set_handler(h, &h->on_click, handler);
+    cogito_node_on_click(btn, NULL, NULL);
+    return;
+  }
+  cogito_set_handler(h, &h->on_click, handler);
+  cogito_node_on_click(btn, cogito_cb_click, h);
+}
+
 static void __cogito_checkbox_set_checked(ErgoVal cbv, ErgoVal checkedv) {
   cogito_node* cb = cogito_node_from_val(cbv);
   cogito_checkbox_set_checked(cb, checkedv.tag == EVT_BOOL ? checkedv.as.b : false);
@@ -2560,6 +2633,20 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 void __cogito_button_on_click(ErgoVal btn, ErgoVal handler);
 #define cogito_button_on_click __cogito_button_on_click
 #define cogito_button_add_menu __cogito_button_add_menu
+#define cogito_iconbtn_add_menu __cogito_iconbtn_add_menu
+#define cogito_iconbtn_set_shape __cogito_iconbtn_set_shape
+#define cogito_iconbtn_get_shape __cogito_iconbtn_get_shape
+#define cogito_iconbtn_set_color_style __cogito_iconbtn_set_color_style
+#define cogito_iconbtn_get_color_style __cogito_iconbtn_get_color_style
+#define cogito_iconbtn_set_width __cogito_iconbtn_set_width
+#define cogito_iconbtn_get_width __cogito_iconbtn_get_width
+#define cogito_iconbtn_set_toggle __cogito_iconbtn_set_toggle
+#define cogito_iconbtn_get_toggle __cogito_iconbtn_get_toggle
+#define cogito_iconbtn_set_checked __cogito_iconbtn_set_checked
+#define cogito_iconbtn_get_checked __cogito_iconbtn_get_checked
+#define cogito_iconbtn_set_size __cogito_iconbtn_set_size
+#define cogito_iconbtn_get_size __cogito_iconbtn_get_size
+#define cogito_iconbtn_on_click __cogito_iconbtn_on_click
 #define cogito_fab_set_extended __cogito_fab_set_extended
 #define cogito_fab_on_click __cogito_fab_on_click
 #define cogito_chip_new __cogito_chip

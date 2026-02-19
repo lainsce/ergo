@@ -384,6 +384,19 @@ typedef struct CogitoTheme {
   CogitoStyle button_text_active;
   CogitoStyle button_text_focused;
   CogitoStyle button_text_disabled;
+  // Iconbtn color styles (0=filled, 1=tonal, 2=outlined, 3=iconic)
+  CogitoStyle iconbtn_filled;
+  CogitoStyle iconbtn_filled_hover;
+  CogitoStyle iconbtn_filled_active;
+  CogitoStyle iconbtn_tonal;
+  CogitoStyle iconbtn_tonal_hover;
+  CogitoStyle iconbtn_tonal_active;
+  CogitoStyle iconbtn_outlined;
+  CogitoStyle iconbtn_outlined_hover;
+  CogitoStyle iconbtn_outlined_active;
+  CogitoStyle iconbtn_iconic;
+  CogitoStyle iconbtn_iconic_hover;
+  CogitoStyle iconbtn_iconic_active;
   CogitoCustomClassStyle custom_classes[COGITO_MAX_CUSTOM_CLASSES];
   int custom_class_count;
 } CogitoTheme;
@@ -684,7 +697,7 @@ typedef struct CogitoNode {
       bool circular;
       uint8_t shape;
     } progress;
-    struct { bool outlined, text_style; uint8_t size; } button;
+    struct { bool outlined, text_style; uint8_t size; int icon_shape; int icon_color_style; int icon_width; bool icon_toggle; } button;
     struct { bool selected, has_close; } chip;
     struct {
       bool dragging;
@@ -792,7 +805,10 @@ enum {
   COGITO_STYLE_CLASS_MONO,
   COGITO_STYLE_CLASS_TABULAR,
   COGITO_STYLE_CLASS_OUTLINED,
-  COGITO_STYLE_CLASS_TEXT
+  COGITO_STYLE_CLASS_TEXT,
+  COGITO_STYLE_CLASS_FILLED,
+  COGITO_STYLE_CLASS_TONAL,
+  COGITO_STYLE_CLASS_ICONIC
 };
 enum {
   COGITO_PROGRESS_SHAPE_FLAT = 0,
@@ -811,7 +827,7 @@ enum {
   COGITO_SLIDER_SIZE_XL
 };
 enum {
-  COGITO_BUTTON_SIZE_XS = 1,
+  COGITO_BUTTON_SIZE_XS = 0,
   COGITO_BUTTON_SIZE_S,
   COGITO_BUTTON_SIZE_M,
   COGITO_BUTTON_SIZE_L,
@@ -824,17 +840,30 @@ static uint8_t cogito_button_clamp_size_int(int size) {
   return (uint8_t)size;
 }
 
+static uint8_t cogito_iconbtn_clamp_size_int(int size) {
+  if (size < COGITO_BUTTON_SIZE_XS) return (uint8_t)COGITO_BUTTON_SIZE_XS;
+  if (size > COGITO_BUTTON_SIZE_XL) return (uint8_t)COGITO_BUTTON_SIZE_XL;
+  return (uint8_t)size;
+}
+
 static void cogito_button_size_metrics(int size, int* out_h, int* out_pad_x, int* out_icon, int* out_gap) {
-  int h = 40;
-  int pad_x = 16;
-  int icon = 20;
-  int gap = 8;
+  // Size tiers = (XS, S, M, L, XL):
+  // Heights:  XS=32, S=40, M=56, L=96, XL=136
+  // Icons:    XS=20, S=24, M=24, L=32, XL=40
+  // Padding:  XS=12, S=16, M=24, L=48, XL=64
+  // Gap:      XS=4,  S=8,  M=8,  L=12, XL=16
   uint8_t clamped = cogito_button_clamp_size_int(size);
+  int h = 0, pad_x = 0, icon = 0, gap = 0;
   if (clamped == COGITO_BUTTON_SIZE_XS) {
     h = 32;
     pad_x = 12;
     icon = 20;
     gap = 4;
+  } else if (clamped == COGITO_BUTTON_SIZE_S) {
+    h = 40;
+    pad_x = 16;
+    icon = 24;
+    gap = 8;
   } else if (clamped == COGITO_BUTTON_SIZE_M) {
     h = 56;
     pad_x = 24;
@@ -850,6 +879,11 @@ static void cogito_button_size_metrics(int size, int* out_h, int* out_pad_x, int
     pad_x = 64;
     icon = 40;
     gap = 16;
+  } else {
+    h = 56;
+    pad_x = 24;
+    icon = 24;
+    gap = 8;
   }
   if (out_h) *out_h = h;
   if (out_pad_x) *out_pad_x = pad_x;

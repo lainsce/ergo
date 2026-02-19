@@ -139,20 +139,14 @@ static void cogito_theme_set_defaults(void) {
   CogitoStyle* btn = &cogito_theme.per_kind[COGITO_BUTTON];
   btn->has_bg = true;
   btn->bg = cogito_rgba(230, 230, 230, 255);
-  btn->has_radius = true;
-  btn->radius = 6;
 
   CogitoStyle* icon = &cogito_theme.per_kind[COGITO_ICONBTN];
   icon->has_bg = true;
   icon->bg = cogito_rgba(230, 230, 230, 255);
-  icon->has_radius = true;
-  icon->radius = 16;
 
   CogitoStyle* list = &cogito_theme.per_kind[COGITO_LIST];
   list->has_bg = true;
   list->bg = cogito_rgba(255, 255, 255, 255);
-  list->has_radius = true;
-  list->radius = 0;
   list->has_selection = true;
   list->selection = cogito_rgba(208, 220, 245, 255);
 
@@ -302,9 +296,10 @@ static CogitoStyle cogito_theme_resolve_node(const CogitoNode* n) {
     CogitoColor saved_bg = s.bg;
     bool saved_has_bg = s.has_bg;
     for (int i = 0; i < cogito_theme.custom_class_count; i++) {
-      // Match both class name and widget kind
+      // Match class name and widget kind; COGITO_KIND_COUNT means universal (any kind)
       if (strcmp(cogito_theme.custom_classes[i].name, n->class_name->data) == 0 &&
-          cogito_theme.custom_classes[i].kind == n->kind) {
+          (cogito_theme.custom_classes[i].kind == n->kind ||
+           cogito_theme.custom_classes[i].kind == COGITO_KIND_COUNT)) {
         s = cogito_style_merge(&s, &cogito_theme.custom_classes[i].style);
       }
     }
@@ -445,6 +440,37 @@ static CogitoStyle cogito_theme_resolve_node_state(const CogitoNode* n, bool hov
   bool focused = (!disabled && n && n == cogito_focused);
   if (n && (n->kind == COGITO_CHECKBOX || n->kind == COGITO_SWITCH)) checked = n->checked;
   else if (n && n->kind == COGITO_CHIP) checked = n->chip.selected;
+  // Apply iconbtn color style base BEFORE per_kind hover/active so color style wins
+  bool iconbtn_has_custom_class = (n->class_name && n->class_name->data && n->class_name->data[0]);
+  if (n->kind == COGITO_ICONBTN && !iconbtn_has_custom_class) {
+    int cs = n->button.icon_color_style;
+    if (cs == 0) {
+      s = cogito_style_merge(&s, &cogito_theme.iconbtn_filled);
+      if (!disabled) {
+        if (active) s = cogito_style_merge(&s, &cogito_theme.iconbtn_filled_active);
+        else if (hover) s = cogito_style_merge(&s, &cogito_theme.iconbtn_filled_hover);
+      }
+    } else if (cs == 1) {
+      s = cogito_style_merge(&s, &cogito_theme.iconbtn_tonal);
+      if (!disabled) {
+        if (active) s = cogito_style_merge(&s, &cogito_theme.iconbtn_tonal_active);
+        else if (hover) s = cogito_style_merge(&s, &cogito_theme.iconbtn_tonal_hover);
+      }
+    } else if (cs == 2) {
+      s = cogito_style_merge(&s, &cogito_theme.iconbtn_outlined);
+      if (!disabled) {
+        if (active) s = cogito_style_merge(&s, &cogito_theme.iconbtn_outlined_active);
+        else if (hover) s = cogito_style_merge(&s, &cogito_theme.iconbtn_outlined_hover);
+      }
+    } else { // Iconic (3 or default)
+      s = cogito_style_merge(&s, &cogito_theme.iconbtn_iconic);
+      if (!disabled) {
+        if (active) s = cogito_style_merge(&s, &cogito_theme.iconbtn_iconic_active);
+        else if (hover) s = cogito_style_merge(&s, &cogito_theme.iconbtn_iconic_hover);
+      }
+    }
+    return s; // Skip per_kind hover/active for iconbtn — color style handles it
+  }
   if (checked) s = cogito_style_merge(&s, &cogito_theme.per_kind_checked[n->kind]);
   if (disabled) s = cogito_style_merge(&s, &cogito_theme.per_kind_disabled[n->kind]);
   else if (active) s = cogito_style_merge(&s, &cogito_theme.per_kind_active[n->kind]);
@@ -511,7 +537,8 @@ static CogitoStyle cogito_theme_resolve_node_state(const CogitoNode* n, bool hov
   if (n->class_name && n->class_name->data && n->class_name->len > 0) {
     for (int i = 0; i < cogito_theme.custom_class_count; i++) {
       if (strcmp(cogito_theme.custom_classes[i].name, n->class_name->data) == 0 &&
-          cogito_theme.custom_classes[i].kind == n->kind) {
+          (cogito_theme.custom_classes[i].kind == n->kind ||
+           cogito_theme.custom_classes[i].kind == COGITO_KIND_COUNT)) {
         if (checked) s = cogito_style_merge(&s, &cogito_theme.custom_classes[i].checked);
         if (disabled) {
           s = cogito_style_merge(&s, &cogito_theme.custom_classes[i].disabled);
@@ -579,7 +606,9 @@ static void cogito_apply_style_to_node(CogitoNode* n) {
   else { n->border_color_set = false; n->border_color = cogito_rgba(0, 0, 0, 0); }
   if (s.has_border_width) { n->border_width = s.border_width; n->border_width_set = true; }
   else { n->border_width = 0; n->border_width_set = false; }
-  if (s.has_radius) { n->border_radius = s.radius; n->radius_set = true; }
+  // For iconbtn, radius is controlled by icon_shape in draw code; don't bake it in
+  if (s.has_radius && n->kind != COGITO_ICONBTN) { n->border_radius = s.radius; n->radius_set = true; }
+  else if (n->kind != COGITO_ICONBTN) { n->radius_set = false; }
   if (s.has_selection) { n->selection_color = s.selection; n->selection_set = true; }
   else { n->selection_set = false; }
   if (s.has_track) { n->track_color = s.track; n->track_set = true; }
