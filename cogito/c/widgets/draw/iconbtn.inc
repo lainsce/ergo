@@ -93,13 +93,17 @@ case COGITO_ICONBTN: {
           }
         }
         if (border_w > 0 || n->button.outlined) {
-          cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border, radius, border_w);
+          int draw_border_w = border_w;
+          if (n->button.outlined && draw_border_w == 0) {
+            draw_border_w = 1; // Default border width for outlined icon buttons
+          }
+          cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border, radius, draw_border_w);
         }
       }
       if (n->text) {
         int btn_min = n->w < n->h ? n->w : n->h;
-        int default_icon = 20;
-        cogito_button_size_metrics((int)n->button.size, NULL, NULL, &default_icon, NULL);
+        int default_icon = 24;
+        cogito_button_size_metrics((int)n->button.size, n->kind, NULL, NULL, &default_icon, NULL);
         // Icon sizes per size tier (from spec): XS=20, S=24, M=24, L=32, XL=40
         // cogito_button_size_metrics already returns these correctly via out_icon
         int target = s.has_icon_size ? s.icon_size : default_icon;

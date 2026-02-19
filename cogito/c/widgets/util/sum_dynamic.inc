@@ -323,7 +323,7 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "iconbtn.tonal:hover\n  background: %s\n  color: %s\n", p, op);
   cogito_sum_append(out, cap, &off, "iconbtn.tonal:active\n  background: %s\n  color: %s\n", p, op);
   // Outlined (color_style=2): transparent bg, outline border, on_surface_variant icon
-  cogito_sum_append(out, cap, &off, "iconbtn.outlined\n  background: transparent\n  color: %s\n  border-color: %s\n  transition: 150 standard\n", osurfvar, outl);
+  cogito_sum_append(out, cap, &off, "iconbtn.outlined\n  background: transparent\n  color: %s\n  border: 1 solid %s\n  transition: 150 standard\n", osurfvar, outl);
   cogito_sum_append(out, cap, &off, "iconbtn.outlined:hover\n  background: %s\n  color: %s\n  border-color: %s\n", surfvar, osurfvar, outl);
   cogito_sum_append(out, cap, &off, "iconbtn.outlined:active\n  background: %s\n  color: %s\n  border-color: %s\n", p, op, p);
   // Iconic (color_style=3): no bg, no border, on_surface_variant icon (same as default)

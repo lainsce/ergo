@@ -311,7 +311,7 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
   }
   int w = 0;
   int h = 0;
-  int pad = 6;
+  int pad = 8;
   switch (n->kind) {
 
     #include "widgets/intrinsic/button.inc"

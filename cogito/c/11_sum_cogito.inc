@@ -603,50 +603,54 @@ static bool cogito_sum_selector_kind(const char* sel, CogitoKind* out_kind, bool
     return true;
   }
   if (class_part) {
+    bool found_special_class = false;
     if (strcmp(class_part, "monospace") == 0 || strcmp(class_part, "mono") == 0) {
       if (out_class) *out_class = COGITO_STYLE_CLASS_MONO;
-      return true;
-    }
-    if (strcmp(class_part, "tabular") == 0 || strcmp(class_part, "tnum") == 0 || strcmp(class_part, "tabular-nums") == 0) {
+      found_special_class = true;
+    } else if (strcmp(class_part, "tabular") == 0 || strcmp(class_part, "tnum") == 0 || strcmp(class_part, "tabular-nums") == 0) {
       if (out_class) *out_class = COGITO_STYLE_CLASS_TABULAR;
-      return true;
-    }
-    if (strcmp(class_part, "outlined") == 0) {
+      found_special_class = true;
+    } else if (strcmp(class_part, "outlined") == 0) {
       if (out_class) *out_class = COGITO_STYLE_CLASS_OUTLINED;
-      return true;
-    }
-    if (strcmp(class_part, "text") == 0) {
+      found_special_class = true;
+    } else if (strcmp(class_part, "text") == 0) {
       if (out_class) *out_class = COGITO_STYLE_CLASS_TEXT;
-      return true;
-    }
-    if (strcmp(class_part, "filled") == 0) {
+      found_special_class = true;
+    } else if (strcmp(class_part, "filled") == 0) {
       if (out_class) *out_class = COGITO_STYLE_CLASS_FILLED;
-      return true;
-    }
-    if (strcmp(class_part, "tonal") == 0) {
+      found_special_class = true;
+    } else if (strcmp(class_part, "tonal") == 0) {
       if (out_class) *out_class = COGITO_STYLE_CLASS_TONAL;
-      return true;
-    }
-    if (strcmp(class_part, "iconic") == 0) {
+      found_special_class = true;
+    } else if (strcmp(class_part, "iconic") == 0) {
       if (out_class) *out_class = COGITO_STYLE_CLASS_ICONIC;
-      return true;
+      found_special_class = true;
     }
-    int cls = cogito_label_class_from_name(class_part);
-    if (cls != COGITO_LABEL_CLASS_NONE) {
-      if (s[0] == 0 || strcmp(s, "label") == 0) {
-        if (out_label_class) *out_label_class = cls;
-        if (out_kind) *out_kind = COGITO_LABEL;
+    if (found_special_class) {
+      // Continue to parse widget type (e.g., iconbtn.outlined)
+      // But return early if no widget type prefix (class-only selector like .outlined)
+      if (s[0] == 0) {
+        if (out_kind) *out_kind = COGITO_KIND_COUNT; // sentinel: matches any widget kind
         return true;
       }
-    }
-    if (out_custom_class && custom_class_cap > 0) {
-      strncpy(out_custom_class, class_part, custom_class_cap - 1);
-      out_custom_class[custom_class_cap - 1] = 0;
-    }
-    // Class-only selector (e.g. ".primary"): no widget type prefix → universal class
-    if (s[0] == 0) {
-      if (out_kind) *out_kind = COGITO_KIND_COUNT; // sentinel: matches any widget kind
-      return true;
+    } else {
+      int cls = cogito_label_class_from_name(class_part);
+      if (cls != COGITO_LABEL_CLASS_NONE) {
+        if (s[0] == 0 || strcmp(s, "label") == 0) {
+          if (out_label_class) *out_label_class = cls;
+          if (out_kind) *out_kind = COGITO_LABEL;
+          return true;
+        }
+      }
+      if (out_custom_class && custom_class_cap > 0) {
+        strncpy(out_custom_class, class_part, custom_class_cap - 1);
+        out_custom_class[custom_class_cap - 1] = 0;
+      }
+      // Class-only selector (e.g. ".primary"): no widget type prefix → universal class
+      if (s[0] == 0) {
+        if (out_kind) *out_kind = COGITO_KIND_COUNT; // sentinel: matches any widget kind
+        return true;
+      }
     }
   }
   if (strcmp(s, "appbar") == 0) { if (out_kind) *out_kind = COGITO_APPBAR; return true; }

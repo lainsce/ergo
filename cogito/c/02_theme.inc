@@ -278,6 +278,10 @@ static CogitoStyle cogito_theme_resolve_node(const CogitoNode* n) {
     if (n->button.text_style) {
       s = cogito_style_merge(&s, &cogito_theme.button_text);
     }
+  } else if (n->kind == COGITO_ICONBTN) {
+    if (n->button.outlined) {
+      s = cogito_style_merge(&s, &cogito_theme.iconbtn_outlined);
+    }
   }
   if (n->parent && n->parent->kind == COGITO_APPBAR) {
     if (n->kind == COGITO_BUTTON) {
@@ -441,32 +445,50 @@ static CogitoStyle cogito_theme_resolve_node_state(const CogitoNode* n, bool hov
   if (n && (n->kind == COGITO_CHECKBOX || n->kind == COGITO_SWITCH)) checked = n->checked;
   else if (n && n->kind == COGITO_CHIP) checked = n->chip.selected;
   // Apply iconbtn color style base BEFORE per_kind hover/active so color style wins
-  bool iconbtn_has_custom_class = (n->class_name && n->class_name->data && n->class_name->data[0]);
+  bool iconbtn_has_custom_class = false;
+  if (n->class_name && n->class_name->data && n->class_name->data[0]) {
+    // Check if the class is not one of the built-in icon button styles
+    const char* class_name = n->class_name->data;
+    iconbtn_has_custom_class = strcmp(class_name, "outlined") != 0 && 
+                               strcmp(class_name, "filled") != 0 && 
+                               strcmp(class_name, "tonal") != 0 && 
+                               strcmp(class_name, "iconic") != 0;
+  }
   if (n->kind == COGITO_ICONBTN && !iconbtn_has_custom_class) {
-    int cs = n->button.icon_color_style;
-    if (cs == 0) {
-      s = cogito_style_merge(&s, &cogito_theme.iconbtn_filled);
-      if (!disabled) {
-        if (active) s = cogito_style_merge(&s, &cogito_theme.iconbtn_filled_active);
-        else if (hover) s = cogito_style_merge(&s, &cogito_theme.iconbtn_filled_hover);
-      }
-    } else if (cs == 1) {
-      s = cogito_style_merge(&s, &cogito_theme.iconbtn_tonal);
-      if (!disabled) {
-        if (active) s = cogito_style_merge(&s, &cogito_theme.iconbtn_tonal_active);
-        else if (hover) s = cogito_style_merge(&s, &cogito_theme.iconbtn_tonal_hover);
-      }
-    } else if (cs == 2) {
+    // If outlined is explicitly set, use outlined style regardless of icon_color_style
+    if (n->button.outlined) {
       s = cogito_style_merge(&s, &cogito_theme.iconbtn_outlined);
       if (!disabled) {
         if (active) s = cogito_style_merge(&s, &cogito_theme.iconbtn_outlined_active);
         else if (hover) s = cogito_style_merge(&s, &cogito_theme.iconbtn_outlined_hover);
       }
-    } else { // Iconic (3 or default)
-      s = cogito_style_merge(&s, &cogito_theme.iconbtn_iconic);
-      if (!disabled) {
-        if (active) s = cogito_style_merge(&s, &cogito_theme.iconbtn_iconic_active);
-        else if (hover) s = cogito_style_merge(&s, &cogito_theme.iconbtn_iconic_hover);
+    } else {
+      // Use icon color style if not outlined
+      int cs = n->button.icon_color_style;
+      if (cs == 0) {
+        s = cogito_style_merge(&s, &cogito_theme.iconbtn_filled);
+        if (!disabled) {
+          if (active) s = cogito_style_merge(&s, &cogito_theme.iconbtn_filled_active);
+          else if (hover) s = cogito_style_merge(&s, &cogito_theme.iconbtn_filled_hover);
+        }
+      } else if (cs == 1) {
+        s = cogito_style_merge(&s, &cogito_theme.iconbtn_tonal);
+        if (!disabled) {
+          if (active) s = cogito_style_merge(&s, &cogito_theme.iconbtn_tonal_active);
+          else if (hover) s = cogito_style_merge(&s, &cogito_theme.iconbtn_tonal_hover);
+        }
+      } else if (cs == 2) {
+        s = cogito_style_merge(&s, &cogito_theme.iconbtn_outlined);
+        if (!disabled) {
+          if (active) s = cogito_style_merge(&s, &cogito_theme.iconbtn_outlined_active);
+          else if (hover) s = cogito_style_merge(&s, &cogito_theme.iconbtn_outlined_hover);
+        }
+      } else { // Iconic (3 or default)
+        s = cogito_style_merge(&s, &cogito_theme.iconbtn_iconic);
+        if (!disabled) {
+          if (active) s = cogito_style_merge(&s, &cogito_theme.iconbtn_iconic_active);
+          else if (hover) s = cogito_style_merge(&s, &cogito_theme.iconbtn_iconic_hover);
+        }
       }
     }
     return s; // Skip per_kind hover/active for iconbtn — color style handles it

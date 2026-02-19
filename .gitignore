@@ -21,3 +21,5 @@ run.exe
 
 # Generated files
 cogito/cogito.ergo
+
+*.app

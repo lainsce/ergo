@@ -51,8 +51,9 @@ fun build_button_page() (( cogito.VStack )) {
 
 fun make_iconbtn_row(label_text = string, icon = string, color_style = num, shape = num) (( cogito.HStack )) {
     let row = cogito.hstack()
+    row.set_hexpand(true)
     row.set_gap(12)
-    row.set_padding(0, 0, 0, 0)
+    row.set_padding(0, 18, 0, 18)
 
     let lbl = cogito.label(label_text)
     lbl.set_class(@"body")
@@ -78,6 +79,20 @@ fun make_iconbtn_row(label_text = string, icon = string, color_style = num, shap
     m.set_color_style(color_style)
     m.set_shape(shape)
     row.add(m)
+
+    -- L
+    let l = cogito.iconbtn(icon)
+    l.set_color_style(color_style)
+    l.set_shape(shape)
+    l.set_l()
+    row.add(l)
+
+    -- XL
+    let xl = cogito.iconbtn(icon)
+    xl.set_color_style(color_style)
+    xl.set_shape(shape)
+    xl.set_xl()
+    row.add(xl)
     return row
 }
 

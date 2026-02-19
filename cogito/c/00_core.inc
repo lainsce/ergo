@@ -846,11 +846,11 @@ static uint8_t cogito_iconbtn_clamp_size_int(int size) {
   return (uint8_t)size;
 }
 
-static void cogito_button_size_metrics(int size, int* out_h, int* out_pad_x, int* out_icon, int* out_gap) {
+static void cogito_button_size_metrics(int size, int kind, int* out_h, int* out_pad_x, int* out_icon, int* out_gap) {
   // Size tiers = (XS, S, M, L, XL):
   // Heights:  XS=32, S=40, M=56, L=96, XL=136
   // Icons:    XS=20, S=24, M=24, L=32, XL=40
-  // Padding:  XS=12, S=16, M=24, L=48, XL=64
+  // Padding:  XS=12, S=16, M=24, L=48, XL=64 (only for buttons, not iconbtn)
   // Gap:      XS=4,  S=8,  M=8,  L=12, XL=16
   uint8_t clamped = cogito_button_clamp_size_int(size);
   int h = 0, pad_x = 0, icon = 0, gap = 0;
@@ -886,10 +886,25 @@ static void cogito_button_size_metrics(int size, int* out_h, int* out_pad_x, int
     gap = 8;
   }
   if (out_h) *out_h = h;
-  if (out_pad_x) *out_pad_x = pad_x;
+  if (out_pad_x) {
+    if (kind == COGITO_BUTTON) {
+      *out_pad_x = pad_x;
+    } else {
+      // For non-button kinds (like iconbtn), set padding to 0
+      *out_pad_x = 0;
+    }
+  }
   if (out_icon) *out_icon = icon;
-  if (out_gap) *out_gap = gap;
+  if (out_gap) {
+    if (kind == COGITO_BUTTON) {
+      *out_gap = gap;
+    } else {
+      // For non-button kinds (like iconbtn), set gap to 0
+      *out_gap = 0;
+    }
+  }
 }
+
 static bool cogito_drag_active = false;
 static CogitoVec2 cogito_drag_start_mouse = {0};
 static CogitoVec2 cogito_drag_start_win = {0};
