@@ -1,12 +1,63 @@
 ; Cogito dark theme
+; Generated with primary #72dec2
 @diagnostics: warn
 
-@primary: #d0bcff
-@on-primary: #381e72
-@surface: #111111
-@surface-variant: #2c2c2e
-@on-surface: #f2f2f7
-@outline: #938f99
+; Primary palette
+@primary: #72dec2
+@on-primary: #00382b
+@primary-container: #005142
+@on-primary-container: #c8f7ef
+
+; Secondary palette
+@secondary: #84e8d0
+@on-secondary: #00382b
+@secondary-container: #005142
+@on-secondary-container: #c8f7ef
+
+; Tertiary palette
+@tertiary: #a5ceca
+@on-tertiary: #00382b
+@tertiary-container: #1d4d49
+@on-tertiary-container: #c8f7ef
+
+; Error palette
+@error: #ffb4ab
+@on-error: #690005
+@error-container: #93000a
+@on-error-container: #ffdad6
+
+; Neutral palette
+@background: #191c1a
+@on-background: #e1e3e0
+@surface: #191c1a
+@surface-tint: #72dec2
+@on-surface: #e1e3e0
+
+; Surface containers
+@surface-dim: #0f110f
+@surface-bright: #23312e
+@surface-container-lowest: #0d100e
+@surface-container-low: #1a1d1b
+@surface-container: #1e211f
+@surface-container-high: #282c2a
+@surface-container-highest: #323632
+
+; Surface variant
+@surface-variant: #3f4946
+@on-surface-variant: #bec9c4
+
+; Outline
+@outline: #89938f
+@outline-variant: #3f4946
+
+; Inverse colors
+@inverse-surface: #e1e3e0
+@inverse-on-surface: #2d312f
+@inverse-primary: #006b56
+
+; Shadow & Scrim
+@shadow: #000000
+@scrim: #000000
 
 *
   color: @on-surface
@@ -75,7 +126,9 @@ button.outlined:active
   background: alpha(@primary, 20%)
 
 button.outlined:disabled
-  color: #cac4d061
+  color: #f2f2f752
+  border-color: #f2f2f752
+  background: #f2f2f729
   border-color: #cac4d012
 
 button.text
@@ -89,7 +142,8 @@ button.text:active
   background: alpha(@primary, 20%)
 
 button.text:disabled
-  color: #cac4d061
+  color: #f2f2f752
+  background: #f2f2f729
 
 fab
   background: #d0bcff
@@ -165,6 +219,10 @@ tabs:selection
 segmented
   background: #2c2c2e
   color: #f2f2f7
+
+segmented:disabled
+  background: #f2f2f729
+  color: #f2f2f752
 
 viewswitcher
   background: #1c1c1e
@@ -557,3 +615,56 @@ content-list
 
 content-list label
   background: transparent
+
+; Disabled state variants - 16% opaque On Surface for backgrounds, 32% for borders/text/icons
+
+button:disabled
+  background: #f2f2f729
+  color: #f2f2f752
+
+fab:disabled
+  background: #f2f2f729
+  color: #f2f2f752
+
+chip:disabled
+  background: #f2f2f729
+  color: #f2f2f752
+  border-color: #f2f2f752
+
+textfield:disabled
+  background: #f2f2f729
+  color: #f2f2f752
+
+searchfield:disabled
+  background: #f2f2f729
+  color: #f2f2f752
+
+dropdown:disabled
+  background: #f2f2f729
+  color: #f2f2f752
+
+slider:disabled
+  color: #f2f2f752
+
+stepper:disabled
+  background: #f2f2f729
+  color: #f2f2f752
+
+checkbox:disabled
+  color: #f2f2f752
+
+radio:disabled
+  color: #f2f2f752
+
+switch:disabled
+  color: #f2f2f752
+
+switch:disabled track
+  background: #f2f2f729
+
+switch:disabled knob
+  background: #f2f2f752
+
+iconbtn:disabled
+  background: #f2f2f729
+  color: #f2f2f752

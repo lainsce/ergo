@@ -1,12 +1,63 @@
 ; Cogito default theme (light)
+; Generated with primary #72dec2
 @diagnostics: warn
-@primary: #6750a4
-@on-primary: #ffffff
-@surface: #ffffff
-@surface-variant: #f5f5f5
-@surface-container: #ebebeb
-@on-surface: #222222
-@outline: #79747e
+
+; Primary palette
+@primary: #72dec2
+@on-primary: #00382b
+@primary-container: #c8f7ef
+@on-primary-container: #00201a
+
+; Secondary palette
+@secondary: #4a9e8f
+@on-secondary: #ffffff
+@secondary-container: #c8f7ef
+@on-secondary-container: #00201a
+
+; Tertiary palette
+@tertiary: #3d6463
+@on-tertiary: #ffffff
+@tertiary-container: #c8f7ef
+@on-tertiary-container: #00201a
+
+; Error palette
+@error: #ba1a1a
+@on-error: #ffffff
+@error-container: #ffdad6
+@on-error-container: #410002
+
+; Neutral palette
+@background: #fafdfb
+@on-background: #191c1a
+@surface: #fafdfb
+@surface-tint: #72dec229
+@on-surface: #191c1a
+
+; Surface containers
+@surface-dim: #d9dbd9
+@surface-bright: #fafff8
+@surface-container-lowest: #ffffff
+@surface-container-low: #f3f7f4
+@surface-container: #eff5f2
+@surface-container-high: #e8ebe9
+@surface-container-highest: #e2e5e3
+
+; Surface variant
+@surface-variant: #dbe5e1
+@on-surface-variant: #3f4946
+
+; Outline
+@outline: #6f7975
+@outline-variant: #bec9c4
+
+; Inverse colors
+@inverse-surface: #2d312f
+@inverse-on-surface: #f0f1ef
+@inverse-primary: #84e8d0
+
+; Shadow & Scrim
+@shadow: #000000
+@scrim: #000000
 
 *
   color: @on-surface
@@ -48,7 +99,7 @@ carousel
   border-radius: 26
 
 carousel_item
-  background: #e8def8
+  background: #c8f7ef
   color: #222222
   border-radius: 26
   padding: 16
@@ -68,10 +119,10 @@ button
   color: @on-primary
 
 button:hover
-  background: #7965af
+  background: #84e8d0
 
 button:active
-  background: #5a3f8e
+  background: #5cc4b5
 
 button.outlined
   background: transparent
@@ -79,25 +130,26 @@ button.outlined
   border: 1 solid @outline
 
 button.outlined:hover
-  background: alpha(@primary, 12%)
-  border-color: @primary
+  background: alpha(#72dec2, 12%)
+  border-color: #72dec2
 
 button.outlined:active
-  background: alpha(@primary, 20%)
+  background: alpha(#72dec2, 20%)
 
 button.outlined:disabled
-  color: #1d1b2061
-  border-color: #1d1b2012
+  color: #72dec252
+  border-color: #72dec252
+  background: #72dec229
 
 button.text
   background: transparent
   color: @primary
 
 button.text:hover
-  background: alpha(@primary, 12%)
+  background: alpha(#72dec2, 12%)
 
 button.text:active
-  background: alpha(@primary, 20%)
+  background: alpha(#72dec2, 20%)
 
 @when reduced-motion
   button
@@ -106,7 +158,8 @@ button.text:active
     transition: 0 linear
 
 button.text:disabled
-  color: #1d1b2061
+  color: #72dec252
+  background: #72dec229
 
 button.toolbar_format
   background: transparent
@@ -134,10 +187,10 @@ fab
   min-height: 56
 
 fab:hover
-  background: #7965af
+  background: #84e8d0
 
 fab:active
-  background: #5a3f8e
+  background: #5cc4b5
 
 fab.toolbar_plus
   background: #f7dde8
@@ -163,9 +216,9 @@ chip:active
   background: #00000014
 
 chip:checked
-  background: #e8def8
-  color: #1d1b20
-  border: 0 none #e8def8
+  background: #c8f7ef
+  color: #00382b
+  border: 0 none #c8f7ef
 
 nav-rail
   background: #f7f2fa
@@ -229,16 +282,16 @@ datepicker
 
 slider
   background: #79747e
-  color: #6750a4
+  color: #72dec2
   track-height: 4
   min-height: 48
   min-width: 200
 
 slider:hover
-  color: #7965af
+  color: #84e8d0
 
 slider:active
-  color: #5a3f8e
+  color: #5cc4b5
 
 stepper
   background: #f6f6f6
@@ -257,11 +310,15 @@ tabs:selection
   background: #ffffff
 
 segmented
-  background: #625b71
+  background: #4a9e8f
   color: #ffffff
   border-radius: 100
   min-height: 56
   border: 0 none #000000
+
+segmented:disabled
+  background: #22222229
+  color: #22222252
 
 viewswitcher
   background: #ffffff
@@ -419,7 +476,7 @@ switch:checked track
   background: #72dec2
 
 switch track:hover
-  background: #c4c4c4
+  background: #a8ddd0
 
 switch track:active
   background: #72dec2
@@ -764,3 +821,57 @@ scroller.sidebar
 
 .scrim
   background: #000000
+
+; Disabled state variants - 16% opaque On Surface for backgrounds, 32% for borders/text/icons
+
+button:disabled
+  background: #22222229
+  color: #22222252
+
+fab:disabled
+  background: #22222229
+  color: #22222252
+
+chip:disabled
+  background: #22222229
+  color: #22222252
+  border-color: #22222252
+
+textfield:disabled
+  background: #22222229
+  color: #22222252
+
+searchfield:disabled
+  background: #22222229
+  color: #22222252
+
+dropdown:disabled
+  background: #22222229
+  color: #22222252
+
+slider:disabled
+  color: #22222252
+
+stepper:disabled
+  background: #22222229
+  color: #22222252
+
+checkbox:disabled
+  color: #22222252
+
+radio:disabled
+  color: #22222252
+
+switch:disabled
+  color: #22222252
+
+switch:disabled track
+  background: #22222229
+
+switch:disabled knob
+  background: #22222252
+
+iconbtn:disabled
+  background: #22222229
+  color: #22222252
+

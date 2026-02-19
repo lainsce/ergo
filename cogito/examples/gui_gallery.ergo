@@ -20,31 +20,114 @@ fun build_page(title = string, blurb = string) (( cogito.VStack )) {
 }
 
 fun build_button_page() (( cogito.VStack )) {
-    let vstack = build_page(@"Button", @"Buttons trigger immediate actions. This page shows filled, outlined, and text button variants.")
+    let vstack = build_page(@"Button", @"Buttons trigger immediate actions. This page showcases all button variants, sizes, and states.")
 
     let status = cogito.label(@"Tap a button to update this status.")
     status.set_class(@"body")
+    status.set_wrap(true)
     vstack.add(status)
+
+    -- Section: Button Styles
+    let styles_label = cogito.label(@"Styles")
+    styles_label.set_class(@"heading")
+    vstack.add(styles_label)
+
+    let styles_row = cogito.hstack()
+    styles_row.set_gap(12)
+    styles_row.set_hexpand(true)
 
     let filled = cogito.button(@"Filled")
     filled.on_click((b = cogito.Button) => {
         status.set_text(@"Filled button clicked.")
     })
-    vstack.add(filled)
+    styles_row.add(filled)
 
     let outlined = cogito.button(@"Outlined")
     outlined.set_class(@"outlined") 
     outlined.on_click((b = cogito.Button) => {
         status.set_text(@"Outlined button clicked.")
     })
-    vstack.add(outlined)
+    styles_row.add(outlined)
 
     let text_btn = cogito.button(@"Text")
     text_btn.set_class(@"text")
     text_btn.on_click((b = cogito.Button) => {
         status.set_text(@"Text button clicked.")
     })
-    vstack.add(text_btn)
+    styles_row.add(text_btn)
+
+    vstack.add(styles_row)
+
+    -- Section: Button Sizes
+    let sizes_label = cogito.label(@"Sizes")
+    sizes_label.set_class(@"heading")
+    vstack.add(sizes_label)
+
+    let sizes_row = cogito.hstack()
+    sizes_row.set_gap(12)
+    sizes_row.set_hexpand(true)
+
+    let xs_btn = cogito.button(@"XS")
+    xs_btn.set_size(0)
+    xs_btn.on_click((b = cogito.Button) => {
+        status.set_text(@"XS button clicked.")
+    })
+    sizes_row.add(xs_btn)
+
+    let s_btn = cogito.button(@"S")
+    s_btn.set_size(1)
+    s_btn.on_click((b = cogito.Button) => {
+        status.set_text(@"S button clicked.")
+    })
+    sizes_row.add(s_btn)
+
+    let m_btn = cogito.button(@"M")
+    m_btn.set_size(2)
+    m_btn.on_click((b = cogito.Button) => {
+        status.set_text(@"M button clicked.")
+    })
+    sizes_row.add(m_btn)
+
+    let l_btn = cogito.button(@"L")
+    l_btn.set_size(3)
+    l_btn.on_click((b = cogito.Button) => {
+        status.set_text(@"L button clicked.")
+    })
+    sizes_row.add(l_btn)
+
+    let xl_btn = cogito.button(@"XL")
+    xl_btn.set_size(4)
+    xl_btn.on_click((b = cogito.Button) => {
+        status.set_text(@"XL button clicked.")
+    })
+    sizes_row.add(xl_btn)
+
+    vstack.add(sizes_row)
+
+    -- Section: Disabled States
+    let disabled_label = cogito.label(@"Disabled States")
+    disabled_label.set_class(@"heading")
+    vstack.add(disabled_label)
+
+    let disabled_row = cogito.hstack()
+    disabled_row.set_gap(12)
+    disabled_row.set_hexpand(true)
+
+    let disabled_filled = cogito.button(@"Filled")
+    disabled_filled.set_disabled(true)
+    disabled_row.add(disabled_filled)
+
+    let disabled_outlined = cogito.button(@"Outlined")
+    disabled_outlined.set_class(@"outlined")
+    disabled_outlined.set_disabled(true)
+    disabled_row.add(disabled_outlined)
+
+    let disabled_text = cogito.button(@"Text")
+    disabled_text.set_class(@"text")
+    disabled_text.set_disabled(true)
+    disabled_row.add(disabled_text)
+
+    vstack.add(disabled_row)
 
     return vstack
 }
