@@ -49,6 +49,44 @@ static void cogito_layout_zstack(CogitoNode* n, int x, int y) {
       continue;
     }
 
+    if (c->kind == COGITO_SIDE_SHEET) {
+      int min_w = 0;
+      cogito_intrinsic_size(c, &min_w, NULL);
+      if (min_w < 200) min_w = 200;
+
+      int host_x = x;
+      int host_y = y;
+      int host_w = n->w;
+      int host_h = n->h;
+      if (n->parent && n->parent->kind == COGITO_WINDOW) {
+        CogitoNode* win = n->parent;
+        host_x = 0;
+        host_y = 0;
+        host_w = win->w;
+        host_h = win->h;
+      }
+      if (host_w < 0) host_w = 0;
+      if (host_h < 0) host_h = 0;
+
+      int left_inset = host_x <= 0 ? 0 : 0;
+      int max_w = host_w - left_inset;
+      if (max_w < min_w) max_w = min_w;
+
+      int target_h = host_h;
+      if (target_h < 0) target_h = 0;
+      int target_w = c->side_sheet.desired_w > 0 ? c->side_sheet.desired_w : min_w;
+      if (target_w < min_w) target_w = min_w;
+      if (target_w > max_w) target_w = max_w;
+      c->side_sheet.desired_w = target_w;
+      c->side_sheet.expanded = target_w >= (max_w - 8);
+
+      int target_x = host_x + host_w - target_w;
+      int target_y = host_y;
+
+      cogito_layout_node(c, target_x, target_y, target_w, target_h);
+      continue;
+    }
+
     int cw = 0;
     int ch = 0;
     int ox = 0;

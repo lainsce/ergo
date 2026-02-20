@@ -45,6 +45,9 @@ static void cogito_apply_theme(bool dark, CogitoColor accent);
 #define COGITO_BOTTOM_SHEET_DEFAULT_RATIO 0.60f
 #define COGITO_BOTTOM_SHEET_TOP_INSET 56
 #define COGITO_BOTTOM_SHEET_HANDLE_TOUCH_H 32
+#define COGITO_SIDE_SHEET_DEFAULT_RATIO 0.40f
+#define COGITO_SIDE_SHEET_LEFT_INSET 0
+#define COGITO_SIDE_SHEET_HANDLE_TOUCH_W 32
 
 // Nav Rail Constants (dp)
 // Shared between collapsed and expanded modes
@@ -168,6 +171,7 @@ typedef enum {
   COGITO_ABOUT_WINDOW,
   COGITO_SPLIT_BUTTON,
   COGITO_MENU_SECTION,
+  COGITO_SIDE_SHEET,
   COGITO_KIND_COUNT
 } CogitoKind;
 
@@ -490,13 +494,15 @@ typedef struct CogitoNode {
   int grid_align_x, grid_align_y;
   int action_button_x, action_button_y, action_button_w, action_button_h;
 
-  // Dialog / Popover
+  // Dialog / Popover / SideSheet
   struct CogitoNode* dialog;
   struct CogitoNode* view_switcher;
   bool dialog_open;
   struct CogitoNode* popover;
   struct CogitoNode* popover_anchor;
   bool popover_open;
+  struct CogitoNode* side_sheet_node;
+  bool side_sheet_open;
 
   // Style flags
   bool margin_set;
@@ -716,13 +722,20 @@ typedef struct CogitoNode {
       bool menu_vibrant;
     } button;
     struct { bool selected, has_close; } chip;
-    struct {
-      bool dragging;
-      bool expanded;
-      int drag_start_y;
-      int drag_start_h;
-      int desired_h;
-    } bottom_sheet;
+     struct {
+       bool dragging;
+       bool expanded;
+       int drag_start_y;
+       int drag_start_h;
+       int desired_h;
+     } bottom_sheet;
+     struct {
+       bool dragging;
+       bool expanded;
+       int drag_start_x;
+       int drag_start_w;
+       int desired_w;
+     } side_sheet;
     struct { bool extended; } fab;
     struct { bool vertical, inset; } divider;
     struct { int cls; } label;
@@ -793,6 +806,7 @@ static bool cogito_toasts_force_draw = false;
 static CogitoNode* cogito_slider_active = NULL;
 static CogitoNode* cogito_carousel_active = NULL;
 static CogitoNode* cogito_bottom_sheet_active = NULL;
+static CogitoNode* cogito_side_sheet_active = NULL;
 static int cogito_carousel_animating_count = 0;  // Track number of animating carousels globally
 static double cogito_anim_end_time = 0.0;  // Time when all animations will complete (time-based for smooth animation)
 static CogitoNode* cogito_colorpicker_active = NULL;

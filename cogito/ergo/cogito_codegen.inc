@@ -1922,6 +1922,36 @@
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_window_set_side_sheet")) {
+                        GenExpr win, side_sheet;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &win, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &side_sheet, err)) { gen_expr_free(&win); return false; }
+                        w_line(&cg->w, "cogito_window_set_side_sheet(%s, %s);", win.tmp, side_sheet.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", win.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", side_sheet.tmp);
+                        gen_expr_release_except(cg, &win, win.tmp);
+                        gen_expr_release_except(cg, &side_sheet, side_sheet.tmp);
+                        gen_expr_free(&win);
+                        gen_expr_free(&side_sheet);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_window_clear_side_sheet")) {
+                        GenExpr win;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &win, err)) return false;
+                        w_line(&cg->w, "cogito_window_clear_side_sheet(%s);", win.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", win.tmp);
+                        gen_expr_release_except(cg, &win, win.tmp);
+                        gen_expr_free(&win);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_node_window")) {
                         GenExpr node;
                         if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
@@ -3253,6 +3283,19 @@
                         if (!gen_expr(cg, path, e->as.call.args[0], &title, err)) return false;
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w, "ErgoVal %s = cogito_bottom_sheet_new(%s);", t, title.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", title.tmp);
+                        gen_expr_release_except(cg, &title, title.tmp);
+                        gen_expr_free(&title);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    // SideSheet
+                    if (str_eq_c(fname, "__cogito_side_sheet")) {
+                        GenExpr title;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &title, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_side_sheet_new(%s);", t, title.tmp);
                         w_line(&cg->w, "ergo_release_val(%s);", title.tmp);
                         gen_expr_release_except(cg, &title, title.tmp);
                         gen_expr_free(&title);

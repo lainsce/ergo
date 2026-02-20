@@ -250,6 +250,7 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off, "bottom-nav:selection\n  background: %s\n", secc);
   cogito_sum_append(out, cap, &off, "bottom-nav\n  background: %s\n  color: %s\n  min-height: 80\n  padding: 0 8\n  transition: 220 standard\n", sc, ons);
   cogito_sum_append(out, cap, &off, "bottom-sheet\n  background: %s\n  color: %s\n  border-radius: 28 28 0 0\n  padding: 16\n  transition: 300 emphasized\n", surf, ons);
+  cogito_sum_append(out, cap, &off, "side-sheet\n  background: %s\n  color: %s\n  border-radius: 28 0 0 28\n  padding: 16\n  transition: 300 emphasized\n", surf, ons);
   cogito_sum_append(out, cap, &off, "button:active\n  background: %s\n  color: %s\n", p, op);
   cogito_sum_append(out, cap, &off, "button:disabled\n  background: %s29\n  color: %s52\n", ons, ons);
   cogito_sum_append(out, cap, &off, "button:focus, iconbtn:focus, checkbox:focus, switch:focus, slider:focus, dropdown:focus, chip:focus, segmented:focus, stepper:focus, fab:focus, nav_rail:focus, bottom_nav:focus, datepicker:focus, colorpicker:focus, timepicker:focus\n  border-color: %s\n  border-width: 2\n", p);

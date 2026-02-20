@@ -198,6 +198,8 @@
 #undef cogito_window_set_autosize
 #undef cogito_window_set_builder
 #undef cogito_window_set_dialog
+#undef cogito_window_set_side_sheet
+#undef cogito_window_clear_side_sheet
 #undef cogito_window_set_resizable
 
 static bool cogito_debug_enabled(void) {
@@ -760,6 +762,17 @@ static ErgoVal __cogito_bottom_sheet(ErgoVal titlev) {
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
 }
 
+static ErgoVal __cogito_side_sheet(ErgoVal titlev) {
+  ErgoStr* tmp = NULL;
+  const char* title = NULL;
+  if (titlev.tag != EVT_NULL) {
+    title = cogito_required_cstr(titlev, &tmp);
+  }
+  cogito_node* n = cogito_side_sheet_new(title);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
 // --- TimePicker ---
 static ErgoVal __cogito_timepicker(void) {
   cogito_node* n = cogito_timepicker_new();
@@ -1216,6 +1229,17 @@ static void __cogito_window_set_dialog(ErgoVal winv, ErgoVal dialogv) {
 static void __cogito_window_clear_dialog(ErgoVal winv) {
   cogito_window* win = cogito_window_from_val(winv);
   cogito_window_clear_dialog(win);
+}
+
+static void __cogito_window_set_side_sheet(ErgoVal winv, ErgoVal side_sheetv) {
+  cogito_window* win = cogito_window_from_val(winv);
+  cogito_node* side_sheet = cogito_node_from_val(side_sheetv);
+  cogito_window_set_side_sheet(win, side_sheet);
+}
+
+static void __cogito_window_clear_side_sheet(ErgoVal winv) {
+  cogito_window* win = cogito_window_from_val(winv);
+  cogito_window_clear_side_sheet(win);
 }
 
 static ErgoVal __cogito_node_window(ErgoVal nodev) {
@@ -2710,6 +2734,8 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_window_set_resizable __cogito_window_set_resizable
 #define cogito_window_set_dialog __cogito_window_set_dialog
 #define cogito_window_clear_dialog __cogito_window_clear_dialog
+#define cogito_window_set_side_sheet __cogito_window_set_side_sheet
+#define cogito_window_clear_side_sheet __cogito_window_clear_side_sheet
 #define cogito_node_window_val __cogito_node_window
 #define cogito_find_parent __cogito_find_parent
 #define cogito_find_children __cogito_find_children
@@ -2772,6 +2798,7 @@ void __cogito_button_on_click(ErgoVal btn, ErgoVal handler);
 #define cogito_banner_set_action __cogito_banner_set_action
 #define cogito_banner_set_icon __cogito_banner_set_icon
 #define cogito_bottom_sheet_new __cogito_bottom_sheet
+#define cogito_side_sheet_new __cogito_side_sheet
 #define cogito_timepicker_new __cogito_timepicker
 #define cogito_timepicker_on_change __cogito_timepicker_on_change
 #define cogito_timepicker_get_hour __cogito_timepicker_get_hour

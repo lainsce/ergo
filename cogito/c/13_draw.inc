@@ -1092,6 +1092,8 @@ case COGITO_TOASTS:
 
     #include "widgets/draw/bottom_sheet.inc"
 
+    #include "widgets/draw/side_sheet.inc"
+
     #include "widgets/draw/timepicker.inc"
 
     #include "widgets/draw/active_indicator.inc"

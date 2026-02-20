@@ -103,6 +103,7 @@ static void cogito_container_remove_child(CogitoNode* parent, CogitoNode* child)
 #include "widgets/interaction/badge.inc"
 #include "widgets/interaction/banner.inc"
 #include "widgets/interaction/bottom_sheet.inc"
+#include "widgets/interaction/side_sheet.inc"
 #include "widgets/interaction/timepicker.inc"
 #include "widgets/interaction/active_indicator.inc"
 #include "widgets/interaction/switchbar.inc"
@@ -210,7 +211,7 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
     CogitoNode* sheet = NULL;
     for (size_t i = n->len; i > 0; i--) {
       CogitoNode* c = n->children[i - 1];
-      if (c && c->kind == COGITO_BOTTOM_SHEET) {
+      if (c && (c->kind == COGITO_BOTTOM_SHEET || c->kind == COGITO_SIDE_SHEET)) {
         sheet = c;
         break;
       }
@@ -227,7 +228,7 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
       hit_h = win->h;
     }
     if (sheet && cogito_hit_rect(x, y, hit_x, hit_y, hit_w, hit_h)) {
-      // Modal behavior: bottom sheet captures taps across the host area.
+      // Modal behavior: sheet captures taps across the host area.
       CogitoNode* child_hit = cogito_find_clickable(sheet, x, y);
       if (child_hit) return child_hit;
       return sheet;
@@ -270,7 +271,7 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
       n->kind == COGITO_SEARCHFIELD ||
       n->kind == COGITO_NAV_RAIL || n->kind == COGITO_BOTTOM_NAV ||
       n->kind == COGITO_TIMEPICKER || n->kind == COGITO_BANNER ||
-      n->kind == COGITO_BOTTOM_SHEET ||
+       n->kind == COGITO_BOTTOM_SHEET || n->kind == COGITO_SIDE_SHEET ||
       n->kind == COGITO_SWITCHBAR || n->kind == COGITO_SPLIT_BUTTON ||
       n->kind == COGITO_VIEW_CHOOSER || n->kind == COGITO_VIEW_DUAL ||
       n->kind == COGITO_SETTINGS_WINDOW ||

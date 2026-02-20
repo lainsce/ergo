@@ -22,6 +22,17 @@ case COGITO_WINDOW: {
       if (n->kind == COGITO_WINDOW && n->popover_open && n->popover) {
         cogito_draw_node(n->popover);
       }
+      // Draw side sheet on top if open
+      if (n->kind == COGITO_WINDOW && n->side_sheet_open && n->side_sheet_node) {
+        // Draw scrim
+        bool hover = false, active = false;
+        cogito_node_hover_state(n, &hover, &active);
+        CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
+        CogitoColor scrim = s.has_bg ? s.bg : n->bg;
+        scrim.a = 128;
+        cogito_draw_rect(0, 0, n->w, n->h, scrim, 0);
+        cogito_draw_node(n->side_sheet_node);
+      }
       // Draw toasts in a final overlay pass so they are never clipped by containers.
       cogito_draw_toasts_overlay(n);
       break;

@@ -99,6 +99,7 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_banner_set_action cogito_banner_set_action_ergo
 #define cogito_banner_set_icon cogito_banner_set_icon_ergo
 #define cogito_bottom_sheet_new cogito_bottom_sheet_new_ergo
+#define cogito_side_sheet_new cogito_side_sheet_new_ergo
 #define cogito_timepicker_new cogito_timepicker_new_ergo
 #define cogito_timepicker_on_change cogito_timepicker_on_change_ergo
 #define cogito_timepicker_get_hour cogito_timepicker_get_hour_ergo
@@ -263,6 +264,8 @@ static const char* cogito_font_bold_path_active = NULL;
 #define cogito_window_set_autosize cogito_window_set_autosize_ergo
 #define cogito_window_set_builder cogito_window_set_builder_ergo
 #define cogito_window_set_dialog cogito_window_set_dialog_ergo
+#define cogito_window_set_side_sheet cogito_window_set_side_sheet_ergo
+#define cogito_window_clear_side_sheet cogito_window_clear_side_sheet_ergo
 #define cogito_window_set_resizable cogito_window_set_resizable_ergo
 #define cogito_zstack_new cogito_zstack_new_ergo
 #define cogito_active_indicator_new cogito_active_indicator_new_ergo
@@ -379,6 +382,7 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_banner_set_action
 #undef cogito_banner_set_icon
 #undef cogito_bottom_sheet_new
+#undef cogito_side_sheet_new
 #undef cogito_timepicker_new
 #undef cogito_timepicker_on_change
 #undef cogito_timepicker_get_hour
@@ -546,6 +550,8 @@ static const char* cogito_font_bold_path_active = NULL;
 #undef cogito_window_set_autosize
 #undef cogito_window_set_builder
 #undef cogito_window_set_dialog
+#undef cogito_window_set_side_sheet
+#undef cogito_window_clear_side_sheet
 #undef cogito_window_set_resizable
 #undef cogito_zstack_new
 #undef cogito_active_indicator_new
@@ -1039,6 +1045,12 @@ void cogito_banner_set_icon(cogito_node* banner, const char* icon) {
 cogito_node* cogito_bottom_sheet_new(const char* title) {
   ErgoVal tv = title ? cogito_val_from_cstr(title) : EV_NULLV;
   ErgoVal v = cogito_bottom_sheet_new_ergo(tv);
+  if (tv.tag == EVT_STR) ergo_release_val(tv);
+  return cogito_from_val(v);
+}
+cogito_node* cogito_side_sheet_new(const char* title) {
+  ErgoVal tv = title ? cogito_val_from_cstr(title) : EV_NULLV;
+  ErgoVal v = cogito_side_sheet_new_ergo(tv);
   if (tv.tag == EVT_STR) ergo_release_val(tv);
   return cogito_from_val(v);
 }
@@ -1977,6 +1989,16 @@ void cogito_window_set_dialog(cogito_window* window, cogito_node* dialog) {
 void cogito_window_clear_dialog(cogito_window* window) {
   if (!window) return;
   cogito_window_clear_dialog_ergo(EV_OBJ(window));
+}
+
+void cogito_window_set_side_sheet(cogito_window* window, cogito_node* side_sheet) {
+  if (!window || !side_sheet) return;
+  cogito_window_set_side_sheet_ergo(EV_OBJ(window), EV_OBJ(side_sheet));
+}
+
+void cogito_window_clear_side_sheet(cogito_window* window) {
+  if (!window) return;
+  cogito_window_clear_side_sheet_ergo(EV_OBJ(window));
 }
 
 void cogito_fixed_set_pos(cogito_node* fixed, cogito_node* child, int x, int y) {

@@ -55,6 +55,7 @@ static const char* cogito_kind_name(CogitoKind kind) {
     case COGITO_BADGE: return "badge";
     case COGITO_BANNER: return "banner";
     case COGITO_BOTTOM_SHEET: return "bottom-sheet";
+    case COGITO_SIDE_SHEET: return "side-sheet";
     case COGITO_TIMEPICKER: return "timepicker";
     case COGITO_ACTIVE_INDICATOR: return "active-indicator";
     case COGITO_SWITCHBAR: return "switchbar";

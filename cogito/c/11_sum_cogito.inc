@@ -686,6 +686,7 @@ static bool cogito_sum_selector_kind(const char* sel, CogitoKind* out_kind, bool
   if (strcmp(s, "badge") == 0) { if (out_kind) *out_kind = COGITO_BADGE; return true; }
   if (strcmp(s, "banner") == 0) { if (out_kind) *out_kind = COGITO_BANNER; return true; }
   if (strcmp(s, "bottom-sheet") == 0 || strcmp(s, "bottom_sheet") == 0 || strcmp(s, "bottomsheet") == 0) { if (out_kind) *out_kind = COGITO_BOTTOM_SHEET; return true; }
+  if (strcmp(s, "side-sheet") == 0 || strcmp(s, "side_sheet") == 0 || strcmp(s, "sidesheet") == 0) { if (out_kind) *out_kind = COGITO_SIDE_SHEET; return true; }
   if (strcmp(s, "timepicker") == 0 || strcmp(s, "time-picker") == 0 || strcmp(s, "time_picker") == 0) { if (out_kind) *out_kind = COGITO_TIMEPICKER; return true; }
   if (strcmp(s, "active-indicator") == 0 || strcmp(s, "active_indicator") == 0 || strcmp(s, "activeindicator") == 0) { if (out_kind) *out_kind = COGITO_ACTIVE_INDICATOR; return true; }
   if (strcmp(s, "switchbar") == 0 || strcmp(s, "switch-bar") == 0 || strcmp(s, "switch_bar") == 0) { if (out_kind) *out_kind = COGITO_SWITCHBAR; return true; }

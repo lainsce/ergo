@@ -247,6 +247,16 @@ static void cogito_layout_window(CogitoNode* win) {
     if (ph <= 0) ph = 180;
     cogito_layout_node(win->popover, 0, 0, pw, ph);
   }
+  if (win->side_sheet_open && win->side_sheet_node) {
+    int ss_w = 0;
+    int ss_h = 0;
+    cogito_intrinsic_size(win->side_sheet_node, &ss_w, &ss_h);
+    if (ss_w <= 0) ss_w = 320;
+    if (ss_w > win->w) ss_w = win->w;
+    ss_h = win->h;
+    int ss_x = win->w - ss_w;
+    cogito_layout_node(win->side_sheet_node, ss_x, 0, ss_w, ss_h);
+  }
 }
 
 static void cogito_window_desired_size(CogitoNode* win, int* out_w, int* out_h) {

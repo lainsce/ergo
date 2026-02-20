@@ -390,6 +390,8 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
 
     #include "widgets/intrinsic/bottom_sheet.inc"
 
+    #include "widgets/intrinsic/side_sheet.inc"
+
     #include "widgets/intrinsic/timepicker.inc"
 
     #include "widgets/intrinsic/active_indicator.inc"

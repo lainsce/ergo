@@ -1024,10 +1024,55 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           bs->bottom_sheet.expanded = snap_h >= (host_h - top_inset - 8);
           cogito_window_relayout(win);
         }
-        bs->bottom_sheet.dragging = false;
-        if (cogito_pointer_capture == bs) {
-          cogito_pointer_capture = NULL;
-        }
+         bs->bottom_sheet.dragging = false;
+         if (cogito_pointer_capture == bs) {
+           cogito_pointer_capture = NULL;
+         }
+         cogito_bottom_sheet_active = NULL;
+       }
+     }
+
+     // Side sheet active handling
+     if (cogito_side_sheet_active) {
+       if (cogito_backend->is_mouse_button_down(0)) {
+         CogitoNode* ss = cogito_side_sheet_active;
+         CogitoNode* host = ss->parent;
+         if (host) {
+           int host_x = host->x;
+           int host_w = host->w;
+           if (host->kind == COGITO_ZSTACK && host->parent && host->parent->kind == COGITO_WINDOW) {
+             host_x = 0;
+             host_w = host->parent->w;
+           }
+           int dx = ss->side_sheet.drag_start_x - mx;
+           ss->side_sheet.desired_w = ss->side_sheet.drag_start_w + dx;
+           int clamped_w = cogito_side_sheet_target_width(ss, host_x, host_w);
+           ss->side_sheet.desired_w = clamped_w;
+           int left_inset = cogito_side_sheet_left_inset(host_x);
+           ss->side_sheet.expanded = clamped_w >= (host_w - left_inset - 8);
+           cogito_window_relayout(win);
+         }
+       } else {
+         CogitoNode* ss = cogito_side_sheet_active;
+         CogitoNode* host = ss->parent;
+         if (host) {
+           int host_x = host->x;
+           int host_w = host->w;
+           if (host->kind == COGITO_ZSTACK && host->parent && host->parent->kind == COGITO_WINDOW) {
+             host_x = 0;
+             host_w = host->parent->w;
+           }
+           int snap_w = cogito_side_sheet_snap_width(ss, host_x, host_w, ss->w);
+           ss->side_sheet.desired_w = snap_w;
+           int left_inset = cogito_side_sheet_left_inset(host_x);
+           ss->side_sheet.expanded = snap_w >= (host_w - left_inset - 8);
+           cogito_window_relayout(win);
+         }
+         ss->side_sheet.dragging = false;
+         if (cogito_pointer_capture == ss) {
+           cogito_pointer_capture = NULL;
+         }
+         cogito_side_sheet_active = NULL;
         cogito_bottom_sheet_active = NULL;
       }
     }
@@ -1655,6 +1700,17 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
               hit->bottom_sheet.drag_start_h = hit->h;
               hit->bottom_sheet.desired_h = hit->h;
               cogito_bottom_sheet_active = hit;
+              cogito_pointer_capture = hit;
+            }
+          } else if (hit->kind == COGITO_SIDE_SHEET) {
+            int hx = 0, hy = 0, hw = 0, hh = 0;
+            cogito_side_sheet_handle_rect(hit, &hx, &hy, &hw, &hh);
+            if (cogito_hit_rect(mx, my, hx, hy, hw, hh)) {
+              hit->side_sheet.dragging = true;
+              hit->side_sheet.drag_start_x = mx;
+              hit->side_sheet.drag_start_w = hit->w;
+              hit->side_sheet.desired_w = hit->w;
+              cogito_side_sheet_active = hit;
               cogito_pointer_capture = hit;
             }
           } else if (hit->kind == COGITO_FAB) {

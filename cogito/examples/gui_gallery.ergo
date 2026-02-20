@@ -1375,6 +1375,28 @@ fun build_typography_page() (( cogito.VStack )) {
     return vstack
 }
 
+fun build_side_sheet_page() (( cogito.VStack )) {
+    let vstack = build_page(@"SideSheet", @"SideSheet slides in from the right edge, useful for detail views or settings.")
+
+    let status = cogito.label(@"Click the button to open a side sheet.")
+    status.set_class(@"body")
+    status.set_wrap(true)
+    vstack.add(status)
+
+    let open_btn = cogito.button(@"Open Side Sheet")
+    open_btn.on_click((b = cogito.Button) => {
+        let win = b.window()
+        if win {
+            let ss = cogito.side_sheet(@"Details")
+            ss.add(cogito.label(@"This is a side sheet content."))
+            win.set_side_sheet(ss)
+        }
+    })
+    vstack.add(open_btn)
+
+    return vstack
+}
+
 fun view_id_from_index(idx = num) (( string )) {
     return if idx == 0 {
         @"button"
@@ -1452,20 +1474,22 @@ fun view_id_from_index(idx = num) (( string )) {
         @"menu_button"
     } elif idx == 37 {
         @"content_list"
-    } elif idx == 37 {
-        @"empty_page"
     } elif idx == 38 {
-        @"welcome_screen"
+        @"empty_page"
     } elif idx == 39 {
-        @"settings_window"
+        @"welcome_screen"
     } elif idx == 40 {
-        @"view_dual"
+        @"settings_window"
     } elif idx == 41 {
-        @"view_chooser"
+        @"view_dual"
     } elif idx == 42 {
-        @"about_window"
+        @"view_chooser"
     } elif idx == 43 {
+        @"about_window"
+    } elif idx == 44 {
         @"typography"
+    } elif idx == 45 {
+        @"side_sheet"
     } else {
         @"button"
     }
@@ -1562,6 +1586,8 @@ fun view_title_from_index(idx = num) (( string )) {
         @"AboutWindow"
     } elif idx == 43 {
         @"Typography"
+    } elif idx == 44 {
+        @"SideSheet"
     } else {
         @"Button"
     }
@@ -1625,6 +1651,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
     views.add(@"view_chooser", (vs = cogito.ViewSwitcher) => build_view_chooser_page())
     views.add(@"about_window", (vs = cogito.ViewSwitcher) => build_about_window_page())
     views.add(@"typography", (vs = cogito.ViewSwitcher) => build_typography_page())
+    views.add(@"side_sheet", (vs = cogito.ViewSwitcher) => build_side_sheet_page())
 
     let selected_idx = 0
     views.set_active(view_id_from_index(selected_idx))
@@ -1682,6 +1709,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
     sidebar_list.add(cogito.label(@"ViewChooser"))
     sidebar_list.add(cogito.label(@"AboutWindow"))
     sidebar_list.add(cogito.label(@"Typography"))
+    sidebar_list.add(cogito.label(@"SideSheet"))
 
     sidebar_list.on_select((idx) => {
         views.set_active(view_id_from_index(idx))

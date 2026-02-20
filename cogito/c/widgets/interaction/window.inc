@@ -126,3 +126,27 @@ static void cogito_window_clear_dialog(ErgoVal winv) {
     fflush(stderr);
   }
 }
+
+static void cogito_window_set_side_sheet(ErgoVal winv, ErgoVal side_sheetv) {
+  if (winv.tag != EVT_OBJ) ergo_trap("cogito.window_set_side_sheet expects window");
+  if (side_sheetv.tag != EVT_OBJ) ergo_trap("cogito.window_set_side_sheet expects side_sheet");
+  CogitoNode* win = (CogitoNode*)winv.as.p;
+  CogitoNode* ss = (CogitoNode*)side_sheetv.as.p;
+  if (ss->kind != COGITO_SIDE_SHEET) ergo_trap("cogito.window_set_side_sheet expects SideSheet node");
+  if (win->side_sheet_node && win->side_sheet_node != ss) {
+    ergo_release_val(EV_OBJ(win->side_sheet_node));
+  }
+  win->side_sheet_node = ss;
+  win->side_sheet_node->parent = win;
+  win->side_sheet_open = true;
+  ergo_retain_val(EV_OBJ(win->side_sheet_node));
+  cogito_apply_style_tree(ss);
+  cogito_window_relayout(win);
+}
+
+static void cogito_window_clear_side_sheet(ErgoVal winv) {
+  if (winv.tag != EVT_OBJ) ergo_trap("cogito.window_clear_side_sheet expects window");
+  CogitoNode* win = (CogitoNode*)winv.as.p;
+  win->side_sheet_open = false;
+  cogito_window_relayout(win);
+}

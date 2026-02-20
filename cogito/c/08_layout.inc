@@ -189,6 +189,8 @@ static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h) {
 
     #include "widgets/layout/bottom_sheet.inc"
 
+    #include "widgets/layout/side_sheet.inc"
+
     #include "widgets/layout/timepicker.inc"
 
     #include "widgets/layout/active_indicator.inc"

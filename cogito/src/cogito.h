@@ -79,6 +79,7 @@ typedef enum {
   COGITO_NODE_BADGE,
   COGITO_NODE_BANNER,
   COGITO_NODE_BOTTOM_SHEET,
+  COGITO_NODE_SIDE_SHEET,
   COGITO_NODE_TIMEPICKER,
   COGITO_NODE_ACTIVE_INDICATOR,
   COGITO_NODE_SWITCHBAR,
@@ -169,6 +170,7 @@ cogito_node* cogito_banner_new(const char* text);
 void cogito_banner_set_action(cogito_node* banner, const char* text, cogito_node_fn handler, void* user);
 void cogito_banner_set_icon(cogito_node* banner, const char* icon);
 cogito_node* cogito_bottom_sheet_new(const char* title);
+cogito_node* cogito_side_sheet_new(const char* title);
 cogito_node* cogito_timepicker_new(void);
 void cogito_timepicker_on_change(cogito_node* tp, cogito_node_fn handler, void* user);
 int cogito_timepicker_get_hour(cogito_node* tp);
@@ -372,6 +374,8 @@ void cogito_dialog_close(cogito_node* dialog);
 void cogito_dialog_remove(cogito_node* dialog);
 void cogito_window_set_dialog(cogito_window* window, cogito_node* dialog);
 void cogito_window_clear_dialog(cogito_window* window);
+void cogito_window_set_side_sheet(cogito_window* window, cogito_node* side_sheet);
+void cogito_window_clear_side_sheet(cogito_window* window);
 
 // Containers and layout helpers
 void cogito_fixed_set_pos(cogito_node* fixed, cogito_node* child, int x, int y);
