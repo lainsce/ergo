@@ -66,52 +66,52 @@ window
   background: @surface
 
 vstack
-  background: #111111
-  color: #f2f2f7
+  background: @surface-dim
+  color: @on-background
 
 hstack
-  background: #111111
-  color: #f2f2f7
+  background: @surface-dim
+  color: @on-background
 
 zstack
-  background: #111111
-  color: #f2f2f7
+  background: @surface-dim
+  color: @on-background
 
 fixed
   background: transparent
-  color: #f2f2f7
+  color: @on-background
 
 scroller
-  background: #f5f5f5
-  color: #f2f2f7
+  background: @on-background
+  color: @on-background
 
 scroller.sidebar
-  background: #111111
+  background: @surface-dim
 
 carousel
   background: transparent
-  color: #f2f2f7
+  color: @on-background
 
 carousel_item
-  background: #4f378b
-  color: #f2f2f7
+  background: @surface-variant
+  color: @on-background
 
 label.carousel-item-label
-  color: #ffffff
+  color: @on-background
 
 dialogslot
-  background: #00000066
-  color: #f2f2f7
+  background: alpha(@shadow, 40%)
+  color: @on-background
 
 button
   background: @primary
   color: @on-primary
 
 button:hover
-  background: #e0cfff
+  background: @on-background
 
 button:active
-  background: #b69df8
+  background: @on-surface-variant
 
 button.outlined
   background: transparent
@@ -126,10 +126,10 @@ button.outlined:active
   background: alpha(@primary, 20%)
 
 button.outlined:disabled
-  color: #f2f2f752
-  border-color: #f2f2f752
-  background: #f2f2f729
-  border-color: #cac4d012
+  color: alpha(@on-background, 32%)
+  border-color: alpha(@on-background, 32%)
+  background: alpha(@on-background, 16%)
+  border-color: alpha(@on-surface-variant, 7%)
 
 button.text
   background: transparent
@@ -142,222 +142,225 @@ button.text:active
   background: alpha(@primary, 20%)
 
 button.text:disabled
-  color: #f2f2f752
-  background: #f2f2f729
+  color: alpha(@on-background, 32%)
+  background: alpha(@on-background, 16%)
 
 fab
-  background: #d0bcff
-  color: #381e72
+  background: @on-background
+  color: @surface-variant
 
 fab:hover
-  background: #e0cfff
+  background: @on-background
 
 fab:active
-  background: #b69df8
+  background: @on-surface-variant
 
 nav-rail
-  background: #2b2930
-  color: #f2f2f7
+  background: @surface
+  color: @on-background
 
 nav-rail:selection
-  background: #4a4458
-  color: #e8def8
+  background: @surface-variant
+  color: @on-background
 
 textfield
-  background: #322f35
-  color: #f2f2f7
+  background: @surface-container-highest
+  color: @on-background
 
 textfield:hover
-  background: #3f3c42
+  background: @surface-variant
 
 searchfield
-  background: #2c2c2e
-  color: #f2f2f7
+  background: @surface-container-high
+  color: @on-background
 
 textview
-  background: #2c2c2e
-  color: #f2f2f7
+  background: @inverse-on-surface
+  color: @on-background
 
 textfield:selection
-  background: #3a3a3c
+  background: @surface-container-highest
 
 textview:selection
-  background: #3a3a3c
+  background: @surface-container-highest
 
 dropdown
-  background: #2c2c2e
-  color: #f2f2f7
+  background: @inverse-on-surface
+  color: @on-background
 
 datepicker
-  background: #2c2c2e
-  color: #f2f2f7
+  background: @inverse-on-surface
+  color: @on-background
 
 datepicker:selection
-  background: #3a3a3c
+  background: @surface-container-highest
 
 slider
-  background: #938f99
-  color: #d0bcff
+  background: @surface-variant
+  color: @primary
 
 slider:hover
-  color: #e0cfff
+  color: @on-background
 
 slider:active
-  color: #b69df8
+  color: @on-surface-variant
 
 stepper
-  background: #2c2c2e
-  color: #f2f2f7
+  background: @inverse-on-surface
+  color: @on-background
 
 tabs
-  background: #2c2c2e
-  color: #f2f2f7
+  background: @inverse-on-surface
+  color: @on-background
 
 tabs:selection
-  background: #3a3a3c
+  background: @surface-container-highest
 
 segmented
-  background: #2c2c2e
-  color: #f2f2f7
+  background: transparent
+  color: @on-surface
+  border: 1 solid @outline
 
 segmented:disabled
-  background: #f2f2f729
-  color: #f2f2f752
+  background: alpha(@on-background, 16%)
+  color: alpha(@on-background, 32%)
 
 viewswitcher
-  background: #1c1c1e
-  color: #f2f2f7
+  background: @surface-container-low
+  color: @on-background
 
 progress
-  background: #3a3a3c
+  background: @surface-container-highest
 
 progress:selection
-  background: #6b6b6f
+  background: @outline
 
 toasts
-  color: #f2f2f7
+  color: @on-background
 
 toast
-  background: #2c2c2e
-  color: #f2f2f7
+  background: @inverse-on-surface
+  color: @on-background
 
 treeview
-  background: #2c2c2e
-  color: #f2f2f7
+  background: @inverse-on-surface
+  color: @on-background
 
 colorpicker
-  background: #2c2c2e
-  color: #f2f2f7
+  background: @inverse-on-surface
+  color: @on-background
 
 colorpicker:selection
-  background: #3a3a3c
+  background: @surface-container-highest
 
 toolbar
-  background: #2c2c2e
-  color: #f2f2f7
+  background: @inverse-on-surface
+  color: @on-background
 
 iconbtn
-  background: #2c2c2e
-  color: #f2f2f7
+  background: @inverse-on-surface
+  color: @on-background
 
 label
-  color: #f2f2f7
+  color: @on-background
 
 .about-window
-  background: #111111
-  color: #f2f2f7
+  background: @surface-container-high-dim
+  color: @on-background
 
 label.about-window-title
-  color: #f2f2f7
+  color: @on-background
 
 label.about-window-license
-  color: #a0a0a6
+  color: @outline
 
 hstack.about-window-actions
   background: transparent
 
 tooltip
-  background: #3a3a3c
-  color: #f2f2f7
+  background: @surface-container-highest
+  color: @on-background
 
 checkbox
 radio
-  color: #f2f2f7
+  color: @on-background
 
 checkbox:checked
 radio:checked
-  background: #3a3a3c
+  background: @surface-container-highest
 
 checkbox .check
 radio .check
-  color: #f2f2f7
+  color: @on-background
 
 checkbox:checked .check
 radio:checked .check
-  color: #f2f2f7
+  color: @on-background
 
 chip
-  background: #322f35
-  color: #e6e1e5
+  background: @surface-container-highest
+  color: @on-background
 
 chip:hover
-  background: #3f3c42
+  background: @surface-variant
 
 chip:active
-  background: #48454f
+  background: @surface-variant
 
 chip:checked
-  background: #4a4458
-  color: #e8def8
+  background: @surface-variant
+  color: @on-background
 
 checkbox .box
 radio .box
-  background: #2c2c2e
-  border-color: #3a3a3c
+  background: transparent
+  border-color: @on-surface-variant
 
 checkbox:checked .box
 radio:checked .box
-  background: #3a3a3c
+  background: @surface-container-highest
 
 checkbox .box:hover
 radio .box:hover
-  background: #3a3a3c
+  background: @surface-container-highest
 
 checkbox .box:active
 radio .box:active
-  background: #3a3a3c
+  background: @surface-container-highest
 
 checkbox .check:hover
 radio .check:hover
-  color: #ffffff
+  color: @on-background
 
 checkbox .check:active
 radio .check:active
-  color: #ffffff
+  color: @on-background
 
 switch
-  color: #f2f2f7
+  color: @on-background
 
 switch track
-  background: #3a3a3c
+  background: @surface-container-highest
+  border: 2 solid @outline
 
 switch:checked track
-  background: #5a5a5f
+  background: @primary
+  border: 0 none @primary
 
 switch track:hover
-  background: #4a4a4f
+  background: @outline
 
 switch track:active
-  background: #5a5a5f
+  background: @primary
 
 switch knob
-  background: #ffffff
+  background: @on-background
 
 switch knob:hover
-  background: #f4f4f4
+  background: @on-background
 
 switch knob:active
-  background: #e8e8e8
+  background: @on-background
 
 ; Keyboard focus ring
 button:focus, button.text:focus, button.outlined:focus, iconbtn:focus, fab:focus, chip:focus, checkbox:focus, radio:focus, slider:focus, stepper:focus, segmented:focus, dropdown:focus, datepicker:focus, colorpicker:focus, nav-rail:focus, bottom-nav:focus
@@ -376,248 +379,252 @@ button:focus, button.text:focus, button.outlined:focus, iconbtn:focus, fab:focus
 .content-subtitle
 .body
 .caption
-  color: #f2f2f7
+  color: @on-background
 
 list
-  background: #2c2c2e
-  color: #f2f2f7
+  background: @inverse-on-surface
+  color: @on-background
 
 list:selection
-  background: #3a3a3c
+  background: @surface-container-highest
 
 grid
-  background: #2c2c2e
-  color: #f2f2f7
+  background: @inverse-on-surface
+  color: @on-background
 
 grid:selection
-  background: #3a3a3c
+  background: @surface-container-highest
 
 appbar
-  background: #2c2c2e
-  color: #f2f2f7
-  border: 0 solid #00000000
+  background: @inverse-on-surface
+  color: @on-background
+  border: 0 solid alpha(@shadow, 0%)
 
 appbar.view
-  background: #2c2c2e
-  color: #f2f2f7
+  background: @inverse-on-surface
+  color: @on-background
 
 appbar.sidebar
-  background: #1c1c1e
+  background: @surface
 
 scroller.sidebar
-  background: #1c1c1e
+  background: @surface-container-low
 
 dialog
-  background: #2c2c2e
+  background: @surface-container-high
 
 popover
-  background: #2c2c2e
+  background: @inverse-on-surface
   box-shadow: [
-    0 2 8 0 #0000001f
+    0 2 8 0 alpha(@shadow, 12%)
   ]
 
 appbar .window-button
-  border-color: #00000022
+  border-color: alpha(@shadow, 13%)
 
 appbar .window-close
-  background: #ff5f57
+  background: @error
 
 appbar .window-min
-  background: #febc2e
+  background: @error
 
 appbar .window-max
-  background: #28c840
+  background: @inverse-primary
 
 appbar .window-close:hover
-  background: #ff7b73
+  background: @error
 
 appbar .window-close:active
-  background: #e5534d
+  background: @outline
 
 appbar .window-min:hover
-  background: #ffd066
+  background: @error
 
 appbar .window-min:active
-  background: #e0a52a
+  background: @error
 
 appbar .window-max:hover
-  background: #52d870
+  background: @primary
 
 appbar .window-max:active
-  background: #1ea64a
+  background: @inverse-primary
 
 appbar .button:hover
-  background: #3a3a3c
+  background: @surface-container-highest
 
 appbar .button:active
-  background: #4a4a4f
+  background: @surface-variant
 
 appbar .iconbtn:hover
-  background: #3a3a3c
+  background: @surface-container-highest
 
 appbar .iconbtn:active
-  background: #4a4a4f
+  background: @surface-variant
 
 menu
-  background: #2c2c2e
-  color: #f2f2f7
+  background: @inverse-on-surface
+  color: @on-background
 
 menu:selection
-  background: #3a3a3c
+  background: @surface-container-highest
 
 menu item
-  background: #2c2c2e
-  color: #f2f2f7
+  background: @inverse-on-surface
+  color: @on-background
 
 menu_section
   background: transparent
 
 menu_section item
-  background: #2c2c2e
-  color: #f2f2f7
+  background: @inverse-on-surface
+  color: @on-background
 
 bottom-nav
-  background: #1c1b1f
-  color: #f2f2f7
+  background: @surface-container-low
+  color: @on-background
 
 bottom-nav:selection
-  background: #4a4458
-  color: #e8def8
+  background: @surface-variant
+  color: @on-background
 
 .datepicker
-  background: #2c2c2e
-  color: #f2f2f7
+  background: @inverse-on-surface
+  color: @on-background
 
 .datepicker:selection
-  background: #3a3a3c
+  background: @surface-container-highest
 
 .textfield:selection
-  background: #3a3a3c
+  background: @surface-container-highest
 
 .textview:selection
-  background: #3a3a3c
+  background: @surface-container-highest
 
 dropdown:hover
-  background: #3f3c42
+  background: @surface-variant
 
 searchfield:hover
-  background: #3a3a3c
+  background: @surface-container-highest
 
 searchfield:active
-  border-color: #d0bcff
+  border-color: @on-background
 
 searchfield:selection
-  background: #3a3a3c
+  background: @surface-container-highest
 
 segmented:selection
-  background: #3a3a3c
+  background: @secondary-container
+  color: @on-secondary-container
+  border: 1 solid @secondary-container
 
 iconbtn:hover
-  background: #3a3a3c
-  color: #f2f2f7
+  background: @surface-container-highest
+  color: @on-background
 
 iconbtn:active
-  background: #4a4a4f
-  color: #f2f2f7
+  background: @surface-variant
+  color: @on-background
 
 appbar .iconbtn
-  background: #2c2c2e
+  background: @inverse-on-surface
 
 switch .track
-  background: #3a3a3c
+  background: @surface-container-highest
+  border: 2 solid @outline
 
 switch:checked .track
-  background: #5a5a5f
+  background: @primary
+  border: 0 none @primary
 
 switch .track:hover
-  background: #4a4a4f
+  background: @outline
 
 switch .track:active
-  background: #5a5a5f
+  background: @primary
 
 switch .knob
-  background: #ffffff
+  background: @on-background
 
 switch .knob:hover
-  background: #f4f4f4
+  background: @on-background
 
 switch .knob:active
-  background: #e8e8e8
+  background: @on-background
 
 toast:selection
-  background: #6b6b6f
+  background: @outline
 
 .primary-container
-  background: #4f378b
-  color: #eaddff
+  background: @surface-variant
+  color: @on-background
 
 .secondary
-  background: #ccc2dc
-  color: #332d41
+  background: @on-surface-variant
+  color: @surface-container-highest
 
 .secondary-container
-  background: #4a4458
-  color: #e8def8
+  background: @surface-variant
+  color: @on-background
 
 .tertiary
-  background: #efb8c8
-  color: #492532
+  background: @error
+  color: @surface-container-highest
 
 .tertiary-container
-  background: #633b48
-  color: #ffd8e4
+  background: @surface-variant
+  color: @on-error-container
 
 .error
-  color: #f2b8b5
+  color: @error
 
 .on-error
-  background: #f2b8b5
-  color: #601410
+  background: @error
+  color: @on-error
 
 .error-container
-  background: #8c1d18
-  color: #f9dedc
+  background: @error-container
+  color: @on-error-container
 
 .surface-variant
-  background: #49454f
-  color: #cac4d0
+  background: @surface-variant
+  color: @on-surface-variant
 
 .surface-dim
-  background: #141218
+  background: @surface-dim
 
 .surface-bright
-  background: #3b383e
+  background: @surface-container-highest
 
 .surface-container-lowest
-  background: #0f0d13
+  background: @surface-dim
 
 .surface-container-low
-  background: #1d1b20
+  background: @surface-container-low
 
 .surface-container
-  background: #211f26
+  background: @surface-container
 
 .surface-container-high
-  background: #2b2930
+  background: @surface-container-high
 
 .surface-container-highest
-  background: #36343b
+  background: @surface-container-highest
 
 .inverse-surface
-  background: #e6e1e5
-  color: #313033
+  background: @on-background
+  color: @inverse-on-surface
 
 .inverse-primary
-  color: #6750a4
+  color: @outline
 
 .outline-variant
-  border-color: #49454f
+  border-color: @surface-variant
 
 .scrim
-  background: #000000
+  background: @shadow
 
 content-list
-  background: #1c1c1e
+  background: @surface-container-low
   color: @on-surface
 
 content-list label
@@ -626,52 +633,52 @@ content-list label
 ; Disabled state variants - 16% opaque On Surface for backgrounds, 32% for borders/text/icons
 
 button:disabled
-  background: #f2f2f729
-  color: #f2f2f752
+  background: alpha(@on-background, 16%)
+  color: alpha(@on-background, 32%)
 
 fab:disabled
-  background: #f2f2f729
-  color: #f2f2f752
+  background: alpha(@on-background, 16%)
+  color: alpha(@on-background, 32%)
 
 chip:disabled
-  background: #f2f2f729
-  color: #f2f2f752
-  border-color: #f2f2f752
+  background: alpha(@on-background, 16%)
+  color: alpha(@on-background, 32%)
+  border-color: alpha(@on-background, 32%)
 
 textfield:disabled
-  background: #f2f2f729
-  color: #f2f2f752
+  background: alpha(@on-background, 16%)
+  color: alpha(@on-background, 32%)
 
 searchfield:disabled
-  background: #f2f2f729
-  color: #f2f2f752
+  background: alpha(@on-background, 16%)
+  color: alpha(@on-background, 32%)
 
 dropdown:disabled
-  background: #f2f2f729
-  color: #f2f2f752
+  background: alpha(@on-background, 16%)
+  color: alpha(@on-background, 32%)
 
 slider:disabled
-  color: #f2f2f752
+  color: alpha(@on-background, 32%)
 
 stepper:disabled
-  background: #f2f2f729
-  color: #f2f2f752
+  background: alpha(@on-background, 16%)
+  color: alpha(@on-background, 32%)
 
 checkbox:disabled
-  color: #f2f2f752
+  color: alpha(@on-background, 32%)
 
 radio:disabled
-  color: #f2f2f752
+  color: alpha(@on-background, 32%)
 
 switch:disabled
-  color: #f2f2f752
+  color: alpha(@on-background, 32%)
 
 switch:disabled track
-  background: #f2f2f729
+  background: alpha(@on-background, 16%)
 
 switch:disabled knob
-  background: #f2f2f752
+  background: alpha(@on-background, 32%)
 
 iconbtn:disabled
-  background: #f2f2f729
-  color: #f2f2f752
+  background: alpha(@on-background, 16%)
+  color: alpha(@on-background, 32%)

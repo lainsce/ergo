@@ -1,6 +1,7 @@
 // ---- Cogito GUI (SDL3) ----
 
 #include "backend.h"
+#include <SDL3/SDL.h> // Required for SDL_GetPerformanceCounter (spring dt) and other SDL types
 #if defined(__APPLE__)
 #include <objc/objc.h>
 #include <objc/message.h>
@@ -21,7 +22,10 @@ static bool cogito_system_is_dark(void) {
 static bool cogito_system_accent(CogitoColor* out) {
   if (sum_system_accent(out)) return true;
   if (out) {
-    *out = cogito_color(114, 222, 194, 255);
+    *out = cogito_color(114,
+    222,
+    194,
+    255);
   }
   return false;
 }
@@ -29,10 +33,10 @@ static bool cogito_system_accent(CogitoColor* out) {
 static void cogito_apply_theme(bool dark, CogitoColor accent);
 
 // Animation Duration Constants (milliseconds)
-#define COGITO_ANIM_DURATION_SHORT1 50   // Very fast (fab close, etc.)
-#define COGITO_ANIM_DURATION_SHORT2 100  // Fast (switch toggle)
-#define COGITO_ANIM_DURATION_SHORT3 150  // Quick (checkbox)
-#define COGITO_ANIM_DURATION_SHORT4 200  // Standard (button state)
+#define COGITO_ANIM_DURATION_SHORT1 50 // Very fast (fab close, etc.)
+#define COGITO_ANIM_DURATION_SHORT2 100 // Fast (switch toggle)
+#define COGITO_ANIM_DURATION_SHORT3 150 // Quick (checkbox)
+#define COGITO_ANIM_DURATION_SHORT4 200 // Standard (button state)
 #define COGITO_ANIM_DURATION_MEDIUM1 250 // Slow (dropdown open)
 #define COGITO_ANIM_DURATION_MEDIUM2 300 // Slower (dialog)
 #define COGITO_ANIM_DURATION_MEDIUM3 350 // Medium (page transition)
@@ -41,30 +45,27 @@ static void cogito_apply_theme(bool dark, CogitoColor accent);
 #define COGITO_ANIM_DURATION_LONG2 500
 #define COGITO_ANIM_DURATION_LONG3 550
 #define COGITO_ANIM_DURATION_LONG4 600
-#define COGITO_ACTIVE_LATCH_MS 90      // Keep pressed visual briefly to avoid click flash
+#define COGITO_ACTIVE_LATCH_MS 90 // Keep pressed visual briefly to avoid click flash
 #define COGITO_BOTTOM_SHEET_DEFAULT_RATIO 0.60f
 #define COGITO_BOTTOM_SHEET_TOP_INSET 56
 #define COGITO_BOTTOM_SHEET_HANDLE_TOUCH_H 32
 #define COGITO_SIDE_SHEET_DEFAULT_RATIO 0.40f
 #define COGITO_SIDE_SHEET_LEFT_INSET 0
 #define COGITO_SIDE_SHEET_HANDLE_TOUCH_W 32
-
 // Nav Rail Constants (dp)
 // Shared between collapsed and expanded modes
 #define COGITO_NAV_RAIL_SHARED_TOGGLE_BUTTON_SIZE 48
 #define COGITO_NAV_RAIL_SHARED_TOGGLE_ICON_SIZE 24
 #define COGITO_NAV_RAIL_SHARED_ITEM_ICON_SIZE 24
-
 // Collapsed mode
 #define COGITO_NAV_RAIL_COLLAPSED_WIDTH 96
 #define COGITO_NAV_RAIL_COLLAPSED_TOP_OFFSET 24
 #define COGITO_NAV_RAIL_COLLAPSED_SECTION_GAP 36
 #define COGITO_NAV_RAIL_COLLAPSED_ITEM_STEP 96
-#define COGITO_NAV_RAIL_COLLAPSED_INDICATOR_WIDTH 56
-#define COGITO_NAV_RAIL_COLLAPSED_INDICATOR_HEIGHT 32
-#define COGITO_NAV_RAIL_COLLAPSED_ICON_Y_OFFSET 4
+#define COGITO_NAV_RAIL_COLLAPSED_INDICATOR_WIDTH 64 // Cogito Expressive: 64dp pill indicator
+#define COGITO_NAV_RAIL_COLLAPSED_INDICATOR_HEIGHT 56 // Cogito Expressive: 56dp indicator height
+#define COGITO_NAV_RAIL_COLLAPSED_ICON_Y_OFFSET 16 // Center icon in 56dp indicator
 #define COGITO_NAV_RAIL_COLLAPSED_INDICATOR_LABEL_GAP 4
-
 // Expanded mode
 #define COGITO_NAV_RAIL_EXPANDED_MIN_WIDTH 220
 #define COGITO_NAV_RAIL_EXPANDED_MAX_WIDTH 360
@@ -76,16 +77,77 @@ static void cogito_apply_theme(bool dark, CogitoColor accent);
 #define COGITO_NAV_RAIL_EXPANDED_SIDE_PADDING 24
 #define COGITO_NAV_RAIL_EXPANDED_CONTENT_INSET 16
 #define COGITO_NAV_RAIL_EXPANDED_LABEL_GAP 12
-
-// Animation Easing Functions
+// Animation Easing Functions (legacy, kept for compatibility)
 #define COGITO_EASING_LINEAR 0
-#define COGITO_EASING_STANDARD 1       // Standard easing (smooth start and end)
-#define COGITO_EASING_IN 2             // Accelerate
-#define COGITO_EASING_OUT 3            // Decelerate
-#define COGITO_EASING_IN_OUT 4         // Accelerate then decelerate
-#define COGITO_EASING_EMPHASIZED 5     // Spring with overshoot (in-back)
+#define COGITO_EASING_STANDARD 1 // Standard easing (smooth start and end)
+#define COGITO_EASING_IN 2 // Accelerate
+#define COGITO_EASING_OUT 3 // Decelerate
+#define COGITO_EASING_IN_OUT 4 // Accelerate then decelerate
+#define COGITO_EASING_EMPHASIZED 5 // Spring with overshoot (in-back)
 #define COGITO_EASING_EMPHASIZED_OUT 6 // Spring decelerate (out-back)
 
+// Physics Spring Tokens — stiffness (k) and damping ratio (z)
+// Expressive: overshoot allowed, feels alive (buttons, sliders, FAB)
+#define COGITO_SPRING_K_EXPRESSIVE   750.0
+#define COGITO_SPRING_Z_EXPRESSIVE   0.65
+// Functional: critically/over-damped, no overshoot (toolbars, layout, opacity)
+#define COGITO_SPRING_K_FUNCTIONAL   1200.0
+#define COGITO_SPRING_Z_FUNCTIONAL   1.0
+// Second-Order Spring state (one instance per animated scalar/channel)
+typedef struct {
+  double x; // current value
+  double v; // current velocity  (preserved on target change for continuity)
+  bool   inited;
+} CogitoSpring;
+
+// Advance a spring by dt seconds toward target.
+// Uses semi-implicit Euler integration (stable for large dt).
+// k = stiffness (angular frequency squared), z = damping ratio.
+static inline void cogito_spring_tick(CogitoSpring* s, double target, double k, double z, double dt) {
+  if (!s) return;
+  if (!s->inited) {
+    s->x = target;
+    s->v = 0.0;
+    s->inited = true;
+    return;
+  }
+  if (dt <= 0.0) return;
+  // Clamp dt to avoid instability on long frame gaps (e.g. first frame after resize)
+  if (dt > 0.05) dt = 0.05;
+  double w = sqrt(k); // natural frequency
+  double d = z * 2.0 * w; // damping coefficient
+  // Semi-implicit Euler: update velocity first, then position
+  double a = -k * (s->x - target) - d * s->v;
+  s->v += a * dt;
+  s->x += s->v * dt;
+}
+// Returns true if the spring is still meaningfully moving (needs another frame)
+static inline bool cogito_spring_active(const CogitoSpring* s, double target) {
+  if (!s || !s->inited) return false;
+  double dx = s->x - target;
+  return (dx * dx > 1e-6 || s->v * s->v > 1e-6);
+}
+// Snap spring to target with zero velocity (use for first-frame init)
+static inline void cogito_spring_snap(CogitoSpring* s, double target) {
+  if (!s) return;
+  s->x = target;
+  s->v = 0.0;
+  s->inited = true;
+}
+// Per-frame dt computed from SDL_GetPerformanceCounter() — shared globally
+static double cogito_spring_dt = 0.0;
+static uint64_t cogito_spring_last_ticks = 0;
+
+static void cogito_spring_dt_update(void) {
+  uint64_t now = SDL_GetPerformanceCounter();
+  if (cogito_spring_last_ticks == 0) {
+    cogito_spring_dt = 0.0;
+  } else {
+    uint64_t freq = SDL_GetPerformanceFrequency();
+    cogito_spring_dt = (double)(now - cogito_spring_last_ticks) / (double)(freq > 0 ? freq : 1);
+  }
+  cogito_spring_last_ticks = now;
+}
 // Color functions now use backend.h implementations
 #define cogito_luma cogito_color_luma
 #define cogito_mix cogito_color_mix
@@ -104,7 +166,7 @@ typedef struct CogitoApp {
   CogitoColor system_accent;
   bool system_accent_set;
   double system_theme_next_check;
-  ErgoStr* app_icon;  // path to app icon (png/svg/jpg/bmp)
+  ErgoStr* app_icon; // path to app icon (png/svg/jpg/bmp)
 } CogitoApp;
 
 typedef enum {
@@ -270,7 +332,9 @@ typedef struct CogitoStyle {
   float letter_spacing;
   bool font_tabular;
   bool font_mono;
-  char font_family[64];
+  char font_family[
+    64
+  ];
   CogitoBoxShadow box_shadow;
   int min_w;
   int min_h;
@@ -304,7 +368,9 @@ typedef struct CogitoStyle {
 #define COGITO_LABEL_CLASS_COUNT 12
 
 typedef struct CogitoCustomClassStyle {
-  char name[64];
+  char name[
+    64
+  ];
   int kind;
   CogitoStyle style;
   CogitoStyle hover;
@@ -316,18 +382,30 @@ typedef struct CogitoCustomClassStyle {
 
 typedef struct CogitoTheme {
   CogitoStyle base;
-  CogitoStyle per_kind[COGITO_KIND_COUNT];
-  CogitoStyle per_kind_hover[COGITO_KIND_COUNT];
-  CogitoStyle per_kind_active[COGITO_KIND_COUNT];
-  CogitoStyle per_kind_focused[COGITO_KIND_COUNT];
-  CogitoStyle per_kind_checked[COGITO_KIND_COUNT];
-  CogitoStyle per_kind_disabled[COGITO_KIND_COUNT];
-  CogitoStyle label_class[COGITO_LABEL_CLASS_COUNT];
-  CogitoStyle label_class_hover[COGITO_LABEL_CLASS_COUNT];
-  CogitoStyle label_class_active[COGITO_LABEL_CLASS_COUNT];
-  CogitoStyle label_class_focused[COGITO_LABEL_CLASS_COUNT];
-  CogitoStyle label_class_checked[COGITO_LABEL_CLASS_COUNT];
-  CogitoStyle label_class_disabled[COGITO_LABEL_CLASS_COUNT];
+  CogitoStyle per_kind[COGITO_KIND_COUNT
+  ];
+  CogitoStyle per_kind_hover[COGITO_KIND_COUNT
+  ];
+  CogitoStyle per_kind_active[COGITO_KIND_COUNT
+  ];
+  CogitoStyle per_kind_focused[COGITO_KIND_COUNT
+  ];
+  CogitoStyle per_kind_checked[COGITO_KIND_COUNT
+  ];
+  CogitoStyle per_kind_disabled[COGITO_KIND_COUNT
+  ];
+  CogitoStyle label_class[COGITO_LABEL_CLASS_COUNT
+  ];
+  CogitoStyle label_class_hover[COGITO_LABEL_CLASS_COUNT
+  ];
+  CogitoStyle label_class_active[COGITO_LABEL_CLASS_COUNT
+  ];
+  CogitoStyle label_class_focused[COGITO_LABEL_CLASS_COUNT
+  ];
+  CogitoStyle label_class_checked[COGITO_LABEL_CLASS_COUNT
+  ];
+  CogitoStyle label_class_disabled[COGITO_LABEL_CLASS_COUNT
+  ];
   CogitoStyle class_mono;
   CogitoStyle class_mono_hover;
   CogitoStyle class_mono_active;
@@ -351,9 +429,15 @@ typedef struct CogitoTheme {
   CogitoStyle appbar_win_btn_all;
   CogitoStyle appbar_win_btn_hover_all;
   CogitoStyle appbar_win_btn_active_all;
-  CogitoStyle appbar_win_btn[3];
-  CogitoStyle appbar_win_btn_hover[3];
-  CogitoStyle appbar_win_btn_active[3];
+  CogitoStyle appbar_win_btn[
+    3
+  ];
+  CogitoStyle appbar_win_btn_hover[
+    3
+  ];
+  CogitoStyle appbar_win_btn_active[
+    3
+  ];
   CogitoStyle checkbox_check;
   CogitoStyle checkbox_check_hover;
   CogitoStyle checkbox_check_active;
@@ -406,7 +490,8 @@ typedef struct CogitoTheme {
   CogitoStyle iconbtn_iconic;
   CogitoStyle iconbtn_iconic_hover;
   CogitoStyle iconbtn_iconic_active;
-  CogitoCustomClassStyle custom_classes[COGITO_MAX_CUSTOM_CLASSES];
+  CogitoCustomClassStyle custom_classes[COGITO_MAX_CUSTOM_CLASSES
+  ];
   int custom_class_count;
 } CogitoTheme;
 
@@ -551,17 +636,20 @@ typedef struct CogitoNode {
   int shadow_level;
   CogitoBorderStyle border_style;
   int radius_tl, radius_tr, radius_br, radius_bl;
-  char font_family[64];
+  char font_family[
+    64
+  ];
   CogitoBoxShadow box_shadow;
   int track_height;
   float opacity;
   bool has_opacity;
 
-  // Animation
+  // Animation (legacy time fields — kept for anim_ms/ease compat)
   bool anim_inited;
   double anim_start;
   int anim_ms;
   int anim_ease;
+  // Legacy color animation fields (still used for backward compat paths)
   CogitoColor anim_bg;
   CogitoColor anim_bg_from;
   CogitoColor anim_bg_target;
@@ -591,14 +679,29 @@ typedef struct CogitoNode {
   float opacity_from;
   float opacity_target;
   double opacity_start;
+  // --- Physics Spring Animators (Second-Order Spring Solver) ---
+  // One spring per color channel (R,G,B,A) × 4 color properties = 16 springs
+  CogitoSpring spring_bg_r,  spring_bg_g,  spring_bg_b,  spring_bg_a;
+  CogitoSpring spring_txt_r, spring_txt_g, spring_txt_b, spring_txt_a;
+  CogitoSpring spring_bdr_r, spring_bdr_g, spring_bdr_b, spring_bdr_a;
+  CogitoSpring spring_sel_r, spring_sel_g, spring_sel_b, spring_sel_a;
+  // Scalar springs: layout position/size and opacity
+  CogitoSpring spring_x; // layout x
+  CogitoSpring spring_y; // layout y
+  CogitoSpring spring_w; // layout w
+  CogitoSpring spring_h; // layout h
+  CogitoSpring spring_opacity; // opacity
+  // Font-weight spring for expressive typography (wght axis)
+  CogitoSpring spring_font_weight;
+  int spring_font_weight_target_int; // last integer target (to detect changes)
 
   // Ripple animation (mouse-position-aware, for Primary-colored interactables)
-  double ripple_start;      // Animation start time
-  float ripple_progress;    // 0.0 to 1.0, updated each frame
-  int ripple_x;             // Click position relative to widget
+  double ripple_start; // Animation start time
+  float ripple_progress; // 0.0 to 1.0, updated each frame
+  int ripple_x; // Click position relative to widget
   int ripple_y;
-  float ripple_max_radius;  // Pre-calculated max radius
-  bool ripple_active;       // Whether ripple is currently animating
+  float ripple_max_radius; // Pre-calculated max radius
+  bool ripple_active; // Whether ripple is currently animating
 
   // Kind-specific data (anonymous union — only one member active per node)
   union {
@@ -653,7 +756,9 @@ typedef struct CogitoNode {
       int btn_close_x, btn_min_x, btn_max_x;
       int btn_y, btn_size;
       int title_y, subtitle_y;
-      char controls[16];
+      char controls[
+        16
+      ];
     } appbar;
 
     struct {
@@ -689,7 +794,7 @@ typedef struct CogitoNode {
     struct {
       ErgoStr** labels;
       ErgoStr** icons;
-      int* badges;      // 0: none, -1: dot, >0: numeric
+      int* badges; // 0: none, -1: dot, >0: numeric
       size_t len, cap;
       int selected;
       bool expanded;
@@ -703,7 +808,8 @@ typedef struct CogitoNode {
       int selected;
     } bottom_nav;
 
-    struct { int count; } badge;
+    struct { int count;
+    } badge;
     struct {
       double value;
       bool indeterminate;
@@ -721,29 +827,38 @@ typedef struct CogitoNode {
       int menu_item_gap;
       bool menu_vibrant;
     } button;
-    struct { bool selected, has_close; } chip;
+    struct { bool selected, has_close;
+    } chip;
      struct {
        bool dragging;
        bool expanded;
        int drag_start_y;
        int drag_start_h;
        int desired_h;
-     } bottom_sheet;
+    } bottom_sheet;
      struct {
        bool dragging;
        bool expanded;
        int drag_start_x;
        int drag_start_w;
        int desired_w;
-     } side_sheet;
-    struct { bool extended; } fab;
-    struct { bool vertical, inset; } divider;
-    struct { int cls; } label;
-    struct { double angle; double last_time; } indicator;
-    struct { float ratio; bool dragging; int drag_offset; } view_dual;
-    struct { int arrow_x; } split_btn;
-    struct { bool has_divider_before; bool has_divider_after; } menu_section;
-    struct { bool vibrant; } toolbar;
+    } side_sheet;
+    struct { bool extended;
+    } fab;
+    struct { bool vertical, inset;
+    } divider;
+    struct { int cls;
+    } label;
+    struct { double angle; double last_time;
+    } indicator;
+    struct { float ratio; bool dragging; int drag_offset;
+    } view_dual;
+    struct { int arrow_x;
+    } split_btn;
+    struct { bool has_divider_before; bool has_divider_after;
+    } menu_section;
+    struct { bool vibrant;
+    } toolbar;
   };
 } CogitoNode;
 
@@ -769,7 +884,9 @@ typedef struct CogitoMenu {
 static CogitoTheme cogito_theme;
 static bool cogito_theme_initialized = false;
 static bool cogito_backend_ready = false;
-static CogitoMenu cogito_menu = {0};
+static CogitoMenu cogito_menu = {
+  0
+};
 static CogitoFont* cogito_font = NULL;
 static bool cogito_font_ready = false;
 static CogitoFont* cogito_font_serif = NULL;
@@ -785,10 +902,18 @@ static int cogito_font_mono_loaded_size = 0;
 static CogitoFont* cogito_font_bold = NULL;
 static bool cogito_font_bold_ready = false;
 static bool cogito_font_bold_variable = false;
-static CogitoFontCacheEntry cogito_font_cache[8];
-static CogitoFontCacheEntry cogito_font_serif_cache[8];
-static CogitoFontCacheEntry cogito_font_bold_cache[8];
-static CogitoFontCacheEntry cogito_font_tabular_cache[8];
+static CogitoFontCacheEntry cogito_font_cache[
+  8
+];
+static CogitoFontCacheEntry cogito_font_serif_cache[
+  8
+];
+static CogitoFontCacheEntry cogito_font_bold_cache[
+  8
+];
+static CogitoFontCacheEntry cogito_font_tabular_cache[
+  8
+];
 static int cogito_font_size_value = 16;
 static int cogito_font_loaded_size = 0;
 static int cogito_font_bold_loaded_size = 0;
@@ -799,7 +924,9 @@ static char* cogito_user_sum = NULL;
 static int cogito_style_version = 0;
 static CogitoNode* cogito_focused = NULL;
 // Draw-context: forced text color for selected children (propagates down render tree)
-static CogitoColor cogito_selection_text = {0};
+static CogitoColor cogito_selection_text = {
+  0
+};
 static bool cogito_has_selection_text = false;
 static bool cogito_dialog_slot_force_draw = false;
 static bool cogito_toasts_force_draw = false;
@@ -807,8 +934,8 @@ static CogitoNode* cogito_slider_active = NULL;
 static CogitoNode* cogito_carousel_active = NULL;
 static CogitoNode* cogito_bottom_sheet_active = NULL;
 static CogitoNode* cogito_side_sheet_active = NULL;
-static int cogito_carousel_animating_count = 0;  // Track number of animating carousels globally
-static double cogito_anim_end_time = 0.0;  // Time when all animations will complete (time-based for smooth animation)
+static int cogito_carousel_animating_count = 0; // Track number of animating carousels globally
+static double cogito_anim_end_time = 0.0; // Time when all animations will complete (time-based for smooth animation)
 static CogitoNode* cogito_colorpicker_active = NULL;
 static int cogito_colorpicker_channel = -1;
 static CogitoNode* cogito_timepicker_active = NULL;
@@ -818,7 +945,12 @@ static CogitoApp* cogito_active_app = NULL;
 static CogitoNode* cogito_active_window = NULL;
 static CogitoWindow* cogito_active_backend_window = NULL;
 static bool cogito_theme_dark = false;
-static CogitoColor cogito_theme_accent = {0, 0, 0, 0};
+static CogitoColor cogito_theme_accent = {
+  0,
+  0,
+  0,
+  0
+};
 enum {
   COGITO_LABEL_CLASS_NONE = 0,
   COGITO_LABEL_CLASS_TITLE,
@@ -939,10 +1071,16 @@ static void cogito_button_size_metrics(int size, int kind, int* out_h, int* out_
 }
 
 static bool cogito_drag_active = false;
-static CogitoVec2 cogito_drag_start_mouse = {0};
-static CogitoVec2 cogito_drag_start_win = {0};
+static CogitoVec2 cogito_drag_start_mouse = {
+  0
+};
+static CogitoVec2 cogito_drag_start_win = {
+  0
+};
 static bool cogito_drag_pending = false;
-static CogitoVec2 cogito_drag_pending_mouse = {0};
+static CogitoVec2 cogito_drag_pending_mouse = {
+  0
+};
 static double cogito_drag_last_move = 0.0;
 static bool cogito_inspector_enabled = false;
 static bool cogito_inspector_open = false;
@@ -958,21 +1096,24 @@ static bool cogito_main_pointer_routed = false;
 static bool cogito_main_pointer_down = false;
 static bool cogito_main_pointer_pressed = false;
 #define COGITO_INSPECTOR_MAX_NODES 2048
-static CogitoNode* cogito_inspector_nodes[COGITO_INSPECTOR_MAX_NODES];
-static int cogito_inspector_depths[COGITO_INSPECTOR_MAX_NODES];
+static CogitoNode* cogito_inspector_nodes[COGITO_INSPECTOR_MAX_NODES
+];
+static int cogito_inspector_depths[COGITO_INSPECTOR_MAX_NODES
+];
 static int cogito_inspector_node_count = 0;
-static CogitoNode* cogito_inspector_collapsed_nodes[COGITO_INSPECTOR_MAX_NODES];
-static bool cogito_inspector_collapsed_values[COGITO_INSPECTOR_MAX_NODES];
+static CogitoNode* cogito_inspector_collapsed_nodes[COGITO_INSPECTOR_MAX_NODES
+];
+static bool cogito_inspector_collapsed_values[COGITO_INSPECTOR_MAX_NODES
+];
 static int cogito_inspector_collapsed_count = 0;
 static int cogito_inspector_tree_scroll_y = 0;
 #define COGITO_INSPECTOR_STATUS_H 24
-
 /* Scrollbar thumb drag (one at a time) */
 static CogitoNode* cogito_scrollbar_drag_scroller = NULL;
 static bool cogito_scrollbar_drag_vert = false;
 static int cogito_scrollbar_drag_start_mouse = 0;
 static int cogito_scrollbar_drag_start_scroll = 0;
-static int cogito_scrollbar_drag_max = 0;   /* max scroll (max_y or max_x) */
+static int cogito_scrollbar_drag_max = 0; /* max scroll (max_y or max_x) */
 static int cogito_scrollbar_drag_travel = 1; /* track length minus thumb (pixels) */
 
 static CogitoWindow* cogito_backend_window_for_node(CogitoNode* node) {
@@ -1009,7 +1150,8 @@ static void cogito_configure_macos_window(bool has_appbar) {
   SEL sel_set_title = sel_registerName("setTitle:");
   ((void (*)(id, SEL, id))objc_msgSend)(nsw, sel_set_title, cogito_nsstring(""));
   SEL sel_set_title_visibility = sel_registerName("setTitleVisibility:");
-  ((void (*)(id, SEL, CogitoNSUInteger))objc_msgSend)(nsw, sel_set_title_visibility, 1UL);
+  ((void (*)(id, SEL, CogitoNSUInteger))objc_msgSend)(nsw, sel_set_title_visibility,
+  1UL);
   SEL sel_set_transparent = sel_registerName("setTitlebarAppearsTransparent:");
   ((void (*)(id, SEL, BOOL))objc_msgSend)(nsw, sel_set_transparent, (BOOL)1);
   SEL sel_set_movable = sel_registerName("setMovableByWindowBackground:");
@@ -1021,9 +1163,12 @@ static void cogito_configure_macos_window(bool has_appbar) {
   SEL sel_set_style_mask = sel_registerName("setStyleMask:");
   ((void (*)(id, SEL, CogitoNSUInteger))objc_msgSend)(nsw, sel_set_style_mask, mask);
   SEL sel_standard_button = sel_registerName("standardWindowButton:");
-  id close = ((id (*)(id, SEL, CogitoNSUInteger))objc_msgSend)(nsw, sel_standard_button, 0UL);
-  id min = ((id (*)(id, SEL, CogitoNSUInteger))objc_msgSend)(nsw, sel_standard_button, 1UL);
-  id zoom = ((id (*)(id, SEL, CogitoNSUInteger))objc_msgSend)(nsw, sel_standard_button, 2UL);
+  id close = ((id (*)(id, SEL, CogitoNSUInteger))objc_msgSend)(nsw, sel_standard_button,
+  0UL);
+  id min = ((id (*)(id, SEL, CogitoNSUInteger))objc_msgSend)(nsw, sel_standard_button,
+  1UL);
+  id zoom = ((id (*)(id, SEL, CogitoNSUInteger))objc_msgSend)(nsw, sel_standard_button,
+  2UL);
   SEL sel_set_hidden = sel_registerName("setHidden:");
   if (close) ((void (*)(id, SEL, BOOL))objc_msgSend)(close, sel_set_hidden, (BOOL)1);
   if (min) ((void (*)(id, SEL, BOOL))objc_msgSend)(min, sel_set_hidden, (BOOL)1);
@@ -1080,7 +1225,9 @@ static void cogito_macos_set_window_shadow(CogitoWindow* backend_window, bool en
 }
 
 static void cogito_macos_set_process_name(const char* name) {
-  const char* process_name = (name && name[0]) ? name : COGITO_USER_VERSION;
+  const char* process_name = (name && name[
+    0
+  ]) ? name : COGITO_USER_VERSION;
   setprogname(process_name);
   Class nsprocess = (Class)objc_getClass("NSProcessInfo");
   if (!nsprocess) return;
@@ -1093,7 +1240,9 @@ static void cogito_macos_set_process_name(const char* name) {
 }
 
 static bool cogito_macos_apply_app_name(const char* name) {
-  const char* app_name = (name && name[0]) ? name : COGITO_USER_VERSION;
+  const char* app_name = (name && name[
+    0
+  ]) ? name : COGITO_USER_VERSION;
   cogito_macos_set_process_name(app_name);
 
   Class nsapp = (Class)objc_getClass("NSApplication");
@@ -1134,24 +1283,28 @@ static CogitoFont* cogito_font_for_node(const CogitoNode* n) {
   if (n && n->font_mono && cogito_font_mono_ready) {
     return cogito_font_mono;
   }
-  if (n && n->font_family_set && n->font_family[0]) {
-    if ((cogito_font_family_eq(n->font_family, "monospace") ||
-         cogito_font_family_eq(n->font_family, "mono")) &&
+  if (n && n->font_family_set && n->font_family[
+    0
+  ]) {
+    if ((cogito_font_family_eq(n->font_family,
+    "monospace") ||
+         cogito_font_family_eq(n->font_family,
+    "mono")) &&
         cogito_font_mono_ready) {
       return cogito_font_mono;
     }
-    if (cogito_font_family_eq(n->font_family, "serif") &&
+    if (cogito_font_family_eq(n->font_family,
+    "serif") &&
         cogito_font_serif_ready) {
       return cogito_font_serif;
     }
   }
   return cogito_font;
 }
-
 // Use backend.h implementations
 #define cogito_color_eq(a, b) ((a).r == (b).r && (a).g == (b).g && (a).b == (b).b && (a).a == (b).a)
 
-// Use backend.h implementation
+// Legacy easing (kept for any remaining non-spring paths)
 #define cogito_ease cogito_backend_ease
 
 static double cogito_backend_ease(double t, int ease) {
@@ -1159,7 +1312,8 @@ static double cogito_backend_ease(double t, int ease) {
   if (t >= 1.0) return 1.0;
   switch (ease) {
     case 2: return t * t; // ease-in
-    case 3: { double u = 1.0 - t; return 1.0 - u * u; } // ease-out
+    case 3: { double u = 1.0 - t; return 1.0 - u * u;
+    } // ease-out
     case 4: { // ease-in-out
       if (t < 0.5) return 2.0 * t * t;
       double u = 1.0 - t;
@@ -1179,7 +1333,38 @@ static double cogito_backend_ease(double t, int ease) {
     default: return t; // linear
   }
 }
-
+// ---- Physics-driven spring color animation ----
+// Advances 4 RGBA spring channels toward a target color using the Expressive profile.
+// Returns the resulting interpolated color. Continuity is guaranteed because
+// each channel's velocity is preserved even when the target changes mid-flight.
+static CogitoColor cogito_spring_color_tick(
+    CogitoSpring* sr, CogitoSpring* sg, CogitoSpring* sb, CogitoSpring* sa,
+    CogitoColor target, double k, double z, double dt) {
+  cogito_spring_tick(sr, (double)target.r, k, z, dt);
+  cogito_spring_tick(sg, (double)target.g, k, z, dt);
+  cogito_spring_tick(sb, (double)target.b, k, z, dt);
+  cogito_spring_tick(sa, (double)target.a, k, z, dt);
+  // Clamp channel values to [0,255]
+  int r = (int)(sr->x + 0.5); if (r < 0) r = 0; if (r > 255) r = 255;
+  int g = (int)(sg->x + 0.5); if (g < 0) g = 0; if (g > 255) g = 255;
+  int b = (int)(sb->x + 0.5); if (b < 0) b = 0; if (b > 255) b = 255;
+  int a = (int)(sa->x + 0.5); if (a < 0) a = 0; if (a > 255) a = 255;
+  return (CogitoColor){(uint8_t)r, (uint8_t)g, (uint8_t)b, (uint8_t)a
+  };
+}
+// Returns true if any of the four RGBA spring channels are still moving
+static bool cogito_spring_color_active(
+    const CogitoSpring* sr, const CogitoSpring* sg,
+    const CogitoSpring* sb, const CogitoSpring* sa,
+    CogitoColor target) {
+  return cogito_spring_active(sr, (double)target.r) ||
+         cogito_spring_active(sg, (double)target.g) ||
+         cogito_spring_active(sb, (double)target.b) ||
+         cogito_spring_active(sa, (double)target.a);
+}
+// Legacy time-based lerp animation (kept for backward compatibility with any widget-specific paths)
+// These are no longer called by cogito_anim_apply (which uses the spring solver instead).
+__attribute__((unused))
 static CogitoColor cogito_anim_color(CogitoNode* n, CogitoColor target, CogitoColor* cur, CogitoColor* from, CogitoColor* tgt, double* start, double now) {
   if (!n) return target;
   if (!n->anim_inited) {
@@ -1222,7 +1407,7 @@ static CogitoColor cogito_anim_color(CogitoNode* n, CogitoColor target, CogitoCo
   double t = (now - t0) * 1000.0 / (double)n->anim_ms;
   if (t >= 1.0) {
     *cur = target;
-    *from = target;  // Ensure from matches target to avoid residual interpolation
+    *from = target; // Ensure from matches target to avoid residual interpolation
     *tgt = target;
     return target;
   }
@@ -1263,7 +1448,7 @@ static int cogito_anim_int(CogitoNode* n, int target, int* cur, int* from, int* 
   double t = (now - t0) * 1000.0 / (double)n->anim_ms;
   if (t >= 1.0) {
     *cur = target;
-    *from = target;  // Ensure from matches target to avoid residual interpolation
+    *from = target; // Ensure from matches target to avoid residual interpolation
     *tgt = target;
     return target;
   }
@@ -1271,10 +1456,10 @@ static int cogito_anim_int(CogitoNode* n, int target, int* cur, int* from, int* 
   *cur = (int)(*from + e * (*tgt - *from));
   return *cur;
 }
-
 // Use backend.h implementation
 #define cogito_apply_opacity cogito_color_apply_opacity
 
+__attribute__((unused))
 static float cogito_anim_float(CogitoNode* n, float target, float* cur, float* from, float* tgt, double* start, double now) {
   if (!n) return target;
   if (!n->anim_inited) {
@@ -1307,7 +1492,7 @@ static float cogito_anim_float(CogitoNode* n, float target, float* cur, float* f
   double t = (now - t0) * 1000.0 / (double)n->anim_ms;
   if (t >= 1.0) {
     *cur = target;
-    *from = target;  // Ensure from matches target to avoid residual interpolation
+    *from = target; // Ensure from matches target to avoid residual interpolation
     *tgt = target;
     return target;
   }
@@ -1321,33 +1506,110 @@ static void cogito_anim_apply(CogitoNode* n, const CogitoStyle* s, CogitoColor* 
   if (s->has_transition_ms) n->anim_ms = s->transition_ms;
   if (s->has_transition_ease) n->anim_ease = s->transition_ease;
   double now = cogito_backend->get_time();
-  // Animate opacity if set
+  double dt = cogito_spring_dt; // frame-rate-independent delta-time
+
+  // Choose spring profile: expressive for UI elements, functional for opacity
+  double k_color = COGITO_SPRING_K_EXPRESSIVE;
+  double z_color = COGITO_SPRING_Z_EXPRESSIVE;
+  double k_op    = COGITO_SPRING_K_FUNCTIONAL;
+  double z_op    = COGITO_SPRING_Z_FUNCTIONAL;
+
+  // Animate opacity via functional spring (no overshoot on opacity)
   float opacity = n->opacity;
   if (n->opacity_set) {
-    opacity = cogito_anim_float(n, n->opacity, &n->opacity, &n->opacity_from, &n->opacity_target, &n->opacity_start, now);
+    cogito_spring_tick(&n->spring_opacity, (double)n->opacity, k_op, z_op, dt);
+    float sp_op = (float)n->spring_opacity.x;
+    if (sp_op < 0.0f) sp_op = 0.0f;
+    if (sp_op > 1.0f) sp_op = 1.0f;
+    opacity = sp_op;
+    // Keep legacy float anim in sync for external readers
+    n->opacity_from = n->opacity;
+    n->opacity_target = n->opacity;
+    if (cogito_spring_active(&n->spring_opacity, (double)n->opacity)) {
+      double end_time = now + 0.6;
+      if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
+    }
   }
+  // Animate colors via expressive spring (overshoot = liveliness)
   if (bg) {
-    *bg = cogito_anim_color(n, *bg, &n->anim_bg, &n->anim_bg_from, &n->anim_bg_target, &n->anim_bg_start, now);
+    *bg = cogito_spring_color_tick(
+        &n->spring_bg_r, &n->spring_bg_g, &n->spring_bg_b, &n->spring_bg_a,
+        *bg, k_color, z_color, dt);
     *bg = cogito_apply_opacity(*bg, opacity);
+    if (cogito_spring_color_active(&n->spring_bg_r, &n->spring_bg_g,
+                                    &n->spring_bg_b, &n->spring_bg_a, *bg)) {
+      double end_time = now + 0.6;
+      if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
+    }
   }
   if (text) {
-    *text = cogito_anim_color(n, *text, &n->anim_text, &n->anim_text_from, &n->anim_text_target, &n->anim_text_start, now);
+    *text = cogito_spring_color_tick(
+        &n->spring_txt_r, &n->spring_txt_g, &n->spring_txt_b, &n->spring_txt_a,
+        *text, k_color, z_color, dt);
     *text = cogito_apply_opacity(*text, opacity);
+    if (cogito_spring_color_active(&n->spring_txt_r, &n->spring_txt_g,
+                                    &n->spring_txt_b, &n->spring_txt_a, *text)) {
+      double end_time = now + 0.6;
+      if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
+    }
   }
   if (border) {
-    *border = cogito_anim_color(n, *border, &n->anim_border, &n->anim_border_from, &n->anim_border_target, &n->anim_border_start, now);
+    *border = cogito_spring_color_tick(
+        &n->spring_bdr_r, &n->spring_bdr_g, &n->spring_bdr_b, &n->spring_bdr_a,
+        *border, k_color, z_color, dt);
     *border = cogito_apply_opacity(*border, opacity);
+    if (cogito_spring_color_active(&n->spring_bdr_r, &n->spring_bdr_g,
+                                    &n->spring_bdr_b, &n->spring_bdr_a, *border)) {
+      double end_time = now + 0.6;
+      if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
+    }
   }
   if (selection) {
-    *selection = cogito_anim_color(n, *selection, &n->anim_selection, &n->anim_selection_from, &n->anim_selection_target, &n->anim_selection_start, now);
+    *selection = cogito_spring_color_tick(
+        &n->spring_sel_r, &n->spring_sel_g, &n->spring_sel_b, &n->spring_sel_a,
+        *selection, k_color, z_color, dt);
     *selection = cogito_apply_opacity(*selection, opacity);
+    if (cogito_spring_color_active(&n->spring_sel_r, &n->spring_sel_g,
+                                    &n->spring_sel_b, &n->spring_sel_a, *selection)) {
+      double end_time = now + 0.6;
+      if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
+    }
+  }
+  (void)now; // used via cogito_anim_end_time
+  // ---- State-Driven Typography: font weight spring (wght axis) ----
+  // Hover/Focus/Selection states trigger a weight-axis shift instead of color-only.
+  // Targets: Normal=400, Hover=500, Focus/Select=600
+  // Only applies when the backend supports font_set_variation.
+  if (cogito_backend && cogito_backend->font_set_variation) {
+    // Determine target weight from node state
+    int wght_target = 400;
+    // The node's font_weight field encodes hover/focus/selected weight from theme
+    if (n->font_weight_set && n->font_weight > 400) {
+      wght_target = n->font_weight;
+    }
+    cogito_spring_tick(&n->spring_font_weight, (double)wght_target,
+                       COGITO_SPRING_K_FUNCTIONAL, COGITO_SPRING_Z_FUNCTIONAL, cogito_spring_dt);
+    // Only apply to the active font if there is text to render
+    if (n->text && n->text->data && n->text->data[
+      0
+    ]) {
+      CogitoFont* active_font = cogito_font;
+      if (active_font && cogito_backend->font_set_variation) {
+        // 'wght' tag packed big-endian: 0x77676874
+        cogito_backend->font_set_variation(active_font,
+        0x77676874u,
+                                           (float)n->spring_font_weight.x);
+      }
+    }
+    if (cogito_spring_active(&n->spring_font_weight, (double)wght_target)) {
+      double end_time = cogito_backend->get_time() + 0.6;
+      if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
+    }
   }
 }
-
 // Ripple animation constants (optimized for low CPU)
 #define COGITO_RIPPLE_DURATION_MS 350
 #define COGITO_RIPPLE_FPS 30
-
 // Start a ripple animation at the given position (mouse-relative to widget)
 static void cogito_ripple_start(CogitoNode* n, int mx, int my) {
   if (!n) return;
@@ -1374,7 +1636,6 @@ static void cogito_ripple_start(CogitoNode* n, int mx, int my) {
   double end_time = n->ripple_start + (COGITO_RIPPLE_DURATION_MS / 1000.0);
   if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
 }
-
 // Update ripple progress; returns true if still active
 static bool cogito_ripple_update(CogitoNode* n) {
   if (!n || !n->ripple_active) return false;
@@ -1393,7 +1654,6 @@ static bool cogito_ripple_update(CogitoNode* n) {
   if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
   return true;
 }
-
 // Get current ripple radius and alpha for drawing
 static void cogito_ripple_get(CogitoNode* n, float* out_radius, float* out_alpha) {
   if (!n || !n->ripple_active) {
@@ -1413,12 +1673,17 @@ static void cogito_ripple_get(CogitoNode* n, float* out_radius, float* out_alpha
 }
 
 static void cogito_style_clear(CogitoStyle* s) {
-  memset(s, 0, sizeof(*s));
+  memset(s,
+  0, sizeof(*s));
 }
 
 static bool cogito_debug_enabled(void) {
   const char* v = getenv("COGITO_DEBUG");
-  return v && v[0] && v[0] != '0';
+  return v && v[
+    0
+  ] && v[
+    0
+  ] != '0';
 }
 
 static void cogito_draw_rect(int x, int y, int w, int h, CogitoColor bg, int radius);

@@ -14,7 +14,7 @@ case COGITO_SWITCH: {
       if (track_w > use_w) track_w = use_w;
       int text_h = n->text ? cogito_text_height() : 0;
       int intrinsic_h = text_h + 4;
-      if (intrinsic_h < 28) intrinsic_h = 28;
+      if (intrinsic_h < 32) intrinsic_h = 32; // Cogito: Switch track 32dp height
       int draw_h = n->h > 0 ? n->h : intrinsic_h;
       int h = (n->vexpand && draw_h > intrinsic_h) ? draw_h : intrinsic_h;
       if (h > draw_h) h = draw_h;
@@ -28,45 +28,30 @@ case COGITO_SWITCH: {
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
       CogitoStyle track_s = cogito_switch_track_style(n->checked, over, down);
       CogitoStyle knob_s = cogito_switch_knob_style(n->checked, over, down);
-      if (!track_s.has_transition_ms && s.has_transition_ms) {
-        track_s.has_transition_ms = true;
-        track_s.transition_ms = s.transition_ms;
-      }
-      if (!track_s.has_transition_ease && s.has_transition_ease) {
-        track_s.has_transition_ease = true;
-        track_s.transition_ease = s.transition_ease;
-      }
-      if (!knob_s.has_transition_ms && s.has_transition_ms) {
-        knob_s.has_transition_ms = true;
-        knob_s.transition_ms = s.transition_ms;
-      }
-      if (!knob_s.has_transition_ease && s.has_transition_ease) {
-        knob_s.has_transition_ease = true;
-        knob_s.transition_ease = s.transition_ease;
-      }
+
       CogitoColor track_off = n->track_set ? n->track_color : (track_s.has_track ? track_s.track : n->bg);
-      CogitoColor track_on = n->track_on_set ? n->track_on_color : (track_s.has_track ? track_s.track : n->bg);
-      if (track_s.has_bg) {
-        track_off = track_s.bg;
-        track_on = track_s.bg;
-      }
+      CogitoColor track_on  = n->track_on_set ? n->track_on_color : (track_s.has_track ? track_s.track : n->bg);
+      if (track_s.has_bg) { track_off = track_s.bg; track_on = track_s.bg;
+  }
       if (track_s.has_track_on) track_on = track_s.track_on;
       CogitoColor track = n->checked ? track_on : track_off;
-      CogitoColor knob_col = n->knob_set ? n->knob_color : (knob_s.has_knob ? knob_s.knob : (knob_s.has_bg ? knob_s.bg : n->knob_color));
+      CogitoColor knob_col = n->knob_set ? n->knob_color
+                           : (knob_s.has_knob ? knob_s.knob
+                           : (knob_s.has_bg ? knob_s.bg : n->knob_color));
 
-      // Animate track color
+      // Animate track color via spring
       cogito_anim_apply(n, &track_s, &track, &knob_col, NULL, NULL);
 
+      // Draw pill-shaped track
       cogito_draw_rect(cx, cy, w, h, track, h / 2);
-      double now = 0.0;
-      if (cogito_backend && cogito_backend->get_time) {
-        now = cogito_backend->get_time();
-      }
-
-      // Keep knob width fixed at 32px; only animate height and position.
+      if (track_s.has_border_width && track_s.border_width > 0 && track_s.has_border && track_s.border.a > 0) {
+        cogito_draw_rect_lines(cx, cy, w, h, track_s.border, h / 2, track_s.border_width);
+  }
+  // ---- Knob layout targets ----
+  // Cogito: knob is 24dp at rest, fills to 32dp on hover/press (capped to track interior)
       int knob_w_target = 32;
-      int knob_h_rest = knob_s.has_min_h ? knob_s.min_h : 24;
-      int knob_h_hover = h;
+      int knob_h_rest   = knob_s.has_min_h ? knob_s.min_h : 24;
+      int knob_h_hover  = h;
       if (knob_h_rest < 4) knob_h_rest = 4;
       if (knob_h_hover < knob_h_rest) knob_h_hover = knob_h_rest;
       int knob_h_target = (over || down) ? knob_h_hover : knob_h_rest;
@@ -74,35 +59,32 @@ case COGITO_SWITCH: {
       if (knob_w_target < 4) knob_w_target = 4;
       if (knob_h_target < 4) knob_h_target = 4;
       if (knob_w_target > w - 2) knob_w_target = w - 2;
-      if (knob_h_target > h) knob_h_target = h;
+      if (knob_h_target > h)     knob_h_target = h;
 
-      int track_cy = cy + h / 2;
+      int track_cy     = cy + h / 2;
       int edge_inset_x = (over || down) ? 0 : 2;
       if (knob_w_target + edge_inset_x * 2 > w) edge_inset_x = 0;
       int off_x = cx + edge_inset_x;
-      int on_x = cx + w - knob_w_target - edge_inset_x;
+      int on_x  = cx + w - knob_w_target - edge_inset_x;
       if (on_x < off_x) on_x = off_x;
       int center_target = (n->checked ? on_x : off_x) + knob_w_target / 2;
-      int ky_target = track_cy - knob_h_target / 2;
+      (void)(track_cy - knob_h_target / 2); // ky_target not used; ky derived from spring
 
-      // Initialize switch-specific layout anim channels to avoid first-frame jumps.
-      if (!n->anim_layout_active) {
-        n->anim_layout_active = true;
-        n->anim_x = n->anim_x_from = n->anim_x_target = center_target;
-        n->anim_x_start = now;
-        n->anim_y = n->anim_y_from = n->anim_y_target = ky_target;
-        n->anim_y_start = now;
-        n->anim_w = n->anim_w_from = n->anim_w_target = knob_w_target;
-        n->anim_w_start = now;
-        n->anim_h = n->anim_h_from = n->anim_h_target = knob_h_target;
-        n->anim_h_start = now;
-      }
+      // ---- Spring-based knob position / size ----
+  // Use spring_x for horizontal center, spring_h for knob height.
+  // Expressive profile: slight physical bounce on toggle — satisfying confirmation.
+      double dt = cogito_spring_dt;
+      cogito_spring_tick(&n->spring_x, (double)center_target,
+                         COGITO_SPRING_K_EXPRESSIVE, COGITO_SPRING_Z_EXPRESSIVE, dt);
+      cogito_spring_tick(&n->spring_h, (double)knob_h_target,
+                         COGITO_SPRING_K_FUNCTIONAL, COGITO_SPRING_Z_FUNCTIONAL, dt);
 
-      int knob_w = knob_w_target;
-      int knob_h = cogito_anim_int(n, knob_h_target, &n->anim_h, &n->anim_h_from, &n->anim_h_target, &n->anim_h_start, now);
-      if (knob_h < 4) knob_h = 4;
-      if (knob_h > h) knob_h = h;
-      int center_x = cogito_anim_int(n, center_target, &n->anim_x, &n->anim_x_from, &n->anim_x_target, &n->anim_x_start, now);
+      int knob_w   = knob_w_target;
+      int knob_h   = (int)(n->spring_h.x + 0.5);
+      int center_x = (int)(n->spring_x.x + 0.5);
+
+      if (knob_h < 4)  knob_h = 4;
+      if (knob_h > h)  knob_h = h;
       int kx = center_x - knob_w / 2;
       int ky = track_cy - knob_h / 2;
       if (kx < cx) kx = cx;
@@ -113,14 +95,21 @@ case COGITO_SWITCH: {
       int max_ky = cy + h - knob_h;
       if (max_ky < cy) max_ky = cy;
       if (ky > max_ky) ky = max_ky;
-      // Keep a stable corner radius while height animates so width doesn't visually "shrink".
+
+      // Stable corner radius (based on rest size so it doesn't shrink horizontally)
       int knob_r = knob_h_rest / 2;
       if (knob_r < 1) knob_r = 1;
-      int max_r_h = knob_h / 2;
-      if (knob_r > max_r_h) knob_r = max_r_h;
-      int max_r_w = knob_w / 2;
-      if (knob_r > max_r_w) knob_r = max_r_w;
+      if (knob_r > knob_h / 2) knob_r = knob_h / 2;
+      if (knob_r > knob_w / 2) knob_r = knob_w / 2;
       cogito_draw_rect(kx, ky, knob_w, knob_h, knob_col, knob_r);
+
+      // Keep animation ticking while springs are active
+      if (cogito_spring_active(&n->spring_x, (double)center_target) ||
+          cogito_spring_active(&n->spring_h, (double)knob_h_target)) {
+        double end_time = cogito_backend->get_time() + 0.6;
+        if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
+  }
+
       if (n->text) {
         int th = cogito_text_height();
         int ty = n->y + (draw_h - th) / 2;
@@ -130,8 +119,10 @@ case COGITO_SWITCH: {
         int text_x = n->x + w + 8;
         int text_avail = use_w - (text_x - n->x);
         if (text_avail > 0) {
-          cogito_draw_text_ellipsis(n, text_x, ty, text_avail, n->text->data, label_text, cogito_node_font_size(n), false, 0);
-        }
-      }
-      break;
+          cogito_draw_text_ellipsis(n, text_x, ty, text_avail, n->text->data, label_text, cogito_node_font_size(n),
+      false,
+      0);
     }
+  }
+      break;
+}

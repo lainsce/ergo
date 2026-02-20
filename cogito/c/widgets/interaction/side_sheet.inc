@@ -1,3 +1,16 @@
+static void cogito_side_sheet_close_rect(CogitoNode* n, int* out_x, int* out_y, int* out_w, int* out_h) {
+  if (!n || n->kind != COGITO_SIDE_SHEET) return;
+  int pad_t = 24;
+  int pad_r = 24;
+  int box = 24;
+  int x = n->x + n->w - pad_r - box;
+  int y = n->y + pad_t;
+  if (out_x) *out_x = x;
+  if (out_y) *out_y = y;
+  if (out_w) *out_w = box;
+  if (out_h) *out_h = box;
+}
+
 static int cogito_side_sheet_min_width(CogitoNode* n) {
   if (!n) return 200;
   int pad_l = n->padding_left;

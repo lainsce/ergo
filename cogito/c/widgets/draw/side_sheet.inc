@@ -60,6 +60,32 @@ case COGITO_SIDE_SHEET: {
     (void)gap;
   }
 
+
+  int cx = 0, cy = 0, cw = 0, ch = 0;
+  cogito_side_sheet_close_rect(n, &cx, &cy, &cw, &ch);
+  if (cw > 0 && ch > 0) {
+    int mx = 0, my = 0;
+    bool down = false;
+    if (cogito_backend && cogito_backend->get_mouse_position) {
+      cogito_backend->get_mouse_position(&mx, &my);
+    }
+    if (cogito_backend && cogito_backend->is_mouse_button_down) {
+      down = cogito_backend->is_mouse_button_down(0);
+    }
+    bool over = cogito_hit_rect(mx, my, cx, cy, cw, ch);
+    CogitoColor cbg = text_color;
+    cbg.a = 36;
+    if (over) cbg.a = down ? 72 : 48;
+    int cr = cw / 2;
+    if (cr < 4) cr = 4;
+    cogito_draw_rect(cx, cy, cw, ch, cbg, cr);
+    int icon_size = cw - 10;
+    if (icon_size < 10) icon_size = 10;
+    int ix = cx + (cw - icon_size) / 2;
+    int iy = cy + (ch - icon_size) / 2;
+    cogito_draw_icon_fallback(n, "xmark", ix, iy, icon_size, text_color);
+  }
+
   // Draw children
   for (size_t i = 0; i < n->len; i++) {
     cogito_draw_node(n->children[i]);

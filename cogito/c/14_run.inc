@@ -7,7 +7,8 @@ static CogitoNode* cogito_find_stepper_hit(CogitoNode* n, int x, int y);
 static bool cogito_about_window_is_actions_row(const CogitoNode* n) {
   return n && n->kind == COGITO_HSTACK &&
          n->class_name && n->class_name->data &&
-         strcmp(n->class_name->data, "about-window-actions") == 0;
+         strcmp(n->class_name->data,
+  "about-window-actions") == 0;
 }
 
 static CogitoNode* cogito_about_window_for_action_button(CogitoNode* btn) {
@@ -20,10 +21,14 @@ static CogitoNode* cogito_about_window_for_action_button(CogitoNode* btn) {
 }
 
 static const char* cogito_about_window_action_url(CogitoNode* btn, CogitoNode* aw) {
-  if (btn && btn->action_text && btn->action_text->data && btn->action_text->data[0]) {
+  if (btn && btn->action_text && btn->action_text->data && btn->action_text->data[
+    0
+  ]) {
     return btn->action_text->data;
   }
-  if (aw && aw->action_text && aw->action_text->data && aw->action_text->data[0]) {
+  if (aw && aw->action_text && aw->action_text->data && aw->action_text->data[
+    0
+  ]) {
     return aw->action_text->data;
   }
   return NULL;
@@ -41,19 +46,28 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (winv.tag != EVT_OBJ) ergo_trap("cogito.run expects window");
   CogitoApp* app = (CogitoApp*)appv.as.p;
   CogitoNode* win = (CogitoNode*)winv.as.p;
-  const char* title = (win->text && win->text->data && win->text->data[0]) ? win->text->data : COGITO_USER_VERSION;
-  const char* app_id = (app && app->app_id && app->app_id->data && app->app_id->data[0]) ? app->app_id->data : NULL;
-  const char* app_name = (app && app->app_name && app->app_name->data && app->app_name->data[0]) ? app->app_name->data : title;
+  const char* title = (win->text && win->text->data && win->text->data[
+    0
+  ]) ? win->text->data : COGITO_USER_VERSION;
+  const char* app_id = (app && app->app_id && app->app_id->data && app->app_id->data[
+    0
+  ]) ? app->app_id->data : NULL;
+  const char* app_name = (app && app->app_name && app->app_name->data && app->app_name->data[
+    0
+  ]) ? app->app_name->data : title;
   cogito_active_window = win;
   cogito_active_app = app;
   cogito_update_system_theme(app);
   cogito_app_update_theme(app);
   cogito_apply_style_tree(win);
   if (cogito_debug_style_enabled_internal()) {
-    cogito_style_dump_tree_internal(win, 0);
+    cogito_style_dump_tree_internal(win,
+    0);
   }
   (void)SDL_SetHint(SDL_HINT_APP_NAME, app_name);
-  if (app_id && app_id[0]) {
+  if (app_id && app_id[
+    0
+  ]) {
     (void)SDL_SetHint(SDL_HINT_APP_ID, app_id);
   }
   (void)SDL_SetAppMetadata(app_name, NULL, app_id ? app_id : app_name);
@@ -84,7 +98,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   // Create window via backend
   bool borderless = (appbar != NULL);
 #if defined(__APPLE__)
-  borderless = false;  // macOS uses native decorations
+  borderless = false; // macOS uses native decorations
 #endif
   CogitoWindow* window = cogito_backend->window_create(title, win->w, win->h, win->resizable, borderless, true);
   if (!window) {
@@ -95,18 +109,28 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   // Set window icon: explicit app icon or auto-detect from script dir
   if (cogito_backend->window_set_icon) {
     const char* icon_path = cogito_app_get_icon_path(app);
-    char resolved_icon[PATH_MAX];
+    char resolved_icon[PATH_MAX
+    ];
     bool icon_set = false;
     if (icon_path) {
       if (cogito_image_resolve_path(icon_path, resolved_icon, sizeof(resolved_icon))) {
         icon_set = cogito_backend->window_set_icon(window, resolved_icon);
       }
     }
-    if (!icon_set && cogito_script_dir[0]) {
+    if (!icon_set && cogito_script_dir[
+      0
+    ]) {
       // Auto-detect icon file in script directory
-      static const char* icon_names[] = {"icon.png", "icon.svg", "icon.jpg", "icon.bmp", NULL};
-      for (int i = 0; icon_names[i]; i++) {
-        if (cogito_image_resolve_path(icon_names[i], resolved_icon, sizeof(resolved_icon))) {
+      static const char* icon_names[] = {
+        "icon.png",
+        "icon.svg",
+        "icon.jpg",
+        "icon.bmp", NULL
+      };
+      for (int i = 0; icon_names[i
+      ]; i++) {
+        if (cogito_image_resolve_path(icon_names[i
+        ], resolved_icon, sizeof(resolved_icon))) {
           if (cogito_backend->window_set_icon(window, resolved_icon)) break;
         }
       }
@@ -117,7 +141,11 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   {
     const char* env_inspector = getenv("COGITO_INSPECTOR");
     cogito_inspector_enabled = true;
-    cogito_inspector_open = env_inspector && env_inspector[0] && env_inspector[0] != '0';
+    cogito_inspector_open = env_inspector && env_inspector[
+      0
+    ] && env_inspector[
+      0
+    ] != '0';
     cogito_inspector_selected = win;
     cogito_inspector_view_x = 0;
     cogito_inspector_view_y = 0;
@@ -136,16 +164,22 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
 #endif
 
   const char* font_path = getenv("COGITO_FONT");
-  if (!font_path || !font_path[0]) {
+  if (!font_path || !font_path[
+    0
+  ]) {
     font_path = cogito_default_font_path();
   }
   const char* font_size_env = getenv("COGITO_FONT_SIZE");
-  if (font_size_env && font_size_env[0]) {
+  if (font_size_env && font_size_env[
+    0
+  ]) {
     int sz = atoi(font_size_env);
     if (sz > 6) cogito_font_size_value = sz;
   }
   
-  if (font_path && font_path[0]) {
+  if (font_path && font_path[
+    0
+  ]) {
     if (cogito_load_font_file(&cogito_font, font_path, cogito_font_size(), cogito_font_weight_normal())) {
       cogito_font_ready = true;
       cogito_font_loaded_size = cogito_font_size();
@@ -160,13 +194,16 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     cogito_font_from_env = false;
     cogito_font_path_active = NULL;
   }
-
   // Serif font
   const char* serif_font_path = getenv("COGITO_FONT_SERIF");
-  if (!serif_font_path || !serif_font_path[0]) {
+  if (!serif_font_path || !serif_font_path[
+    0
+  ]) {
     serif_font_path = cogito_guess_serif_font_path(font_path);
   }
-  if (serif_font_path && serif_font_path[0]) {
+  if (serif_font_path && serif_font_path[
+    0
+  ]) {
     if (cogito_load_font_file(&cogito_font_serif, serif_font_path, cogito_font_size(), cogito_font_weight_normal())) {
       cogito_font_serif_ready = true;
       cogito_font_serif_loaded_size = cogito_font_size();
@@ -178,13 +215,16 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     cogito_font_serif_from_env = false;
     cogito_font_serif_path_active = NULL;
   }
-
   // Mono font
   const char* mono_font_path = getenv("COGITO_FONT_MONO");
-  if (!mono_font_path || !mono_font_path[0]) {
+  if (!mono_font_path || !mono_font_path[
+    0
+  ]) {
     mono_font_path = cogito_guess_mono_font_path(font_path);
   }
-  if (mono_font_path && mono_font_path[0]) {
+  if (mono_font_path && mono_font_path[
+    0
+  ]) {
     if (cogito_load_font_file(&cogito_font_mono, mono_font_path, cogito_font_size(), cogito_font_weight_normal())) {
       cogito_font_mono_ready = true;
       cogito_font_mono_loaded_size = cogito_font_size();
@@ -192,18 +232,23 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       cogito_font_mono_path_active = mono_font_path;
     }
   }
-
   // Bold font
   const char* bold_font_path = getenv("COGITO_FONT_BOLD");
   bool bold_from_regular = false;
-  if (!bold_font_path || !bold_font_path[0]) {
+  if (!bold_font_path || !bold_font_path[
+    0
+  ]) {
     bold_font_path = cogito_guess_bold_font_path(font_path);
-    if (!bold_font_path && font_path && font_path[0]) {
+    if (!bold_font_path && font_path && font_path[
+      0
+    ]) {
       bold_font_path = font_path;
       bold_from_regular = true;
     }
   }
-  if (bold_font_path && bold_font_path[0]) {
+  if (bold_font_path && bold_font_path[
+    0
+  ]) {
     bool weight_applied = false;
     int bold_weight = bold_from_regular ? cogito_font_weight_bold() : 0;
     if (cogito_load_font_file_ex(&cogito_font_bold, bold_font_path, cogito_font_size(), bold_weight, &weight_applied)) {
@@ -257,12 +302,24 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (inspector_traffic_pad_x < 0) inspector_traffic_pad_x = 0;
   int* inspector_hit_test_params = (int*)malloc(6 * sizeof(int));
   if (inspector_hit_test_params) {
-    inspector_hit_test_params[0] = inspector_appbar_h;
-    inspector_hit_test_params[1] = inspector_shadow_margin;
-    inspector_hit_test_params[2] = inspector_traffic_btn;
-    inspector_hit_test_params[3] = inspector_traffic_gap;
-    inspector_hit_test_params[4] = inspector_traffic_pad_x;
-    inspector_hit_test_params[5] = inspector_traffic_pad_top;
+    inspector_hit_test_params[
+      0
+    ] = inspector_appbar_h;
+    inspector_hit_test_params[
+      1
+    ] = inspector_shadow_margin;
+    inspector_hit_test_params[
+      2
+    ] = inspector_traffic_btn;
+    inspector_hit_test_params[
+      3
+    ] = inspector_traffic_gap;
+    inspector_hit_test_params[
+      4
+    ] = inspector_traffic_pad_x;
+    inspector_hit_test_params[
+      5
+    ] = inspector_traffic_pad_top;
   }
   bool inspector_native_drag = false;
   bool inspector_drag_pending = false;
@@ -276,9 +333,9 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       "Inspector",
       inspector_w + inspector_shadow_margin * 2,
       inspector_h + inspector_shadow_margin * 2,
-      true,
-      true,
-      false
+    true,
+    true,
+    false
     );
     if (inspector_window) {
       cogito_backend->window_show(inspector_window);
@@ -295,13 +352,15 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   }
 
   #include "widgets/util/carousel_anim.inc"
-
   // Render the first frame before showing the window so the user never
   // sees a bare black framebuffer while layout/setup is finishing.
   {
-    CogitoColor win_bg = win->bg_set ? win->bg : cogito_rgba(245, 245, 245, 255);
+    CogitoColor win_bg = win->bg_set ? win->bg : cogito_rgba(245,
+    245,
+    245,
+    255);
     cogito_backend->begin_frame(window);
-    cogito_icon_cache_frame_start();  // Initialize icon cache frame counter
+    cogito_icon_cache_frame_start(); // Initialize icon cache frame counter
     cogito_backend->clear(win_bg);
     cogito_draw_node(win);
     cogito_backend->end_frame(window);
@@ -350,10 +409,18 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       if (inspector_traffic_pad_top < 0) inspector_traffic_pad_top = 0;
       if (inspector_traffic_pad_x < 0) inspector_traffic_pad_x = 0;
       if (inspector_hit_test_params) {
-        inspector_hit_test_params[2] = inspector_traffic_btn;
-        inspector_hit_test_params[3] = inspector_traffic_gap;
-        inspector_hit_test_params[4] = inspector_traffic_pad_x;
-        inspector_hit_test_params[5] = inspector_traffic_pad_top;
+        inspector_hit_test_params[
+          2
+        ] = inspector_traffic_btn;
+        inspector_hit_test_params[
+          3
+        ] = inspector_traffic_gap;
+        inspector_hit_test_params[
+          4
+        ] = inspector_traffic_pad_x;
+        inspector_hit_test_params[
+          5
+        ] = inspector_traffic_pad_top;
       }
     }
     if (inspector_window && cogito_backend->window_should_close(inspector_window)) {
@@ -376,9 +443,9 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             "Inspector",
             inspector_w + inspector_shadow_margin * 2,
             inspector_h + inspector_shadow_margin * 2,
-            true,
-            true,
-            false
+          true,
+          true,
+          false
           );
           if (inspector_window) {
             cogito_backend->window_show(inspector_window);
@@ -408,7 +475,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         inspector_drag_active = false;
       }
     }
-    
     // Get window size
     int sw, sh;
     bool window_resized = false;
@@ -440,7 +506,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     float wheel = cogito_backend->get_mouse_wheel_move();
     bool left_down = cogito_backend->is_mouse_button_down(0);
     bool left_pressed = cogito_backend->is_mouse_button_pressed(0);
-    bool click = left_pressed;  // Left button
+    bool click = left_pressed; // Left button
     if (cogito_pointer_capture && cogito_backend->is_mouse_button_released(0)) {
       cogito_pointer_capture = NULL;
     }
@@ -492,7 +558,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     } else if (prev_inspector_pointer_known || prev_inspector_mouse_inside || prev_inspector_mouse_in_frame) {
       inspector_pointer_changed = true;
     }
-
     // Update stepper hit states for hover effects only when pointer routing/position changes.
     if (main_pointer_changed && route_main_pointer) {
       CogitoNode* stepper_hit = cogito_find_stepper_hit(win, mx, my);
@@ -500,7 +565,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         cogito_stepper_hit_test(stepper_hit, mx, my);
       }
     }
-
     // GTK-style hover-change detection: only redraw on mouse motion if the
     // hovered interactive widget changed (enter/leave a button, slider, etc.)
     if (main_pointer_changed) {
@@ -544,7 +608,9 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     int inspector_btn_min_x = -1;
     int inspector_btn_max_x = -1;
     int inspector_btn_y = 0;
-    CogitoTrafficLightsState inspector_lights = (CogitoTrafficLightsState){0};
+    CogitoTrafficLightsState inspector_lights = (CogitoTrafficLightsState){
+      0
+    };
     if (inspector_window) {
       int appbar_h = inspector_appbar_h;
       if (appbar_h > inspector_frame_h) appbar_h = inspector_frame_h;
@@ -587,12 +653,10 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         inspector_drag_active = false;
       }
     }
-    
     // Escape key closes menu
     if (cogito_backend->is_key_pressed(SDL_SCANCODE_ESCAPE) && cogito_menu.open) {
       cogito_menu_close();
     }
-    
     // Drag handling (non-macOS)
 #if !defined(__APPLE__)
     if (cogito_drag_pending) {
@@ -697,7 +761,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
               if (snap_idx < 0) snap_idx = 0;
               if (snap_idx >= (int)carousel->len) snap_idx = (int)carousel->len - 1;
             }
-            
             // Start snap animation only if position actually changes
             carousel->carousel.anim_from = carousel->carousel.scroll_xf;
             carousel->carousel.anim_to = (double)snap_sx;
@@ -714,7 +777,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         }
       }
     }
-
     /* Inspector window: wheel scrolls widget tree when cursor over panel */
     if (inspector_window && wheel != 0.0f && inspector_mouse_in_frame && imy >= inspector_frame_y + inspector_appbar_h) {
       int appbar_h = inspector_appbar_h;
@@ -733,7 +795,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       cogito_inspector_view_w = 0;
       cogito_inspector_view_h = 0;
     }
-
     // Tab key navigation
     if (cogito_backend->is_key_pressed(SDL_SCANCODE_TAB)) {
       CogitoNode* slot = (win->dialog && win->dialog->kind == COGITO_DIALOG_SLOT && win->dialog->dialog_open && win->dialog->dialog)
@@ -751,7 +812,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       }
       cogito_focused = next;
     }
-
     // Text input handling
     bool focused_text_editable = cogito_focused &&
       (cogito_focused->kind == COGITO_TEXTFIELD || cogito_focused->kind == COGITO_TEXTVIEW || cogito_focused->kind == COGITO_SEARCHFIELD) &&
@@ -783,7 +843,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           if (cogito_focused->text_input.sel_start != cogito_focused->text_input.sel_end) {
             int a = cogito_focused->text_input.sel_start;
             int b = cogito_focused->text_input.sel_end;
-            if (a > b) { int tmp = a; a = b; b = tmp; }
+            if (a > b) { int tmp = a; a = b; b = tmp;
+            }
             sel = (size_t)(b - a);
           }
           size_t new_len = len - sel + 1;
@@ -805,13 +866,15 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         changed = true;
       }
       if (cogito_backend->is_key_pressed(SDL_SCANCODE_LEFT)) {
-        if (cogito_text_move_caret_h(cogito_focused, -1)) caret_changed = true;
+        if (cogito_text_move_caret_h(cogito_focused,
+        -1)) caret_changed = true;
       }
       if (cogito_backend->is_key_pressed(SDL_SCANCODE_RIGHT)) {
         if (cogito_text_move_caret_h(cogito_focused, +1)) caret_changed = true;
       }
       if (cogito_focused->kind == COGITO_TEXTVIEW && cogito_backend->is_key_pressed(SDL_SCANCODE_UP)) {
-        if (cogito_textview_move_caret_v(cogito_focused, -1)) caret_changed = true;
+        if (cogito_textview_move_caret_v(cogito_focused,
+        -1)) caret_changed = true;
       }
       if (cogito_focused->kind == COGITO_TEXTVIEW && cogito_backend->is_key_pressed(SDL_SCANCODE_DOWN)) {
         if (cogito_textview_move_caret_v(cogito_focused, +1)) caret_changed = true;
@@ -824,7 +887,9 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       }
       if (changed || caret_changed) {
         if (cogito_focused->kind == COGITO_COLORPICKER) {
-          CogitoColor col = {0};
+          CogitoColor col = {
+            0
+          };
           const char* hex = cogito_focused->text ? cogito_focused->text->data : "";
           if (cogito_hex_to_color(hex, &col)) {
             cogito_rgb_to_hct(col, &cogito_focused->colorpicker.h, &cogito_focused->colorpicker.c, &cogito_focused->colorpicker.t);
@@ -836,7 +901,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         cogito_window_relayout(win);
       }
     }
-
     // Slider active handling
     if (cogito_slider_active) {
       if (cogito_backend->is_mouse_button_down(0)) {
@@ -885,7 +949,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         cogito_slider_active = NULL;
       }
     }
-
     // Carousel active handling (drag-to-scroll with velocity tracking)
     if (cogito_carousel_active) {
       if (cogito_backend->is_mouse_button_down(0)) {
@@ -962,7 +1025,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           if (snap_idx < 0) snap_idx = 0;
           if (snap_idx >= (int)cr->len) snap_idx = (int)cr->len - 1;
         }
-        
         // Start animation from current position to snap target (only if position changes)
         cr->carousel.anim_from = cr->carousel.scroll_xf;
         cr->carousel.anim_to = (double)snap_sx;
@@ -987,7 +1049,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         }
       }
     }
-
     // Bottom sheet active handling
     if (cogito_bottom_sheet_active) {
       if (cogito_backend->is_mouse_button_down(0)) {
@@ -1027,12 +1088,11 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
          bs->bottom_sheet.dragging = false;
          if (cogito_pointer_capture == bs) {
            cogito_pointer_capture = NULL;
-         }
+        }
          cogito_bottom_sheet_active = NULL;
-       }
-     }
-
-     // Side sheet active handling
+      }
+    }
+    // Side sheet active handling
      if (cogito_side_sheet_active) {
        if (cogito_backend->is_mouse_button_down(0)) {
          CogitoNode* ss = cogito_side_sheet_active;
@@ -1043,7 +1103,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
            if (host->kind == COGITO_ZSTACK && host->parent && host->parent->kind == COGITO_WINDOW) {
              host_x = 0;
              host_w = host->parent->w;
-           }
+          }
            int dx = ss->side_sheet.drag_start_x - mx;
            ss->side_sheet.desired_w = ss->side_sheet.drag_start_w + dx;
            int clamped_w = cogito_side_sheet_target_width(ss, host_x, host_w);
@@ -1051,8 +1111,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
            int left_inset = cogito_side_sheet_left_inset(host_x);
            ss->side_sheet.expanded = clamped_w >= (host_w - left_inset - 8);
            cogito_window_relayout(win);
-         }
-       } else {
+        }
+      } else {
          CogitoNode* ss = cogito_side_sheet_active;
          CogitoNode* host = ss->parent;
          if (host) {
@@ -1061,22 +1121,21 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
            if (host->kind == COGITO_ZSTACK && host->parent && host->parent->kind == COGITO_WINDOW) {
              host_x = 0;
              host_w = host->parent->w;
-           }
+          }
            int snap_w = cogito_side_sheet_snap_width(ss, host_x, host_w, ss->w);
            ss->side_sheet.desired_w = snap_w;
            int left_inset = cogito_side_sheet_left_inset(host_x);
            ss->side_sheet.expanded = snap_w >= (host_w - left_inset - 8);
            cogito_window_relayout(win);
-         }
+        }
          ss->side_sheet.dragging = false;
          if (cogito_pointer_capture == ss) {
            cogito_pointer_capture = NULL;
-         }
+        }
          cogito_side_sheet_active = NULL;
         cogito_bottom_sheet_active = NULL;
       }
     }
-
     // Color picker active handling
     if (cogito_colorpicker_active) {
       if (cogito_backend->is_mouse_button_down(0)) {
@@ -1096,7 +1155,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         cogito_colorpicker_channel = -1;
       }
     }
-
     // Time picker dial drag handling
     if (cogito_timepicker_active) {
       if (cogito_backend->is_mouse_button_down(0)) {
@@ -1110,7 +1168,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         cogito_timepicker_active = NULL;
       }
     }
-
     // ViewDual drag handling
     if (cogito_pointer_capture && cogito_pointer_capture->kind == COGITO_VIEW_DUAL) {
       CogitoNode* vd = cogito_pointer_capture;
@@ -1144,7 +1201,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         cogito_pointer_capture = NULL;
       }
     }
-
     // Text selection handling
     if (cogito_focused && !cogito_focused->disabled && (focused_text_editable || focused_color_hex_edit)) {
       if (cogito_backend->is_mouse_button_down(0) && cogito_focused->text_input.selecting) {
@@ -1181,7 +1237,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         cogito_focused->text_input.selecting = false;
       }
     }
-
     /* Scrollbar thumb drag and track click (overlay scrollbars) */
     if (cogito_scrollbar_drag_scroller) {
       if (!left_down) {
@@ -1257,7 +1312,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         }
       }
     }
-
     // Click handling
     if (click) {
       if (cogito_inspector_open) {
@@ -1331,7 +1385,11 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       static int cogito_debug_hit = -1;
       if (cogito_debug_hit < 0) {
         const char* env = getenv("COGITO_DEBUG_HIT");
-        cogito_debug_hit = (env && env[0] && env[0] != '0') ? 1 : 0;
+        cogito_debug_hit = (env && env[
+          0
+        ] && env[
+          0
+        ] != '0') ? 1 : 0;
       }
       if (cogito_menu.open) {
         int idx = cogito_menu_hit(&cogito_menu, mx, my);
@@ -1363,15 +1421,18 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         if (!active_dialog && appbar && !appbar_blocked_by_bottom_sheet) {
           if (appbar->appbar.btn_close_x >= 0 &&
               cogito_hit_rect(mx, my, appbar->appbar.btn_close_x, appbar->appbar.btn_y, appbar->appbar.btn_size, appbar->appbar.btn_size)) {
-            cogito_appbar_window_action(win, 0);
+            cogito_appbar_window_action(win,
+            0);
             handled = true;
           } else if (appbar->appbar.btn_min_x >= 0 &&
                      cogito_hit_rect(mx, my, appbar->appbar.btn_min_x, appbar->appbar.btn_y, appbar->appbar.btn_size, appbar->appbar.btn_size)) {
-            cogito_appbar_window_action(win, 1);
+            cogito_appbar_window_action(win,
+            1);
             handled = true;
           } else if (appbar->appbar.btn_max_x >= 0 &&
                      cogito_hit_rect(mx, my, appbar->appbar.btn_max_x, appbar->appbar.btn_y, appbar->appbar.btn_size, appbar->appbar.btn_size)) {
-            cogito_appbar_window_action(win, 2);
+            cogito_appbar_window_action(win,
+            2);
             handled = true;
           }
         }
@@ -1387,7 +1448,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             cogito_drag_pending_mouse.y = (float)my;
             cogito_drag_last_move = 0.0;
 #endif
-            handled = true;  // Mark as handled to skip clickable search
+            handled = true; // Mark as handled to skip clickable search
           }
         }
         if (!handled && active_dialog) {
@@ -1399,6 +1460,16 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             } else {
               cogito_dialog_close(EV_OBJ(active_dialog));
             }
+            handled = true;
+          }
+        }
+        
+        if (!handled && win->side_sheet_open && win->side_sheet_node) {
+          int sx = 0, sy = 0, sw = 0, sh = 0;
+          cogito_side_sheet_close_rect(win->side_sheet_node, &sx, &sy, &sw, &sh);
+          if (sw > 0 && sh > 0 && cogito_hit_rect(mx, my, sx, sy, sw, sh)) {
+            cogito_window_clear_side_sheet(EV_OBJ(win));
+            cogito_window_relayout(win);
             handled = true;
           }
         }
@@ -1417,20 +1488,24 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         }
         if (cogito_debug_hit) {
           if (slot && slot->dialog_open && slot->dialog) {
-            fprintf(stderr, "cogito: click (%d,%d) dialog rect (%d,%d %dx%d) hit=%p kind=%d\n",
+            fprintf(stderr,
+            "cogito: click (%d,%d) dialog rect (%d,%d %dx%d) hit=%p kind=%d\n",
                     mx, my, slot->dialog->x, slot->dialog->y, slot->dialog->w, slot->dialog->h,
                     (void*)hit, hit ? (int)hit->kind : -1);
           } else if (win->dialog_open && win->dialog) {
-            fprintf(stderr, "cogito: click (%d,%d) legacy dialog rect (%d,%d %dx%d) hit=%p kind=%d\n",
+            fprintf(stderr,
+            "cogito: click (%d,%d) legacy dialog rect (%d,%d %dx%d) hit=%p kind=%d\n",
                     mx, my, win->dialog->x, win->dialog->y, win->dialog->w, win->dialog->h,
                     (void*)hit, hit ? (int)hit->kind : -1);
           } else {
-            fprintf(stderr, "cogito: click (%d,%d) no dialog hit=%p kind=%d\n",
+            fprintf(stderr,
+            "cogito: click (%d,%d) no dialog hit=%p kind=%d\n",
                     mx, my, (void*)hit, hit ? (int)hit->kind : -1);
           }
           if (hit) {
             const char* t = (hit->text && hit->text->data) ? hit->text->data : "";
-            fprintf(stderr, "cogito:   hit rect (%d,%d %dx%d) text=\"%s\"\n",
+            fprintf(stderr,
+            "cogito:   hit rect (%d,%d %dx%d) text=\"%s\"\n",
                     hit->x, hit->y, hit->w, hit->h, t);
           }
           fflush(stderr);
@@ -1502,7 +1577,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             if (about_host && about_url) {
               if (about_host->on_action) {
                 ErgoVal arg = EV_OBJ(about_host);
-                cogito_invoke(about_host->on_action, 1, &arg);
+                cogito_invoke(about_host->on_action,
+                1, &arg);
               } else if (cogito_backend && cogito_backend->open_url) {
                 cogito_backend->open_url(about_url);
               }
@@ -1591,7 +1667,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
               // Find the index of the clicked item
               int item_idx = -1;
               for (size_t i = 0; i < carousel->len; i++) {
-                if (carousel->children[i] == item) {
+                if (carousel->children[i
+                ] == item) {
                   item_idx = (int)i;
                   break;
                 }
@@ -1634,7 +1711,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
               hit->selected = idx;
               if (hit->view_switcher && hit->tab_ids && (size_t)idx < hit->tab_len) {
                 CogitoNode* vs = hit->view_switcher;
-                ErgoStr* id = hit->tab_ids[idx];
+                ErgoStr* id = hit->tab_ids[idx
+                ];
                 if (id) {
                   if (vs->view_active_id) ergo_release_val(EV_STR(vs->view_active_id));
                   vs->view_active_id = id;
@@ -1671,7 +1749,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
                                      hit->action_button_w, hit->action_button_h)) {
               if (hit->on_action) {
                 ErgoVal arg = EV_OBJ(hit);
-                cogito_invoke(hit->on_action, 1, &arg);
+                cogito_invoke(hit->on_action,
+                1, &arg);
               }
             } else {
               cogito_invoke_click(hit);
@@ -1683,7 +1762,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
               // Clicked on close button
               if (hit->on_action) {
                 ErgoVal arg = EV_OBJ(hit);
-                cogito_invoke(hit->on_action, 1, &arg);
+                cogito_invoke(hit->on_action,
+                1, &arg);
               }
             } else {
               // Clicked on chip body - toggle selected state
@@ -1754,12 +1834,15 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
               }
             }
           } else if (hit->kind == COGITO_EMPTY_PAGE || hit->kind == COGITO_WELCOME_SCREEN || hit->kind == COGITO_ABOUT_WINDOW) {
-            if (hit->action_text && hit->action_text->data && hit->action_text->data[0]) {
+            if (hit->action_text && hit->action_text->data && hit->action_text->data[
+              0
+            ]) {
               if (hit->action_button_w > 0 && cogito_hit_rect(mx, my, hit->action_button_x, hit->action_button_y,
                           hit->action_button_w, hit->action_button_h)) {
                 if (hit->on_action) {
                   ErgoVal arg = EV_OBJ(hit);
-                  cogito_invoke(hit->on_action, 1, &arg);
+                  cogito_invoke(hit->on_action,
+                  1, &arg);
                 } else if (hit->kind == COGITO_ABOUT_WINDOW && cogito_backend && cogito_backend->open_url) {
                   cogito_backend->open_url(hit->action_text->data);
                 }
@@ -1800,17 +1883,20 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         }
       }
     }
-
     // --- Carousel animation tick ---
     // Only traverse the tree when at least one carousel is animating.
     if (cogito_carousel_animating_count > 0) {
-      CogitoNode* _stk[64];
+      CogitoNode* _stk[
+        64
+      ];
       int _sp = 0;
-      _stk[_sp++] = win;
+      _stk[_sp++
+      ] = win;
       bool _carousel_did_relayout = false;
       double _now = cogito_backend->get_time();
       while (_sp > 0) {
-        CogitoNode* _cn = _stk[--_sp];
+        CogitoNode* _cn = _stk[--_sp
+        ];
         if (!_cn) continue;
         if (_cn->kind == COGITO_CAROUSEL && _cn->carousel.animating) {
           double t = (_now - _cn->carousel.anim_start) / CAROUSEL_ANIM_DURATION;
@@ -1830,7 +1916,9 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           }
         }
         for (size_t _ci = 0; _ci < _cn->len && _sp < 63; _ci++) {
-          _stk[_sp++] = _cn->children[_ci];
+          _stk[_sp++
+          ] = _cn->children[_ci
+          ];
         }
       }
       if (_carousel_did_relayout) {
@@ -1839,7 +1927,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       // Safety: clamp to zero if counter drifted
       if (cogito_carousel_animating_count < 0) cogito_carousel_animating_count = 0;
     }
-
     // Only redraw when something requested it (queue_draw) or continuous updates needed.
     // Do not redraw during window drag — we only move the window; no present() needed, so we wait for events and avoid CPU spike.
     bool window_being_dragged = cogito_drag_active || cogito_drag_pending 
@@ -1852,7 +1939,12 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     // Debug redraw: set COGITO_DEBUG_REDRAW=1 to see why each frame redraws
     {
       static int _dbg_init = -1;
-      if (_dbg_init < 0) { const char* _e = getenv("COGITO_DEBUG_REDRAW"); _dbg_init = (_e && _e[0] && _e[0] != '0') ? 1 : 0; }
+      if (_dbg_init < 0) { const char* _e = getenv("COGITO_DEBUG_REDRAW"); _dbg_init = (_e && _e[
+          0
+        ] && _e[
+          0
+        ] != '0') ? 1 : 0;
+      }
       if (_dbg_init) {
         static int _dbg_frame = 0;
         static int _dbg_redraw_streak = 0;
@@ -1860,15 +1952,21 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         if (need_redraw) {
           _dbg_redraw_streak++;
           if (_dbg_redraw_streak <= 3 || _dbg_redraw_streak % 60 == 0) {
-            fprintf(stderr, "[redraw] frame=%d streak=%d reason:", _dbg_frame, _dbg_redraw_streak);
-            if (cogito_draw_pending(win)) fprintf(stderr, " draw_pending");
-            if (anim_running) fprintf(stderr, " anim(%.0fms)", (cogito_anim_end_time - now) * 1000.0);
-            if (cogito_carousel_animating_count > 0) fprintf(stderr, " carousel(%d)", cogito_carousel_animating_count);
-            fprintf(stderr, "\n");
+            fprintf(stderr,
+            "[redraw] frame=%d streak=%d reason:", _dbg_frame, _dbg_redraw_streak);
+            if (cogito_draw_pending(win)) fprintf(stderr,
+            " draw_pending");
+            if (anim_running) fprintf(stderr,
+            " anim(%.0fms)", (cogito_anim_end_time - now) * 1000.0);
+            if (cogito_carousel_animating_count > 0) fprintf(stderr,
+            " carousel(%d)", cogito_carousel_animating_count);
+            fprintf(stderr,
+            "\n");
           }
         } else {
           if (_dbg_redraw_streak > 3) {
-            fprintf(stderr, "[redraw] streak ended after %d frames\n", _dbg_redraw_streak);
+            fprintf(stderr,
+            "[redraw] streak ended after %d frames\n", _dbg_redraw_streak);
           }
           _dbg_redraw_streak = 0;
         }
@@ -1876,11 +1974,15 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
 
     if (need_redraw) {
-    // Rendering
+      // Rendering
     cogito_backend->begin_frame(window);
-    cogito_icon_cache_frame_start();  // Evict old icon textures
+    cogito_spring_dt_update(); // Update per-frame dt for all spring integrations
+    cogito_icon_cache_frame_start(); // Evict old icon textures
 
-    CogitoColor win_bg = win->bg_set ? win->bg : cogito_rgba(245, 245, 245, 255);
+    CogitoColor win_bg = win->bg_set ? win->bg : cogito_rgba(245,
+      245,
+      245,
+      255);
     cogito_backend->clear(win_bg);
 
     cogito_tooltip_hovered = NULL;
@@ -1890,26 +1992,26 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       cogito_draw_inspector_highlight();
       if (!inspector_window) {
         cogito_draw_inspector_panel(win);
+        }
       }
-    }
     if (!cogito_menu.open) {
       CogitoNode* slot = (win->dialog && win->dialog->kind == COGITO_DIALOG_SLOT && win->dialog->dialog_open && win->dialog->dialog)
         ? win->dialog
         : cogito_find_dialog_slot(win);
       CogitoNode* root = (slot && slot->dialog) ? slot->dialog : win;
       if (root != win) {
-        // Modal dialog open: don't show tooltips from background layers.
+          // Modal dialog open: don't show tooltips from background layers.
         cogito_tooltip_hovered = NULL;
-      }
+        }
       if (cogito_tooltip_hovered) {
         cogito_draw_tooltip(win, cogito_tooltip_hovered);
-      } else if (route_main_pointer) {
+        } else if (route_main_pointer) {
         CogitoNode* tip = cogito_find_tooltip_node(root, mx, my);
         if (tip) {
           cogito_draw_tooltip(win, tip);
+          }
         }
       }
-    }
     
     cogito_backend->end_frame(window);
     cogito_backend->present(window);
@@ -1929,24 +2031,42 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       if (frame_h < 1) frame_h = 1;
       if (appbar_h > frame_h) appbar_h = frame_h;
       cogito_backend->begin_frame(inspector_window);
-      cogito_backend->clear(cogito_rgba(0, 0, 0, 0));
-      CogitoColor frame_bg = cogito_rgba(18, 21, 26, 245);
+      cogito_backend->clear(cogito_rgba(0,
+        0,
+        0,
+        0));
+      CogitoColor frame_bg = cogito_rgba(18,
+        21,
+        26,
+        245);
       CogitoColor appbar_bg = frame_bg;
-      CogitoColor appbar_fg = cogito_rgba(220, 226, 235, 255);
-      CogitoColor appbar_div = cogito_rgba(255, 255, 255, 34);
-      CogitoStyle inspector_appbar_style = cogito_theme.per_kind[COGITO_APPBAR];
+      CogitoColor appbar_fg = cogito_rgba(220,
+        226,
+        235,
+        255);
+      CogitoColor appbar_div = cogito_rgba(255,
+        255,
+        255,
+        34);
+      CogitoStyle inspector_appbar_style = cogito_theme.per_kind[COGITO_APPBAR
+        ];
 #if !defined(__APPLE__)
-      cogito_draw_shadow_radii_level(frame_x, frame_y, frame_w, frame_h, inspector_corner_r, inspector_corner_r, inspector_corner_r, inspector_corner_r, 4);
+      cogito_draw_shadow_radii_level(frame_x, frame_y, frame_w, frame_h, inspector_corner_r, inspector_corner_r, inspector_corner_r, inspector_corner_r,
+        4);
 #endif
       cogito_draw_rect(frame_x, frame_y, frame_w, frame_h, frame_bg, inspector_corner_r);
       cogito_draw_rect(frame_x, frame_y, frame_w, appbar_h + inspector_corner_r, appbar_bg, inspector_corner_r);
       if (appbar_h > 0) {
         cogito_draw_line(frame_x, frame_y + appbar_h - 1, frame_x + frame_w, frame_y + appbar_h - 1, appbar_div);
-      }
-      cogito_draw_rect_lines(frame_x, frame_y, frame_w, frame_h, appbar_div, inspector_corner_r, 1);
+        }
+      cogito_draw_rect_lines(frame_x, frame_y, frame_w, frame_h, appbar_div, inspector_corner_r,
+        1);
       CogitoColor inspector_fallback_btn = inspector_appbar_style.has_selection
         ? inspector_appbar_style.selection
-        : cogito_rgba(184, 184, 184, 255);
+        : cogito_rgba(184,
+        184,
+        184,
+        255);
       CogitoColor inspector_fallback_border = appbar_fg;
       if (inspector_fallback_border.a > 80) inspector_fallback_border.a = 80;
       cogito_draw_traffic_lights_styled(
@@ -1959,7 +2079,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       int title_y = (appbar_h - cogito_text_height_size(title_size)) / 2;
       if (title_y < 0) title_y = 0;
       int title_x = inspector_btn_max_x + inspector_traffic_btn + 12;
-      cogito_draw_text_size_node(win, title_x, frame_y + title_y, "Inspector", appbar_fg, title_size, true);
+      cogito_draw_text_size_node(win, title_x, frame_y + title_y,
+        "Inspector", appbar_fg, title_size, true);
       cogito_inspector_view_x = frame_x;
       cogito_inspector_view_y = frame_y + appbar_h;
       cogito_inspector_view_w = frame_w;
@@ -1973,20 +2094,22 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       cogito_inspector_view_h = 0;
       cogito_backend->end_frame(inspector_window);
       cogito_backend->present(inspector_window);
-    }
+      }
     } else {
       // Idle: wait for an event or timeout.
       // SDL_WaitEventTimeout on macOS/Metal may not truly block (compositor
       // events wake it immediately), so always follow with a short sleep.
       cogito_backend->wait_event_timeout(100);
-      struct timespec ts = {0, 8000000}; // 8ms (~120Hz check rate)
+      struct timespec ts = {
+        0,
+        8000000
+      }; // 8ms (~120Hz check rate)
       nanosleep(&ts, NULL);
     }
 #if defined(__APPLE__)
     cogito_autorelease_pop();
 #endif
   }
-  
   // Cleanup
   cogito_font_cache_clear();
   cogito_ft_library_done();

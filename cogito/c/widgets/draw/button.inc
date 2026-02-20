@@ -4,17 +4,17 @@ case COGITO_BUTTON: {
       cogito_node_hover_state(n, &hover, &active);
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
       if (n->parent && n->parent->kind == COGITO_APPBAR) {
-        // Use cached pointer position instead of querying backend
+    // Use cached pointer position instead of querying backend
         int mx = cogito_main_pointer_x;
         int my = cogito_main_pointer_y;
         bool over = cogito_hit_rect(mx, my, n->x, n->y, n->w, n->h);
         bool down = over && (cogito_backend && cogito_backend->is_mouse_button_down(0));
         if (down) {
           cogito_style_merge_into(&s, &cogito_theme.appbar_child_button_active, &s);
-        } else if (over) {
+    } else if (over) {
           cogito_style_merge_into(&s, &cogito_theme.appbar_child_button_hover, &s);
-        }
-      }
+    }
+  }
       CogitoColor bg = n->bg;
       CogitoColor border = n->border_color;
       CogitoColor text = n->text_color;
@@ -33,9 +33,15 @@ case COGITO_BUTTON: {
       if (n->bg_set || border_w > 0) {
         if (n->shadow_set && n->shadow_level > 0) {
           cogito_draw_shadow_node_level(n, &s, n->x, n->y, n->w, n->h, radius, n->shadow_level);
-        }
+    }
         cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, radius);
-        // Draw ripple effect for Primary-colored buttons (clipped to widget bounds)
+        // Cogito: State layer — 8% on hover, 12% on press (draws over animated bg)
+        if (active || hover) {
+          CogitoColor state = text;
+          state.a = active ? 30 : 20;
+          cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, state, radius);
+    }
+    // Draw ripple effect for Primary-colored buttons (clipped to widget bounds)
         if (cogito_ripple_update(n)) {
           float r_radius, r_alpha;
           cogito_ripple_get(n, &r_radius, &r_alpha);
@@ -45,12 +51,12 @@ case COGITO_BUTTON: {
             int cx = n->x + n->ripple_x;
             int cy = n->y + n->ripple_y;
             cogito_draw_circle_clipped_node(n, &s, radius, cx, cy, r_radius, ripple_color);
-          }
-        }
+      }
+    }
         if (border_w > 0) {
           cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border, radius, border_w);
-        }
-      }
+    }
+  }
       if (n->text) {
         int size = cogito_node_font_size(n);
         int tw = cogito_text_width_size_node(n, n->text->data, size);
@@ -58,6 +64,6 @@ case COGITO_BUTTON: {
         int tx = n->x + (n->w - tw) / 2;
         int ty = n->y + (n->h - th) / 2;
         cogito_draw_text_size_node(n, tx, ty, n->text->data, text, size, cogito_node_bold(n));
-      }
+  }
       break;
-    }
+}

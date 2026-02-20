@@ -5,15 +5,18 @@ case COGITO_NAV_RAIL: {
   if (cogito_backend && cogito_backend->get_mouse_position) {
     cogito_backend->get_mouse_position(&mx, &my);
   }
-
   // Draw background
   CogitoColor bg = s.has_bg ? s.bg : n->bg;
-  cogito_draw_rect(n->x, n->y, rail_w, n->h, bg, 0);
+  cogito_draw_rect(n->x, n->y, rail_w, n->h, bg,
+  0);
 
   CogitoNode* fab = NULL;
   for (size_t i = 0; i < n->len; i++) {
-    if (n->children[i] && n->children[i]->kind == COGITO_FAB) {
-      fab = n->children[i];
+    if (n->children[i
+    ] && n->children[i
+    ]->kind == COGITO_FAB) {
+      fab = n->children[i
+      ];
       break;
     }
   }
@@ -33,9 +36,12 @@ case COGITO_NAV_RAIL: {
     CogitoColor icon_stroke = base_color;
 
     if (cogito_backend && cogito_backend->draw_line) {
-      cogito_backend->draw_line(line_left, line_top, line_right, line_top, icon_stroke, 2);
-      cogito_backend->draw_line(line_left, line_mid, line_right, line_mid, icon_stroke, 2);
-      cogito_backend->draw_line(line_left, line_bot, line_right, line_bot, icon_stroke, 2);
+      cogito_backend->draw_line(line_left, line_top, line_right, line_top, icon_stroke,
+      2);
+      cogito_backend->draw_line(line_left, line_mid, line_right, line_mid, icon_stroke,
+      2);
+      cogito_backend->draw_line(line_left, line_bot, line_right, line_bot, icon_stroke,
+      2);
     } else {
       cogito_draw_line(line_left, line_top, line_right, line_top, icon_stroke);
       cogito_draw_line(line_left, line_mid, line_right, line_mid, icon_stroke);
@@ -53,11 +59,14 @@ case COGITO_NAV_RAIL: {
       int erase_x = arrow_tip_x - 1;
       int erase_w = (line_right - erase_x) + 1;
       if (erase_w < 1) erase_w = 1;
-      cogito_draw_rect(erase_x, toggle_icon_y + 3, erase_w, toggle_icon_size - 6, toggle_bg, 0);
+      cogito_draw_rect(erase_x, toggle_icon_y + 3, erase_w, toggle_icon_size - 6, toggle_bg,
+      0);
 
       if (cogito_backend && cogito_backend->draw_line) {
-        cogito_backend->draw_line(arrow_back_x, arrow_top_y, arrow_tip_x, line_mid, icon_stroke, 2);
-        cogito_backend->draw_line(arrow_tip_x, line_mid, arrow_back_x, arrow_bot_y, icon_stroke, 2);
+        cogito_backend->draw_line(arrow_back_x, arrow_top_y, arrow_tip_x, line_mid, icon_stroke,
+        2);
+        cogito_backend->draw_line(arrow_tip_x, line_mid, arrow_back_x, arrow_bot_y, icon_stroke,
+        2);
       } else {
         cogito_draw_line(arrow_back_x, arrow_top_y, arrow_tip_x, line_mid, icon_stroke);
         cogito_draw_line(arrow_tip_x, line_mid, arrow_back_x, arrow_bot_y, icon_stroke);
@@ -81,7 +90,8 @@ case COGITO_NAV_RAIL: {
     CogitoColor hover_tint = s.has_text ? s.text : n->text_color;
     CogitoColor item_bg = selected
       ? (s.has_selection ? s.selection : n->selection_color)
-      : (s.has_bg ? cogito_mix(s.bg, hover_tint, 0.16f) : n->bg);
+      : (s.has_bg ? cogito_mix(s.bg, hover_tint,
+    0.16f) : n->bg);
     CogitoColor content_color = base_color;
     if (selected) {
       CogitoColor sel_bg = s.has_selection ? s.selection : n->selection_color;
@@ -92,12 +102,15 @@ case COGITO_NAV_RAIL: {
       int indicator_h = COGITO_NAV_RAIL_EXPANDED_INDICATOR_HEIGHT;
       int bg_y = item_y + (item_step - indicator_h) / 2;
 
-      bool has_icon = (n->nav_rail.icons && n->nav_rail.icons[i]);
-      bool has_label = (n->nav_rail.labels && n->nav_rail.labels[i]);
+      bool has_icon = (n->nav_rail.icons && n->nav_rail.icons[i
+      ]);
+      bool has_label = (n->nav_rail.labels && n->nav_rail.labels[i
+      ]);
       int label_size = 16;
       int label_w = 0;
       if (has_label) {
-        label_w = cogito_text_width_size_node(n, n->nav_rail.labels[i]->data, label_size);
+        label_w = cogito_text_width_size_node(n, n->nav_rail.labels[i
+        ]->data, label_size);
       }
 
       int body_w = 0;
@@ -113,16 +126,25 @@ case COGITO_NAV_RAIL: {
       if (indicator_w > expanded_lane_w) indicator_w = expanded_lane_w;
       int bg_x = expanded_lane_x;
       if (selected || hover) {
-        cogito_draw_rect(bg_x, bg_y, indicator_w, indicator_h, item_bg, 99);
+        cogito_draw_rect(bg_x, bg_y, indicator_w, indicator_h, item_bg,
+        99);
       }
       int content_x = expanded_content_x;
       if (has_icon) {
-        int badge_value = (n->nav_rail.badges ? n->nav_rail.badges[i] : 0);
-        CogitoColor badge_bg = cogito_rgba(220, 38, 38, 255);
-        CogitoColor badge_fg = cogito_rgba(255, 255, 255, 255);
+        int badge_value = (n->nav_rail.badges ? n->nav_rail.badges[i
+        ] : 0);
+        CogitoColor badge_bg = cogito_rgba(220,
+        38,
+        38,
+        255);
+        CogitoColor badge_fg = cogito_rgba(255,
+        255,
+        255,
+        255);
         int icon_y = bg_y + (indicator_h - icon_size) / 2;
         int icon_x = content_x;
-        cogito_draw_icon_fallback(n, n->nav_rail.icons[i]->data, icon_x, icon_y, icon_size, content_color);
+        cogito_draw_icon_fallback(n, n->nav_rail.icons[i
+        ]->data, icon_x, icon_y, icon_size, content_color);
         if (badge_value != 0) {
           int anchor_x = icon_x + icon_size;
           int anchor_y = icon_y;
@@ -132,9 +154,13 @@ case COGITO_NAV_RAIL: {
             int by = anchor_y - d / 2 + 2;
             cogito_draw_rect(bx, by, d, d, badge_bg, d / 2);
           } else {
-            char buf[8];
-            if (badge_value > 99) snprintf(buf, sizeof(buf), "99+");
-            else snprintf(buf, sizeof(buf), "%d", badge_value);
+            char buf[
+              8
+            ];
+            if (badge_value > 99) snprintf(buf, sizeof(buf),
+            "99+");
+            else snprintf(buf, sizeof(buf),
+            "%d", badge_value);
             int text_size = 10;
             int tw = cogito_text_width_size_node(n, buf, text_size);
             int bh = 14;
@@ -152,7 +178,8 @@ case COGITO_NAV_RAIL: {
       }
       if (has_label) {
         int label_y = bg_y + (indicator_h - cogito_text_height_size(label_size)) / 2;
-        cogito_draw_text_size_node(n, content_x, label_y, n->nav_rail.labels[i]->data, content_color, label_size, false);
+        cogito_draw_text_size_node(n, content_x, label_y, n->nav_rail.labels[i
+        ]->data, content_color, label_size, false);
       }
 
       item_y += item_step;
@@ -168,14 +195,23 @@ case COGITO_NAV_RAIL: {
           COGITO_NAV_RAIL_COLLAPSED_INDICATOR_WIDTH,
           COGITO_NAV_RAIL_COLLAPSED_INDICATOR_HEIGHT,
           item_bg,
-          99
+        99
         );
       }
-      if (n->nav_rail.icons && n->nav_rail.icons[i]) {
-        int badge_value = (n->nav_rail.badges ? n->nav_rail.badges[i] : 0);
-        CogitoColor badge_bg = cogito_rgba(220, 38, 38, 255);
-        CogitoColor badge_fg = cogito_rgba(255, 255, 255, 255);
-        cogito_draw_icon_fallback(n, n->nav_rail.icons[i]->data, icon_x, icon_y, icon_size, content_color);
+      if (n->nav_rail.icons && n->nav_rail.icons[i
+      ]) {
+        int badge_value = (n->nav_rail.badges ? n->nav_rail.badges[i
+        ] : 0);
+        CogitoColor badge_bg = cogito_rgba(220,
+        38,
+        38,
+        255);
+        CogitoColor badge_fg = cogito_rgba(255,
+        255,
+        255,
+        255);
+        cogito_draw_icon_fallback(n, n->nav_rail.icons[i
+        ]->data, icon_x, icon_y, icon_size, content_color);
         if (badge_value != 0) {
           int anchor_x = icon_x + icon_size;
           int anchor_y = icon_y;
@@ -185,9 +221,13 @@ case COGITO_NAV_RAIL: {
             int by = anchor_y - d / 2 + 2;
             cogito_draw_rect(bx, by, d, d, badge_bg, d / 2);
           } else {
-            char buf[8];
-            if (badge_value > 99) snprintf(buf, sizeof(buf), "99+");
-            else snprintf(buf, sizeof(buf), "%d", badge_value);
+            char buf[
+              8
+            ];
+            if (badge_value > 99) snprintf(buf, sizeof(buf),
+            "99+");
+            else snprintf(buf, sizeof(buf),
+            "%d", badge_value);
             int text_size = 10;
             int tw = cogito_text_width_size_node(n, buf, text_size);
             int bh = 14;
@@ -202,13 +242,17 @@ case COGITO_NAV_RAIL: {
           }
         }
       }
-      if (n->nav_rail.labels && n->nav_rail.labels[i]) {
-        int size = 16;
+      if (n->nav_rail.labels && n->nav_rail.labels[i
+      ]) {
+        // Cogito: Collapsed nav rail label — Label S = 12sp
+        int size = 12;
         CogitoColor label_color = base_color;
-        int label_w = cogito_text_width_size_node(n, n->nav_rail.labels[i]->data, size);
+        int label_w = cogito_text_width_size_node(n, n->nav_rail.labels[i
+        ]->data, size);
         int label_x = n->x + (rail_w - label_w) / 2;
         int label_y = item_y + COGITO_NAV_RAIL_COLLAPSED_INDICATOR_HEIGHT + COGITO_NAV_RAIL_COLLAPSED_INDICATOR_LABEL_GAP;
-        cogito_draw_text_size_node(n, label_x, label_y, n->nav_rail.labels[i]->data, label_color, size, selected);
+        cogito_draw_text_size_node(n, label_x, label_y, n->nav_rail.labels[i
+        ]->data, label_color, size, selected);
       }
 
       item_y += item_step;
