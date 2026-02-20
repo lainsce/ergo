@@ -1,3 +1,11 @@
+// Returns true when the child rect (cx,cy,cw,ch) overlaps the parent
+// viewport (px,py,pw,ph).  Used to skip drawing fully-offscreen items.
+static bool cogito_rect_visible(int cx, int cy, int cw, int ch,
+                                int px, int py, int pw, int ph) {
+  return !(cx + cw <= px || cx >= px + pw ||
+           cy + ch <= py || cy >= py + ph);
+}
+
 static float cogito_roundness_for(int w, int h, int radius) {
   if (radius <= 0) return 0.0f;
   float min = (float)(w < h ? w : h);
@@ -80,7 +88,6 @@ static void cogito_draw_corner_fill(int cx, int cy, int r, int sx, int sy, int s
     cogito_backend->end_scissor();
   }
 }
-
 // Draw a circle clipped to a rectangle (for ripple effects)
 static void cogito_draw_circle_clipped(int cx, int cy, float r, int clip_x, int clip_y, int clip_w, int clip_h, CogitoColor color) {
   if (r <= 0 || clip_w <= 0 || clip_h <= 0) return;
@@ -93,7 +100,6 @@ static void cogito_draw_circle_clipped(int cx, int cy, float r, int clip_x, int 
     cogito_backend->draw_circle(cx, cy, r, color);
   }
 }
-
 // Draw a circle clipped to a rounded-rect region (for ripple effects on rounded widgets).
 static void cogito_draw_circle_clipped_radii(int cx, int cy, float r,
                                              int clip_x, int clip_y, int clip_w, int clip_h,
@@ -168,7 +174,8 @@ static void cogito_draw_circle_clipped_radii(int cx, int cy, float r,
     int left = c_left > s_left ? c_left : s_left;
     int right = c_right < s_right ? c_right : s_right;
     if (right >= left) {
-      cogito_backend->draw_rect(left, y, right - left + 1, 1, color);
+      cogito_backend->draw_rect(left, y, right - left + 1,
+      1, color);
     }
   }
 }
@@ -362,10 +369,11 @@ static void cogito_draw_shadow_radii_level(int x, int y, int w, int h,
     case 4: blur = 24; spread = 0; offset_y = 4; break;
     case 5: blur = 24; spread = 0; offset_y = 6; break;
   }
-
   // Consistent 6% opacity black (approximately 15 alpha)
   int alpha = 15;
-  CogitoColor shadow_col = cogito_rgba(0, 0, 0, (uint8_t)alpha);
+  CogitoColor shadow_col = cogito_rgba(0,
+  0,
+  0, (uint8_t)alpha);
   
   // Draw ambient shadow (above the element)
   cogito_draw_shadow_blur_radii(x, y - offset_y, w, h, tl, tr, br, bl, 
@@ -400,7 +408,8 @@ static void cogito_draw_shadow_radii_box(int x, int y, int w, int h,
   if (bbl < 0) bbl = 0;
   if (bw <= 0 || bh <= 0) return;
 
-  cogito_draw_shadow_blur_radii(bx + dx, by + dy, bw, bh, btl, btr, bbr, bbl, 0, blur, bs->color);
+  cogito_draw_shadow_blur_radii(bx + dx, by + dy, bw, bh, btl, btr, bbr, bbl,
+  0, blur, bs->color);
 }
 
 static void cogito_draw_shadow_node_level(const CogitoNode* n, const CogitoStyle* s,
@@ -419,7 +428,8 @@ static void cogito_draw_shadow_node_box(const CogitoNode* n, const CogitoStyle* 
 
 static void cogito_draw_line(int x1, int y1, int x2, int y2, CogitoColor color) {
   if (cogito_backend && cogito_backend->draw_line) {
-    cogito_backend->draw_line(x1, y1, x2, y2, color, 1);
+    cogito_backend->draw_line(x1, y1, x2, y2, color,
+    1);
   }
 }
 
@@ -427,12 +437,21 @@ typedef bool (*CogitoAASampleFn)(double px, double py, void* user);
 
 static int cogito_aa_coverage_4x4(int x, int y, CogitoAASampleFn sample_fn, void* user) {
   if (!sample_fn) return 0;
-  static const double sub[4] = {0.125, 0.375, 0.625, 0.875};
+  static const double sub[
+    4
+  ] = {
+    0.125,
+    0.375,
+    0.625,
+    0.875
+  };
   int hit = 0;
   for (int yi = 0; yi < 4; yi++) {
     for (int xi = 0; xi < 4; xi++) {
-      double px = (double)x + sub[xi];
-      double py = (double)y + sub[yi];
+      double px = (double)x + sub[xi
+      ];
+      double py = (double)y + sub[yi
+      ];
       if (sample_fn(px, py, user)) hit++;
     }
   }
@@ -456,7 +475,9 @@ static void cogito_draw_aa_bbox(int min_x, int min_y, int max_x, int max_y,
       if (a < 1) continue;
       if (a > 255) a = 255;
       c.a = (uint8_t)a;
-      cogito_backend->draw_rect(x, y, 1, 1, c);
+      cogito_backend->draw_rect(x, y,
+      1,
+      1, c);
     }
   }
 }
@@ -567,7 +588,8 @@ static void cogito_draw_rect_lines_radii_aa(int x, int y, int w, int h, CogitoCo
     return;
   }
   if (tl == 0 && tr == 0 && br == 0 && bl == 0) {
-    cogito_draw_rect_lines(x, y, w, h, border, 0, thickness);
+    cogito_draw_rect_lines(x, y, w, h, border,
+    0, thickness);
     return;
   }
   if (cogito_corner_radii_uniform(tl, tr, br, bl)) {
@@ -849,39 +871,81 @@ static void cogito_draw_ring_arc_aa(int cx, int cy,
 }
 
 static const char* cogito_icon_text_fallback(const char* icon) {
-  if (!icon || !icon[0]) return "?";
-  if (strncmp(icon, "sf:", 3) == 0) return cogito_icon_text_fallback(icon + 3);
-  if (strstr(icon, "textformat.bold") || strstr(icon, "format-text-bold") || strcmp(icon, "bold") == 0) return "B";
-  if (strstr(icon, "textformat.italic") || strstr(icon, "format-text-italic") || strcmp(icon, "italic") == 0) return "I";
-  if (strstr(icon, "textformat.underline") || strstr(icon, "format-text-underline") || strcmp(icon, "underline") == 0) return "U";
-  if (strstr(icon, "textformat") || strstr(icon, "format-text-size") || strstr(icon, "character")) return "Aa";
-  if (strstr(icon, "window-close")) return "x";
-  if (strstr(icon, "window-minimize")) return "-";
-  if (strstr(icon, "window-maximize")) return "+";
-  if (strcmp(icon, "x") == 0 || strstr(icon, "xmark")) return "x";
-  if (strstr(icon, "plus")) return "+";
-  if (strstr(icon, "minus")) return "-";
-  if (strstr(icon, "add")) return "+";
-  if (strstr(icon, "remove")) return "-";
-  if (strstr(icon, "check")) return "v";
-  if (strstr(icon, "star")) return "*";
-  if (strstr(icon, "photo") || strstr(icon, "image")) return "[]";
-  if (strstr(icon, "search") || strstr(icon, "magnifyingglass")) return "o";
-  if (strstr(icon, "chevron") || strstr(icon, "pan-")) return "v";
-  if (strstr(icon, "arrow")) return ">";
-  if (strstr(icon, "question") || strstr(icon, "help")) return "?";
-  if (strstr(icon, "equal")) return "=";
+  if (!icon || !icon[
+    0
+  ]) return "?";
+  if (strncmp(icon,
+  "sf:",
+  3) == 0) return cogito_icon_text_fallback(icon + 3);
+  if (strstr(icon,
+  "textformat.bold") || strstr(icon,
+  "format-text-bold") || strcmp(icon,
+  "bold") == 0) return "B";
+  if (strstr(icon,
+  "textformat.italic") || strstr(icon,
+  "format-text-italic") || strcmp(icon,
+  "italic") == 0) return "I";
+  if (strstr(icon,
+  "textformat.underline") || strstr(icon,
+  "format-text-underline") || strcmp(icon,
+  "underline") == 0) return "U";
+  if (strstr(icon,
+  "textformat") || strstr(icon,
+  "format-text-size") || strstr(icon,
+  "character")) return "Aa";
+  if (strstr(icon,
+  "window-close")) return "x";
+  if (strstr(icon,
+  "window-minimize")) return "-";
+  if (strstr(icon,
+  "window-maximize")) return "+";
+  if (strcmp(icon,
+  "x") == 0 || strstr(icon,
+  "xmark")) return "x";
+  if (strstr(icon,
+  "plus")) return "+";
+  if (strstr(icon,
+  "minus")) return "-";
+  if (strstr(icon,
+  "add")) return "+";
+  if (strstr(icon,
+  "remove")) return "-";
+  if (strstr(icon,
+  "check")) return "v";
+  if (strstr(icon,
+  "star")) return "*";
+  if (strstr(icon,
+  "photo") || strstr(icon,
+  "image")) return "[]";
+  if (strstr(icon,
+  "search") || strstr(icon,
+  "magnifyingglass")) return "o";
+  if (strstr(icon,
+  "chevron") || strstr(icon,
+  "pan-")) return "v";
+  if (strstr(icon,
+  "arrow")) return ">";
+  if (strstr(icon,
+  "question") || strstr(icon,
+  "help")) return "?";
+  if (strstr(icon,
+  "equal")) return "=";
   return icon;
 }
 
 static void cogito_draw_icon_fallback(CogitoNode* n, const char* icon, int x, int y, int size, CogitoColor color) {
-  if (!n || !icon || !icon[0] || size <= 0) return;
+  if (!n || !icon || !icon[
+    0
+  ] || size <= 0) return;
   if (cogito_backend && cogito_backend->draw_texture) {
     CogitoTexture* tex = NULL;
     int tw = 0;
     int th = 0;
     if (cogito_icon_load_texture(icon, size, &tex, &tw, &th) && tex) {
-      CogitoRect src = {0, 0, tw, th};
+      CogitoRect src = {
+        0,
+        0, tw, th
+      };
       int dx = x;
       int dy = y;
       int dw = size;
@@ -897,14 +961,19 @@ static void cogito_draw_icon_fallback(CogitoNode* n, const char* icon, int x, in
           dx = x + (size - dw) / 2;
         }
       }
-      CogitoRect dst = {dx, dy, dw, dh};
+      CogitoRect dst = {dx, dy, dw, dh
+      };
       cogito_backend->draw_texture(tex, src, dst, color);
       return;
     }
   }
-  const char* icon_name = (strncmp(icon, "sf:", 3) == 0) ? icon + 3 : icon;
+  const char* icon_name = (strncmp(icon,
+  "sf:",
+  3) == 0) ? icon + 3 : icon;
 
-  if (strstr(icon_name, "magnifyingglass") || strstr(icon_name, "search")) {
+  if (strstr(icon_name,
+  "magnifyingglass") || strstr(icon_name,
+  "search")) {
     int cx = x + size / 2 - 1;
     int cy = y + size / 2 - 1;
     int r = size / 2 - 3;
@@ -913,7 +982,9 @@ static void cogito_draw_icon_fallback(CogitoNode* n, const char* icon, int x, in
     cogito_draw_line(x + size - 4, y + size - 4, x + size, y + size, color);
     return;
   }
-  if (strstr(icon_name, "plus") || strstr(icon_name, "add")) {
+  if (strstr(icon_name,
+  "plus") || strstr(icon_name,
+  "add")) {
     int cx = x + size / 2;
     int cy = y + size / 2;
     int r = size / 2 - 2;
@@ -922,7 +993,9 @@ static void cogito_draw_icon_fallback(CogitoNode* n, const char* icon, int x, in
     cogito_draw_line(cx, cy - r, cx, cy + r, color);
     return;
   }
-  if (strstr(icon_name, "minus") || strstr(icon_name, "remove")) {
+  if (strstr(icon_name,
+  "minus") || strstr(icon_name,
+  "remove")) {
     int cx = x + size / 2;
     int cy = y + size / 2;
     int r = size / 2 - 2;
@@ -930,20 +1003,28 @@ static void cogito_draw_icon_fallback(CogitoNode* n, const char* icon, int x, in
     cogito_draw_line(cx - r, cy, cx + r, cy, color);
     return;
   }
-  if (strstr(icon_name, "xmark") || strcmp(icon_name, "x") == 0 || strstr(icon_name, "window-close")) {
+  if (strstr(icon_name,
+  "xmark") || strcmp(icon_name,
+  "x") == 0 || strstr(icon_name,
+  "window-close")) {
     cogito_draw_line(x, y, x + size, y + size, color);
     cogito_draw_line(x + size, y, x, y + size, color);
     return;
   }
-  if (strstr(icon_name, "photo") || strstr(icon_name, "image")) {
+  if (strstr(icon_name,
+  "photo") || strstr(icon_name,
+  "image")) {
     int r = size / 8;
     if (r < 2) r = 2;
-    cogito_draw_rect_lines(x, y, size, size, color, r, 1);
+    cogito_draw_rect_lines(x, y, size, size, color, r,
+    1);
     cogito_draw_line(x + 3, y + size - 4, x + size / 2, y + size / 2, color);
     cogito_draw_line(x + size / 2, y + size / 2, x + size - 3, y + size - 6, color);
     return;
   }
-  if (strstr(icon_name, "chevron") || strstr(icon_name, "pan-")) {
+  if (strstr(icon_name,
+  "chevron") || strstr(icon_name,
+  "pan-")) {
     int mid = x + size / 2;
     int top = y + size / 3;
     int bot = y + (size * 2) / 3;
@@ -961,13 +1042,10 @@ static void cogito_draw_icon_fallback(CogitoNode* n, const char* icon, int x, in
   int ty = y + (size - th) / 2;
   cogito_draw_text_size_node(n, tx, ty, txt, color, fs, false);
 }
-
 // Window decoration (traffic lights / CSD buttons)
 #include "widgets/util/traffic_lights.inc"
-
 // Inspector panel (debug overlay)
 #include "widgets/util/inspector.inc"
-
 // Scrollbar geometry and hit-test (overlay scrollbars)
 #include "widgets/util/scrollbar.inc"
 
@@ -980,7 +1058,9 @@ static void cogito_draw_node(CogitoNode* n) {
   if (!n) return;
   // Use the cached main pointer position (set once per frame in the event loop)
   // instead of calling get_mouse_position per-node which is a backend API call.
-  if (n->tooltip && n->tooltip->data && n->tooltip->data[0] && !n->disabled) {
+  if (n->tooltip && n->tooltip->data && n->tooltip->data[
+    0
+  ] && !n->disabled) {
     if (cogito_main_pointer_valid &&
         cogito_hit_node(n, cogito_main_pointer_x, cogito_main_pointer_y)) {
       cogito_tooltip_hovered = n;
@@ -1050,10 +1130,11 @@ case COGITO_TOASTS:
       if (!cogito_toasts_force_draw) {
         CogitoNode* win = cogito_node_window(n);
         if (win) break;
-      }
+    }
       for (size_t i = 0; i < n->len; i++) {
-        cogito_draw_node(n->children[i]);
-      }
+        cogito_draw_node(n->children[i
+      ]);
+    }
       break;
 
     #include "widgets/draw/vstack.inc"
@@ -1126,11 +1207,8 @@ case COGITO_TOASTS:
 
     case COGITO_KIND_COUNT:
       break;
-  
-
+  }
 }
-}
-
 // Overlay drawing (menu, tooltip)
 #include "widgets/draw/menu.inc"
 #include "widgets/draw/tooltip_overlay.inc"

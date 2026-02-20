@@ -63,7 +63,7 @@ static void cogito_apply_theme(bool dark, CogitoColor accent);
 #define COGITO_NAV_RAIL_COLLAPSED_SECTION_GAP 36
 #define COGITO_NAV_RAIL_COLLAPSED_ITEM_STEP 96
 #define COGITO_NAV_RAIL_COLLAPSED_INDICATOR_WIDTH 64 // Cogito Expressive: 64dp pill indicator
-#define COGITO_NAV_RAIL_COLLAPSED_INDICATOR_HEIGHT 56 // Cogito Expressive: 56dp indicator height
+#define COGITO_NAV_RAIL_COLLAPSED_INDICATOR_HEIGHT 32 // Cogito Expressive: 32dp indicator height
 #define COGITO_NAV_RAIL_COLLAPSED_ICON_Y_OFFSET 16 // Center icon in 56dp indicator
 #define COGITO_NAV_RAIL_COLLAPSED_INDICATOR_LABEL_GAP 4
 // Expanded mode
@@ -364,7 +364,7 @@ typedef struct CogitoStyle {
   int track_height;
 } CogitoStyle;
 
-#define COGITO_MAX_CUSTOM_CLASSES 32
+#define COGITO_MAX_CUSTOM_CLASSES 50000 // 50,000 custom classes + 12 label classes
 #define COGITO_LABEL_CLASS_COUNT 12
 
 typedef struct CogitoCustomClassStyle {

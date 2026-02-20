@@ -1,48 +1,12 @@
 @diagnostics: warn
-@primary: #2f4a9a
-@primary-container: #dbe4ff
-@surface: #f8f9fb
-@surface-strong: #eceff5
-@text: #2b2b2b
-
-* 
-  color: @text
-  font-size: 14
-
-window
-  background: @surface
-
-vstack
-hstack
-appbar
-  background: #ffffff00
-
-appbar
-  background: @surface-strong
 
 textview
-  background: #ffffff
-  color: #222222
-  padding: 12
   border-radius: 0
-
-textview:focus
-  border: 2 solid @primary
-
-button:focus
-  border: 2 solid @primary
-
-button.outlined:focus
-  border: 2 solid @primary
-
-iconbtn:focus
-  border: 2 solid @primary
+  background: #ffffff
 
 @when dark
-  window
-    background: #121418
   textview
-    background: #1b1f26
-    color: #e8ecf5
+    background: #111111
+  
   appbar
-    background: #171b22
+    background: #222222

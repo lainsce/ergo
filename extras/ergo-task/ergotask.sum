@@ -11,20 +11,5 @@ zstack
 label.summary
   font-size: 12
 
-list.task-list
-  border-radius: 14
-
-label.task-item
-  padding: 12
-
 label.task-item-done
-  padding: 12
   color: alpha(#000000, 52%)
-
-empty_page.task-empty
-  border-radius: 14
-
-bottom_sheet.task-sheet
-  border-radius: 28 28 0 0
-  padding: 24
-  gap: 12

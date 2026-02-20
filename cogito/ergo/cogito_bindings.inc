@@ -204,7 +204,11 @@
 
 static bool cogito_debug_enabled(void) {
   const char* env = getenv("COGITO_DEBUG");
-  return env && env[0] && env[0] != '0';
+  return env && env[
+    0
+  ] && env[
+    0
+  ] != '0';
 }
 
 typedef enum {
@@ -318,20 +322,22 @@ static CogitoHandle* cogito_handle_from_val(ErgoVal v, const char* what) {
 }
 
 static cogito_app* cogito_app_from_val(ErgoVal v) {
-  CogitoHandle* h = cogito_handle_from_val(v, "cogito.app expects app");
+  CogitoHandle* h = cogito_handle_from_val(v,
+  "cogito.app expects app");
   return (cogito_app*)h->ptr;
 }
 
 static cogito_window* cogito_window_from_val(ErgoVal v) {
-  CogitoHandle* h = cogito_handle_from_val(v, "cogito.window expects window");
+  CogitoHandle* h = cogito_handle_from_val(v,
+  "cogito.window expects window");
   return (cogito_window*)h->ptr;
 }
 
 static cogito_node* cogito_node_from_val(ErgoVal v) {
-  CogitoHandle* h = cogito_handle_from_val(v, "cogito.node expects node");
+  CogitoHandle* h = cogito_handle_from_val(v,
+  "cogito.node expects node");
   return (cogito_node*)h->ptr;
 }
-
 // Non-static version for use by view_switcher.inc
 cogito_node* cogito_unwrap_handle(ErgoVal v) {
   if (v.tag != EVT_OBJ) return NULL;
@@ -371,7 +377,8 @@ static void cogito_invoke_node_handler(ErgoVal handler, cogito_node* node) {
   if (handler.tag != EVT_FN) return;
   ErgoVal arg = cogito_wrap_node(node, COGITO_HANDLE_NODE);
   ergo_retain_val(arg);
-  ErgoVal ret = ergo_call(handler, 1, &arg);
+  ErgoVal ret = ergo_call(handler,
+  1, &arg);
   ergo_release_val(arg);
   ergo_release_val(ret);
 }
@@ -379,7 +386,8 @@ static void cogito_invoke_node_handler(ErgoVal handler, cogito_node* node) {
 static void cogito_invoke_index_handler(ErgoVal handler, int idx) {
   if (handler.tag != EVT_FN) return;
   ErgoVal arg = EV_INT(idx);
-  ErgoVal ret = ergo_call(handler, 1, &arg);
+  ErgoVal ret = ergo_call(handler,
+  1, &arg);
   ergo_release_val(ret);
 }
 
@@ -650,7 +658,6 @@ static void __cogito_chip_on_close(ErgoVal chipv, ErgoVal handler) {
   cogito_set_handler(h, &h->on_action, handler);
   cogito_chip_on_close(chip, cogito_cb_action, h);
 }
-
 // --- Divider ---
 static ErgoVal __cogito_divider(ErgoVal orientationv, ErgoVal insetv) {
   ErgoStr* tmp = NULL;
@@ -663,7 +670,6 @@ static ErgoVal __cogito_divider(ErgoVal orientationv, ErgoVal insetv) {
   if (tmp) ergo_release_val(EV_STR(tmp));
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
 }
-
 // --- Card ---
 static ErgoVal __cogito_card(ErgoVal titlev) {
   ErgoStr* tmp = NULL;
@@ -675,7 +681,6 @@ static ErgoVal __cogito_card(ErgoVal titlev) {
   if (tmp) ergo_release_val(EV_STR(tmp));
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
 }
-
 // --- Avatar ---
 static ErgoVal __cogito_avatar(ErgoVal textv) {
   ErgoStr* tmp = NULL;
@@ -695,7 +700,6 @@ static void __cogito_avatar_set_image(ErgoVal avatarv, ErgoVal pathv) {
   cogito_avatar_set_image(n, path);
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
-
 // --- Badge ---
 static ErgoVal __cogito_badge(ErgoVal countv) {
   int count = 0;
@@ -717,7 +721,6 @@ static ErgoVal __cogito_badge_get_count(ErgoVal badgev) {
   cogito_node* n = cogito_node_from_val(badgev);
   return EV_INT(cogito_badge_get_count(n));
 }
-
 // --- Banner ---
 static ErgoVal __cogito_banner(ErgoVal textv) {
   ErgoStr* tmp = NULL;
@@ -749,7 +752,6 @@ static void __cogito_banner_set_icon(ErgoVal bannerv, ErgoVal iconv) {
   cogito_banner_set_icon(banner, icon);
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
-
 // --- BottomSheet ---
 static ErgoVal __cogito_bottom_sheet(ErgoVal titlev) {
   ErgoStr* tmp = NULL;
@@ -772,7 +774,6 @@ static ErgoVal __cogito_side_sheet(ErgoVal titlev) {
   if (tmp) ergo_release_val(EV_STR(tmp));
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
 }
-
 // --- TimePicker ---
 static ErgoVal __cogito_timepicker(void) {
   cogito_node* n = cogito_timepicker_new();
@@ -810,13 +811,11 @@ static void __cogito_timepicker_set_time(ErgoVal tpv, ErgoVal hourv, ErgoVal min
   else if (minv.tag == EVT_FLOAT) minute = (int)minv.as.f;
   cogito_timepicker_set_time(n, hour, minute);
 }
-
 // --- ActiveIndicator ---
 static ErgoVal __cogito_active_indicator(void) {
   cogito_node* n = cogito_active_indicator_new();
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
 }
-
 // --- SwitchBar ---
 static ErgoVal __cogito_switchbar(ErgoVal textv) {
   ErgoStr* tmp = NULL;
@@ -844,13 +843,11 @@ static void __cogito_switchbar_on_change(ErgoVal sbv, ErgoVal handler) {
   cogito_set_handler(h, &h->on_change, handler);
   cogito_switchbar_on_change(sb, cogito_cb_change, h);
 }
-
 // --- ContentList ---
 static ErgoVal __cogito_content_list(void) {
   cogito_node* n = cogito_content_list_new();
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
 }
-
 // --- EmptyPage ---
 static ErgoVal __cogito_empty_page(ErgoVal titlev) {
   ErgoStr* tmp = NULL;
@@ -887,7 +884,6 @@ static void __cogito_empty_page_set_action(ErgoVal epv, ErgoVal textv, ErgoVal h
   }
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
-
 // --- TipView ---
 static ErgoVal __cogito_tip_view(ErgoVal textv) {
   ErgoStr* tmp = NULL;
@@ -903,7 +899,6 @@ static void __cogito_tip_view_set_title(ErgoVal tvv, ErgoVal titlev) {
   cogito_tip_view_set_title(n, title);
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
-
 // --- SettingsWindow ---
 static ErgoVal __cogito_settings_window(ErgoVal titlev) {
   ErgoStr* tmp = NULL;
@@ -912,7 +907,6 @@ static ErgoVal __cogito_settings_window(ErgoVal titlev) {
   if (tmp) ergo_release_val(EV_STR(tmp));
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
 }
-
 // --- SettingsPage ---
 static ErgoVal __cogito_settings_page(ErgoVal titlev) {
   ErgoStr* tmp = NULL;
@@ -921,7 +915,6 @@ static ErgoVal __cogito_settings_page(ErgoVal titlev) {
   if (tmp) ergo_release_val(EV_STR(tmp));
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
 }
-
 // --- SettingsList ---
 static ErgoVal __cogito_settings_list(ErgoVal titlev) {
   ErgoStr* tmp = NULL;
@@ -930,7 +923,6 @@ static ErgoVal __cogito_settings_list(ErgoVal titlev) {
   if (tmp) ergo_release_val(EV_STR(tmp));
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
 }
-
 // --- SettingsRow ---
 static ErgoVal __cogito_settings_row(ErgoVal labelv) {
   ErgoStr* tmp = NULL;
@@ -939,7 +931,6 @@ static ErgoVal __cogito_settings_row(ErgoVal labelv) {
   if (tmp) ergo_release_val(EV_STR(tmp));
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
 }
-
 // --- WelcomeScreen ---
 static ErgoVal __cogito_welcome_screen(ErgoVal titlev) {
   ErgoStr* tmp = NULL;
@@ -976,7 +967,6 @@ static void __cogito_welcome_screen_set_action(ErgoVal wsv, ErgoVal textv, ErgoV
   }
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
-
 // --- ViewDual ---
 static ErgoVal __cogito_view_dual(void) {
   cogito_node* n = cogito_view_dual_new();
@@ -987,7 +977,6 @@ static void __cogito_view_dual_set_ratio(ErgoVal vdv, ErgoVal ratiov) {
   double ratio = ergo_as_float(ratiov);
   cogito_view_dual_set_ratio(n, ratio);
 }
-
 // --- ViewChooser ---
 static ErgoVal __cogito_view_chooser(void) {
   cogito_node* n = cogito_view_chooser_new();
@@ -1002,12 +991,17 @@ static void __cogito_view_chooser_set_items(ErgoVal vcv, ErgoVal arrv) {
   ErgoStr** tmps = (ErgoStr**)malloc(sizeof(ErgoStr*) * len);
   for (size_t i = 0; i < len; i++) {
     ErgoVal v = ergo_arr_get(a, (int64_t)i);
-    tmps[i] = NULL;
-    items[i] = cogito_required_cstr(v, &tmps[i]);
+    tmps[i
+    ] = NULL;
+    items[i
+    ] = cogito_required_cstr(v, &tmps[i
+    ]);
   }
   cogito_view_chooser_set_items(n, items, len);
   for (size_t i = 0; i < len; i++) {
-    if (tmps[i]) ergo_release_val(EV_STR(tmps[i]));
+    if (tmps[i
+    ]) ergo_release_val(EV_STR(tmps[i
+    ]));
   }
   free(items);
   free(tmps);
@@ -1017,7 +1011,6 @@ static void __cogito_view_chooser_bind(ErgoVal vcv, ErgoVal vsv) {
   cogito_node* vs = cogito_node_from_val(vsv);
   cogito_view_chooser_bind(vc, vs);
 }
-
 // --- AboutWindow ---
 static ErgoVal __cogito_about_window(ErgoVal namev, ErgoVal versionv) {
   ErgoStr* tmp1 = NULL;
@@ -1057,7 +1050,6 @@ static void __cogito_about_window_set_issue_url(ErgoVal awv, ErgoVal urlv) {
   cogito_about_window_set_issue_url(n, url);
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
-
 // --- MenuButton ---
 static ErgoVal __cogito_menu_button(ErgoVal iconv) {
   ErgoStr* tmp = NULL;
@@ -1066,7 +1058,6 @@ static ErgoVal __cogito_menu_button(ErgoVal iconv) {
   if (tmp) ergo_release_val(EV_STR(tmp));
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
 }
-
 // --- SplitButton ---
 static ErgoVal __cogito_split_button(ErgoVal textv) {
   ErgoStr* tmp = NULL;
@@ -1594,9 +1585,9 @@ static void __cogito_container_add(ErgoVal parentv, ErgoVal childv) {
   cogito_node_add(parent, child);
 }
 
-static void __cogito_container_set_margins(ErgoVal nodev, ErgoVal left, ErgoVal top, ErgoVal right, ErgoVal bottom) {
+static void __cogito_container_set_margins(ErgoVal nodev, ErgoVal top, ErgoVal right, ErgoVal bottom, ErgoVal left) {
   cogito_node* node = cogito_node_from_val(nodev);
-  cogito_node_set_margins(node, (int)ergo_as_int(left), (int)ergo_as_int(top), (int)ergo_as_int(right), (int)ergo_as_int(bottom));
+  cogito_node_set_margins(node, (int)ergo_as_int(top), (int)ergo_as_int(right), (int)ergo_as_int(bottom), (int)ergo_as_int(left));
 }
 
 static void __cogito_container_set_align(ErgoVal nodev, ErgoVal align) {
@@ -1630,9 +1621,9 @@ static void __cogito_container_set_gap(ErgoVal nodev, ErgoVal gap) {
   cogito_node_set_gap(node, (int)ergo_as_int(gap));
 }
 
-static void __cogito_container_set_padding(ErgoVal nodev, ErgoVal left, ErgoVal top, ErgoVal right, ErgoVal bottom) {
+static void __cogito_container_set_padding(ErgoVal nodev, ErgoVal top, ErgoVal right, ErgoVal bottom, ErgoVal left) {
   cogito_node* node = cogito_node_from_val(nodev);
-  cogito_node_set_padding(node, (int)ergo_as_int(left), (int)ergo_as_int(top), (int)ergo_as_int(right), (int)ergo_as_int(bottom));
+  cogito_node_set_padding(node, (int)ergo_as_int(top), (int)ergo_as_int(right), (int)ergo_as_int(bottom), (int)ergo_as_int(left));
 }
 
 static void __cogito_fixed_set_pos(ErgoVal fixedv, ErgoVal childv, ErgoVal xv, ErgoVal yv) {
@@ -1751,7 +1742,6 @@ static void __cogito_iconbtn_add_menu_section(ErgoVal btnv, ErgoVal labelv, Ergo
   cogito_iconbtn_add_menu_section(btn, label, mh ? cogito_cb_menu : NULL, mh);
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
-
 // Icon button setters/getters
 static void __cogito_iconbtn_set_shape(ErgoVal btnv, ErgoVal shapev) {
   cogito_node* btn = cogito_node_from_val(btnv);
@@ -2003,11 +1993,16 @@ static void __cogito_dropdown_set_items(ErgoVal ddv, ErgoVal itemsv) {
   const char** items = (const char**)calloc(count, sizeof(char*));
   ErgoStr** temps = (ErgoStr**)calloc(count, sizeof(ErgoStr*));
   for (size_t i = 0; i < count; i++) {
-    items[i] = cogito_required_cstr(arr->items[i], &temps[i]);
+    items[i
+    ] = cogito_required_cstr(arr->items[i
+    ], &temps[i
+    ]);
   }
   cogito_dropdown_set_items(dd, items, count);
   for (size_t i = 0; i < count; i++) {
-    if (temps[i]) ergo_release_val(EV_STR(temps[i]));
+    if (temps[i
+    ]) ergo_release_val(EV_STR(temps[i
+    ]));
   }
   free(temps);
   free(items);
@@ -2160,11 +2155,16 @@ static void __cogito_tabs_set_items(ErgoVal tabsv, ErgoVal itemsv) {
   const char** items = (const char**)calloc(count, sizeof(char*));
   ErgoStr** temps = (ErgoStr**)calloc(count, sizeof(ErgoStr*));
   for (size_t i = 0; i < count; i++) {
-    items[i] = cogito_required_cstr(arr->items[i], &temps[i]);
+    items[i
+    ] = cogito_required_cstr(arr->items[i
+    ], &temps[i
+    ]);
   }
   cogito_tabs_set_items(tabs, items, count);
   for (size_t i = 0; i < count; i++) {
-    if (temps[i]) ergo_release_val(EV_STR(temps[i]));
+    if (temps[i
+    ]) ergo_release_val(EV_STR(temps[i
+    ]));
   }
   free(temps);
   free(items);
@@ -2178,11 +2178,16 @@ static void __cogito_tabs_set_ids(ErgoVal tabsv, ErgoVal itemsv) {
   const char** items = (const char**)calloc(count, sizeof(char*));
   ErgoStr** temps = (ErgoStr**)calloc(count, sizeof(ErgoStr*));
   for (size_t i = 0; i < count; i++) {
-    items[i] = cogito_required_cstr(arr->items[i], &temps[i]);
+    items[i
+    ] = cogito_required_cstr(arr->items[i
+    ], &temps[i
+    ]);
   }
   cogito_tabs_set_ids(tabs, items, count);
   for (size_t i = 0; i < count; i++) {
-    if (temps[i]) ergo_release_val(EV_STR(temps[i]));
+    if (temps[i
+    ]) ergo_release_val(EV_STR(temps[i
+    ]));
   }
   free(temps);
   free(items);
@@ -2225,7 +2230,10 @@ static void __cogito_nav_rail_set_items(ErgoVal railv, ErgoVal labelsv, ErgoVal 
   const char** label_strs = (const char**)calloc(count, sizeof(char*));
   ErgoStr** label_temps = (ErgoStr**)calloc(count, sizeof(ErgoStr*));
   for (size_t i = 0; i < count; i++) {
-    label_strs[i] = cogito_required_cstr(labels->items[i], &label_temps[i]);
+    label_strs[i
+    ] = cogito_required_cstr(labels->items[i
+    ], &label_temps[i
+    ]);
   }
 
   const char** icon_strs = NULL;
@@ -2236,11 +2244,16 @@ static void __cogito_nav_rail_set_items(ErgoVal railv, ErgoVal labelsv, ErgoVal 
     icon_strs = (const char**)calloc(icon_count, sizeof(char*));
     icon_temps = (ErgoStr**)calloc(icon_count, sizeof(ErgoStr*));
     for (size_t i = 0; i < icon_count; i++) {
-      icon_strs[i] = cogito_required_cstr(icons->items[i], &icon_temps[i]);
+      icon_strs[i
+      ] = cogito_required_cstr(icons->items[i
+      ], &icon_temps[i
+      ]);
     }
     cogito_nav_rail_set_items(rail, label_strs, icon_strs, icon_count < count ? icon_count : count);
     for (size_t i = 0; i < icon_count; i++) {
-      if (icon_temps[i]) ergo_release_val(EV_STR(icon_temps[i]));
+      if (icon_temps[i
+      ]) ergo_release_val(EV_STR(icon_temps[i
+      ]));
     }
     free(icon_temps);
     free(icon_strs);
@@ -2249,7 +2262,9 @@ static void __cogito_nav_rail_set_items(ErgoVal railv, ErgoVal labelsv, ErgoVal 
   }
 
   for (size_t i = 0; i < count; i++) {
-    if (label_temps[i]) ergo_release_val(EV_STR(label_temps[i]));
+    if (label_temps[i
+    ]) ergo_release_val(EV_STR(label_temps[i
+    ]));
   }
   free(label_temps);
   free(label_strs);
@@ -2258,7 +2273,8 @@ static void __cogito_nav_rail_set_items(ErgoVal railv, ErgoVal labelsv, ErgoVal 
 static void __cogito_nav_rail_set_badges(ErgoVal railv, ErgoVal badgesv) {
   cogito_node* rail = cogito_node_from_val(railv);
   if (badgesv.tag == EVT_NULL) {
-    cogito_nav_rail_set_badges(rail, NULL, 0);
+    cogito_nav_rail_set_badges(rail, NULL,
+    0);
     return;
   }
   if (badgesv.tag != EVT_ARR) ergo_trap("cogito.nav_rail_set_badges expects array");
@@ -2266,7 +2282,8 @@ static void __cogito_nav_rail_set_badges(ErgoVal railv, ErgoVal badgesv) {
   size_t count = badges->len;
   int* vals = (int*)calloc(count, sizeof(int));
   for (size_t i = 0; i < count; i++) {
-    ErgoVal bv = badges->items[i];
+    ErgoVal bv = badges->items[i
+    ];
     int v = 0;
     switch (bv.tag) {
       case EVT_NULL:
@@ -2288,7 +2305,8 @@ static void __cogito_nav_rail_set_badges(ErgoVal railv, ErgoVal badgesv) {
         free(vals);
         ergo_trap("cogito.nav_rail_set_badges expects int/bool/null entries");
     }
-    vals[i] = v;
+    vals[i
+    ] = v;
   }
   cogito_nav_rail_set_badges(rail, vals, count);
   free(vals);
@@ -2334,7 +2352,10 @@ static void __cogito_bottom_nav_set_items(ErgoVal navv, ErgoVal labelsv, ErgoVal
   const char** label_strs = (const char**)calloc(count, sizeof(char*));
   ErgoStr** label_temps = (ErgoStr**)calloc(count, sizeof(ErgoStr*));
   for (size_t i = 0; i < count; i++) {
-    label_strs[i] = cogito_required_cstr(labels->items[i], &label_temps[i]);
+    label_strs[i
+    ] = cogito_required_cstr(labels->items[i
+    ], &label_temps[i
+    ]);
   }
   const char** icon_strs = NULL;
   ErgoStr** icon_temps = NULL;
@@ -2344,11 +2365,16 @@ static void __cogito_bottom_nav_set_items(ErgoVal navv, ErgoVal labelsv, ErgoVal
     icon_strs = (const char**)calloc(icon_count, sizeof(char*));
     icon_temps = (ErgoStr**)calloc(icon_count, sizeof(ErgoStr*));
     for (size_t i = 0; i < icon_count; i++) {
-      icon_strs[i] = cogito_required_cstr(icons->items[i], &icon_temps[i]);
+      icon_strs[i
+      ] = cogito_required_cstr(icons->items[i
+      ], &icon_temps[i
+      ]);
     }
     cogito_bottom_nav_set_items(nav, label_strs, icon_strs, icon_count < count ? icon_count : count);
     for (size_t i = 0; i < icon_count; i++) {
-      if (icon_temps[i]) ergo_release_val(EV_STR(icon_temps[i]));
+      if (icon_temps[i
+      ]) ergo_release_val(EV_STR(icon_temps[i
+      ]));
     }
     free(icon_temps);
     free(icon_strs);
@@ -2356,7 +2382,9 @@ static void __cogito_bottom_nav_set_items(ErgoVal navv, ErgoVal labelsv, ErgoVal
     cogito_bottom_nav_set_items(nav, label_strs, NULL, count);
   }
   for (size_t i = 0; i < count; i++) {
-    if (label_temps[i]) ergo_release_val(EV_STR(label_temps[i]));
+    if (label_temps[i
+    ]) ergo_release_val(EV_STR(label_temps[i
+    ]));
   }
   free(label_temps);
   free(label_strs);
@@ -2539,14 +2567,18 @@ static void __cogito_build(ErgoVal nodev, ErgoVal builder) {
   if (builder.tag != EVT_FN) ergo_trap("cogito.build expects function");
   ErgoVal arg = nodev;
   ergo_retain_val(arg);
-  ErgoVal ret = ergo_call(builder, 1, &arg);
+  ErgoVal ret = ergo_call(builder,
+  1, &arg);
   ergo_release_val(arg);
   ergo_release_val(ret);
 }
 
-static ErgoVal __cogito_state_new(ErgoVal initial) { return cogito_state_new_val(initial); }
-static ErgoVal __cogito_state_get(ErgoVal state) { return cogito_state_get_val(state); }
-static void __cogito_state_set(ErgoVal state, ErgoVal value) { cogito_state_set_val(state, value); }
+static ErgoVal __cogito_state_new(ErgoVal initial) { return cogito_state_new_val(initial);
+}
+static ErgoVal __cogito_state_get(ErgoVal state) { return cogito_state_get_val(state);
+}
+static void __cogito_state_set(ErgoVal state, ErgoVal value) { cogito_state_set_val(state, value);
+}
 
 static void __cogito_run(ErgoVal appv, ErgoVal winv) {
   cogito_app* app = cogito_app_from_val(appv);
@@ -2564,7 +2596,9 @@ static void __cogito_load_sum(ErgoVal pathv) {
 static void __cogito_set_script_dir(ErgoVal dirv) {
   ErgoStr* tmp = NULL;
   const char* dir = cogito_optional_cstr(dirv, &tmp);
-  if (dir && dir[0]) cogito_set_script_dir(dir);  // Call the actual cogito library function
+  if (dir && dir[
+    0
+  ]) cogito_set_script_dir(dir); // Call the actual cogito library function
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
 
@@ -2572,11 +2606,12 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
   ErgoStr* tmp = NULL;
   const char* url = cogito_optional_cstr(urlv, &tmp);
   bool ok = false;
-  if (url && url[0]) ok = cogito_open_url(url);
+  if (url && url[
+    0
+  ]) ok = cogito_open_url(url);
   if (tmp) ergo_release_val(EV_STR(tmp));
   return EV_BOOL(ok);
 }
-
 // ---- Codegen aliases ----
 #define cogito_app_new __cogito_app
 #define cogito_app_set_appid __cogito_app_set_appid

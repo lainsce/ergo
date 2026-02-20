@@ -13,13 +13,13 @@ static void cogito_container_add(ErgoVal parentv, ErgoVal childv) {
   }
 }
 
-static void cogito_container_set_margins(ErgoVal nodev, ErgoVal left, ErgoVal top, ErgoVal right, ErgoVal bottom) {
+static void cogito_container_set_margins(ErgoVal nodev, ErgoVal top, ErgoVal right, ErgoVal bottom, ErgoVal left) {
   if (nodev.tag != EVT_OBJ) ergo_trap("cogito.container_set_margins expects object");
   CogitoNode* node = (CogitoNode*)nodev.as.p;
-  node->margin_left = (int)ergo_as_int(left);
   node->margin_top = (int)ergo_as_int(top);
   node->margin_right = (int)ergo_as_int(right);
   node->margin_bottom = (int)ergo_as_int(bottom);
+  node->margin_left = (int)ergo_as_int(left);
   node->margin_set = true;
 }
 
@@ -69,13 +69,13 @@ static void cogito_container_set_gap(ErgoVal nodev, ErgoVal gapv) {
   cogito_window_relayout(cogito_node_window(node));
 }
 
-static void cogito_container_set_padding(ErgoVal nodev, ErgoVal left, ErgoVal top, ErgoVal right, ErgoVal bottom) {
+static void cogito_container_set_padding(ErgoVal nodev, ErgoVal top, ErgoVal right, ErgoVal bottom, ErgoVal left) {
   if (nodev.tag != EVT_OBJ) ergo_trap("cogito.container_set_padding expects object");
   CogitoNode* node = (CogitoNode*)nodev.as.p;
-  node->padding_left = (int)ergo_as_int(left);
   node->padding_top = (int)ergo_as_int(top);
   node->padding_right = (int)ergo_as_int(right);
   node->padding_bottom = (int)ergo_as_int(bottom);
+  node->padding_left = (int)ergo_as_int(left);
   node->padding_set = true;
 }
 
@@ -169,20 +169,29 @@ static void cogito_node_set_class(ErgoVal nodev, ErgoVal classv) {
     }
   }
   if (n->kind == COGITO_LABEL) n->label.cls = COGITO_LABEL_CLASS_NONE;
-  if (s && s[0]) {
+  if (s && s[
+    0
+  ]) {
     int label_cls = COGITO_LABEL_CLASS_NONE;
     if (n->kind == COGITO_LABEL) {
       label_cls = cogito_label_class_from_name(s);
     }
     if (label_cls != COGITO_LABEL_CLASS_NONE) {
       n->label.cls = label_cls;
-    } else if (strcmp(s, "monospace") == 0 || strcmp(s, "mono") == 0) {
+    } else if (strcmp(s,
+    "monospace") == 0 || strcmp(s,
+    "mono") == 0) {
       n->font_mono = true;
-    } else if (strcmp(s, "tabular") == 0 || strcmp(s, "tnum") == 0 || strcmp(s, "tabular-nums") == 0) {
+    } else if (strcmp(s,
+    "tabular") == 0 || strcmp(s,
+    "tnum") == 0 || strcmp(s,
+    "tabular-nums") == 0) {
       n->font_tabular = true;
-    } else if (is_button && strcmp(s, "outlined") == 0) {
+    } else if (is_button && strcmp(s,
+    "outlined") == 0) {
       n->button.outlined = true;
-    } else if (is_button && strcmp(s, "text") == 0) {
+    } else if (is_button && strcmp(s,
+    "text") == 0) {
       n->button.text_style = true;
     } else {
       // Store custom class name
@@ -275,7 +284,8 @@ static void cogito_build(ErgoVal nodev, ErgoVal builder) {
   if (nodev.tag != EVT_OBJ) ergo_trap("cogito.build expects object");
   ErgoVal arg = nodev;
   ergo_retain_val(arg);
-  ErgoVal ret = ergo_call(builder, 1, &arg);
+  ErgoVal ret = ergo_call(builder,
+  1, &arg);
   ergo_release_val(arg);
   ergo_release_val(ret);
 }

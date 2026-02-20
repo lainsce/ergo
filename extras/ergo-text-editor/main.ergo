@@ -124,16 +124,13 @@ fun show_save_dialog() (( -- )) {
 
 fun show_about_window(win = cogito.Window) (( -- )) {
     let dlg = cogito.dialog(@"")
-    let content = cogito.vstack()
-    content.align_center()
 
     let aw = cogito.about_window(@"Ergo Text Editor", @"MIT License")
     aw.set_icon(@"sf:doc.text")
     aw.set_website(ABOUT_MORE_INFO_URL)
     aw.set_issue_url(ABOUT_REPORT_BUG_URL)
-    content.add(aw)
 
-    dlg.add(content)
+    dlg.add(aw)
     win.set_dialog(dlg)
 }
 

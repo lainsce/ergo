@@ -6,7 +6,7 @@ case COGITO_ABOUT_WINDOW: {
   CogitoColor text_color = s.has_text ? s.text : n->text_color;
   CogitoColor border_color = s.has_border ? s.border : n->border_color;
   int border_w = s.has_border_width ? s.border_width : (n->border_width_set ? n->border_width : 0);
-  int radius = s.has_radius ? s.radius : (n->radius_set ? n->border_radius : 16);
+  int radius = s.has_radius ? s.radius : (n->radius_set ? n->border_radius : 26);
   int shadow = s.has_shadow ? s.shadow_level : n->shadow_level;
 
   cogito_anim_apply(n, &s, &bg, &text_color, &border_color, NULL);
@@ -24,7 +24,8 @@ case COGITO_ABOUT_WINDOW: {
   cogito_about_window_sync_actions(n);
 
   for (size_t i = 0; i < n->len; i++) {
-    cogito_draw_node(n->children[i]);
+    cogito_draw_node(n->children[i
+    ]);
   }
   break;
 }

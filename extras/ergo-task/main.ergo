@@ -145,7 +145,7 @@ fun build_main_content() (( cogito.VStack )) {
     content.set_gap(10)
     content.set_hexpand(true)
     content.set_vexpand(true)
-    content.set_padding(14, 14, 14, 90)
+    content.set_padding(14, 14, 90, 14)
 
     if total == 0 {
         let empty = cogito.empty_page(@"No Tasks Yet")
@@ -214,7 +214,7 @@ fun build_window(win = cogito.Window) (( -- )) {
     fab_layer.set_hexpand(true)
     fab_layer.set_vexpand(true)
     fab_layer.set_align(8)
-    fab_layer.set_padding(0, 0, 18, 18)
+    fab_layer.set_padding(0, 18, 18, 0)
 
     let fab = cogito.fab(@"plus")
     fab.set_class(@"task-fab")

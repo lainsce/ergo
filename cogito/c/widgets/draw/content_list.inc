@@ -10,7 +10,6 @@ case COGITO_CONTENT_LIST: {
   if ((s.has_bg || n->bg_set) && n->len == 0) {
     cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, r);
   }
-
   // Get element position styles from theme
   CogitoStyle* first_style = &cogito_theme.content_list_item_first;
   CogitoStyle* last_style = &cogito_theme.content_list_item_last;
@@ -19,8 +18,10 @@ case COGITO_CONTENT_LIST: {
 
   // Draw children with proper rounded corners based on position
   for (size_t i = 0; i < n->len; i++) {
-    CogitoNode* child = n->children[i];
-    
+    CogitoNode* child = n->children[i
+    ];
+    if (!cogito_rect_visible(child->x, child->y, child->w, child->h, n->x, n->y, n->w, n->h)) continue;
+
     // Determine element position and get corresponding style
     CogitoStyle* item_style = NULL;
     int tl = 0, tr = 0, br = 0, bl = 0;
@@ -40,7 +41,6 @@ case COGITO_CONTENT_LIST: {
       item_style = middle_style;
       tl = tr = br = bl = 8;
     }
-
     // Override fallback radii with any explicit per-position style radius values.
     if (item_style->has_radius) {
       tl = tr = br = bl = item_style->radius;
@@ -52,18 +52,15 @@ case COGITO_CONTENT_LIST: {
     if (child->w > 0 && child->h > 0) {
       cogito_clamp_corner_radii(child->w, child->h, &tl, &tr, &br, &bl);
     }
-    
     // Use element-specific background if available, otherwise use list bg
     CogitoColor item_bg = bg;
     if (item_style && item_style->has_bg) {
       item_bg = item_style->bg;
     }
-    
     // Draw child background with position-specific rounded corners
     if (item_bg.a > 0) {
       cogito_draw_rect_radii_aa(child->x, child->y, child->w, child->h, item_bg, tl, tr, br, bl);
     }
-    
     // Draw the child
     cogito_draw_node(child);
     
@@ -79,7 +76,9 @@ case COGITO_CONTENT_LIST: {
       int div_margin = middle_style->has_padding_left ? middle_style->padding_left : 16;
       int div_w = n->w - (div_margin * 2);
       if (div_w > 0) {
-        cogito_draw_rect(n->x + div_margin, dy, div_w, 1, div_color, 0);
+        cogito_draw_rect(n->x + div_margin, dy, div_w,
+        1, div_color,
+        0);
       }
     }
   }

@@ -401,7 +401,7 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "appbar .window-min\n  background: %s\n", pc);
   cogito_sum_append(out, cap, &off,
-  "appbar.sidebar\n  background: %s\n  color: %s\n", surf, ons);
+  "appbar.sidebar\n  background: %s\n  color: %s\n", sc, ons);
   cogito_sum_append(out, cap, &off,
   "appbar.view\n  background: %s\n  color: %s\n", bg, ons);
   cogito_sum_append(out, cap, &off,
@@ -822,4 +822,35 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   "window\n  background: %s\n", surf);
   cogito_sum_append(out, cap, &off,
   "zstack\n  background: %s\n  color: %s\n", bg, ons);
+
+  // --- Selectors that exist in system .sum files but were previously missing ---
+  // Without these, system theme colors leak through because the dynamic theme
+  // doesn't override them.
+  // Color token class: .on-error
+  cogito_sum_append(out, cap, &off,
+  ".on-error\n  background: %s\n  color: %s\n", err, oerr);
+
+  // About window (class selector — system .sum uses .about-window)
+  cogito_sum_append(out, cap, &off,
+  ".about-window\n  background: %s\n  color: %s\n", sch, ons);
+  cogito_sum_append(out, cap, &off,
+  "label.about-window-title\n  color: %s\n  font-size: 28\n  font-weight: bold\n", ons);
+  cogito_sum_append(out, cap, &off,
+  "label.about-window-license\n  color: %s\n  font-size: 14\n", outl);
+  cogito_sum_append(out, cap, &off,
+  "hstack.about-window-actions\n  background: transparent\n  padding: 4 0 0 0\n");
+  cogito_sum_append(out, cap, &off,
+  "image.about-window-icon\n  min-width: 128\n  min-height: 128\n");
+
+  // Menu section
+  cogito_sum_append(out, cap, &off,
+  "menu_section\n  background: transparent\n");
+  cogito_sum_append(out, cap, &off,
+  "menu_section item\n  border-radius: 0\n  padding: 8 12\n  min-height: 42\n");
+
+  // Switch knob checked state
+  cogito_sum_append(out, cap, &off,
+  "switch .knob:checked\n  background: %s\n", surf);
+  cogito_sum_append(out, cap, &off,
+  "switch knob:checked\n  background: %s\n", surf);
 }

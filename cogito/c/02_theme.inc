@@ -26,51 +26,90 @@ static void cogito_style_set_radius(CogitoStyle* s, int tl, int tr, int br, int 
 }
 
 static int cogito_label_class_from_name(const char* s) {
-  if (!s || !s[0]) return COGITO_LABEL_CLASS_NONE;
-  char key[64];
+  if (!s || !s[
+    0
+  ]) return COGITO_LABEL_CLASS_NONE;
+  char key[
+    64
+  ];
   size_t k = 0;
-  for (size_t i = 0; s[i] && (k + 1) < sizeof(key); i++) {
-    unsigned char ch = (unsigned char)s[i];
+  for (size_t i = 0; s[i
+  ] && (k + 1) < sizeof(key); i++) {
+    unsigned char ch = (unsigned char)s[i
+    ];
     if (ch == '_' || ch == ' ') ch = '-';
     ch = (unsigned char)tolower(ch);
     if ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-') {
-      key[k++] = (char)ch;
+      key[k++
+      ] = (char)ch;
     }
   }
-  key[k] = 0;
-  if (!key[0]) return COGITO_LABEL_CLASS_NONE;
+  key[k
+  ] = 0;
+  if (!key[
+    0
+  ]) return COGITO_LABEL_CLASS_NONE;
 
-  if (strcmp(key, "title") == 0) return COGITO_LABEL_CLASS_TITLE;
-  if (strcmp(key, "subtitle") == 0 || strcmp(key, "sub-title") == 0) return COGITO_LABEL_CLASS_SUBTITLE;
-  if (strcmp(key, "body") == 0) return COGITO_LABEL_CLASS_BODY;
-  if (strcmp(key, "big-display") == 0 || strcmp(key, "bigdisplay") == 0) return COGITO_LABEL_CLASS_BIG_DISPLAY;
-  if (strcmp(key, "display") == 0) return COGITO_LABEL_CLASS_DISPLAY;
-  if (strcmp(key, "view-title") == 0 || strcmp(key, "viewtitle") == 0) return COGITO_LABEL_CLASS_VIEW_TITLE;
-  if (strcmp(key, "view-subtitle") == 0 || strcmp(key, "viewsubtitle") == 0) return COGITO_LABEL_CLASS_VIEW_SUBTITLE;
-  if (strcmp(key, "heading") == 0) return COGITO_LABEL_CLASS_HEADING;
-  if (strcmp(key, "content-title") == 0 || strcmp(key, "contenttitle") == 0) return COGITO_LABEL_CLASS_CONTENT_TITLE;
-  if (strcmp(key, "content-subtitle") == 0 || strcmp(key, "contentsubtitle") == 0) return COGITO_LABEL_CLASS_CONTENT_SUBTITLE;
-  if (strcmp(key, "caption") == 0) return COGITO_LABEL_CLASS_CAPTION;
+  if (strcmp(key,
+  "title") == 0) return COGITO_LABEL_CLASS_TITLE;
+  if (strcmp(key,
+  "subtitle") == 0 || strcmp(key,
+  "sub-title") == 0) return COGITO_LABEL_CLASS_SUBTITLE;
+  if (strcmp(key,
+  "body") == 0) return COGITO_LABEL_CLASS_BODY;
+  if (strcmp(key,
+  "big-display") == 0 || strcmp(key,
+  "bigdisplay") == 0) return COGITO_LABEL_CLASS_BIG_DISPLAY;
+  if (strcmp(key,
+  "display") == 0) return COGITO_LABEL_CLASS_DISPLAY;
+  if (strcmp(key,
+  "view-title") == 0 || strcmp(key,
+  "viewtitle") == 0) return COGITO_LABEL_CLASS_VIEW_TITLE;
+  if (strcmp(key,
+  "view-subtitle") == 0 || strcmp(key,
+  "viewsubtitle") == 0) return COGITO_LABEL_CLASS_VIEW_SUBTITLE;
+  if (strcmp(key,
+  "heading") == 0) return COGITO_LABEL_CLASS_HEADING;
+  if (strcmp(key,
+  "content-title") == 0 || strcmp(key,
+  "contenttitle") == 0) return COGITO_LABEL_CLASS_CONTENT_TITLE;
+  if (strcmp(key,
+  "content-subtitle") == 0 || strcmp(key,
+  "contentsubtitle") == 0) return COGITO_LABEL_CLASS_CONTENT_SUBTITLE;
+  if (strcmp(key,
+  "caption") == 0) return COGITO_LABEL_CLASS_CAPTION;
   return COGITO_LABEL_CLASS_NONE;
 }
 
 static void cogito_theme_set_defaults(void) {
   cogito_style_clear(&cogito_theme.base);
   for (int i = 0; i < COGITO_KIND_COUNT; i++) {
-    cogito_style_clear(&cogito_theme.per_kind[i]);
-    cogito_style_clear(&cogito_theme.per_kind_hover[i]);
-    cogito_style_clear(&cogito_theme.per_kind_active[i]);
-    cogito_style_clear(&cogito_theme.per_kind_focused[i]);
-    cogito_style_clear(&cogito_theme.per_kind_checked[i]);
-    cogito_style_clear(&cogito_theme.per_kind_disabled[i]);
+    cogito_style_clear(&cogito_theme.per_kind[i
+    ]);
+    cogito_style_clear(&cogito_theme.per_kind_hover[i
+    ]);
+    cogito_style_clear(&cogito_theme.per_kind_active[i
+    ]);
+    cogito_style_clear(&cogito_theme.per_kind_focused[i
+    ]);
+    cogito_style_clear(&cogito_theme.per_kind_checked[i
+    ]);
+    cogito_style_clear(&cogito_theme.per_kind_disabled[i
+    ]);
   }
   for (int i = 0; i < COGITO_LABEL_CLASS_COUNT; i++) {
-    cogito_style_clear(&cogito_theme.label_class[i]);
-    cogito_style_clear(&cogito_theme.label_class_hover[i]);
-    cogito_style_clear(&cogito_theme.label_class_active[i]);
-    cogito_style_clear(&cogito_theme.label_class_focused[i]);
-    cogito_style_clear(&cogito_theme.label_class_checked[i]);
-    cogito_style_clear(&cogito_theme.label_class_disabled[i]);
+    cogito_style_clear(&cogito_theme.label_class[i
+    ]);
+    cogito_style_clear(&cogito_theme.label_class_hover[i
+    ]);
+    cogito_style_clear(&cogito_theme.label_class_active[i
+    ]);
+    cogito_style_clear(&cogito_theme.label_class_focused[i
+    ]);
+    cogito_style_clear(&cogito_theme.label_class_checked[i
+    ]);
+    cogito_style_clear(&cogito_theme.label_class_disabled[i
+    ]);
   }
   cogito_style_clear(&cogito_theme.class_mono);
   cogito_style_clear(&cogito_theme.class_mono_hover);
@@ -96,9 +135,12 @@ static void cogito_theme_set_defaults(void) {
   cogito_style_clear(&cogito_theme.appbar_win_btn_hover_all);
   cogito_style_clear(&cogito_theme.appbar_win_btn_active_all);
   for (int i = 0; i < 3; i++) {
-    cogito_style_clear(&cogito_theme.appbar_win_btn[i]);
-    cogito_style_clear(&cogito_theme.appbar_win_btn_hover[i]);
-    cogito_style_clear(&cogito_theme.appbar_win_btn_active[i]);
+    cogito_style_clear(&cogito_theme.appbar_win_btn[i
+    ]);
+    cogito_style_clear(&cogito_theme.appbar_win_btn_hover[i
+    ]);
+    cogito_style_clear(&cogito_theme.appbar_win_btn_active[i
+    ]);
   }
   cogito_style_clear(&cogito_theme.checkbox_check);
   cogito_style_clear(&cogito_theme.checkbox_check_hover);
@@ -129,33 +171,12 @@ static void cogito_theme_set_defaults(void) {
   cogito_style_clear(&cogito_theme.content_list_item_middle);
   cogito_style_clear(&cogito_theme.content_list_item_single);
   cogito_style_clear(&cogito_theme.content_list_label);
-  cogito_theme.base.has_text = true;
-  cogito_theme.base.text = cogito_rgba(30, 30, 30, 255);
 
-  CogitoStyle* win = &cogito_theme.per_kind[COGITO_WINDOW];
-  win->has_bg = true;
-  win->bg = cogito_rgba(245, 245, 245, 255);
-
-  CogitoStyle* btn = &cogito_theme.per_kind[COGITO_BUTTON];
-  btn->has_bg = true;
-  btn->bg = cogito_rgba(230, 230, 230, 255);
-
-  CogitoStyle* icon = &cogito_theme.per_kind[COGITO_ICONBTN];
-  icon->has_bg = true;
-  icon->bg = cogito_rgba(230, 230, 230, 255);
-
-  CogitoStyle* list = &cogito_theme.per_kind[COGITO_LIST];
-  list->has_bg = true;
-  list->bg = cogito_rgba(255, 255, 255, 255);
-  list->has_selection = true;
-  list->selection = cogito_rgba(208, 220, 245, 255);
-
-  CogitoStyle* grid = &cogito_theme.per_kind[COGITO_GRID];
+  CogitoStyle* list = &cogito_theme.per_kind[COGITO_LIST
+  ];
+  CogitoStyle* grid = &cogito_theme.per_kind[COGITO_GRID
+  ];
   *grid = *list;
-
-  CogitoStyle* appbar = &cogito_theme.per_kind[COGITO_APPBAR];
-  appbar->has_bg = true;
-  appbar->bg = cogito_rgba(238, 238, 238, 255);
 }
 
 static void cogito_theme_init(void) {
@@ -163,56 +184,98 @@ static void cogito_theme_init(void) {
     // Use the layered theme pipeline (default sum + dynamic + optional user sum)
     // instead of directly loading a hardcoded file path.
     CogitoColor accent = cogito_theme_accent;
-    if (accent.a == 0) accent = cogito_rgba(114, 222, 194, 255);
+    if (accent.a == 0) accent = cogito_rgba(114,
+    222,
+    194,
+    255);
     cogito_apply_theme(cogito_theme_dark, accent);
   }
 }
-
 // Optimized version that writes to output pointer to avoid large struct copies
 static void cogito_style_merge_into(const CogitoStyle* base, const CogitoStyle* over, CogitoStyle* out) {
   *out = *base;
-  if (over->has_bg) { out->has_bg = true; out->bg = over->bg; }
-  if (over->has_text) { out->has_text = true; out->text = over->text; }
-  if (over->has_border) { out->has_border = true; out->border = over->border; }
-  if (over->has_border_width) { out->has_border_width = true; out->border_width = over->border_width; }
-  if (over->has_radius) { out->has_radius = true; out->radius = over->radius; }
-  if (over->has_selection) { out->has_selection = true; out->selection = over->selection; }
-  if (over->has_font_size) { out->has_font_size = true; out->font_size = over->font_size; }
-  if (over->has_track) { out->has_track = true; out->track = over->track; }
-  if (over->has_track_on) { out->has_track_on = true; out->track_on = over->track_on; }
-  if (over->has_knob) { out->has_knob = true; out->knob = over->knob; }
-  if (over->has_check) { out->has_check = true; out->check = over->check; }
-  if (over->has_font_weight) { out->has_font_weight = true; out->font_weight = over->font_weight; }
-  if (over->has_letter_spacing) { out->has_letter_spacing = true; out->letter_spacing = over->letter_spacing; }
-  if (over->has_font_tabular) { out->has_font_tabular = true; out->font_tabular = over->font_tabular; }
-  if (over->has_font_mono) { out->has_font_mono = true; out->font_mono = over->font_mono; }
-  if (over->has_min_w) { out->has_min_w = true; out->min_w = over->min_w; }
-  if (over->has_min_h) { out->has_min_h = true; out->min_h = over->min_h; }
-  if (over->has_max_w) { out->has_max_w = true; out->max_w = over->max_w; }
-  if (over->has_max_h) { out->has_max_h = true; out->max_h = over->max_h; }
-  if (over->has_icon_size) { out->has_icon_size = true; out->icon_size = over->icon_size; }
-  if (over->has_icon_color) { out->has_icon_color = true; out->icon_color = over->icon_color; }
-  if (over->has_transition_ms) { out->has_transition_ms = true; out->transition_ms = over->transition_ms; }
-  if (over->has_transition_ease) { out->has_transition_ease = true; out->transition_ease = over->transition_ease; }
-  if (over->has_appbar_btn_size) { out->has_appbar_btn_size = true; out->appbar_btn_size = over->appbar_btn_size; }
-  if (over->has_appbar_btn_gap) { out->has_appbar_btn_gap = true; out->appbar_btn_gap = over->appbar_btn_gap; }
-  if (over->has_appbar_btn_pad_top) { out->has_appbar_btn_pad_top = true; out->appbar_btn_pad_top = over->appbar_btn_pad_top; }
-  if (over->has_appbar_btn_pad_right) { out->has_appbar_btn_pad_right = true; out->appbar_btn_pad_right = over->appbar_btn_pad_right; }
-  if (over->has_appbar_btn_close_color) { out->has_appbar_btn_close_color = true; out->appbar_btn_close_color = over->appbar_btn_close_color; }
-  if (over->has_appbar_btn_min_color) { out->has_appbar_btn_min_color = true; out->appbar_btn_min_color = over->appbar_btn_min_color; }
-  if (over->has_appbar_btn_max_color) { out->has_appbar_btn_max_color = true; out->appbar_btn_max_color = over->appbar_btn_max_color; }
-  if (over->has_appbar_btn_border_color) { out->has_appbar_btn_border_color = true; out->appbar_btn_border_color = over->appbar_btn_border_color; }
-  if (over->has_appbar_btn_border_width) { out->has_appbar_btn_border_width = true; out->appbar_btn_border_width = over->appbar_btn_border_width; }
+  if (over->has_bg) { out->has_bg = true; out->bg = over->bg;
+  }
+  if (over->has_text) { out->has_text = true; out->text = over->text;
+  }
+  if (over->has_border) { out->has_border = true; out->border = over->border;
+  }
+  if (over->has_border_width) { out->has_border_width = true; out->border_width = over->border_width;
+  }
+  if (over->has_radius) { out->has_radius = true; out->radius = over->radius;
+  }
+  if (over->has_selection) { out->has_selection = true; out->selection = over->selection;
+  }
+  if (over->has_font_size) { out->has_font_size = true; out->font_size = over->font_size;
+  }
+  if (over->has_track) { out->has_track = true; out->track = over->track;
+  }
+  if (over->has_track_on) { out->has_track_on = true; out->track_on = over->track_on;
+  }
+  if (over->has_knob) { out->has_knob = true; out->knob = over->knob;
+  }
+  if (over->has_check) { out->has_check = true; out->check = over->check;
+  }
+  if (over->has_font_weight) { out->has_font_weight = true; out->font_weight = over->font_weight;
+  }
+  if (over->has_letter_spacing) { out->has_letter_spacing = true; out->letter_spacing = over->letter_spacing;
+  }
+  if (over->has_font_tabular) { out->has_font_tabular = true; out->font_tabular = over->font_tabular;
+  }
+  if (over->has_font_mono) { out->has_font_mono = true; out->font_mono = over->font_mono;
+  }
+  if (over->has_min_w) { out->has_min_w = true; out->min_w = over->min_w;
+  }
+  if (over->has_min_h) { out->has_min_h = true; out->min_h = over->min_h;
+  }
+  if (over->has_max_w) { out->has_max_w = true; out->max_w = over->max_w;
+  }
+  if (over->has_max_h) { out->has_max_h = true; out->max_h = over->max_h;
+  }
+  if (over->has_icon_size) { out->has_icon_size = true; out->icon_size = over->icon_size;
+  }
+  if (over->has_icon_color) { out->has_icon_color = true; out->icon_color = over->icon_color;
+  }
+  if (over->has_transition_ms) { out->has_transition_ms = true; out->transition_ms = over->transition_ms;
+  }
+  if (over->has_transition_ease) { out->has_transition_ease = true; out->transition_ease = over->transition_ease;
+  }
+  if (over->has_appbar_btn_size) { out->has_appbar_btn_size = true; out->appbar_btn_size = over->appbar_btn_size;
+  }
+  if (over->has_appbar_btn_gap) { out->has_appbar_btn_gap = true; out->appbar_btn_gap = over->appbar_btn_gap;
+  }
+  if (over->has_appbar_btn_pad_top) { out->has_appbar_btn_pad_top = true; out->appbar_btn_pad_top = over->appbar_btn_pad_top;
+  }
+  if (over->has_appbar_btn_pad_right) { out->has_appbar_btn_pad_right = true; out->appbar_btn_pad_right = over->appbar_btn_pad_right;
+  }
+  if (over->has_appbar_btn_close_color) { out->has_appbar_btn_close_color = true; out->appbar_btn_close_color = over->appbar_btn_close_color;
+  }
+  if (over->has_appbar_btn_min_color) { out->has_appbar_btn_min_color = true; out->appbar_btn_min_color = over->appbar_btn_min_color;
+  }
+  if (over->has_appbar_btn_max_color) { out->has_appbar_btn_max_color = true; out->appbar_btn_max_color = over->appbar_btn_max_color;
+  }
+  if (over->has_appbar_btn_border_color) { out->has_appbar_btn_border_color = true; out->appbar_btn_border_color = over->appbar_btn_border_color;
+  }
+  if (over->has_appbar_btn_border_width) { out->has_appbar_btn_border_width = true; out->appbar_btn_border_width = over->appbar_btn_border_width;
+  }
 
-  if (over->has_border_style) { out->has_border_style = true; out->border_style = over->border_style; }
-  if (over->has_radius_tl) { out->has_radius_tl = true; out->radius_tl = over->radius_tl; }
-  if (over->has_radius_tr) { out->has_radius_tr = true; out->radius_tr = over->radius_tr; }
-  if (over->has_radius_br) { out->has_radius_br = true; out->radius_br = over->radius_br; }
-  if (over->has_radius_bl) { out->has_radius_bl = true; out->radius_bl = over->radius_bl; }
+  if (over->has_border_style) { out->has_border_style = true; out->border_style = over->border_style;
+  }
+  if (over->has_radius_tl) { out->has_radius_tl = true; out->radius_tl = over->radius_tl;
+  }
+  if (over->has_radius_tr) { out->has_radius_tr = true; out->radius_tr = over->radius_tr;
+  }
+  if (over->has_radius_br) { out->has_radius_br = true; out->radius_br = over->radius_br;
+  }
+  if (over->has_radius_bl) { out->has_radius_bl = true; out->radius_bl = over->radius_bl;
+  }
   if (over->has_font_family) {
     out->has_font_family = true;
-    strncpy(out->font_family, over->font_family, 63);
-    out->font_family[63] = '\0';
+    strncpy(out->font_family, over->font_family,
+    63);
+    out->font_family[
+      63
+    ] = '\0';
   }
   if (over->has_box_shadow) {
     out->has_box_shadow = true;
@@ -226,10 +289,14 @@ static void cogito_style_merge_into(const CogitoStyle* base, const CogitoStyle* 
     out->padding_right = over->padding_right;
     out->padding_bottom = over->padding_bottom;
   }
-  if (over->has_padding_left) { out->has_padding_left = true; out->padding_left = over->padding_left; }
-  if (over->has_padding_top) { out->has_padding_top = true; out->padding_top = over->padding_top; }
-  if (over->has_padding_right) { out->has_padding_right = true; out->padding_right = over->padding_right; }
-  if (over->has_padding_bottom) { out->has_padding_bottom = true; out->padding_bottom = over->padding_bottom; }
+  if (over->has_padding_left) { out->has_padding_left = true; out->padding_left = over->padding_left;
+  }
+  if (over->has_padding_top) { out->has_padding_top = true; out->padding_top = over->padding_top;
+  }
+  if (over->has_padding_right) { out->has_padding_right = true; out->padding_right = over->padding_right;
+  }
+  if (over->has_padding_bottom) { out->has_padding_bottom = true; out->padding_bottom = over->padding_bottom;
+  }
 
   if (over->has_margin) {
     out->has_margin = true;
@@ -238,16 +305,23 @@ static void cogito_style_merge_into(const CogitoStyle* base, const CogitoStyle* 
     out->margin_right = over->margin_right;
     out->margin_bottom = over->margin_bottom;
   }
-  if (over->has_margin_left) { out->has_margin_left = true; out->margin_left = over->margin_left; }
-  if (over->has_margin_top) { out->has_margin_top = true; out->margin_top = over->margin_top; }
-  if (over->has_margin_right) { out->has_margin_right = true; out->margin_right = over->margin_right; }
-  if (over->has_margin_bottom) { out->has_margin_bottom = true; out->margin_bottom = over->margin_bottom; }
-  if (over->has_opacity) { out->has_opacity = true; out->opacity = over->opacity; }
-  if (over->has_track_height) { out->has_track_height = true; out->track_height = over->track_height; }
-  if (over->has_divider) { out->has_divider = true; out->divider = over->divider; }
-  if (over->has_item_gap) { out->has_item_gap = true; out->item_gap = over->item_gap; }
+  if (over->has_margin_left) { out->has_margin_left = true; out->margin_left = over->margin_left;
+  }
+  if (over->has_margin_top) { out->has_margin_top = true; out->margin_top = over->margin_top;
+  }
+  if (over->has_margin_right) { out->has_margin_right = true; out->margin_right = over->margin_right;
+  }
+  if (over->has_margin_bottom) { out->has_margin_bottom = true; out->margin_bottom = over->margin_bottom;
+  }
+  if (over->has_opacity) { out->has_opacity = true; out->opacity = over->opacity;
+  }
+  if (over->has_track_height) { out->has_track_height = true; out->track_height = over->track_height;
+  }
+  if (over->has_divider) { out->has_divider = true; out->divider = over->divider;
+  }
+  if (over->has_item_gap) { out->has_item_gap = true; out->item_gap = over->item_gap;
+  }
 }
-
 // Legacy wrapper for compatibility
 static CogitoStyle cogito_style_merge(const CogitoStyle* base, const CogitoStyle* over) {
   CogitoStyle out;
@@ -256,7 +330,8 @@ static CogitoStyle cogito_style_merge(const CogitoStyle* base, const CogitoStyle
 }
 
 static CogitoStyle cogito_theme_resolve(CogitoKind kind) {
-  return cogito_style_merge(&cogito_theme.base, &cogito_theme.per_kind[kind]);
+  return cogito_style_merge(&cogito_theme.base, &cogito_theme.per_kind[kind
+  ]);
 }
 
 static CogitoStyle cogito_theme_resolve_node(const CogitoNode* n) {
@@ -264,7 +339,8 @@ static CogitoStyle cogito_theme_resolve_node(const CogitoNode* n) {
   if (n->kind == COGITO_LABEL &&
       n->label.cls > COGITO_LABEL_CLASS_NONE &&
       n->label.cls < COGITO_LABEL_CLASS_COUNT) {
-    s = cogito_style_merge(&s, &cogito_theme.label_class[n->label.cls]);
+    s = cogito_style_merge(&s, &cogito_theme.label_class[n->label.cls
+    ]);
   }
   if (n->font_mono) {
     s = cogito_style_merge(&s, &cogito_theme.class_mono);
@@ -302,10 +378,14 @@ static CogitoStyle cogito_theme_resolve_node(const CogitoNode* n) {
     bool saved_has_bg = s.has_bg;
     for (int i = 0; i < cogito_theme.custom_class_count; i++) {
       // Match class name and widget kind; COGITO_KIND_COUNT means universal (any kind)
-      if (strcmp(cogito_theme.custom_classes[i].name, n->class_name->data) == 0 &&
-          (cogito_theme.custom_classes[i].kind == n->kind ||
-           cogito_theme.custom_classes[i].kind == COGITO_KIND_COUNT)) {
-        s = cogito_style_merge(&s, &cogito_theme.custom_classes[i].style);
+      if (strcmp(cogito_theme.custom_classes[i
+      ].name, n->class_name->data) == 0 &&
+          (cogito_theme.custom_classes[i
+      ].kind == n->kind ||
+           cogito_theme.custom_classes[i
+      ].kind == COGITO_KIND_COUNT)) {
+        s = cogito_style_merge(&s, &cogito_theme.custom_classes[i
+        ].style);
       }
     }
     // Restore window background if it was overridden by custom class
@@ -447,13 +527,19 @@ static CogitoStyle cogito_theme_resolve_node_state(const CogitoNode* n, bool hov
   else if (n && n->kind == COGITO_CHIP) checked = n->chip.selected;
   // Apply iconbtn color style base BEFORE per_kind hover/active so color style wins
   bool iconbtn_has_custom_class = false;
-  if (n->class_name && n->class_name->data && n->class_name->data[0]) {
+  if (n->class_name && n->class_name->data && n->class_name->data[
+    0
+  ]) {
     // Check if the class is not one of the built-in icon button styles
     const char* class_name = n->class_name->data;
-    iconbtn_has_custom_class = strcmp(class_name, "outlined") != 0 && 
-                               strcmp(class_name, "filled") != 0 && 
-                               strcmp(class_name, "tonal") != 0 && 
-                               strcmp(class_name, "iconic") != 0;
+    iconbtn_has_custom_class = strcmp(class_name,
+    "outlined") != 0 && 
+                               strcmp(class_name,
+    "filled") != 0 && 
+                               strcmp(class_name,
+    "tonal") != 0 && 
+                               strcmp(class_name,
+    "iconic") != 0;
   }
   if (n->kind == COGITO_ICONBTN && !iconbtn_has_custom_class) {
     // If outlined is explicitly set, use outlined style regardless of icon_color_style
@@ -494,22 +580,32 @@ static CogitoStyle cogito_theme_resolve_node_state(const CogitoNode* n, bool hov
     }
     return s; // Skip per_kind hover/active for iconbtn — color style handles it
   }
-  if (checked) s = cogito_style_merge(&s, &cogito_theme.per_kind_checked[n->kind]);
-  if (disabled) s = cogito_style_merge(&s, &cogito_theme.per_kind_disabled[n->kind]);
-  else if (active) s = cogito_style_merge(&s, &cogito_theme.per_kind_active[n->kind]);
-  else if (focused) s = cogito_style_merge(&s, &cogito_theme.per_kind_focused[n->kind]);
-  else if (hover) s = cogito_style_merge(&s, &cogito_theme.per_kind_hover[n->kind]);
+  if (checked) s = cogito_style_merge(&s, &cogito_theme.per_kind_checked[n->kind
+  ]);
+  if (disabled) s = cogito_style_merge(&s, &cogito_theme.per_kind_disabled[n->kind
+  ]);
+  else if (active) s = cogito_style_merge(&s, &cogito_theme.per_kind_active[n->kind
+  ]);
+  else if (focused) s = cogito_style_merge(&s, &cogito_theme.per_kind_focused[n->kind
+  ]);
+  else if (hover) s = cogito_style_merge(&s, &cogito_theme.per_kind_hover[n->kind
+  ]);
   if (n->kind == COGITO_LABEL &&
       n->label.cls > COGITO_LABEL_CLASS_NONE &&
       n->label.cls < COGITO_LABEL_CLASS_COUNT) {
-    if (checked) s = cogito_style_merge(&s, &cogito_theme.label_class_checked[n->label.cls]);
+    if (checked) s = cogito_style_merge(&s, &cogito_theme.label_class_checked[n->label.cls
+    ]);
     if (disabled) {
-      s = cogito_style_merge(&s, &cogito_theme.label_class_disabled[n->label.cls]);
+      s = cogito_style_merge(&s, &cogito_theme.label_class_disabled[n->label.cls
+      ]);
     }
     if (!disabled) {
-      if (active) s = cogito_style_merge(&s, &cogito_theme.label_class_active[n->label.cls]);
-      else if (focused) s = cogito_style_merge(&s, &cogito_theme.label_class_focused[n->label.cls]);
-      else if (hover) s = cogito_style_merge(&s, &cogito_theme.label_class_hover[n->label.cls]);
+      if (active) s = cogito_style_merge(&s, &cogito_theme.label_class_active[n->label.cls
+      ]);
+      else if (focused) s = cogito_style_merge(&s, &cogito_theme.label_class_focused[n->label.cls
+      ]);
+      else if (hover) s = cogito_style_merge(&s, &cogito_theme.label_class_hover[n->label.cls
+      ]);
     }
   }
   if (n->font_mono) {
@@ -559,16 +655,24 @@ static CogitoStyle cogito_theme_resolve_node_state(const CogitoNode* n, bool hov
   // Apply custom class state variants
   if (n->class_name && n->class_name->data && n->class_name->len > 0) {
     for (int i = 0; i < cogito_theme.custom_class_count; i++) {
-      if (strcmp(cogito_theme.custom_classes[i].name, n->class_name->data) == 0 &&
-          (cogito_theme.custom_classes[i].kind == n->kind ||
-           cogito_theme.custom_classes[i].kind == COGITO_KIND_COUNT)) {
-        if (checked) s = cogito_style_merge(&s, &cogito_theme.custom_classes[i].checked);
+      if (strcmp(cogito_theme.custom_classes[i
+      ].name, n->class_name->data) == 0 &&
+          (cogito_theme.custom_classes[i
+      ].kind == n->kind ||
+           cogito_theme.custom_classes[i
+      ].kind == COGITO_KIND_COUNT)) {
+        if (checked) s = cogito_style_merge(&s, &cogito_theme.custom_classes[i
+        ].checked);
         if (disabled) {
-          s = cogito_style_merge(&s, &cogito_theme.custom_classes[i].disabled);
+          s = cogito_style_merge(&s, &cogito_theme.custom_classes[i
+          ].disabled);
         } else {
-          if (active) s = cogito_style_merge(&s, &cogito_theme.custom_classes[i].active);
-          else if (focused) s = cogito_style_merge(&s, &cogito_theme.custom_classes[i].focused);
-          else if (hover) s = cogito_style_merge(&s, &cogito_theme.custom_classes[i].hover);
+          if (active) s = cogito_style_merge(&s, &cogito_theme.custom_classes[i
+          ].active);
+          else if (focused) s = cogito_style_merge(&s, &cogito_theme.custom_classes[i
+          ].focused);
+          else if (hover) s = cogito_style_merge(&s, &cogito_theme.custom_classes[i
+          ].hover);
         }
         break; // Found the matching custom class
       }
@@ -621,27 +725,50 @@ static void cogito_apply_style_to_node(CogitoNode* n) {
   if (!n) return;
   cogito_theme_init();
   CogitoStyle s = cogito_theme_resolve_node(n);
-  if (s.has_bg) { n->bg = s.bg; n->bg_set = true; }
-  else { n->bg_set = false; }
-  if (s.has_text) { n->text_color = s.text; n->text_color_set = true; }
-  else { n->text_color_set = false; }
-  if (s.has_border) { n->border_color = s.border; n->border_color_set = true; }
-  else { n->border_color_set = false; n->border_color = cogito_rgba(0, 0, 0, 0); }
-  if (s.has_border_width) { n->border_width = s.border_width; n->border_width_set = true; }
-  else { n->border_width = 0; n->border_width_set = false; }
+  if (s.has_bg) { n->bg = s.bg; n->bg_set = true;
+  }
+  else { n->bg_set = false;
+  }
+  if (s.has_text) { n->text_color = s.text; n->text_color_set = true;
+  }
+  else { n->text_color_set = false;
+  }
+  if (s.has_border) { n->border_color = s.border; n->border_color_set = true;
+  }
+  else { n->border_color_set = false; n->border_color = cogito_rgba(0,
+    0,
+    0,
+    0);
+  }
+  if (s.has_border_width) { n->border_width = s.border_width; n->border_width_set = true;
+  }
+  else { n->border_width = 0; n->border_width_set = false;
+  }
   // For iconbtn, radius is controlled by icon_shape in draw code; don't bake it in
-  if (s.has_radius && n->kind != COGITO_ICONBTN) { n->border_radius = s.radius; n->radius_set = true; }
-  else if (n->kind != COGITO_ICONBTN) { n->radius_set = false; }
-  if (s.has_selection) { n->selection_color = s.selection; n->selection_set = true; }
-  else { n->selection_set = false; }
-  if (s.has_track) { n->track_color = s.track; n->track_set = true; }
-  else { n->track_set = false; }
-  if (s.has_track_on) { n->track_on_color = s.track_on; n->track_on_set = true; }
-  else { n->track_on_set = false; }
-  if (s.has_knob) { n->knob_color = s.knob; n->knob_set = true; }
-  else { n->knob_set = false; }
-  if (s.has_check) { n->check_color = s.check; n->check_set = true; }
-  else { n->check_set = false; }
+  if (s.has_radius && n->kind != COGITO_ICONBTN) { n->border_radius = s.radius; n->radius_set = true;
+  }
+  else if (n->kind != COGITO_ICONBTN) { n->radius_set = false;
+  }
+  if (s.has_selection) { n->selection_color = s.selection; n->selection_set = true;
+  }
+  else { n->selection_set = false;
+  }
+  if (s.has_track) { n->track_color = s.track; n->track_set = true;
+  }
+  else { n->track_set = false;
+  }
+  if (s.has_track_on) { n->track_on_color = s.track_on; n->track_on_set = true;
+  }
+  else { n->track_on_set = false;
+  }
+  if (s.has_knob) { n->knob_color = s.knob; n->knob_set = true;
+  }
+  else { n->knob_set = false;
+  }
+  if (s.has_check) { n->check_color = s.check; n->check_set = true;
+  }
+  else { n->check_set = false;
+  }
   if (s.has_font_weight && (n->kind == COGITO_LABEL || n->kind == COGITO_BUTTON)) {
     n->font_weight = s.font_weight;
     n->font_weight_set = true;
@@ -663,34 +790,56 @@ static void cogito_apply_style_to_node(CogitoNode* n) {
     n->font_mono = s.font_mono;
   }
   // Only apply theme size constraints; never clear user-set values
-  if (s.has_min_w) { n->min_w = s.min_w; n->min_w_set = true; }
-  if (s.has_min_h) { n->min_h = s.min_h; n->min_h_set = true; }
-  if (s.has_max_w) { n->max_w = s.max_w; n->max_w_set = true; }
-  if (s.has_max_h) { n->max_h = s.max_h; n->max_h_set = true; }
-  if (s.has_shadow) { n->shadow_level = s.shadow_level; n->shadow_set = true; }
-  else { n->shadow_set = false; }
-  if (s.has_border_style) { n->border_style = s.border_style; n->border_style_set = true; }
-  else { n->border_style_set = false; }
-  if (s.has_radius_tl) { n->radius_tl = s.radius_tl; n->radius_tl_set = true; }
-  else { n->radius_tl_set = false; }
-  if (s.has_radius_tr) { n->radius_tr = s.radius_tr; n->radius_tr_set = true; }
-  else { n->radius_tr_set = false; }
-  if (s.has_radius_br) { n->radius_br = s.radius_br; n->radius_br_set = true; }
-  else { n->radius_br_set = false; }
-  if (s.has_radius_bl) { n->radius_bl = s.radius_bl; n->radius_bl_set = true; }
-  else { n->radius_bl_set = false; }
+  if (s.has_min_w) { n->min_w = s.min_w; n->min_w_set = true;
+  }
+  if (s.has_min_h) { n->min_h = s.min_h; n->min_h_set = true;
+  }
+  if (s.has_max_w) { n->max_w = s.max_w; n->max_w_set = true;
+  }
+  if (s.has_max_h) { n->max_h = s.max_h; n->max_h_set = true;
+  }
+  if (s.has_shadow) { n->shadow_level = s.shadow_level; n->shadow_set = true;
+  }
+  else { n->shadow_set = false;
+  }
+  if (s.has_border_style) { n->border_style = s.border_style; n->border_style_set = true;
+  }
+  else { n->border_style_set = false;
+  }
+  if (s.has_radius_tl) { n->radius_tl = s.radius_tl; n->radius_tl_set = true;
+  }
+  else { n->radius_tl_set = false;
+  }
+  if (s.has_radius_tr) { n->radius_tr = s.radius_tr; n->radius_tr_set = true;
+  }
+  else { n->radius_tr_set = false;
+  }
+  if (s.has_radius_br) { n->radius_br = s.radius_br; n->radius_br_set = true;
+  }
+  else { n->radius_br_set = false;
+  }
+  if (s.has_radius_bl) { n->radius_bl = s.radius_bl; n->radius_bl_set = true;
+  }
+  else { n->radius_bl_set = false;
+  }
   if (s.has_font_family) {
-    strncpy(n->font_family, s.font_family, 63);
-    n->font_family[63] = '\0';
+    strncpy(n->font_family, s.font_family,
+    63);
+    n->font_family[
+      63
+    ] = '\0';
     n->font_family_set = true;
   } else {
     n->font_family_set = false;
   }
-  if (s.has_box_shadow) { n->box_shadow = s.box_shadow; n->box_shadow_set = true; }
-  else { n->box_shadow_set = false; }
+  if (s.has_box_shadow) { n->box_shadow = s.box_shadow; n->box_shadow_set = true;
+  }
+  else { n->box_shadow_set = false;
+  }
   // Preserve explicit widget overrides (e.g. progress.set_thickness()).
   // Style track-height only provides the fallback value.
-  if (!n->track_height_set && s.has_track_height) { n->track_height = s.track_height; }
+  if (!n->track_height_set && s.has_track_height) { n->track_height = s.track_height;
+  }
   if (s.has_font_size) {
     if (n->kind == COGITO_WINDOW) {
       int sz = s.font_size;
@@ -698,7 +847,9 @@ static void cogito_apply_style_to_node(CogitoNode* n) {
         cogito_font_size_value = sz;
         if (cogito_backend_ready && cogito_font_ready && cogito_font_from_env) {
           const char* font_path = cogito_font_path_active;
-          if (font_path && font_path[0] && cogito_font_loaded_size != sz) {
+          if (font_path && font_path[
+            0
+          ] && cogito_font_loaded_size != sz) {
             cogito_backend->font_unload(cogito_font);
             if (cogito_load_font_file(&cogito_font, font_path, sz, cogito_font_weight_normal())) {
               cogito_font_ready = true;
@@ -710,7 +861,9 @@ static void cogito_apply_style_to_node(CogitoNode* n) {
         }
         if (cogito_backend_ready && cogito_font_mono_ready && cogito_font_mono_from_env) {
           const char* mono_path = cogito_font_mono_path_active;
-          if (mono_path && mono_path[0] && cogito_font_mono_loaded_size != sz) {
+          if (mono_path && mono_path[
+            0
+          ] && cogito_font_mono_loaded_size != sz) {
             cogito_backend->font_unload(cogito_font_mono);
             if (cogito_load_font_file(&cogito_font_mono, mono_path, sz, cogito_font_weight_normal())) {
               cogito_font_mono_ready = true;
@@ -722,7 +875,9 @@ static void cogito_apply_style_to_node(CogitoNode* n) {
         }
         if (cogito_backend_ready && cogito_font_serif_ready && cogito_font_serif_from_env) {
           const char* serif_path = cogito_font_serif_path_active;
-          if (serif_path && serif_path[0] && cogito_font_serif_loaded_size != sz) {
+          if (serif_path && serif_path[
+            0
+          ] && cogito_font_serif_loaded_size != sz) {
             cogito_backend->font_unload(cogito_font_serif);
             if (cogito_load_font_file(&cogito_font_serif, serif_path, sz, cogito_font_weight_normal())) {
               cogito_font_serif_ready = true;
@@ -734,7 +889,9 @@ static void cogito_apply_style_to_node(CogitoNode* n) {
         }
         if (cogito_backend_ready && cogito_font_bold_ready && cogito_font_bold_from_env) {
           const char* bold_path = cogito_font_bold_path_active;
-          if (bold_path && bold_path[0] && cogito_font_bold_loaded_size != sz) {
+          if (bold_path && bold_path[
+            0
+          ] && cogito_font_bold_loaded_size != sz) {
             cogito_backend->font_unload(cogito_font_bold);
             bool weight_applied = false;
             if (cogito_load_font_file_ex(&cogito_font_bold, bold_path, sz, cogito_font_weight_bold(), &weight_applied)) {
@@ -799,15 +956,18 @@ static void cogito_apply_style_to_node(CogitoNode* n) {
     if (s.has_margin_right) n->margin_right = s.margin_right;
     if (s.has_margin_bottom) n->margin_bottom = s.margin_bottom;
   }
-  if (s.has_opacity) { n->opacity = s.opacity; n->opacity_set = true; }
-  else { n->opacity_set = false; n->opacity = 1.0f; }
+  if (s.has_opacity) { n->opacity = s.opacity; n->opacity_set = true;
+  }
+  else { n->opacity_set = false; n->opacity = 1.0f;
+  }
 }
 
 static void cogito_apply_style_tree(CogitoNode* n) {
   if (!n) return;
   cogito_apply_style_to_node(n);
   for (size_t i = 0; i < n->len; i++) {
-    cogito_apply_style_tree(n->children[i]);
+    cogito_apply_style_tree(n->children[i
+    ]);
   }
 }
 
@@ -866,7 +1026,6 @@ static void cogito_apply_size_constraints(const CogitoNode* n, int* w, int* h) {
   if (n->max_w_set && n->max_w > 0 && *w > n->max_w) *w = n->max_w;
   if (n->max_h_set && n->max_h > 0 && *h > n->max_h) *h = n->max_h;
 }
-
 // Appbar widget utilities (metrics, positions, navigation)
 #include "widgets/util/appbar.inc"
 
@@ -882,7 +1041,8 @@ static bool cogito_label_bold(const CogitoNode* n) {
 static int cogito_label_class_font_size(int cls, int fallback) {
   cogito_theme_init();
   if (cls > COGITO_LABEL_CLASS_NONE && cls < COGITO_LABEL_CLASS_COUNT) {
-    CogitoStyle* s = &cogito_theme.label_class[cls];
+    CogitoStyle* s = &cogito_theme.label_class[cls
+    ];
     if (s->has_font_size && s->font_size > 0) return s->font_size;
   }
   return fallback;
@@ -891,7 +1051,8 @@ static int cogito_label_class_font_size(int cls, int fallback) {
 static bool cogito_label_class_bold(int cls, bool fallback) {
   cogito_theme_init();
   if (cls > COGITO_LABEL_CLASS_NONE && cls < COGITO_LABEL_CLASS_COUNT) {
-    CogitoStyle* s = &cogito_theme.label_class[cls];
+    CogitoStyle* s = &cogito_theme.label_class[cls
+    ];
     if (s->has_font_weight) return s->font_weight >= 600;
   }
   return fallback;
@@ -900,7 +1061,8 @@ static bool cogito_label_class_bold(int cls, bool fallback) {
 static CogitoColor cogito_label_class_color(int cls, CogitoColor fallback) {
   cogito_theme_init();
   if (cls > COGITO_LABEL_CLASS_NONE && cls < COGITO_LABEL_CLASS_COUNT) {
-    CogitoStyle* s = &cogito_theme.label_class[cls];
+    CogitoStyle* s = &cogito_theme.label_class[cls
+    ];
     if (s->has_text) return s->text;
   }
   return fallback;
@@ -915,15 +1077,28 @@ static int cogito_css_hex_value(char c) {
 
 static void cogito_css_skip_ws(const char** p) {
   while (**p) {
-    if (isspace((unsigned char)**p)) { (*p)++; continue; }
-    if ((*p)[0] == '/' && (*p)[1] == '/') {
+    if (isspace((unsigned char)**p)) { (*p)++; continue;
+    }
+    if ((*p)[
+      0
+    ] == '/' && (*p)[
+      1
+    ] == '/') {
       (*p) += 2;
       while (**p && **p != '\n') (*p)++;
       continue;
     }
-    if ((*p)[0] == '/' && (*p)[1] == '*') {
+    if ((*p)[
+      0
+    ] == '/' && (*p)[
+      1
+    ] == '*') {
       (*p) += 2;
-      while (**p && !((*p)[0] == '*' && (*p)[1] == '/')) (*p)++;
+      while (**p && !((*p)[
+        0
+      ] == '*' && (*p)[
+        1
+      ] == '/')) (*p)++;
       if (**p) (*p) += 2;
       continue;
     }
@@ -935,10 +1110,12 @@ static bool cogito_css_read_ident(const char** p, char* out, size_t cap) {
   size_t len = 0;
   if (!isalpha((unsigned char)**p) && **p != '_' && **p != '-' && **p != '.' && **p != '#') return false;
   while (**p && (isalnum((unsigned char)**p) || **p == '_' || **p == '-' || **p == '.' || **p == '#')) {
-    if (len + 1 < cap) out[len++] = **p;
+    if (len + 1 < cap) out[len++
+    ] = **p;
     (*p)++;
   }
-  out[len] = 0;
+  out[len
+  ] = 0;
   return len > 0;
 }
 
@@ -947,7 +1124,11 @@ static bool cogito_css_read_number(const char** p, double* out) {
   double v = strtod(*p, &end);
   if (end == *p) return false;
   *p = end;
-  if ((*p)[0] == 'p' && (*p)[1] == 'x') (*p) += 2;
+  if ((*p)[
+    0
+  ] == 'p' && (*p)[
+    1
+  ] == 'x') (*p) += 2;
   *out = v;
   return true;
 }
@@ -956,19 +1137,44 @@ static bool cogito_css_parse_hex_color(const char** p, CogitoColor* out) {
   if (**p != '#') return false;
   const char* s = *p + 1;
   int len = 0;
-  while (cogito_css_hex_value(s[len]) >= 0) len++;
+  while (cogito_css_hex_value(s[len
+  ]) >= 0) len++;
   if (len != 3 && len != 4 && len != 6 && len != 8) return false;
   int r = 0, g = 0, b = 0, a = 255;
   if (len == 3 || len == 4) {
-    r = cogito_css_hex_value(s[0]) * 17;
-    g = cogito_css_hex_value(s[1]) * 17;
-    b = cogito_css_hex_value(s[2]) * 17;
-    if (len == 4) a = cogito_css_hex_value(s[3]) * 17;
+    r = cogito_css_hex_value(s[
+      0
+    ]) * 17;
+    g = cogito_css_hex_value(s[
+      1
+    ]) * 17;
+    b = cogito_css_hex_value(s[
+      2
+    ]) * 17;
+    if (len == 4) a = cogito_css_hex_value(s[
+      3
+    ]) * 17;
   } else if (len == 6 || len == 8) {
-    r = cogito_css_hex_value(s[0]) * 16 + cogito_css_hex_value(s[1]);
-    g = cogito_css_hex_value(s[2]) * 16 + cogito_css_hex_value(s[3]);
-    b = cogito_css_hex_value(s[4]) * 16 + cogito_css_hex_value(s[5]);
-    if (len == 8) a = cogito_css_hex_value(s[6]) * 16 + cogito_css_hex_value(s[7]);
+    r = cogito_css_hex_value(s[
+      0
+    ]) * 16 + cogito_css_hex_value(s[
+      1
+    ]);
+    g = cogito_css_hex_value(s[
+      2
+    ]) * 16 + cogito_css_hex_value(s[
+      3
+    ]);
+    b = cogito_css_hex_value(s[
+      4
+    ]) * 16 + cogito_css_hex_value(s[
+      5
+    ]);
+    if (len == 8) a = cogito_css_hex_value(s[
+      6
+    ]) * 16 + cogito_css_hex_value(s[
+      7
+    ]);
   }
   *out = cogito_rgba(r, g, b, a);
   *p += 1 + len;
@@ -977,19 +1183,38 @@ static bool cogito_css_parse_hex_color(const char** p, CogitoColor* out) {
 
 static bool cogito_css_parse_named_color(const char* name, CogitoColor* out) {
   if (!name) return false;
-  if (strcmp(name, "transparent") == 0) { *out = cogito_rgba(0, 0, 0, 0); return true; }
-  if (strcmp(name, "white") == 0) { *out = cogito_rgba(255, 255, 255, 255); return true; }
-  if (strcmp(name, "black") == 0) { *out = cogito_rgba(0, 0, 0, 255); return true; }
+  if (strcmp(name,
+  "transparent") == 0) { *out = cogito_rgba(0,
+    0,
+    0,
+    0); return true;
+  }
+  if (strcmp(name,
+  "white") == 0) { *out = cogito_rgba(255,
+    255,
+    255,
+    255); return true;
+  }
+  if (strcmp(name,
+  "black") == 0) { *out = cogito_rgba(0,
+    0,
+    0,
+    255); return true;
+  }
   return false;
 }
 
 static bool cogito_css_parse_rgb_color(const char** p, CogitoColor* out) {
   const char* s = *p;
   bool has_alpha = false;
-  if (strncmp(s, "rgba", 4) == 0) {
+  if (strncmp(s,
+  "rgba",
+  4) == 0) {
     has_alpha = true;
     s += 4;
-  } else if (strncmp(s, "rgb", 3) == 0) {
+  } else if (strncmp(s,
+  "rgb",
+  3) == 0) {
     s += 3;
   } else {
     return false;
@@ -997,13 +1222,21 @@ static bool cogito_css_parse_rgb_color(const char** p, CogitoColor* out) {
   cogito_css_skip_ws(&s);
   if (*s != '(') return false;
   s++;
-  double vals[4] = {0, 0, 0, 1};
+  double vals[
+    4
+  ] = {
+    0,
+    0,
+    0,
+    1
+  };
   int count = 0;
   while (*s && count < (has_alpha ? 4 : 3)) {
     cogito_css_skip_ws(&s);
     double v = 0;
     if (!cogito_css_read_number(&s, &v)) break;
-    vals[count++] = v;
+    vals[count++
+    ] = v;
     cogito_css_skip_ws(&s);
     if (*s == ',') s++;
   }
@@ -1011,13 +1244,25 @@ static bool cogito_css_parse_rgb_color(const char** p, CogitoColor* out) {
   if (*s != ')') return false;
   s++;
   if (count < (has_alpha ? 4 : 3)) return false;
-  int r = (int)lround(vals[0]);
-  int g = (int)lround(vals[1]);
-  int b = (int)lround(vals[2]);
+  int r = (int)lround(vals[
+    0
+  ]);
+  int g = (int)lround(vals[
+    1
+  ]);
+  int b = (int)lround(vals[
+    2
+  ]);
   int a = 255;
   if (has_alpha) {
-    if (vals[3] <= 1.0) a = (int)lround(vals[3] * 255.0);
-    else a = (int)lround(vals[3]);
+    if (vals[
+      3
+    ] <= 1.0) a = (int)lround(vals[
+      3
+    ] * 255.0);
+    else a = (int)lround(vals[
+      3
+    ]);
   }
   *out = cogito_rgba(r, g, b, a);
   *p = s;
@@ -1027,11 +1272,16 @@ static bool cogito_css_parse_rgb_color(const char** p, CogitoColor* out) {
 static bool cogito_css_parse_color(const char** p, CogitoColor* out) {
   cogito_css_skip_ws(p);
   if (**p == '#') return cogito_css_parse_hex_color(p, out);
-  if (strncmp(*p, "rgb", 3) == 0) return cogito_css_parse_rgb_color(p, out);
-  char name[32];
+  if (strncmp(*p,
+  "rgb",
+  3) == 0) return cogito_css_parse_rgb_color(p, out);
+  char name[
+    32
+  ];
   const char* s = *p;
   if (!cogito_css_read_ident(&s, name, sizeof(name))) return false;
-  if (cogito_css_parse_named_color(name, out)) { *p = s; return true; }
+  if (cogito_css_parse_named_color(name, out)) { *p = s; return true;
+  }
   return false;
 }
 
@@ -1041,7 +1291,8 @@ static int cogito_css_parse_ints(const char** p, int* out, int max) {
     cogito_css_skip_ws(p);
     double v = 0;
     if (!cogito_css_read_number(p, &v)) break;
-    out[count++] = (int)lround(v);
+    out[count++
+    ] = (int)lround(v);
     cogito_css_skip_ws(p);
     if (**p == ',') (*p)++;
   }

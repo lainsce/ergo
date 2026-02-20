@@ -136,7 +136,7 @@ fun make_iconbtn_row(label_text = string, icon = string, color_style = num, shap
     let row = cogito.hstack()
     row.set_hexpand(true)
     row.set_gap(12)
-    row.set_padding(0, 18, 0, 18)
+    row.set_padding(18, 0, 18, 0)
 
     let lbl = cogito.label(label_text)
     lbl.set_class(@"body")
@@ -1302,7 +1302,7 @@ fun add_typography_row(vstack = cogito.VStack, name = string, cls = string, samp
     let row = cogito.hstack()
     row.set_hexpand(true)
     row.set_gap(24)
-    row.set_padding(0, ypad, 0, ypad)
+    row.set_padding(ypad, 0, ypad, 0)
 
     let left = cogito.label(name)
     left.set_class(@"content-title")
@@ -1355,7 +1355,7 @@ fun build_typography_page() (( cogito.VStack )) {
     let tabular_row = cogito.hstack()
     tabular_row.set_hexpand(true)
     tabular_row.set_gap(24)
-    tabular_row.set_padding(0, 10, 0, 0)
+    tabular_row.set_padding(10, 0, 0, 0)
 
     let tabular_name = cogito.label(@"Tabular")
     tabular_name.set_class(@"content-title")
@@ -1664,6 +1664,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
 
     let sidebar_list = cogito.list()
     sidebar_list.set_vexpand(true)
+    sidebar_list.set_padding(18, 0, 18, 0)
     sidebar_list.add(cogito.label(@"Button"))
     sidebar_list.add(cogito.label(@"Icon Button"))
     sidebar_list.add(cogito.label(@"TextField"))
@@ -1727,15 +1728,15 @@ fun build_ui(win = cogito.Window) (( -- )) {
     root.add(sidebar)
 
     let content = cogito.vstack()
-    content.add(content_bar)
     content.set_hexpand(true)
     content.set_vexpand(true)
+    content.add(content_bar)
 
     let content_scroller = cogito.scroller()
     content_scroller.set_axes(false, true)
-    content_scroller.add(views)
     content_scroller.set_vexpand(true)
     content_scroller.set_hexpand(true)
+    content_scroller.add(views)
     content.add(content_scroller)
 
     root.add(content)

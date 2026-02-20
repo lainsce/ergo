@@ -645,6 +645,9 @@ appbar .button:hover
 appbar .button:active
   background: alpha(@shadow, 14%)
 
+appbar .iconbtn
+  background: transparent
+
 appbar .iconbtn:hover
   background: alpha(@shadow, 8%)
 

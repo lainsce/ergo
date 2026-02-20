@@ -39,25 +39,31 @@ case COGITO_SIDE_SHEET: {
       }
     }
     if (sw > 0 && sh > 0) {
-      cogito_draw_rect(sx, sy, sw, sh, scrim, 0);
+      cogito_draw_rect(sx, sy, sw, sh, scrim,
+      0);
     }
   }
-
   // Draw docked sheet surface.
   cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, radius);
 
-  // Draw title
-  int content_x = n->x + 28;
-  if (n->text && n->text->data && n->text->data[0]) {
+  // Draw title (clipped so it does not overlap the close button)
+  int content_x = 28;
+  if (n->text && n->text->data && n->text->data[
+    0
+  ]) {
     int pad_l = n->padding_left;
     int pad_t = n->padding_top;
     int size = cogito_node_font_size(n);
-    int tw = cogito_text_width_size_node(n, n->text->data, size);
-    int gap = n->gap > 0 ? n->gap : 8;
-    cogito_draw_text_size_node(n, n->x + pad_l + content_x, n->y + pad_t + 12,
-                               n->text->data, text_color, size, true);
-    (void)tw;
-    (void)gap;
+    int title_x = n->x + content_x + pad_l;
+    // Reserve space for the close button (24px pad_r + 24px box + 8px gap)
+    int max_title_right = n->x + n->w - 24 - 24 - 8;
+    int max_title_w = max_title_right - title_x;
+    if (max_title_w > 0) {
+      cogito_draw_text_ellipsis(n, title_x, n->y + pad_t + 12,
+                                max_title_w, n->text->data, text_color, size,
+      true,
+      0);
+    }
   }
 
 
@@ -83,12 +89,13 @@ case COGITO_SIDE_SHEET: {
     if (icon_size < 10) icon_size = 10;
     int ix = cx + (cw - icon_size) / 2;
     int iy = cy + (ch - icon_size) / 2;
-    cogito_draw_icon_fallback(n, "xmark", ix, iy, icon_size, text_color);
+    cogito_draw_icon_fallback(n,
+    "xmark", ix, iy, icon_size, text_color);
   }
-
   // Draw children
   for (size_t i = 0; i < n->len; i++) {
-    cogito_draw_node(n->children[i]);
+    cogito_draw_node(n->children[i
+    ]);
   }
   break;
 }

@@ -1,80 +1,79 @@
 ; ErgoCalc SUM theme
 @diagnostics: warn
 
-@primary: #8C56BF
-@primary-container: #D7C5E9
-@primary-hover: #F1EAF7
-@primary-active: #BEA0DB
-@bg: #f5f5f5
-@surface: #ffffff
-@text: #2D2D2D
-@muted: #6A6A6A
 @pink: #F1ACC1
 @pink-hover: #F8D8E2
 @pink-active: #EA80A0
-@dark-bg: #121212
-@dark-surface: #1c1c1c
-@dark-keypad: #1a1a1a
-@dark-text: #f2f2f7
-@dark-muted: #bbbbbb
-
-*
-  color: @text
-  font-size: 14
+@surface: #fdf6ff
+@surface-container: #ffffff
+@on-surface: #111111
+@primary: #8C56BF
+@on-primary: #FFFFFF
+@primary-hover: #A073D1
+@primary-active: #7839A8
+@primary-container: #E8D4F5
+@muted: #666666
 
 window
   background: @surface
+  color: @on-surface
+
+appbar
+  background: @surface-container
 
 vstack
 hstack
 zstack
   background: transparent
-  color: @text
-
-appbar
-  background: @bg
-  color: @text
-
-vstack.calc-display
-  border-radius: 12
-  min-height: 92
-  padding: 10 14
+  color: @on-surface
 
 label.calc-display-working
-  color: @text
+  color: @on-surface
   background: transparent
   font-size: 34
   padding: 6 18
-  font-variant-numeric: tabular-nums
 
 label.calc-display-expression
   color: @muted
   background: transparent
   font-size: 18
   padding: 6 18
-  font-variant-numeric: tabular-nums
 
 grid.calc-keypad
   background: @surface
   border-radius: 16
   padding: 12 18 18
 
+button.calc-digit
+  background: alpha(@primary, 5%)
+  color: @primary
+  border: 1 solid alpha(@primary, 35%)
+
+button.calc-digit:hover
+  background: @primary-hover
+  color: @on-primary
+  border-color: @primary-hover
+
+button.calc-digit:active
+  background: @primary-active
+  color: @on-primary
+
+button.calc-digit:focus
+  border: 2 solid @primary
+
 button.calc-op
   background: alpha(@primary, 0%)
   color: @primary
   border: 1 solid alpha(@primary, 35%)
 
-button:focus
-  border: 2 solid @primary
-
 button.calc-op:hover
   background: @primary-hover
-  color: @primary
+  color: @on-primary
   border-color: @primary-hover
 
 button.calc-op:active
   background: @primary-active
-  color: @primary
+  color: @on-primary
 
 button.calc-op:focus
   border: 2 solid @primary
@@ -113,15 +112,6 @@ button.calc-equals:active
 button.calc-equals:focus
   border: 2 solid @surface
 
-iconbtn:focus
-  border: 2 solid @primary
-
-tooltip
-  background: @text
-  color: @bg
-  border-radius: 8
-  padding: 6 8
-
 vstack.conv-panel
   background: @surface
   padding: 18 18
@@ -148,18 +138,20 @@ iconbtn.conv-swap:hover
 iconbtn.conv-swap:active
   background: @primary-active
 
+grid.calc-keypad
+  background: @surface-container
+
+dropdown
+  border-radius: 10
+
 @when dark
-  window
-    background: @dark-bg
-  appbar
-    background: @dark-surface
   grid.calc-keypad
-    background: @dark-keypad
+    background: @surface-container
   label.calc-display-working
     color: @dark-text
   label.calc-display-expression
     color: @dark-muted
   vstack.conv-panel
-    background: @dark-keypad
+    background: @surface-container
   label.conv-label
     color: @dark-muted

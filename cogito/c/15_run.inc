@@ -1436,6 +1436,18 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             handled = true;
           }
         }
+        // Check side sheet close button first (before appbar drag) since
+        // the sheet overlays the appbar region and the close button lives
+        // at the top of the sheet.
+        if (!handled && win->side_sheet_open && win->side_sheet_node) {
+          int sx = 0, sy = 0, sw = 0, sh = 0;
+          cogito_side_sheet_close_rect(win->side_sheet_node, &sx, &sy, &sw, &sh);
+          if (sw > 0 && sh > 0 && cogito_hit_rect(mx, my, sx, sy, sw, sh)) {
+            cogito_window_clear_side_sheet(EV_OBJ(win));
+            cogito_window_relayout(win);
+            handled = true;
+          }
+        }
         // Check if click is on ANY appbar for dragging (only if we didn't handle a button click)
         if (!handled && !active_dialog && !appbar_blocked_by_bottom_sheet) {
           CogitoNode* clicked_appbar = cogito_find_appbar_at_point(win, mx, my);
@@ -1460,16 +1472,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             } else {
               cogito_dialog_close(EV_OBJ(active_dialog));
             }
-            handled = true;
-          }
-        }
-        
-        if (!handled && win->side_sheet_open && win->side_sheet_node) {
-          int sx = 0, sy = 0, sw = 0, sh = 0;
-          cogito_side_sheet_close_rect(win->side_sheet_node, &sx, &sy, &sw, &sh);
-          if (sw > 0 && sh > 0 && cogito_hit_rect(mx, my, sx, sy, sw, sh)) {
-            cogito_window_clear_side_sheet(EV_OBJ(win));
-            cogito_window_relayout(win);
             handled = true;
           }
         }

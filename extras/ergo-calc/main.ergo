@@ -478,7 +478,8 @@ fun build_ui(win = cogito.Window) (( -- )) {
     let keypad = cogito.grid(5)
     keypad.set_hexpand(true)
     keypad.set_vexpand(true)
-    keypad.set_gap(8, 12)
+    keypad.set_gap(12, 12)
+    keypad.set_padding(12, 12, 0, 12)
     cogito.set_class(keypad, @"calc-keypad")
 
     keypad.add(digit_button(7))
@@ -501,7 +502,6 @@ fun build_ui(win = cogito.Window) (( -- )) {
     keypad.add(operator_button(@"-", @"-"))
 
     let zero = digit_button(0)
-    cogito.set_class(zero, @"calc-zero")
     keypad.add(zero)
     keypad.set_span(zero, 3, 1)
     let eq = equals_button()

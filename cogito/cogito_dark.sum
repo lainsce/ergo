@@ -455,6 +455,9 @@ appbar .button:hover
 appbar .button:active
   background: @surface-variant
 
+appbar .iconbtn
+  background: transparent
+
 appbar .iconbtn:hover
   background: @surface-container-highest
 
