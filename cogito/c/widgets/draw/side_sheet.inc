@@ -5,7 +5,7 @@ case COGITO_SIDE_SHEET: {
 
   CogitoColor bg = s.has_bg ? s.bg : n->bg;
   CogitoColor text_color = s.has_text ? s.text : n->text_color;
-  int radius = s.has_radius ? s.radius : (n->radius_set ? n->border_radius : 28);
+  int radius = s.has_radius ? s.radius : (n->radius_set ? n->border_radius : 16);
 
   cogito_anim_apply(n, &s, &bg, &text_color, NULL, NULL);
 
@@ -47,14 +47,13 @@ case COGITO_SIDE_SHEET: {
   cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, radius);
 
   // Draw title (clipped so it does not overlap the close button)
-  int content_x = 28;
   if (n->text && n->text->data && n->text->data[
     0
   ]) {
     int pad_l = n->padding_left;
     int pad_t = n->padding_top;
     int size = cogito_node_font_size(n);
-    int title_x = n->x + content_x + pad_l;
+    int title_x = n->x + pad_l;
     // Reserve space for the close button (24px pad_r + 24px box + 8px gap)
     int max_title_right = n->x + n->w - 24 - 24 - 8;
     int max_title_w = max_title_right - title_x;
@@ -65,7 +64,6 @@ case COGITO_SIDE_SHEET: {
       0);
     }
   }
-
 
   int cx = 0, cy = 0, cw = 0, ch = 0;
   cogito_side_sheet_close_rect(n, &cx, &cy, &cw, &ch);
