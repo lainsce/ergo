@@ -8,6 +8,7 @@ static CogitoNode* cogito_menu_section_new_obj(void) {
   return n;
 }
 
+__attribute__((unused))
 static ErgoVal cogito_menu_section_new(ErgoVal beforev, ErgoVal afterv) {
   CogitoNode* n = cogito_menu_section_new_obj();
   if (beforev.tag != EVT_NULL) {
@@ -48,13 +49,13 @@ ErgoVal cogito_menu_section_get_divider_after(ErgoVal nv) {
   if (n->kind != COGITO_MENU_SECTION) ergo_trap("cogito.menu_section_get_divider_after expects menu_section");
   return EV_BOOL(n->menu_section.has_divider_after);
 }
-
 // Add a menu item that starts a new section (with divider before it)
 void cogito_menu_add_section_item(CogitoNode* n, ErgoStr* label, ErgoFn* handler) {
   if (!n) return;
   // Mark the last item as having a section divider after it
   if (n->menu_len > 0) {
-    n->menu_section_after[n->menu_len - 1] = true;
+    n->menu_section_after[n->menu_len - 1
+    ] = true;
   }
   // Now add the new item
   cogito_node_add_menu(n, label, handler);
