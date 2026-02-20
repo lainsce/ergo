@@ -126,9 +126,9 @@ fun show_about_window(win = cogito.Window) (( -- )) {
     let dlg = cogito.dialog(@"")
 
     let aw = cogito.about_window(@"Ergo Text Editor", @"MIT License")
-    aw.set_icon(@"sf:doc.text")
-    aw.set_website(ABOUT_MORE_INFO_URL)
-    aw.set_issue_url(ABOUT_REPORT_BUG_URL)
+    .set_icon(@"sf:doc.text")
+    .set_website(ABOUT_MORE_INFO_URL)
+    .set_issue_url(ABOUT_REPORT_BUG_URL)
 
     dlg.add(aw)
     win.set_dialog(dlg)
@@ -136,20 +136,20 @@ fun show_about_window(win = cogito.Window) (( -- )) {
 
 entry() (( -- )) {
     let app = cogito.app()
-    app.set_appid(@"ergo.cogito.TextEditor")
-    app.set_app_name(@"ErgoText")
-    app.set_accent_color(@"#4838d7", false)
+    .set_appid(@"ergo.cogito.TextEditor")
+    .set_app_name(@"ErgoText")
+    .set_accent_color(@"#4838d7", false)
 
     cogito.load_sum(@"ergotexteditor.sum")
 
     let win = cogito.window_size(@"ErgoText", 900, 640)
-    win.set_autosize(false)
-    win.set_resizable(true)
+    .set_autosize(false)
+    .set_resizable(true)
 
     let root = cogito.vstack()
-    root.set_gap(0)
-    root.set_hexpand(true)
-    root.set_vexpand(true)
+    .set_gap(0)
+    .set_hexpand(true)
+    .set_vexpand(true)
 
     title_text = @"Untitled.txt"
     subtitle_text = @"Ready"
@@ -159,7 +159,6 @@ entry() (( -- )) {
 
     let file_btn = bar.add_button(@"sf:gearshape", (b = cogito.Button) => {
     })
-    cogito.set_tooltip(file_btn, @"File")
     file_btn.add_menu(@"New", (b = any) => {
         new_document()
     })
@@ -173,13 +172,12 @@ entry() (( -- )) {
     let about_btn = bar.add_button(@"sf:questionmark", (b = cogito.Button) => {
         show_about_window(win)
     })
-    cogito.set_tooltip(about_btn, @"About")
 
     root.add(bar)
 
     editor.set_hexpand(true)
-    editor.set_vexpand(true)
-    editor.on_change((tv = cogito.TextView) => {
+    .set_vexpand(true)
+    .on_change((tv = cogito.TextView) => {
         if !suspend_dirty {
             is_dirty = true
             refresh_header()

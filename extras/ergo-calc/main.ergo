@@ -148,8 +148,8 @@ fun evaluate() (( -- )) {
 
 fun digit_button(d = num) (( cogito.Button )) {
     let btn = cogito.button(str(d))
-    cogito.set_class(btn, @"calc-digit")
-    btn.on_click((b = cogito.Button) => {
+    .set_class(@"calc-digit")
+    .on_click((b = cogito.Button) => {
         input_digit(d)
     })
     return btn
@@ -157,8 +157,8 @@ fun digit_button(d = num) (( cogito.Button )) {
 
 fun operator_button(text = string, op = string) (( cogito.Button )) {
     let btn = cogito.button(text)
-    cogito.set_class(btn, @"calc-op")
-    btn.on_click((b = cogito.Button) => {
+    .set_class(@"calc-op")
+    .on_click((b = cogito.Button) => {
         choose_operator(op)
     })
     return btn
@@ -166,8 +166,8 @@ fun operator_button(text = string, op = string) (( cogito.Button )) {
 
 fun clear_button() (( cogito.Button )) {
     let btn = cogito.button(@"C")
-    cogito.set_class(btn, @"calc-clear")
-    btn.on_click((b = cogito.Button) => {
+    .set_class(@"calc-clear")
+    .on_click((b = cogito.Button) => {
         clear_all()
     })
     return btn
@@ -175,8 +175,8 @@ fun clear_button() (( cogito.Button )) {
 
 fun equals_button() (( cogito.Button )) {
     let btn = cogito.button(@"=")
-    cogito.set_class(btn, @"calc-equals")
-    btn.on_click((b = cogito.Button) => {
+    .set_class(@"calc-equals")
+    .on_click((b = cogito.Button) => {
         evaluate()
     })
     return btn
@@ -184,7 +184,7 @@ fun equals_button() (( cogito.Button )) {
 
 fun spacer() (( cogito.Label )) {
     let s = cogito.label(@"")
-    cogito.set_class(s, @"calc-spacer")
+    .set_class(@"calc-spacer")
     return s
 }
 
@@ -349,24 +349,24 @@ fun build_converter_ui() (( cogito.VStack )) {
     cogito.set_class(panel, @"conv-panel")
 
     let cat_dd = cogito.dropdown()
-    cat_dd.set_items([@"Length", @"Weight", @"Temperature", @"Volume"])
-    cat_dd.set_selected(0)
-    cat_dd.set_hexpand(true)
-    cogito.set_class(cat_dd, @"conv-category")
-    cat_dd.on_change((dd = cogito.Dropdown) => {
+    .set_items([@"Length", @"Weight", @"Temperature", @"Volume"])
+    .set_selected(0)
+    .set_hexpand(true)
+    .set_class(@"conv-category")
+    .on_change((dd = cogito.Dropdown) => {
         conv_category = dd.selected()
         refresh_conv_units()
     })
     panel.add(cat_dd)
 
     let from_row = cogito.hstack()
-    from_row.set_hexpand(true)
-    from_row.set_gap(6)
+    .set_hexpand(true)
+    .set_gap(6)
 
     let names = conv_unit_names()
     conv_from_dd.set_items(names)
-    conv_from_dd.set_selected(0)
-    conv_from_dd.on_change((dd = cogito.Dropdown) => {
+    .set_selected(0)
+    .on_change((dd = cogito.Dropdown) => {
         conv_from_idx = dd.selected()
         do_convert()
     })
@@ -392,19 +392,19 @@ fun build_converter_ui() (( cogito.VStack )) {
     panel.add(swap_row)
 
     let to_row = cogito.hstack()
-    to_row.set_hexpand(true)
-    to_row.set_gap(6)
+    .set_hexpand(true)
+    .set_gap(6)
 
     conv_to_dd.set_items(names)
-    conv_to_dd.set_selected(1)
-    conv_to_dd.on_change((dd = cogito.Dropdown) => {
+    .set_selected(1)
+    .on_change((dd = cogito.Dropdown) => {
         conv_to_idx = dd.selected()
         do_convert()
     })
 
     conv_output.set_hexpand(true)
-    conv_output.set_editable(false)
-    cogito.set_class(conv_output, @"conv-output")
+    .set_editable(false)
+    .set_class(@"conv-output")
 
     to_row.add(conv_output)
     to_row.add(conv_to_dd)
@@ -420,9 +420,9 @@ fun show_about_window(win = cogito.Window) (( -- )) {
     content.align_center()
 
     let aw = cogito.about_window(@"ErgoCalc", @"MIT License")
-    aw.set_icon(@"sf:equal")
-    aw.set_website(ABOUT_MORE_INFO_URL)
-    aw.set_issue_url(ABOUT_REPORT_BUG_URL)
+    .set_icon(@"sf:equal")
+    .set_website(ABOUT_MORE_INFO_URL)
+    .set_issue_url(ABOUT_REPORT_BUG_URL)
     content.add(aw)
 
     dlg.add(content)
@@ -431,12 +431,12 @@ fun show_about_window(win = cogito.Window) (( -- )) {
 
 fun build_ui(win = cogito.Window) (( -- )) {
     let root = cogito.vstack()
-    cogito.set_class(root, @"calc-root")
+    .set_class(@"calc-root")
 
     let switcher = cogito.view_switcher()
 
     let bar = cogito.appbar(@"", @"")
-    bar.set_hexpand(true)
+    .set_hexpand(true)
     let about_btn = bar.add_button(@"sf:questionmark", (b = cogito.Button) => {
         show_about_window(win)
     })
@@ -454,33 +454,33 @@ fun build_ui(win = cogito.Window) (( -- )) {
 
     -- Calculator view
     let calc_view = cogito.vstack()
-    calc_view.set_hexpand(true)
-    calc_view.set_vexpand(true)
-    cogito.set_id(calc_view, @"calculator")
+    .set_hexpand(true)
+    .set_vexpand(true)
+    .set_id(@"calculator")
 
     let display_box = cogito.vstack()
-    display_box.set_hexpand(true)
-    display_box.set_gap(4)
-    cogito.set_class(display_box, @"calc-display")
+    .set_hexpand(true)
+    .set_gap(4)
+    .set_class(@"calc-display")
 
     display_expression.set_hexpand(true)
-    display_expression.set_text_align(2)
-    cogito.set_class(display_expression, @"calc-display-expression")
+    .set_text_align(2)
+    .set_class(@"calc-display-expression")
     display_box.add(display_expression)
 
     display_working.set_hexpand(true)
-    display_working.set_text_align(2)
-    cogito.set_class(display_working, @"calc-display-working")
+    .set_text_align(2)
+    .set_class(@"calc-display-working")
     display_box.add(display_working)
 
     calc_view.add(display_box)
 
     let keypad = cogito.grid(5)
-    keypad.set_hexpand(true)
-    keypad.set_vexpand(true)
-    keypad.set_gap(12, 12)
-    keypad.set_padding(12, 12, 0, 12)
-    cogito.set_class(keypad, @"calc-keypad")
+    .set_hexpand(true)
+    .set_vexpand(true)
+    .set_gap(12, 12)
+    .set_padding(12, 12, 0, 12)
+    .set_class(@"calc-keypad")
 
     keypad.add(digit_button(7))
     keypad.add(digit_button(8))
@@ -512,7 +512,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
 
     -- Converter view
     let conv_view = build_converter_ui()
-    cogito.set_id(conv_view, @"converter")
+    .set_id(@"converter")
 
     switcher.add(@"calculator", (vs = cogito.ViewSwitcher) => calc_view)
     switcher.add(@"converter", (vs = cogito.ViewSwitcher) => conv_view)
@@ -529,11 +529,11 @@ fun build_ui(win = cogito.Window) (( -- )) {
 entry () (( -- )) {
     cogito.load_sum(@"ergocalc.sum")
     let app = cogito.app()
-    app.set_accent_color(@"#8C56BF", false)
+    .set_accent_color(@"#8C56BF", false)
+    .set_appid(@"ergo.cogito.Calc")
+    .set_app_name(@"ErgoCalc")
     let win = cogito.window_size(@"Ergo Calc", 360, 480)
-    win.build(build_ui)
-    win.set_resizable(false)
-    app.set_appid(@"ergo.cogito.Calc")
-    app.set_app_name(@"ErgoCalc")
+    .build(build_ui)
+    .set_resizable(false)
     app.run(win)
 }

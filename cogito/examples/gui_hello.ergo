@@ -9,26 +9,34 @@ fun on_btn(btn = cogito.Button) (( -- )) {
 
 fun build_ui(win = cogito.Window) (( -- )) {
     let vstack = cogito.vstack()
-    vstack.set_gap(8)
-    vstack.set_padding(0, 18, 0, 18)
-    vstack.set_hexpand(true)
-    vstack.set_vexpand(true)
+    .set_gap(8)
+    .set_padding(0, 18, 18, 18)
+    .set_hexpand(true)
+    .set_vexpand(true)
 
     let appbar = cogito.appbar(@"Welcome to Cogito", @"Minimal GUI")
+    .set_hexpand(true)
     win.add(appbar)
 
     let btn = cogito.button(@"Click")
-    btn.on_click(on_btn)
-    vstack.add(btn)
+    .on_click(on_btn)
+    .set_hexpand(true)
+    .set_vexpand(true)
+    .set_halign(1)
+    .set_valign(1)
 
+    vstack.add(btn)
     win.add(vstack)
 }
 
 entry () (( -- )) {
     let app = cogito.app()
+    .set_appid(@"ergo.cogito.Hello")
+    .set_accent_color(@"#72dec2", false)
+
     let win = cogito.window_title(@"Minimal Cogito Demo")
-    win.build(build_ui)
-    win.set_autosize(false)
-    win.set_resizable(false)
+    .build(build_ui)
+    .set_autosize(false)
+    .set_resizable(false)
     app.run(win)
 }
