@@ -732,15 +732,15 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "switch .track\n  background: %s\n  border: 2 solid %s\n", schi, outl);
   cogito_sum_append(out, cap, &off,
-  "switch knob:active\n  background: %s\n", op);
+  "switch knob:active\n  background: %s\n", surf);
   cogito_sum_append(out, cap, &off,
-  "switch knob:hover\n  background: %s\n", p);
+  "switch knob:hover\n  background: %s\n", surf);
   cogito_sum_append(out, cap, &off,
-  "switch knob\n  background: %s\n  min-width: 32\n  min-height: 24\n", outl);
+  "switch knob\n  background: %s\n  min-width: 24\n  min-height: 24\n  elevation: 1\n", outl);
   cogito_sum_append(out, cap, &off,
   "switch track:active\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off,
-  "switch track:hover\n  background: %s\n", outl);
+  "switch track:hover\n  background: %s\n", schi);
   cogito_sum_append(out, cap, &off,
   "switch track\n  background: %s\n  border: 2 solid %s\n", schi, outl);
   cogito_sum_append(out, cap, &off,
@@ -753,7 +753,6 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   "switch:disabled track\n  background: %s29\n", ons);
   cogito_sum_append(out, cap, &off,
   "switch:disabled\n  color: %s52\n", ons);
-  // MD3: Switch track height is 32dp
   cogito_sum_append(out, cap, &off,
   "switch\n  color: %s\n  min-height: 32\n  min-width: 52\n  transition: 100 standard\n", ons);
   cogito_sum_append(out, cap, &off,
@@ -824,13 +823,8 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   "zstack\n  background: %s\n  color: %s\n", bg, ons);
 
   // --- Selectors that exist in system .sum files but were previously missing ---
-  // Without these, system theme colors leak through because the dynamic theme
-  // doesn't override them.
-  // Color token class: .on-error
   cogito_sum_append(out, cap, &off,
   ".on-error\n  background: %s\n  color: %s\n", err, oerr);
-
-  // About window (class selector — system .sum uses .about-window)
   cogito_sum_append(out, cap, &off,
   ".about-window\n  background: %s\n  color: %s\n", sch, ons);
   cogito_sum_append(out, cap, &off,
@@ -841,14 +835,10 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   "hstack.about-window-actions\n  background: transparent\n  padding: 4 0 0 0\n");
   cogito_sum_append(out, cap, &off,
   "image.about-window-icon\n  min-width: 128\n  min-height: 128\n");
-
-  // Menu section
   cogito_sum_append(out, cap, &off,
   "menu_section\n  background: transparent\n");
   cogito_sum_append(out, cap, &off,
   "menu_section item\n  border-radius: 0\n  padding: 8 12\n  min-height: 42\n");
-
-  // Switch knob checked state
   cogito_sum_append(out, cap, &off,
   "switch .knob:checked\n  background: %s\n", surf);
   cogito_sum_append(out, cap, &off,

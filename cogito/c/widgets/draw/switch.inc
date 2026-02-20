@@ -7,8 +7,8 @@ case COGITO_SWITCH: {
       int intrinsic_w = text_w + 40;
       int use_w = n->w > 0 ? n->w : intrinsic_w;
       if (use_w < 24) use_w = 24;
-      int min_track = n->min_w_set ? n->min_w : 64;
-      if (min_track < 24) min_track = 24;
+      int min_track = n->min_w_set ? n->min_w : 52;
+      if (min_track < 32) min_track = 32;
       int track_w = use_w - (n->text ? (text_w + 8) : 0);
       if (track_w < min_track) track_w = min_track;
       if (track_w > use_w) track_w = use_w;
@@ -48,21 +48,21 @@ case COGITO_SWITCH: {
         cogito_draw_rect_lines(cx, cy, w, h, track_s.border, h / 2, track_s.border_width);
   }
   // ---- Knob layout targets ----
-  // Cogito: knob is 24dp at rest, fills to 32dp on hover/press (capped to track interior)
+  // Cogito: knob is 16dp at rest, fills to 32dp on hover/press (capped to track interior)
       int knob_w_target = 32;
       int knob_h_rest   = knob_s.has_min_h ? knob_s.min_h : 24;
-      int knob_h_hover  = h;
+      int knob_h_hover  = h - 4;
       if (knob_h_rest < 4) knob_h_rest = 4;
       if (knob_h_hover < knob_h_rest) knob_h_hover = knob_h_rest;
       int knob_h_target = (over || down) ? knob_h_hover : knob_h_rest;
       if (knob_s.has_max_h && knob_s.max_h > 0 && knob_h_target > knob_s.max_h) knob_h_target = knob_s.max_h;
       if (knob_w_target < 4) knob_w_target = 4;
       if (knob_h_target < 4) knob_h_target = 4;
-      if (knob_w_target > w - 2) knob_w_target = w - 2;
-      if (knob_h_target > h)     knob_h_target = h;
+      if (knob_w_target > w - 4) knob_w_target = w - 4;
+      if (knob_h_target > h - 4) knob_h_target = h - 4;
 
-      int track_cy     = cy + h / 2;
-      int edge_inset_x = (over || down) ? 0 : 2;
+      int track_cy = cy + h / 2;
+      int edge_inset_x = 2;
       if (knob_w_target + edge_inset_x * 2 > w) edge_inset_x = 0;
       int off_x = cx + edge_inset_x;
       int on_x  = cx + w - knob_w_target - edge_inset_x;
