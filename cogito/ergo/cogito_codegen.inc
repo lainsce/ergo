@@ -327,6 +327,32 @@
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_toolbar_set_vibrant")) {
+                        GenExpr toolbar, vibrant;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &toolbar, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &vibrant, err)) { gen_expr_free(&toolbar); return false; }
+                        w_line(&cg->w, "cogito_toolbar_set_vibrant(%s, %s);", toolbar.tmp, vibrant.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", toolbar.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", vibrant.tmp);
+                        gen_expr_release_except(cg, &toolbar, toolbar.tmp);
+                        gen_expr_release_except(cg, &vibrant, vibrant.tmp);
+                        gen_expr_free(&toolbar);
+                        gen_expr_free(&vibrant);
+                        out->tmp = NULL;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_toolbar_get_vibrant")) {
+                        GenExpr toolbar;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &toolbar, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_BOOL(cogito_toolbar_get_vibrant(%s));", t, toolbar.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", toolbar.tmp);
+                        gen_expr_release_except(cg, &toolbar, toolbar.tmp);
+                        gen_expr_free(&toolbar);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_vstack")) {
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w, "ErgoVal %s = cogito_vstack_new();", t);
@@ -2362,6 +2388,58 @@
                         if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w, "ErgoVal %s = EV_INT(cogito_button_get_menu_item_gap(%s));", t, btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_iconbtn_set_menu_vibrant")) {
+                        GenExpr btn, vibrant;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &vibrant, err)) { gen_expr_free(&btn); return false; }
+                        w_line(&cg->w, "cogito_iconbtn_set_menu_vibrant(%s, %s);", btn.tmp, vibrant.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", vibrant.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_release_except(cg, &vibrant, vibrant.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_free(&vibrant);
+                        out->tmp = NULL;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_iconbtn_get_menu_vibrant")) {
+                        GenExpr btn;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_BOOL(cogito_iconbtn_get_menu_vibrant(%s));", t, btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_button_set_menu_vibrant")) {
+                        GenExpr btn, vibrant;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &vibrant, err)) { gen_expr_free(&btn); return false; }
+                        w_line(&cg->w, "cogito_button_set_menu_vibrant(%s, %s);", btn.tmp, vibrant.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", vibrant.tmp);
+                        gen_expr_release_except(cg, &btn, btn.tmp);
+                        gen_expr_release_except(cg, &vibrant, vibrant.tmp);
+                        gen_expr_free(&btn);
+                        gen_expr_free(&vibrant);
+                        out->tmp = NULL;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_button_get_menu_vibrant")) {
+                        GenExpr btn;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &btn, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_BOOL(cogito_button_get_menu_vibrant(%s));", t, btn.tmp);
                         w_line(&cg->w, "ergo_release_val(%s);", btn.tmp);
                         gen_expr_release_except(cg, &btn, btn.tmp);
                         gen_expr_free(&btn);

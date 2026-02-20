@@ -1,6 +1,6 @@
 static CogitoNode* cogito_iconbtn_new_obj(ErgoStr* label) {
   CogitoNode* btn = cogito_node_new(COGITO_ICONBTN);
-  btn->button.icon_shape = 1; // Default to rounded square (matches theme/spec)
+  btn->button.icon_shape = 0; // Default to circle (matches spec)
   btn->button.size = COGITO_BUTTON_SIZE_M; // Default to M size
   btn->button.icon_width = 1; // Default to square (default width)
   cogito_node_set_text(btn, label);
@@ -157,6 +157,21 @@ ErgoVal cogito_iconbtn_get_menu_item_gap(ErgoVal btnv) {
   CogitoNode* btn = (CogitoNode*)btnv.as.p;
   if (btn->kind != COGITO_ICONBTN) ergo_trap("cogito.iconbtn_get_menu_item_gap expects iconbtn");
   return EV_INT(btn->button.menu_item_gap);
+}
+
+void cogito_iconbtn_set_menu_vibrant(ErgoVal btnv, ErgoVal vibrantv) {
+  if (btnv.tag != EVT_OBJ) ergo_trap("cogito.iconbtn_set_menu_vibrant expects iconbtn");
+  CogitoNode* btn = (CogitoNode*)btnv.as.p;
+  if (btn->kind != COGITO_ICONBTN) ergo_trap("cogito.iconbtn_set_menu_vibrant expects iconbtn");
+  btn->button.menu_vibrant = ergo_as_bool(vibrantv);
+  cogito_window_relayout(cogito_node_window(btn));
+}
+
+ErgoVal cogito_iconbtn_get_menu_vibrant(ErgoVal btnv) {
+  if (btnv.tag != EVT_OBJ) ergo_trap("cogito.iconbtn_get_menu_vibrant expects iconbtn");
+  CogitoNode* btn = (CogitoNode*)btnv.as.p;
+  if (btn->kind != COGITO_ICONBTN) ergo_trap("cogito.iconbtn_get_menu_vibrant expects iconbtn");
+  return EV_BOOL(btn->button.menu_vibrant);
 }
 
 void cogito_iconbtn_on_click(ErgoVal btnv, ErgoVal handler) {

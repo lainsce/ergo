@@ -42,10 +42,12 @@ case COGITO_ICONBTN: {
       }
       if (s.has_border) border = s.border;
       if (s.has_border_width) border_w = s.border_width;
-      if (s.has_radius) radius = s.radius;
       if (n->parent && n->parent->kind == COGITO_APPBAR && !n->radius_set) {
+        // AppBar IconBtn is always fully rounded (circle) by default
         int min_dim = n->w < n->h ? n->w : n->h;
-        if (min_dim > 0) radius = min_dim / 2;
+        radius = min_dim / 2; // fully rounded = circle
+      } else if (s.has_radius) {
+        radius = s.radius;
       } else {
         int min_dim = n->w < n->h ? n->w : n->h;
         if (n->button.icon_shape == 1) {

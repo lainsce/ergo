@@ -1489,6 +1489,16 @@ static ErgoVal __cogito_toolbar(void) {
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
 }
 
+static void __cogito_toolbar_set_vibrant(ErgoVal toolbarv, ErgoVal vibrantv) {
+  cogito_node* toolbar = cogito_node_from_val(toolbarv);
+  cogito_toolbar_set_vibrant(toolbar, ergo_as_bool(vibrantv));
+}
+
+static ErgoVal __cogito_toolbar_get_vibrant(ErgoVal toolbarv) {
+  cogito_node* toolbar = cogito_node_from_val(toolbarv);
+  return EV_BOOL(cogito_toolbar_get_vibrant(toolbar));
+}
+
 static ErgoVal __cogito_vstack(void) {
   return cogito_wrap_node(cogito_node_new(COGITO_NODE_VSTACK), COGITO_HANDLE_NODE);
 }
@@ -1817,6 +1827,26 @@ static void __cogito_button_set_menu_item_gap(ErgoVal btnv, ErgoVal gapv) {
 static ErgoVal __cogito_button_get_menu_item_gap(ErgoVal btnv) {
   cogito_node* btn = cogito_node_from_val(btnv);
   return EV_INT(cogito_button_get_menu_item_gap(btn));
+}
+
+static void __cogito_iconbtn_set_menu_vibrant(ErgoVal btnv, ErgoVal vibrantv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  cogito_button_set_menu_vibrant(btn, ergo_as_bool(vibrantv));
+}
+
+static ErgoVal __cogito_iconbtn_get_menu_vibrant(ErgoVal btnv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  return EV_BOOL(cogito_button_get_menu_vibrant(btn));
+}
+
+static void __cogito_button_set_menu_vibrant(ErgoVal btnv, ErgoVal vibrantv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  cogito_button_set_menu_vibrant(btn, ergo_as_bool(vibrantv));
+}
+
+static ErgoVal __cogito_button_get_menu_vibrant(ErgoVal btnv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  return EV_BOOL(cogito_button_get_menu_vibrant(btn));
 }
 
 static void __cogito_iconbtn_on_click(ErgoVal btnv, ErgoVal handler) {

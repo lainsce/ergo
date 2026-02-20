@@ -14,17 +14,23 @@ static void cogito_menu_open_for(CogitoNode* n) {
               : (cogito_theme.menu.has_padding_left ? cogito_theme.menu.padding_left : 10);
   int pad_y = item_style->has_padding_top ? item_style->padding_top
               : (cogito_theme.menu.has_padding_top ? cogito_theme.menu.padding_top : 6);
-  int item_h = font_size + pad_y * 2;
+  
+  // Sections use gap by default; dividers are opt-in via menu_divider flag
+  bool use_section = n->menu_section_after != NULL;
+  bool use_divider = n->button.menu_divider;
+  
+   int item_h = font_size + pad_y * 2;
   int min_h = item_style->has_min_h ? item_style->min_h
               : (cogito_theme.menu.has_min_h ? cogito_theme.menu.min_h : 0);
   if (min_h > item_h) item_h = min_h;
+  // Minimum 44px item height for sectioned menus (accessibility)
+  if (use_section && item_h < 48) item_h = 48;
+  
   int menu_pad_top = 8;
   int menu_pad_bottom = 8;
-  // Use section dividers if available, otherwise fall back to menu_divider
-  bool use_section = n->menu_section_after != NULL;
-  bool use_divider = use_section || n->button.menu_divider;
   int item_gap = (n->button.menu_item_gap > 0) ? n->button.menu_item_gap : 
-                 (cogito_theme.menu.has_item_gap ? cogito_theme.menu.item_gap : (use_divider ? 0 : 4));
+                 (cogito_theme.menu.has_item_gap ? cogito_theme.menu.item_gap : 2);
+  int section_gap = 2; // Gap between sections
   int divider_h = use_divider ? 1 : 0;
   int max_w = 0;
   for (size_t i = 0; i < n->menu_len; i++) {
@@ -35,24 +41,48 @@ static void cogito_menu_open_for(CogitoNode* n) {
   int w = max_w + pad_x * 2;
   if (n->w > w) w = n->w;
   
-  // Minimum menu width of 209px
-  if (w < 209) w = 209;
+  // Minimum menu width for accessibility
+  if (w < 112) w = 112;
   
   // Calculate menu height with gaps and potential dividers
+  int section_padding = 2; // 2px padding at top and bottom of each section
   int h = menu_pad_top;
-  for (size_t i = 0; i < n->menu_len; i++) {
-    h += item_h;
-    if (i < n->menu_len - 1) {
-      h += item_gap;
-      // Check if this item has a section divider after it
-      bool has_divider_after = false;
-      if (use_section) {
-        has_divider_after = n->menu_section_after[i];
-      } else if (n->button.menu_divider) {
-        has_divider_after = true;
+  if (use_section) {
+    // Calculate per-section heights
+    int section_start = 0;
+    for (size_t i = 0; i < n->menu_len; i++) {
+      bool has_section_after = n->menu_section_after[i];
+      if (has_section_after || i == n->menu_len - 1) {
+        // Calculate section height
+        int section_items = (int)i - section_start + 1;
+        int section_h = section_items * item_h;
+        // Add item gaps within section
+         if (section_items > 1) {
+           section_h += (section_items - 1) * item_gap;
+         }
+         // Add 2px padding at top and bottom of section
+         section_h += section_padding * 2;
+         // Minimum 48px per section for accessibility
+         if (section_h < 48) section_h = 48;
+
+         h += section_h;
+        // Add section gap or divider after section (except last)
+        if (has_section_after && i < n->menu_len - 1) {
+          if (use_divider) {
+            h += divider_h;
+          } else {
+            h += section_gap;
+          }
+        }
+        section_start = (int)i + 1;
       }
-      if (has_divider_after) {
-        h += divider_h;
+    }
+  } else {
+    // Original calculation for non-sectioned menus
+    for (size_t i = 0; i < n->menu_len; i++) {
+      h += item_h;
+      if (i < n->menu_len - 1) {
+        h += item_gap;
       }
     }
   }
@@ -77,9 +107,6 @@ static void cogito_menu_open_for(CogitoNode* n) {
     win_w = cogito_active_window->w;
     win_h = cogito_active_window->h;
   }
-  
-  // Apply minimum width constraint
-  if (w < 112) w = 112;
   
   // Check if menu would go off right edge - try repositioning left
   if (x + w > win_w - 4) {
@@ -123,15 +150,17 @@ static int cogito_menu_hit(const CogitoMenu* menu, int x, int y) {
   int rel_y = y - (menu->y + menu->pad_top);
   if (rel_y < 0) return -1;
   
-  // Use section dividers if available, otherwise fall back to menu_divider
+  // Sections use gap by default; dividers are opt-in via menu_divider flag
   bool use_section = menu->owner->menu_section_after != NULL;
-  bool use_divider = use_section || menu->owner->button.menu_divider;
+  bool use_divider = menu->owner->button.menu_divider;
   int item_gap = (menu->owner->button.menu_item_gap > 0) ? menu->owner->button.menu_item_gap : 
-                 (cogito_theme.menu.has_item_gap ? cogito_theme.menu.item_gap : (use_divider ? 0 : 4));
+                 (cogito_theme.menu.has_item_gap ? cogito_theme.menu.item_gap : 2);
+  int section_gap = 2;
   int divider_h = use_divider ? 1 : 0;
+  int section_padding = 2; // 2px padding at top and bottom of each section
   
   int idx = -1;
-  int current_y = 0;
+  int current_y = use_section ? section_padding : 0;  // Start after section padding if using sections
   
   for (size_t i = 0; i < menu->owner->menu_len; i++) {
     if (rel_y >= current_y && rel_y < current_y + menu->item_h) {
@@ -139,15 +168,17 @@ static int cogito_menu_hit(const CogitoMenu* menu, int x, int y) {
       break;
     }
     current_y += menu->item_h + item_gap;
-    // Check if this item has a section divider after it
-    bool has_divider_after = false;
-    if (use_section) {
-      has_divider_after = menu->owner->menu_section_after[i];
-    } else if (menu->owner->button.menu_divider) {
-      has_divider_after = true;
-    }
-    if (has_divider_after && i < menu->owner->menu_len - 1) {
-      current_y += divider_h;
+    // Check if this item has a section break after it
+    bool has_section_after = use_section && menu->owner->menu_section_after[i];
+    if (has_section_after && i < menu->owner->menu_len - 1) {
+      // Add bottom padding of current section, gap/divider, and top padding of next section
+      current_y += section_padding;  // Bottom padding of current section
+      if (use_divider) {
+        current_y += divider_h;
+      } else {
+        current_y += section_gap;
+      }
+      current_y += section_padding;  // Top padding of next section
     }
   }
   

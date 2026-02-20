@@ -34,20 +34,6 @@ zstack
 appbar
   background: @bg
   color: @text
-  min-height: 46
-  padding: 6 10
-
-appbar .iconbtn
-  background: @primary-container
-  color: @primary
-  border-radius: 21
-
-appbar .iconbtn:hover
-  background: @primary-hover
-
-appbar .iconbtn:active
-  background: @primary-active
-  border-radius: 10
 
 vstack.calc-display
   border-radius: 12
@@ -73,50 +59,13 @@ grid.calc-keypad
   border-radius: 16
   padding: 12 18 18
 
-button
-  background: @primary-container
-  color: @primary
-  border-radius: 10
-  min-width: 56
-  max-width: 56
-  min-height: 56
-  max-height: 56
-
 button.calc-op
   background: alpha(@primary, 0%)
   color: @primary
-  border-radius: 10
   border: 1 solid alpha(@primary, 35%)
-
-button:hover
-  background: @primary-hover
-  color: @primary
-
-button:active
-  background: @primary-active
-  color: @primary
-  border-radius: 21
 
 button:focus
   border: 2 solid @primary
-
-button.outlined
-  background: alpha(@primary, 0%)
-  color: @primary
-  border-radius: 10
-  min-width: 160
-  max-width: 160
-  border: 1 solid alpha(@primary, 35%)
-
-button.outlined:hover
-  background: @primary-hover
-  color: @primary
-  border-color: @primary-hover
-
-button.outlined:active
-  background: @primary-active
-  color: @primary
-  border-radius: 21
 
 button.calc-op:hover
   background: @primary-hover
@@ -126,40 +75,21 @@ button.calc-op:hover
 button.calc-op:active
   background: @primary-active
   color: @primary
-  border-radius: 21
 
 button.calc-op:focus
   border: 2 solid @primary
 
-button.text
-  background: @pink
-  color: @muted
-  border-radius: 10
-
 button.calc-clear
   background: @pink
-  color: @muted
-  border-radius: 10
-  min-width: 127
-  max-width: 127
-
-button.text:hover
-  background: @pink-hover
   color: @muted
 
 button.calc-clear:hover
   background: @pink-hover
   color: @muted
 
-button.text:active
-  background: @pink-active
-  color: @muted
-  border-radius: 21
-
 button.calc-clear:active
   background: @pink-active
   color: @muted
-  border-radius: 21
 
 button.text:focus
   border: 2 solid @primary
@@ -171,12 +101,6 @@ button.calc-equals
   background: @primary
   color: @surface
   border: 0 none #000
-  min-width: 127
-  max-width: 127
-
-button.calc-zero
-  min-width: 198
-  max-width: 198
 
 button.calc-equals:hover
   background: @primary-active
@@ -185,7 +109,6 @@ button.calc-equals:hover
 button.calc-equals:active
   background: mix(@primary, #000000, 18%)
   color: @surface
-  border-radius: 21
 
 button.calc-equals:focus
   border: 2 solid @surface
@@ -218,7 +141,6 @@ textfield.conv-output
 iconbtn.conv-swap
   background: @primary-container
   color: @primary
-  border-radius: 21
 
 iconbtn.conv-swap:hover
   background: @primary-hover

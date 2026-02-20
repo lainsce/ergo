@@ -1058,6 +1058,9 @@ fun build_menu_button_page() (( cogito.VStack )) {
     status.set_class(@"body")
     vstack.add(status)
 
+    let hstack = cogito.hstack ()
+    hstack.set_gap(18)
+
     let mb1 = cogito.menu_button(@"sf:ellipsis")
     mb1.add_menu(@"Item 1", (b = any) => {
         status.set_text(@"Item 1 selected.")
@@ -1068,20 +1071,34 @@ fun build_menu_button_page() (( cogito.VStack )) {
     mb1.add_menu(@"Item 3", (b = any) => {
         status.set_text(@"Item 3 selected.")
     })
-    vstack.add(mb1)
+    hstack.add(mb1)
 
     let mb2 = cogito.menu_button(@"sf:gearshape")
-    mb2.set_menu_item_gap(6)
     mb2.add_menu(@"Settings", (b = any) => {
         status.set_text(@"Settings selected.")
     })
     mb2.add_menu_section(@"Preferences", (b = any) => {
         status.set_text(@"Preferences selected.")
     })
-    mb2.add_menu_section(@"About", (b = any) => {
+    mb2.add_menu(@"About", (b = any) => {
         status.set_text(@"About selected.")
     })
-    vstack.add(mb2)
+    hstack.add(mb2)
+
+    let mb3 = cogito.menu_button(@"sf:star")
+    mb3.set_menu_vibrant(true)
+    mb3.add_menu(@"Vibrant Item 1", (b = any) => {
+        status.set_text(@"Vibrant Item 1 selected.")
+    })
+    mb3.add_menu_section(@"Vibrant Item 2", (b = any) => {
+        status.set_text(@"Vibrant Item 2 selected.")
+    })
+    mb3.add_menu(@"Vibrant Item 3", (b = any) => {
+        status.set_text(@"Vibrant Item 3 selected.")
+    })
+    hstack.add(mb3)
+
+    vstack.add(hstack)
 
     return vstack
 }

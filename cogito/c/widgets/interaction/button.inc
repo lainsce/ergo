@@ -127,3 +127,18 @@ ErgoVal cogito_button_get_menu_item_gap(ErgoVal btnv) {
   if (btn->kind != COGITO_ICONBTN) ergo_trap("cogito.button_get_menu_item_gap expects button");
   return EV_INT(btn->button.menu_item_gap);
 }
+
+void cogito_button_set_menu_vibrant(ErgoVal btnv, ErgoVal vibrantv) {
+  if (btnv.tag != EVT_OBJ) ergo_trap("cogito.button_set_menu_vibrant expects button");
+  CogitoNode* btn = (CogitoNode*)btnv.as.p;
+  if (btn->kind != COGITO_ICONBTN) ergo_trap("cogito.button_set_menu_vibrant expects button");
+  btn->button.menu_vibrant = ergo_as_bool(vibrantv);
+  cogito_window_relayout(cogito_node_window(btn));
+}
+
+ErgoVal cogito_button_get_menu_vibrant(ErgoVal btnv) {
+  if (btnv.tag != EVT_OBJ) ergo_trap("cogito.button_get_menu_vibrant expects button");
+  CogitoNode* btn = (CogitoNode*)btnv.as.p;
+  if (btn->kind != COGITO_ICONBTN) ergo_trap("cogito.button_get_menu_vibrant expects button");
+  return EV_BOOL(btn->button.menu_vibrant);
+}

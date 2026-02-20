@@ -303,10 +303,9 @@ static float cogito_shadow_gauss(float x, float sigma) {
 }
 
 static void cogito_draw_shadow_blur_radii(int x, int y, int w, int h,
-                                          int tl, int tr, int br, int bl,
-                                          int spread, int blur, CogitoColor color) {
+                                           int tl, int tr, int br, int bl,
+                                           int spread, int blur, CogitoColor color) {
   if (w <= 0 || h <= 0 || color.a == 0) return;
-  if (spread < 0) spread = 0;
   if (blur < 0) blur = 0;
   int steps = blur > 0 ? blur : 1;
   if (steps > 48) steps = 48;
@@ -321,32 +320,47 @@ static void cogito_draw_shadow_blur_radii(int x, int y, int w, int h,
     CogitoColor c = color;
     c.a = (uint8_t)a;
     int s = spread + d;
-    cogito_draw_rect_radii(x - s, y - s, w + s * 2, h + s * 2, c, tl + s, tr + s, br + s, bl + s);
+    // Calculate shadow dimensions and radii
+    int shadow_x = x - s;
+    int shadow_y = y - s;
+    int shadow_w = w + s * 2;
+    int shadow_h = h + s * 2;
+    int shadow_tl = tl + s;
+    int shadow_tr = tr + s;
+    int shadow_br = br + s;
+    int shadow_bl = bl + s;
+    // Ensure we don't have negative dimensions or radii
+    if (shadow_w <= 0 || shadow_h <= 0) continue;
+    if (shadow_tl < 0) shadow_tl = 0;
+    if (shadow_tr < 0) shadow_tr = 0;
+    if (shadow_br < 0) shadow_br = 0;
+    if (shadow_bl < 0) shadow_bl = 0;
+    cogito_draw_rect_radii(shadow_x, shadow_y, shadow_w, shadow_h, c, shadow_tl, shadow_tr, shadow_br, shadow_bl);
   }
 }
 
 static void cogito_draw_shadow_radii_level(int x, int y, int w, int h,
-                                           int tl, int tr, int br, int bl,
-                                           int level) {
+                                            int tl, int tr, int br, int bl,
+                                            int level) {
   if (level <= 0 || w <= 0 || h <= 0) return;
   if (level > 5) level = 5;
 
   // Calculate blur and spread based on level
-  // Level 1: blur=3, spread=-0.5
-  // Level 2: blur=6, spread=-1.5
-  // Level 3: blur=12, spread=-3
-  // Level 4: blur=24, spread=-6
-  // Level 5: blur=24, spread=-12
+  // Level 1: blur=3, spread=0
+  // Level 2: blur=6, spread=0
+  // Level 3: blur=12, spread=0
+  // Level 4: blur=24, spread=0
+  // Level 5: blur=24, spread=0
   int blur = 3;
   int spread = 0;
   int offset_y = 0;
   
   switch(level) {
-    case 1: blur = 3; spread = 0; offset_y = 1; break;   // -0.5 spread equivalent (0)
-    case 2: blur = 6; spread = -1; offset_y = 2; break;  // -1.5 spread equivalent (-1)
-    case 3: blur = 12; spread = -3; offset_y = 3; break; // -3 spread
-    case 4: blur = 24; spread = -6; offset_y = 4; break; // -6 spread
-    case 5: blur = 24; spread = -12; offset_y = 6; break; // -12 spread
+    case 1: blur = 3; spread = 0; offset_y = 1; break;
+    case 2: blur = 6; spread = 0; offset_y = 2; break;
+    case 3: blur = 12; spread = 0; offset_y = 3; break;
+    case 4: blur = 24; spread = 0; offset_y = 4; break;
+    case 5: blur = 24; spread = 0; offset_y = 6; break;
   }
 
   // Consistent 6% opacity black (approximately 15 alpha)

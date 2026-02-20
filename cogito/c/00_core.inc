@@ -713,6 +713,7 @@ typedef struct CogitoNode {
       bool icon_toggle;
       bool menu_divider;
       int menu_item_gap;
+      bool menu_vibrant;
     } button;
     struct { bool selected, has_close; } chip;
     struct {
@@ -729,6 +730,7 @@ typedef struct CogitoNode {
     struct { float ratio; bool dragging; int drag_offset; } view_dual;
     struct { int arrow_x; } split_btn;
     struct { bool has_divider_before; bool has_divider_after; } menu_section;
+    struct { bool vibrant; } toolbar;
   };
 } CogitoNode;
 
