@@ -4,23 +4,13 @@ case COGITO_LIST: {
       cogito_node_hover_state(n, &hover, &active);
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
       CogitoColor bg = n->bg;
-      CogitoColor border = n->border_color;
-      int border_w = n->border_width;
-      int radius = 0;
+      int radius = 12; // TODO: Make this configurable
       if (s.has_bg) bg = s.bg;
-      if (s.has_border) border = s.border;
-      if (s.has_border_width) border_w = s.border_width;
       if (s.has_radius) radius = s.radius;
       CogitoColor sel_bg = s.has_selection ? s.selection : n->selection_color;
-      cogito_anim_apply(n, &s, &bg, NULL, &border, &sel_bg);
-      if (n->bg_set || s.has_bg || border_w > 0) {
-        if (n->shadow_set && n->shadow_level > 0) {
-          cogito_draw_shadow_node_level(n, &s, n->x, n->y, n->w, n->h, radius, n->shadow_level);
-    }
+      cogito_anim_apply(n, &s, &bg, NULL, NULL, &sel_bg);
+      if (n->bg_set || s.has_bg) {
         cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, radius);
-        if (border_w > 0) {
-          cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border, radius, border_w);
-    }
   }
       bool has_selection = n->selected >= 0 && (size_t)n->selected < n->len;
       if (has_selection) {
