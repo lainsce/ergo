@@ -13,6 +13,10 @@
 #if defined(__APPLE__)
 #include <CoreGraphics/CoreGraphics.h>
 #endif
+
+// Cogito GUI headers for bindings
+#include "../../cogito/src/cogito.h"
+
 #if defined(_WIN32)
 #include <windows.h>
 #include <io.h>

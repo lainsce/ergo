@@ -8,6 +8,7 @@ static CogitoNode* cogito_nav_rail_new_obj(void) {
   n->nav_rail.selected = 0;
   n->nav_rail.expanded = false;
   n->nav_rail.show_toggle = true;
+  n->nav_rail.no_label = false;
   return n;
 }
 

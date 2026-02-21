@@ -352,36 +352,49 @@ static void cogito_draw_shadow_radii_level(int x, int y, int w, int h,
   if (level <= 0 || w <= 0 || h <= 0) return;
   if (level > 5) level = 5;
 
-  // Calculate blur and spread based on level
-  // Level 1: blur=3, spread=0
-  // Level 2: blur=6, spread=0
-  // Level 3: blur=12, spread=0
-  // Level 4: blur=24, spread=0
-  // Level 5: blur=24, spread=0
-  int blur = 3;
-  int spread = 0;
-  int offset_y = 0;
+  // Elevation shadow system
+  // Each elevation uses two shadow layers: umbra + penumbra
+  // Umbra: darker, closer shadow | Penumbra: lighter, softer shadow
+  // CSS Elevation 3: box-shadow: 0 4px 8px 3px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.3);
+  
+  int umbra_alpha = 15;     // ~6% - darker, closer shadow
+  int penumbra_alpha = 10;   // ~4% - lighter, softer outer shadow
+  
+  int umbra_y = 0, umbra_blur = 0, umbra_spread = 0;
+  int penumbra_y = 0, penumbra_blur = 0, penumbra_spread = 0;
   
   switch(level) {
-    case 1: blur = 3; spread = 0; offset_y = 1; break;
-    case 2: blur = 6; spread = 0; offset_y = 2; break;
-    case 3: blur = 12; spread = 0; offset_y = 3; break;
-    case 4: blur = 24; spread = 0; offset_y = 4; break;
-    case 5: blur = 24; spread = 0; offset_y = 6; break;
+    case 1: // Elevation 1: subtle, flat surfaces
+      umbra_y = 1; umbra_blur = 2; umbra_spread = 0;
+      penumbra_y = 1; penumbra_blur = 3; penumbra_spread = -1;
+      break;
+    case 2: // Elevation 2: cards, buttons
+      umbra_y = 1; umbra_blur = 3; umbra_spread = 0;
+      penumbra_y = 2; penumbra_blur = 6; penumbra_spread = -2;
+      break;
+    case 3: // Elevation 3: FABs, dialogs
+      umbra_y = 1; umbra_blur = 3; umbra_spread = 0;
+      penumbra_y = 4; penumbra_blur = 8; penumbra_spread = -3;
+      break;
+    case 4: // Elevation 4: bottom sheets
+      umbra_y = 2; umbra_blur = 4; umbra_spread = 0;
+      penumbra_y = 6; penumbra_blur = 12; penumbra_spread = -4;
+      break;
+    case 5: // Elevation 5: dialogs, modals
+      umbra_y = 3; umbra_blur = 5; umbra_spread = 0;
+      penumbra_y = 8; penumbra_blur = 16; penumbra_spread = -5;
+      break;
   }
-  // Consistent 6% opacity black (approximately 15 alpha)
-  int alpha = 15;
-  CogitoColor shadow_col = cogito_rgba(0,
-  0,
-  0, (uint8_t)alpha);
   
-  // Draw ambient shadow (above the element)
-  cogito_draw_shadow_blur_radii(x, y - offset_y, w, h, tl, tr, br, bl, 
-                                 spread + 1, blur, shadow_col);
+  // Draw penumbra (outer, softer shadow - drawn first, behind umbra)
+  CogitoColor penumbra_col = cogito_rgba(0, 0, 0, (uint8_t)penumbra_alpha);
+  cogito_draw_shadow_blur_radii(x, y + penumbra_y, w, h, tl, tr, br, bl,
+                                 penumbra_spread, penumbra_blur, penumbra_col);
   
-  // Draw key shadow (offset below the element)
-  cogito_draw_shadow_blur_radii(x, y + offset_y, w, h, tl, tr, br, bl, 
-                                 spread, blur, shadow_col);
+  // Draw umbra (inner, darker shadow - drawn second, on top)
+  CogitoColor umbra_col = cogito_rgba(0, 0, 0, (uint8_t)umbra_alpha);
+  cogito_draw_shadow_blur_radii(x, y + umbra_y, w, h, tl, tr, br, bl,
+                                 umbra_spread, umbra_blur, umbra_col);
 }
 
 static void cogito_draw_shadow_radii_box(int x, int y, int w, int h,

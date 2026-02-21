@@ -64,7 +64,9 @@ static void cogito_apply_theme(bool dark, CogitoColor accent);
 #define COGITO_NAV_RAIL_COLLAPSED_ITEM_STEP 96
 #define COGITO_NAV_RAIL_COLLAPSED_INDICATOR_WIDTH 64 // Cogito Expressive: 64dp pill indicator
 #define COGITO_NAV_RAIL_COLLAPSED_INDICATOR_HEIGHT 32 // Cogito Expressive: 32dp indicator height
-#define COGITO_NAV_RAIL_COLLAPSED_ICON_Y_OFFSET 16 // Center icon in 56dp indicator
+#define COGITO_NAV_RAIL_COLLAPSED_INDICATOR_NO_LABEL_HEIGHT 56 // Icon-only mode: taller indicator to center icon
+#define COGITO_NAV_RAIL_COLLAPSED_ICON_Y_OFFSET 4 // Center icon in 32dp indicator
+#define COGITO_NAV_RAIL_COLLAPSED_ICON_Y_OFFSET_NO_LABEL 16 // Center icon in 56dp indicator
 #define COGITO_NAV_RAIL_COLLAPSED_INDICATOR_LABEL_GAP 4
 // Expanded mode
 #define COGITO_NAV_RAIL_EXPANDED_MIN_WIDTH 220
@@ -807,6 +809,7 @@ typedef struct CogitoNode {
       int selected;
       bool expanded;
       bool show_toggle;
+      bool no_label; // If true, use icon-only mode with larger indicator
     } nav_rail;
 
     struct {
@@ -1710,3 +1713,11 @@ static bool cogito_load_font_file_tabular(CogitoFont** out, const char* path, in
 static CogitoFont* cogito_font_for_size(CogitoFont* f, int size);
 static CogitoFont* cogito_font_tabular_for(CogitoFont* f, int size);
 static void cogito_font_cache_clear(void);
+
+void cogito_nav_rail_set_no_label(CogitoNode* n, bool val) {
+  if (n) n->nav_rail.no_label = val;
+}
+
+bool cogito_nav_rail_get_no_label(CogitoNode* n) {
+  return n ? n->nav_rail.no_label : false;
+}

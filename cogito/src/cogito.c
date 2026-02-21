@@ -166,6 +166,8 @@ static const char *cogito_font_bold_path_active = NULL;
 #define cogito_nav_rail_set_badges cogito_nav_rail_set_badges_ergo
 #define cogito_nav_rail_set_toggle cogito_nav_rail_set_toggle_ergo
 #define cogito_nav_rail_set_selected cogito_nav_rail_set_selected_ergo
+#define cogito_nav_rail_set_no_label cogito_nav_rail_set_no_label_ergo
+#define cogito_nav_rail_get_no_label cogito_nav_rail_get_no_label_ergo
 #define cogito_node_get_editable cogito_node_get_editable_ergo
 #define cogito_node_new cogito_node_new_ergo
 #define cogito_node_parent cogito_node_parent_ergo
@@ -464,6 +466,8 @@ static const char *cogito_font_bold_path_active = NULL;
 #undef cogito_nav_rail_set_badges
 #undef cogito_nav_rail_set_toggle
 #undef cogito_nav_rail_set_selected
+#undef cogito_nav_rail_set_no_label
+#undef cogito_nav_rail_get_no_label
 #undef cogito_node_get_editable
 #undef cogito_node_new
 #undef cogito_node_parent
@@ -3157,6 +3161,19 @@ void cogito_nav_rail_set_selected(cogito_node *rail, int idx) {
   if (!rail)
     return;
   cogito_nav_rail_set_selected_ergo(EV_OBJ(rail), EV_INT(idx));
+}
+
+void cogito_nav_rail_set_no_label(cogito_node *rail, bool no_label) {
+  if (!rail)
+    return;
+  cogito_nav_rail_set_no_label_ergo(rail, no_label);
+}
+
+bool cogito_nav_rail_get_no_label(cogito_node *rail) {
+  if (!rail)
+    return false;
+  bool v = cogito_nav_rail_get_no_label_ergo(rail);
+  return ergo_as_bool(EV_BOOL(v));
 }
 
 void cogito_bottom_nav_set_items(cogito_node *nav, const char **labels,

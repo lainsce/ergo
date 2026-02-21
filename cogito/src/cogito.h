@@ -300,6 +300,8 @@ void cogito_nav_rail_set_items(cogito_node *rail, const char **labels,
 void cogito_nav_rail_set_badges(cogito_node *rail, const int *badges,
                                 size_t count);
 void cogito_nav_rail_set_toggle(cogito_node *rail, bool visible);
+void cogito_nav_rail_set_no_label(cogito_node *rail, bool no_label);
+bool cogito_nav_rail_get_no_label(cogito_node *rail);
 int cogito_nav_rail_get_selected(cogito_node *rail);
 void cogito_nav_rail_set_selected(cogito_node *rail, int idx);
 void cogito_nav_rail_on_change(cogito_node *rail, cogito_index_fn fn,
