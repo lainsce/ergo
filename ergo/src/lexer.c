@@ -528,7 +528,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
     lx.len = len;
     lx.i = 0;
     lx.line = 1;
-    lx.col = 1;
+    lx.col = 0;
     lx.nest = 0;
     lx.ret_depth = 0;
     lx.last_real = TOK_INVALID;
@@ -1032,7 +1032,15 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             continue;
         }
 
-        return set_error(&lx, err, lx.line, lx.col, "unexpected character");
+        // Show the unexpected character and its location in the error message
+        char unexpected = peek(&lx, 0);
+        if ((unsigned char)unexpected < 32 || unexpected == 127) {
+            // Non-printable characters - show as hex
+            return set_error(&lx, err, lx.line, lx.col, "unexpected character 0x%02X at line %d, column %d", (unsigned char)unexpected, lx.line, lx.col);
+        } else {
+            // Regular characters - show as-is
+            return set_error(&lx, err, lx.line, lx.col, "unexpected character '%c' at line %d, column %d", unexpected, lx.line, lx.col);
+        }
     }
 
     if (lx.nest == 0 && is_stmt_end(lx.last_sig)) {

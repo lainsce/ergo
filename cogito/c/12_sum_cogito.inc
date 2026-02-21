@@ -718,7 +718,7 @@ static bool cogito_sum_selector_kind(const char* sel, CogitoKind* out_kind, bool
   if (strcmp(s, "progress") == 0) { if (out_kind) *out_kind = COGITO_PROGRESS; return true; }
   if (strcmp(s, "scroller") == 0) { if (out_kind) *out_kind = COGITO_SCROLLER; return true; }
   if (strcmp(s, "searchfield") == 0) { if (out_kind) *out_kind = COGITO_SEARCHFIELD; return true; }
-  if (strcmp(s, "segmented") == 0) { if (out_kind) *out_kind = COGITO_SEGMENTED; return true; }
+  if (strcmp(s, "buttongroup") == 0) { if (out_kind) *out_kind = COGITO_BUTTON_GROUP; return true; }
   if (strcmp(s, "slider") == 0) { if (out_kind) *out_kind = COGITO_SLIDER; return true; }
   if (strcmp(s, "stepper") == 0) { if (out_kind) *out_kind = COGITO_STEPPER; return true; }
   if (strcmp(s, "switch") == 0) { if (out_kind) *out_kind = COGITO_SWITCH; return true; }

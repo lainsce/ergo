@@ -203,8 +203,8 @@ static const char *cogito_font_bold_path_active = NULL;
 #define cogito_searchfield_new cogito_searchfield_new_ergo
 #define cogito_searchfield_on_change cogito_searchfield_on_change_ergo
 #define cogito_searchfield_set_text cogito_searchfield_set_text_ergo
-#define cogito_segmented_new cogito_segmented_new_ergo
-#define cogito_segmented_on_select cogito_segmented_on_select_ergo
+#define cogito_buttongroup_new cogito_buttongroup_new_ergo
+#define cogito_buttongroup_on_select cogito_buttongroup_on_select_ergo
 #define cogito_slider_get_centered cogito_slider_get_centered_ergo
 #define cogito_slider_get_range_end cogito_slider_get_range_end_ergo
 #define cogito_slider_get_range_start cogito_slider_get_range_start_ergo
@@ -492,8 +492,8 @@ static const char *cogito_font_bold_path_active = NULL;
 #undef cogito_searchfield_new
 #undef cogito_searchfield_on_change
 #undef cogito_searchfield_set_text
-#undef cogito_segmented_new
-#undef cogito_segmented_on_select
+#undef cogito_buttongroup_new
+#undef cogito_buttongroup_on_select
 #undef cogito_slider_get_value
 #undef cogito_slider_new
 #undef cogito_slider_range_new
@@ -917,8 +917,8 @@ static CogitoKind cogito_kind_from_public(cogito_node_kind kind) {
     return COGITO_COLORPICKER;
   case COGITO_NODE_STEPPER:
     return COGITO_STEPPER;
-  case COGITO_NODE_SEGMENTED:
-    return COGITO_SEGMENTED;
+  case COGITO_NODE_BUTTON_GROUP:
+    return COGITO_BUTTON_GROUP;
   case COGITO_NODE_TREEVIEW:
     return COGITO_TREEVIEW;
   case COGITO_NODE_TOASTS:
@@ -1210,8 +1210,8 @@ cogito_node *cogito_stepper_new(double min, double max, double value,
   return cogito_from_val(cogito_stepper_new_ergo(
       EV_FLOAT(min), EV_FLOAT(max), EV_FLOAT(value), EV_FLOAT(step)));
 }
-cogito_node *cogito_segmented_new(void) {
-  return cogito_from_val(cogito_segmented_new_ergo());
+cogito_node *cogito_buttongroup_new(void) {
+  return cogito_from_val(cogito_buttongroup_new_ergo());
 }
 cogito_node *cogito_treeview_new(void) {
   return cogito_from_val(cogito_treeview_new_ergo());
@@ -2127,19 +2127,19 @@ void cogito_stepper_on_change(cogito_node *stepper, cogito_node_fn fn,
   ergo_release_val(EV_FN(wrap));
 }
 
-void cogito_segmented_on_select(cogito_node *seg, cogito_node_fn fn,
+void cogito_buttongroup_on_select(cogito_node *seg, cogito_node_fn fn,
                                 void *user) {
   if (!seg)
     return;
   if (!fn) {
-    cogito_segmented_on_select_ergo(EV_OBJ(seg), EV_NULLV);
+    cogito_buttongroup_on_select_ergo(EV_OBJ(seg), EV_NULLV);
     return;
   }
   CogitoCbNode *env = (CogitoCbNode *)calloc(1, sizeof(*env));
   env->fn = fn;
   env->user = user;
   ErgoFn *wrap = cogito_make_fn(cogito_cb_node, env);
-  cogito_segmented_on_select_ergo(EV_OBJ(seg), EV_FN(wrap));
+  cogito_buttongroup_on_select_ergo(EV_OBJ(seg), EV_FN(wrap));
   ergo_release_val(EV_FN(wrap));
 }
 

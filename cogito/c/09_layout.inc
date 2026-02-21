@@ -133,7 +133,7 @@ static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h) {
 
     #include "widgets/layout/stepper.inc"
 
-    #include "widgets/layout/segmented.inc"
+    #include "widgets/layout/buttongroup.inc"
 
     #include "widgets/layout/colorpicker.inc"
 

@@ -116,7 +116,11 @@ static const char *get_error_tip(const char *msg) {
     
     // Lexer errors
     if (strstr(msg, "unexpected character")) {
-        return "Check for invalid characters or encoding issues in your source file.";
+        // Check if the error message includes the actual character
+        if (strstr(msg, "0x")) {
+            return "Non-printable characters are not allowed. Check for encoding issues or stray bytes.";
+        }
+        return "Remove this invalid character from your source file.";
     }
     if (strstr(msg, "unterminated string")) {
         return "Make sure all string literals are closed with a matching quote.";

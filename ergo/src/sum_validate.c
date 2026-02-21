@@ -68,7 +68,7 @@ static const char *known_types[] = {
     "appbar", "bottom-nav", "button", "checkbox", "chip", "colorpicker", "datepicker",
     "dialog", "dialogslot", "divider", "dropdown", "fab", "fixed", "grid", "hstack",
     "iconbtn", "image", "label", "list", "menu", "nav-rail", "popover", "progress",
-    "scroller", "searchfield", "segmented", "slider", "stepper", "switch", "tabs",
+    "scroller", "searchfield", "buttongroup", "slider", "stepper", "switch", "tabs",
     "textfield", "textview", "toast", "toasts", "toolbar", "tooltip", "treeview", "viewswitcher",
     "bottom_nav", "dialog-slot", "dialog_slot", "bottom-toolbar", "bottom_toolbar"
 };

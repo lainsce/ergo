@@ -120,8 +120,8 @@
 #undef cogito_searchfield_new
 #undef cogito_searchfield_on_change
 #undef cogito_searchfield_set_text
-#undef cogito_segmented_new
-#undef cogito_segmented_on_select
+#undef cogito_buttongroup_new
+#undef cogito_buttongroup_on_select
 #undef cogito_settings_list_new
 #undef cogito_settings_page_new
 #undef cogito_settings_row_new
@@ -1455,8 +1455,8 @@ static ErgoVal __cogito_nav_rail(void) {
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
 }
 
-static ErgoVal __cogito_segmented(void) {
-  cogito_node* n = cogito_segmented_new();
+static ErgoVal __cogito_buttongroup(void) {
+  cogito_node* n = cogito_buttongroup_new();
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
 }
 
@@ -2141,16 +2141,16 @@ static void __cogito_stepper_on_change(ErgoVal stv, ErgoVal handler) {
   cogito_stepper_on_change(st, cogito_cb_change, h);
 }
 
-static void __cogito_segmented_on_select(ErgoVal segv, ErgoVal handler) {
+static void __cogito_buttongroup_on_select(ErgoVal segv, ErgoVal handler) {
   cogito_node* seg = cogito_node_from_val(segv);
   CogitoHandle* h = (CogitoHandle*)segv.as.p;
   if (handler.tag != EVT_FN) {
     cogito_set_handler(h, &h->on_change, handler);
-    cogito_segmented_on_select(seg, NULL, NULL);
+    cogito_buttongroup_on_select(seg, NULL, NULL);
     return;
   }
   cogito_set_handler(h, &h->on_change, handler);
-  cogito_segmented_on_select(seg, cogito_cb_change, h);
+  cogito_buttongroup_on_select(seg, cogito_cb_change, h);
 }
 
 static void __cogito_tabs_set_items(ErgoVal tabsv, ErgoVal itemsv) {
@@ -2651,7 +2651,7 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_tabs_new __cogito_tabs
 #define cogito_nav_rail_new __cogito_nav_rail
 #define cogito_bottom_nav_new __cogito_bottom_nav
-#define cogito_segmented_new __cogito_segmented
+#define cogito_buttongroup_new __cogito_buttongroup
 #define cogito_view_switcher_new __cogito_view_switcher
 #define cogito_progress_new __cogito_progress
 #define cogito_treeview_new __cogito_treeview

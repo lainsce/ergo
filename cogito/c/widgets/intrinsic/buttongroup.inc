@@ -1,4 +1,4 @@
-case COGITO_SEGMENTED: {
+case COGITO_BUTTON_GROUP: {
       int size = cogito_node_font_size(n);
       const int gap = 2;
       int total_w = 0;

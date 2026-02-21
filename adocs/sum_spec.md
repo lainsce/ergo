@@ -175,7 +175,7 @@ Current runtime recognizes these type selectors:
 - `progress`
 - `scroller`
 - `searchfield`
-- `segmented`
+- `buttongroup`
 - `slider`
 - `stepper`
 - `switch`

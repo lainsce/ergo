@@ -309,14 +309,14 @@ tabs
 tabs:selection
   background: @on-secondary
 
-segmented
+buttongroup
   background: transparent
   color: @on-surface
   border-radius: 100
   min-height: 56
   border: 1 solid @outline
 
-segmented:disabled
+buttongroup:disabled
   background: alpha(@on-background, 16%)
   color: alpha(@on-background, 32%)
 
@@ -719,7 +719,7 @@ searchfield:active
 searchfield:selection
   background: @primary
 
-segmented:selection
+buttongroup:selection
   background: @secondary-container
   color: @on-secondary-container
   border: 1 solid @secondary-container
@@ -750,7 +750,7 @@ switch .track:active
   background: @primary
 
 ; Keyboard focus ring
-button:focus, button.text:focus, button.outlined:focus, iconbtn:focus, fab:focus, chip:focus, checkbox:focus, radio:focus, slider:focus, stepper:focus, segmented:focus, dropdown:focus, datepicker:focus, colorpicker:focus, nav-rail:focus, bottom-nav:focus
+button:focus, button.text:focus, button.outlined:focus, iconbtn:focus, fab:focus, chip:focus, checkbox:focus, radio:focus, slider:focus, stepper:focus, buttongroup:focus, dropdown:focus, datepicker:focus, colorpicker:focus, nav-rail:focus, bottom-nav:focus
   border: 2 solid @primary
 
 switch .knob

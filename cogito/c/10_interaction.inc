@@ -134,7 +134,7 @@ static void cogito_container_remove_child(CogitoNode* parent, CogitoNode* child)
 #include "widgets/interaction/progress.inc"
 #include "widgets/interaction/scroller.inc"
 #include "widgets/interaction/searchfield.inc"
-#include "widgets/interaction/segmented.inc"
+#include "widgets/interaction/buttongroup.inc"
 #include "widgets/interaction/slider.inc"
 #include "widgets/interaction/stepper.inc"
 #include "widgets/interaction/switch.inc"
@@ -267,7 +267,7 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
       n->kind == COGITO_TABS || n->kind == COGITO_TOAST ||
       n->kind == COGITO_DATEPICKER || n->kind == COGITO_COLORPICKER ||
       n->kind == COGITO_CHIP || n->kind == COGITO_FAB ||
-      n->kind == COGITO_STEPPER || n->kind == COGITO_SEGMENTED ||
+      n->kind == COGITO_STEPPER || n->kind == COGITO_BUTTON_GROUP ||
       n->kind == COGITO_SEARCHFIELD ||
       n->kind == COGITO_NAV_RAIL || n->kind == COGITO_BOTTOM_NAV ||
       n->kind == COGITO_TIMEPICKER || n->kind == COGITO_BANNER ||
@@ -322,7 +322,7 @@ static bool cogito_node_focusable(const CogitoNode* n) {
     #include "widgets/interaction/focusable/nav_rail.inc"
     #include "widgets/interaction/focusable/bottom_nav.inc"
     #include "widgets/interaction/focusable/stepper.inc"
-    #include "widgets/interaction/focusable/segmented.inc"
+    #include "widgets/interaction/focusable/buttongroup.inc"
     #include "widgets/interaction/focusable/searchfield.inc"
     default:
       return false;

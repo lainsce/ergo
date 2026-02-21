@@ -370,10 +370,10 @@
                         return true;
                     }
                     if (str_eq_c(fname,
-                    "__cogito_segmented")) {
+                    "__cogito_buttongroup")) {
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w,
-                        "ErgoVal %s = cogito_segmented_new();", t);
+                        "ErgoVal %s = cogito_buttongroup_new();", t);
                         gen_expr_add(out, t);
                         out->tmp = t;
                         return true;

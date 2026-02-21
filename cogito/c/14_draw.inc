@@ -1153,7 +1153,7 @@ case COGITO_TOASTS:
 
     #include "widgets/draw/stepper.inc"
 
-    #include "widgets/draw/segmented.inc"
+    #include "widgets/draw/buttongroup.inc"
 
     #include "widgets/draw/treeview.inc"
 

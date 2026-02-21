@@ -59,7 +59,7 @@ typedef enum {
   COGITO_NODE_DATEPICKER,
   COGITO_NODE_COLORPICKER,
   COGITO_NODE_STEPPER,
-  COGITO_NODE_SEGMENTED,
+  COGITO_NODE_BUTTON_GROUP,
   COGITO_NODE_TREEVIEW,
   COGITO_NODE_TOASTS,
   COGITO_NODE_TOAST,
@@ -191,7 +191,7 @@ cogito_node *cogito_datepicker_new(void);
 cogito_node *cogito_colorpicker_new(void);
 cogito_node *cogito_stepper_new(double min, double max, double value,
                                 double step);
-cogito_node *cogito_segmented_new(void);
+cogito_node *cogito_buttongroup_new(void);
 cogito_node *cogito_treeview_new(void);
 cogito_node *cogito_toasts_new(void);
 cogito_node *cogito_toast_new(const char *text);
@@ -359,7 +359,7 @@ void cogito_stepper_set_value(cogito_node *stepper, double value);
 double cogito_stepper_get_value(cogito_node *stepper);
 void cogito_stepper_on_change(cogito_node *stepper, cogito_node_fn fn,
                               void *user);
-void cogito_segmented_on_select(cogito_node *seg, cogito_node_fn fn,
+void cogito_buttongroup_on_select(cogito_node *seg, cogito_node_fn fn,
                                 void *user);
 
 // Theming

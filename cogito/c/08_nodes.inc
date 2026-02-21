@@ -370,7 +370,7 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
 
     #include "widgets/intrinsic/tabs.inc"
 
-    #include "widgets/intrinsic/segmented.inc"
+    #include "widgets/intrinsic/buttongroup.inc"
 
     #include "widgets/intrinsic/view_switcher.inc"
 

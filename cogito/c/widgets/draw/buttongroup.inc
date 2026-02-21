@@ -1,4 +1,4 @@
-case COGITO_SEGMENTED: {
+case COGITO_BUTTON_GROUP: {
       bool hover = false, active = false;
       cogito_node_hover_state(n, &hover, &active);
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);

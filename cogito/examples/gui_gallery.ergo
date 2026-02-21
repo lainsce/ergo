@@ -586,10 +586,10 @@ fun build_tabs_page() (( cogito.VStack )) {
     return vstack
 }
 
-fun build_segmented_page() (( cogito.VStack )) {
-    let vstack = build_page(@"Segmented Control", @"Segmented controls expose a compact set of mutually exclusive options.")
+fun build_buttongroup_page() (( cogito.VStack )) {
+    let vstack = build_page(@"ButtonGroup Control", @"ButtonGroup controls expose a compact set of mutually exclusive options.")
 
-    let seg = cogito.segmented()
+    let seg = cogito.buttongroup()
     .add(cogito.label(@"Day"))
     .add(cogito.label(@"Week"))
     .add(cogito.label(@"Month"))
@@ -1372,7 +1372,25 @@ fun build_typography_page() (( cogito.VStack )) {
     .set_hexpand(true)
     tabular_row.add(nums)
 
+    let monospace_row = cogito.hstack()
+    .set_hexpand(true)
+    .set_gap(24)
+    .set_padding(10, 0, 0, 0)
+
+    let monospace_name = cogito.label(@"Monospace")
+    .set_class(@"content-title")
+    monospace_name.set_valign(1)
+    monospace_row.add(monospace_name)
+
+    let bash = cogito.label(@"$ bash ~/")
+    .set_class(@"monospace")
+    .set_text_align(2)
+    .set_valign(1)
+    .set_hexpand(true)
+    monospace_row.add(bash)
+
     table.add(tabular_row)
+    table.add(monospace_row)
     vstack.add(table)
 
     return vstack
@@ -1470,7 +1488,7 @@ fun view_id_from_index(idx = num) (( string )) {
     } elif idx == 16 {
         @"tabs"
     } elif idx == 17 {
-        @"segmented"
+        @"buttongroup"
     } elif idx == 18 {
         @"chip"
     } elif idx == 19 {
@@ -1568,7 +1586,7 @@ fun view_title_from_index(idx = num) (( string )) {
     } elif idx == 16 {
         @"Tabs"
     } elif idx == 17 {
-        @"Segmented Control"
+        @"ButtonGroup Control"
     } elif idx == 18 {
         @"Chip"
     } elif idx == 19 {
@@ -1659,7 +1677,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
     .add(@"list", (vs = cogito.ViewSwitcher) => build_list_page())
     .add(@"grid", (vs = cogito.ViewSwitcher) => build_grid_page())
     .add(@"tabs", (vs = cogito.ViewSwitcher) => build_tabs_page())
-    .add(@"segmented", (vs = cogito.ViewSwitcher) => build_segmented_page())
+    .add(@"buttongroup", (vs = cogito.ViewSwitcher) => build_buttongroup_page())
     .add(@"chip", (vs = cogito.ViewSwitcher) => build_chip_page())
     .add(@"fab", (vs = cogito.ViewSwitcher) => build_fab_page())
     .add(@"carousel", (vs = cogito.ViewSwitcher) => build_carousel_page())
@@ -1718,7 +1736,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
     .add(cogito.label(@"List").set_padding(10,16,10,16))
     .add(cogito.label(@"Grid").set_padding(10,16,10,16))
     .add(cogito.label(@"Tabs").set_padding(10,16,10,16))
-    .add(cogito.label(@"Segmented").set_padding(10,16,10,16))
+    .add(cogito.label(@"ButtonGroup").set_padding(10,16,10,16))
     .add(cogito.label(@"Chip").set_padding(10,16,10,16))
     .add(cogito.label(@"FAB").set_padding(10,16,10,16))
     .add(cogito.label(@"Carousel").set_padding(10,16,10,16))

@@ -363,10 +363,11 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   ".body\n  color: %s\n  font-size: 14\n  font-weight: normal\n", ons);
   cogito_sum_append(out, cap, &off,
   ".caption\n  color: %s\n  font-size: 12\n  font-weight: bold\n", ons);
+
   cogito_sum_append(out, cap, &off,
-  ".tabular\n  font-size: 14\n  font-weight: normal\n  font-variant-numeric: tnum\n");
+  ".tabular\n  font-variant-numeric: tnum\n");
   cogito_sum_append(out, cap, &off,
-  ".monospace\n  font-size: 14\n  font-weight: normal\n");
+  ".monospace\n  font-variant-monospace: monospace\n");
 
   cogito_sum_append(out, cap, &off,
   "about_window\n  background: %s\n  color: %s\n  border-radius: 26\n  padding: 24\n", sch, ons);
@@ -445,7 +446,7 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "button:disabled\n  background: %s29\n  color: %s52\n", ons, ons);
   cogito_sum_append(out, cap, &off,
-  "button:focus, iconbtn:focus, checkbox:focus, switch:focus, slider:focus, dropdown:focus, chip:focus, segmented:focus, stepper:focus, fab:focus, nav_rail:focus, bottom_nav:focus, datepicker:focus, colorpicker:focus, timepicker:focus\n  border-color: %s\n  border-width: 2\n", p);
+  "button:focus, iconbtn:focus, checkbox:focus, switch:focus, slider:focus, dropdown:focus, chip:focus, buttongroup:focus, stepper:focus, fab:focus, nav_rail:focus, bottom_nav:focus, datepicker:focus, colorpicker:focus, timepicker:focus\n  border-color: %s\n  border-width: 2\n", p);
   // MD3: hover stays on primary bg (state layer handles the tint in button.inc)
   cogito_sum_append(out, cap, &off,
   "button:hover\n  background: %s\n  color: %s\n", p, op);
@@ -690,11 +691,11 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "searchfield\n  background: %s\n  color: %s\n  border-radius: 999\n  min-height: 56\n  min-width: 240\n  padding: 6 16\n  transition: 180 standard\n", sch, ons);
   cogito_sum_append(out, cap, &off,
-  "segmented:disabled\n  background: %s29\n  color: %s52\n", ons, ons);
+  "buttongroup:disabled\n  background: %s29\n  color: %s52\n", ons, ons);
   cogito_sum_append(out, cap, &off,
-  "segmented:selection\n  background: %s\n  color: %s\n  border: 1 solid %s\n", secc, osecc, secc);
+  "buttongroup:selection\n  background: %s\n  color: %s\n  border: 1 solid %s\n", sec, osec, sec);
   cogito_sum_append(out, cap, &off,
-  "segmented\n  background: transparent\n  color: %s\n  border-radius: 100\n  min-height: 40\n  border: 1 solid %s\n  transition: 180 standard\n", ons, outl);
+  "buttongroup\n  background: %s\n  color: %s\n  border-radius: 100\n  min-height: 40\n  border: 1 solid %s\n  transition: 180 standard\n", secc, osecc, secc);
   cogito_sum_append(out, cap, &off,
   "settings_list\n  background: %s\n  color: %s\n  border-radius: 12\n", surf, ons);
   cogito_sum_append(out, cap, &off,
