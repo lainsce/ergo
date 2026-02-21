@@ -309,17 +309,6 @@ tabs
 tabs:selection
   background: @on-secondary
 
-buttongroup
-  background: transparent
-  color: @on-surface
-  border-radius: 100
-  min-height: 56
-  border: 1 solid @outline
-
-buttongroup:disabled
-  background: alpha(@on-background, 16%)
-  color: alpha(@on-background, 32%)
-
 viewswitcher
   background: @on-secondary
   color: @on-background

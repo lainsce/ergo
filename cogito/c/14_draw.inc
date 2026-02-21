@@ -1067,144 +1067,79 @@ static void cogito_draw_node(CogitoNode* n) {
     }
   }
   switch (n->kind) {
-
     #include "widgets/draw/button.inc"
-
     #include "widgets/draw/carousel.inc"
-
     #include "widgets/draw/carousel_item.inc"
-
     #include "widgets/draw/iconbtn.inc"
-
     #include "widgets/draw/image.inc"
-
     #include "widgets/draw/label.inc"
-
     #include "widgets/draw/textfield.inc"
-
     #include "widgets/draw/textview.inc"
-
     #include "widgets/draw/dropdown.inc"
-
     #include "widgets/draw/datepicker.inc"
-
     #include "widgets/draw/fab.inc"
-
     #include "widgets/draw/nav_rail.inc"
-
     #include "widgets/draw/bottom_nav.inc"
-
     #include "widgets/draw/slider.inc"
-
     #include "widgets/draw/colorpicker.inc"
-
     #include "widgets/draw/tabs.inc"
-
     #include "widgets/draw/progress.inc"
-
     #include "widgets/draw/toast.inc"
-
     #include "widgets/draw/checkbox.inc"
-
     #include "widgets/draw/chip.inc"
-
     #include "widgets/draw/switch.inc"
-
     #include "widgets/draw/list.inc"
-
     #include "widgets/draw/grid.inc"
-
     #include "widgets/draw/appbar.inc"
-
     #include "widgets/draw/dialog.inc"
-
     #include "widgets/draw/popover.inc"
-
     #include "widgets/draw/bottom_toolbar.inc"
-
     #include "widgets/draw/dialog_slot.inc"
-
     #include "widgets/draw/view_switcher.inc"
 
 case COGITO_TOASTS:
       if (!cogito_toasts_force_draw) {
-        CogitoNode* win = cogito_node_window(n);
-        if (win) break;
-    }
+          CogitoNode* win = cogito_node_window(n);
+          if (win) break;
+      }
       for (size_t i = 0; i < n->len; i++) {
-        cogito_draw_node(n->children[i
-      ]);
-    }
+          cogito_draw_node(n->children[i]);
+      }
       break;
-
     #include "widgets/draw/vstack.inc"
-
     #include "widgets/draw/hstack.inc"
-
     #include "widgets/draw/zstack.inc"
-
     #include "widgets/draw/fixed.inc"
-
     #include "widgets/draw/window.inc"
-
     #include "widgets/draw/scroller.inc"
-
     #include "widgets/draw/searchfield.inc"
-
     #include "widgets/draw/stepper.inc"
-
-    #include "widgets/draw/buttongroup.inc"
-
     #include "widgets/draw/treeview.inc"
-
     #include "widgets/draw/tooltip.inc"
-
     #include "widgets/draw/divider.inc"
-
     #include "widgets/draw/menu_section.inc"
-
     #include "widgets/draw/card.inc"
-
     #include "widgets/draw/avatar.inc"
-
     #include "widgets/draw/badge.inc"
-
     #include "widgets/draw/banner.inc"
-
     #include "widgets/draw/bottom_sheet.inc"
-
     #include "widgets/draw/side_sheet.inc"
-
     #include "widgets/draw/timepicker.inc"
-
     #include "widgets/draw/active_indicator.inc"
-
     #include "widgets/draw/switchbar.inc"
-
     #include "widgets/draw/content_list.inc"
-
     #include "widgets/draw/empty_page.inc"
-
     #include "widgets/draw/tip_view.inc"
-
     #include "widgets/draw/settings_window.inc"
-
     #include "widgets/draw/settings_page.inc"
-
     #include "widgets/draw/settings_list.inc"
-
     #include "widgets/draw/settings_row.inc"
-
     #include "widgets/draw/welcome_screen.inc"
-
     #include "widgets/draw/view_dual.inc"
-
     #include "widgets/draw/view_chooser.inc"
-
     #include "widgets/draw/about_window.inc"
-
     #include "widgets/draw/split_button.inc"
-
+    #include "widgets/draw/buttongroup.inc"
     case COGITO_KIND_COUNT:
       break;
   }

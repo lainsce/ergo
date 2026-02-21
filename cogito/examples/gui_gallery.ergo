@@ -589,12 +589,153 @@ fun build_tabs_page() (( cogito.VStack )) {
 fun build_buttongroup_page() (( cogito.VStack )) {
     let vstack = build_page(@"ButtonGroup Control", @"ButtonGroup controls expose a compact set of mutually exclusive options.")
 
+    let status = cogito.label(@"Select a time range.")
+    .set_class(@"body")
+    vstack.add(status)
+
+    -- Section: Default ButtonGroup
+    let default_label = cogito.label(@"Default")
+    .set_class(@"heading")
+    vstack.add(default_label)
+
     let seg = cogito.buttongroup()
-    .add(cogito.label(@"Day"))
-    .add(cogito.label(@"Week"))
-    .add(cogito.label(@"Month"))
-    .add(cogito.label(@"Year"))
+    .add(cogito.button(@"Day"))
+    .add(cogito.button(@"Week"))
+    .add(cogito.button(@"Month"))
+    .add(cogito.button(@"Year"))
+    .on_select((idx) => {
+        let opt = if idx == 0 { @"Day" } elif idx == 1 { @"Week" } elif idx == 2 { @"Month" } else { @"Year" }
+        status.set_text(@"Selected: $opt")
+    })
     vstack.add(seg)
+
+    -- Section: Sizes
+    let sizes_label = cogito.label(@"Sizes")
+    .set_class(@"heading")
+    vstack.add(sizes_label)
+
+    let sizes_info = cogito.label(@"ButtonGroup supports 5 sizes: XS(0), S(1), M(2), L(3), XL(4)")
+    .set_class(@"body")
+    .set_wrap(true)
+    vstack.add(sizes_info)
+
+    let sizes_row = cogito.hstack()
+    .set_gap(12)
+    .set_hexpand(true)
+
+    let xs_bg = cogito.buttongroup()
+    .add(cogito.button(@"XS"))
+    .set_size(0)
+    .on_select((idx) => {
+        status.set_text(@"XS size selected, index: $idx")
+    })
+    sizes_row.add(xs_bg)
+
+    let s_bg = cogito.buttongroup()
+    .add(cogito.button(@"S"))
+    .set_size(1)
+    .on_select((idx) => {
+        status.set_text(@"S size selected, index: $idx")
+    })
+    sizes_row.add(s_bg)
+
+    let m_bg = cogito.buttongroup()
+    .add(cogito.button(@"M"))
+    .set_size(2)
+    .on_select((idx) => {
+        status.set_text(@"M size selected, index: $idx")
+    })
+    sizes_row.add(m_bg)
+
+    vstack.add(sizes_row)
+
+    -- Section: Shapes
+    let shapes_label = cogito.label(@"Shapes")
+    .set_class(@"heading")
+    vstack.add(shapes_label)
+
+    let shapes_info = cogito.label(@"Two shapes: Round(0) and Square(1)")
+    .set_class(@"body")
+    .set_wrap(true)
+    vstack.add(shapes_info)
+
+    let shapes_row = cogito.hstack()
+    .set_gap(24)
+    .set_hexpand(true)
+
+    let round_label = cogito.label(@"Round")
+    .set_class(@"body")
+    shapes_row.add(round_label)
+
+    let round_bg = cogito.buttongroup()
+    .add(cogito.button(@"A"))
+    .add(cogito.button(@"B"))
+    .add(cogito.button(@"C"))
+    .set_shape(0)
+    .on_select((idx) => {
+        status.set_text(@"Round shape selected, index: $idx")
+    })
+    shapes_row.add(round_bg)
+
+    let square_label = cogito.label(@"Square")
+    .set_class(@"body")
+    shapes_row.add(square_label)
+
+    let square_bg = cogito.buttongroup()
+    .add(cogito.button(@"A"))
+    .add(cogito.button(@"B"))
+    .add(cogito.button(@"C"))
+    .set_shape(1)
+    .on_select((idx) => {
+        status.set_text(@"Square shape selected, index: $idx")
+    })
+    shapes_row.add(square_bg)
+
+    vstack.add(shapes_row)
+
+    -- Section: Connected
+    let connected_label = cogito.label(@"Connected")
+    .set_class(@"heading")
+    vstack.add(connected_label)
+
+    let connected_info = cogito.label(@"Connected mode removes internal spacing between segments")
+    .set_class(@"body")
+    .set_wrap(true)
+    vstack.add(connected_info)
+
+    let connected_row = cogito.hstack()
+    .set_gap(24)
+    .set_hexpand(true)
+
+    let disconnected_label = cogito.label(@"Not Connected")
+    .set_class(@"body")
+    connected_row.add(disconnected_label)
+
+    let disconnected_bg = cogito.buttongroup()
+    .add(cogito.button(@"One"))
+    .add(cogito.button(@"Two"))
+    .add(cogito.button(@"Three"))
+    .set_connected(false)
+    .on_select((idx) => {
+        status.set_text(@"Disconnected mode, index: $idx")
+    })
+    connected_row.add(disconnected_bg)
+
+    let connected_label2 = cogito.label(@"Connected")
+    .set_class(@"body")
+    connected_row.add(connected_label2)
+
+    let connected_bg = cogito.buttongroup()
+    .add(cogito.button(@"One"))
+    .add(cogito.button(@"Two"))
+    .add(cogito.button(@"Three"))
+    .set_connected(true)
+    .on_select((idx) => {
+        status.set_text(@"Connected mode, index: $idx")
+    })
+    connected_row.add(connected_bg)
+
+    vstack.add(connected_row)
 
     return vstack
 }
@@ -1586,7 +1727,7 @@ fun view_title_from_index(idx = num) (( string )) {
     } elif idx == 16 {
         @"Tabs"
     } elif idx == 17 {
-        @"ButtonGroup Control"
+        @"ButtonGroups"
     } elif idx == 18 {
         @"Chip"
     } elif idx == 19 {
@@ -1718,7 +1859,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
 
     let sidebar_list = cogito.list()
     .set_vexpand(true)
-    .set_padding(18, 0, 18, 0)
+    .set_padding(8, 8, 8, 8)
     .add(cogito.label(@"Button").set_padding(10,16,10,16))
     .add(cogito.label(@"Icon Button").set_padding(10,16,10,16))
     .add(cogito.label(@"TextField").set_padding(10,16,10,16))

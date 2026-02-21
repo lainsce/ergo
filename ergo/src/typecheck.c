@@ -2168,8 +2168,7 @@ method_call:
                 }
             }
             if (!method) {
-                set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: '%.*s' has no method '%.*s'",
-                         (int)ctx->cask_path.len, ctx->cask_path.data,
+                set_errf(err, ctx->cask_path, fn->line, fn->col, "'%.*s' has no method '%.*s'",
                          (int)ci->name.len, ci->name.data,
                          (int)mname.len, mname.data);
                 return NULL;

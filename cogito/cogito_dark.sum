@@ -515,11 +515,6 @@ searchfield:active
 searchfield:selection
   background: @surface-container-highest
 
-buttongroup:selection
-  background: @secondary-container
-  color: @on-secondary-container
-  border: 1 solid @secondary-container
-
 iconbtn:hover
   background: @surface-container-highest
   color: @on-background

@@ -122,6 +122,12 @@
 #undef cogito_searchfield_set_text
 #undef cogito_buttongroup_new
 #undef cogito_buttongroup_on_select
+#undef cogito_buttongroup_set_size
+#undef cogito_buttongroup_get_size
+#undef cogito_buttongroup_set_shape
+#undef cogito_buttongroup_get_shape
+#undef cogito_buttongroup_set_connected
+#undef cogito_buttongroup_get_connected
 #undef cogito_settings_list_new
 #undef cogito_settings_page_new
 #undef cogito_settings_row_new
@@ -2153,6 +2159,42 @@ static void __cogito_buttongroup_on_select(ErgoVal segv, ErgoVal handler) {
   cogito_buttongroup_on_select(seg, cogito_cb_change, h);
 }
 
+static void __cogito_buttongroup_set_size(ErgoVal bgv, ErgoVal sizev) {
+  cogito_node* bg = cogito_node_from_val(bgv);
+  int size = (int)ergo_as_int(sizev);
+  if (size < 0) size = 0;
+  if (size > 4) size = 4;
+  cogito_buttongroup_set_size(bg, size);
+}
+
+static ErgoVal __cogito_buttongroup_get_size(ErgoVal bgv) {
+  cogito_node* bg = cogito_node_from_val(bgv);
+  return EV_INT(cogito_buttongroup_get_size(bg));
+}
+
+static void __cogito_buttongroup_set_shape(ErgoVal bgv, ErgoVal shapev) {
+  cogito_node* bg = cogito_node_from_val(bgv);
+  int shape = (int)ergo_as_int(shapev);
+  if (shape < 0) shape = 0;
+  if (shape > 1) shape = 1;
+  cogito_buttongroup_set_shape(bg, shape);
+}
+
+static ErgoVal __cogito_buttongroup_get_shape(ErgoVal bgv) {
+  cogito_node* bg = cogito_node_from_val(bgv);
+  return EV_INT(cogito_buttongroup_get_shape(bg));
+}
+
+static void __cogito_buttongroup_set_connected(ErgoVal bgv, ErgoVal connectedv) {
+  cogito_node* bg = cogito_node_from_val(bgv);
+  cogito_buttongroup_set_connected(bg, ergo_as_bool(connectedv));
+}
+
+static ErgoVal __cogito_buttongroup_get_connected(ErgoVal bgv) {
+  cogito_node* bg = cogito_node_from_val(bgv);
+  return EV_BOOL(cogito_buttongroup_get_connected(bg));
+}
+
 static void __cogito_tabs_set_items(ErgoVal tabsv, ErgoVal itemsv) {
   cogito_node* tabs = cogito_node_from_val(tabsv);
   if (itemsv.tag != EVT_ARR) ergo_trap("cogito.tabs_set_items expects array");
@@ -2888,4 +2930,10 @@ void __cogito_button_on_click(ErgoVal btn, ErgoVal handler);
 #define cogito_split_button_new __cogito_split_button
 #define cogito_split_button_add_menu __cogito_split_button_add_menu
 #define cogito_split_button_add_menu_section __cogito_split_button_add_menu_section
+#define cogito_buttongroup_set_size __cogito_buttongroup_set_size
+#define cogito_buttongroup_get_size __cogito_buttongroup_get_size
+#define cogito_buttongroup_set_shape __cogito_buttongroup_set_shape
+#define cogito_buttongroup_get_shape __cogito_buttongroup_get_shape
+#define cogito_buttongroup_set_connected __cogito_buttongroup_set_connected
+#define cogito_buttongroup_get_connected __cogito_buttongroup_get_connected
 // cogito_set_script_dir is provided by the cogito library

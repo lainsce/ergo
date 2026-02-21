@@ -82,7 +82,8 @@ Current public kinds include:
 
 - Window/container: `window`, `vstack`, `hstack`, `zstack`, `fixed`, `scroller`, `list`, `grid`.
 - Text/content: `label`, `image`, `tooltip`.
-- Actions/inputs: `button`, `iconbtn`, `fab`, `checkbox`, `switch`, `chip`, `textfield`, `textview`, `searchfield`, `dropdown`, `slider`, `stepper`, `buttongroup`.
+- Button/container: `buttongroup`
+- Actions/inputs: `button`, `iconbtn`, `fab`, `checkbox`, `switch`, `chip`, `textfield`, `textview`, `searchfield`, `dropdown`, `slider`, `stepper`.
 - Navigation/surfaces: `tabs`, `view_switcher`, `appbar`, `bottom_toolbar`, `nav_rail`, `bottom_nav`, `dialog`, `dialog_slot`, `toast`, `toasts`, `treeview`, `progress`, `datepicker`, `colorpicker`.
 
 Exact C enum values are defined in `cogito/src/cogito.h`.

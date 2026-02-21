@@ -361,6 +361,12 @@ void cogito_stepper_on_change(cogito_node *stepper, cogito_node_fn fn,
                               void *user);
 void cogito_buttongroup_on_select(cogito_node *seg, cogito_node_fn fn,
                                 void *user);
+void cogito_buttongroup_set_size(cogito_node *bg, int size);
+int cogito_buttongroup_get_size(cogito_node *bg);
+void cogito_buttongroup_set_shape(cogito_node *bg, int shape);
+int cogito_buttongroup_get_shape(cogito_node *bg);
+void cogito_buttongroup_set_connected(cogito_node *bg, bool connected);
+bool cogito_buttongroup_get_connected(cogito_node *bg);
 
 // Theming
 void cogito_load_sum_file(const char *path);

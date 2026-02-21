@@ -60,7 +60,7 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_rgb_to_hct(accent, &h, &c, &t);
 
   // === Full Color Token System ===
-  // Primary palette — MD3 Expressive: chroma 36 dark / 40 light
+  // Primary palette — Expressive: chroma 36 dark / 40 light
   double primary_c = dark ? 36.0 : 40.0;
   CogitoColor primary = cogito_hct_to_rgb(h, primary_c, dark ? 80.0 : 40.0);
   CogitoColor on_primary = dark ? cogito_hct_to_rgb(h, primary_c,
@@ -71,7 +71,7 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   CogitoColor surface_tint = cogito_alpha(primary,
   0.1f);
 
-  // Secondary palette — MD3 Expressive: +60° hue, chroma 24 for vibrancy
+  // Secondary palette — Expressive: +60° hue, chroma 24 for vibrancy
   double secondary_h = cogito_sum_sanitize_degrees(h + 60.0);
   double secondary_c = 24.0;
   CogitoColor secondary = cogito_hct_to_rgb(secondary_h, secondary_c, dark ? 80.0 : 40.0);
@@ -447,7 +447,6 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   "button:disabled\n  background: %s29\n  color: %s52\n", ons, ons);
   cogito_sum_append(out, cap, &off,
   "button:focus, iconbtn:focus, checkbox:focus, switch:focus, slider:focus, dropdown:focus, chip:focus, buttongroup:focus, stepper:focus, fab:focus, nav_rail:focus, bottom_nav:focus, datepicker:focus, colorpicker:focus, timepicker:focus\n  border-color: %s\n  border-width: 2\n", p);
-  // MD3: hover stays on primary bg (state layer handles the tint in button.inc)
   cogito_sum_append(out, cap, &off,
   "button:hover\n  background: %s\n  color: %s\n", p, op);
   cogito_sum_append(out, cap, &off,
@@ -474,7 +473,6 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   "button\n  background: %s\n  color: %s\n  font-weight: bold\n  transition: 180 standard\n", p, op);
   cogito_sum_append(out, cap, &off,
   "card:hover\n  box-shadow: [ 0 2 8 0 #0000002a ]\n");
-  // MD3 Expressive Card: L=16dp corner radius
   cogito_sum_append(out, cap, &off,
   "card\n  background: %s\n  color: %s\n  border-radius: 16\n  padding: 16\n  transition: 200 standard\n", sclo, ons);
   cogito_sum_append(out, cap, &off,
@@ -499,7 +497,6 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   "checkbox .check\n  color: %s\n", ons);
   cogito_sum_append(out, cap, &off,
   "checkbox:checked .box\n  background: %s\n  border: 0 none %s\n", p, p);
-  // MD3: checkmark on filled primary box must use on_primary, not on_surface
   cogito_sum_append(out, cap, &off,
   "checkbox:checked .check\n  color: %s\n", op);
   cogito_sum_append(out, cap, &off,
@@ -693,9 +690,9 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "buttongroup:disabled\n  background: %s29\n  color: %s52\n", ons, ons);
   cogito_sum_append(out, cap, &off,
-  "buttongroup:selection\n  background: %s\n  color: %s\n  border: 1 solid %s\n", sec, osec, sec);
+  "buttongroup:selection\n  background: %s\n  color: %s\n", sec, osec);
   cogito_sum_append(out, cap, &off,
-  "buttongroup\n  background: %s\n  color: %s\n  border-radius: 100\n  min-height: 40\n  border: 1 solid %s\n  transition: 180 standard\n", secc, osecc, secc);
+  "buttongroup\n  background: %s\n  color: %s\n  transition: 180 standard\n", secc, osecc);
   cogito_sum_append(out, cap, &off,
   "settings_list\n  background: %s\n  color: %s\n  border-radius: 12\n", surf, ons);
   cogito_sum_append(out, cap, &off,
@@ -828,8 +825,6 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   "window\n  background: %s\n", surf);
   cogito_sum_append(out, cap, &off,
   "zstack\n  background: %s\n  color: %s\n", bg, ons);
-
-  // --- Selectors that exist in system .sum files but were previously missing ---
   cogito_sum_append(out, cap, &off,
   ".on-error\n  background: %s\n  color: %s\n", err, oerr);
   cogito_sum_append(out, cap, &off,

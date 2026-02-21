@@ -1574,6 +1574,10 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             cogito_ripple_start(hit, mx, my);
           }
           if (hit->kind == COGITO_BUTTON || hit->kind == COGITO_ICONBTN) {
+            // Check if button is in a ButtonGroup - update selection first
+            if (hit->parent && hit->parent->kind == COGITO_BUTTON_GROUP) {
+              cogito_buttongroup_child_clicked(hit->parent, hit);
+            }
             CogitoNode* about_host = (hit->kind == COGITO_BUTTON) ? cogito_about_window_for_action_button(hit) : NULL;
             const char* about_url = cogito_about_window_action_url(hit, about_host);
             if (about_host && about_url) {
@@ -1801,9 +1805,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             cogito_stepper_click(hit, mx, my);
           } else if (hit->kind == COGITO_TIMEPICKER) {
             cogito_timepicker_click(hit, mx, my);
-          } else if (hit->kind == COGITO_BUTTON_GROUP) {
-            cogito_buttongroup_click(hit, mx, my);
-            cogito_window_relayout(win);
           } else if (hit->kind == COGITO_TREEVIEW) {
             if (cogito_treeview_click(hit, mx, my)) {
               cogito_window_relayout(win);

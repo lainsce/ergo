@@ -91,13 +91,15 @@ static void cogito_apply_theme(bool dark, CogitoColor accent);
 #define COGITO_SPRING_K_EXPRESSIVE   750.0
 #define COGITO_SPRING_Z_EXPRESSIVE   0.65
 // Functional: critically/over-damped, no overshoot (toolbars, layout, opacity)
-#define COGITO_SPRING_K_FUNCTIONAL   1200.0
-#define COGITO_SPRING_Z_FUNCTIONAL   1.0
+#define COGITO_SPRING_K_FUNCTIONAL   1400.0
+#define COGITO_SPRING_Z_FUNCTIONAL   0.9
 // Second-Order Spring state (one instance per animated scalar/channel)
 typedef struct {
   double x; // current value
+  double y; // current acceleration
   double v; // current velocity  (preserved on target change for continuity)
-  bool   inited;
+  bool   inited; // has been initialized
+  double target; // target value
 } CogitoSpring;
 
 // Advance a spring by dt seconds toward target.
@@ -866,6 +868,9 @@ typedef struct CogitoNode {
     } menu_section;
     struct { bool vibrant;
     } toolbar;
+    // ButtonGroup: size (0-4 for XS-XL), shape (0=round,1=square), connected (0=standard,1=connected)
+    struct { int size; int shape; int connected;
+    } buttongroup;
   };
 } CogitoNode;
 

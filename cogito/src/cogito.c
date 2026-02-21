@@ -205,6 +205,12 @@ static const char *cogito_font_bold_path_active = NULL;
 #define cogito_searchfield_set_text cogito_searchfield_set_text_ergo
 #define cogito_buttongroup_new cogito_buttongroup_new_ergo
 #define cogito_buttongroup_on_select cogito_buttongroup_on_select_ergo
+#define cogito_buttongroup_set_size cogito_buttongroup_set_size_ergo
+#define cogito_buttongroup_get_size cogito_buttongroup_get_size_ergo
+#define cogito_buttongroup_set_shape cogito_buttongroup_set_shape_ergo
+#define cogito_buttongroup_get_shape cogito_buttongroup_get_shape_ergo
+#define cogito_buttongroup_set_connected cogito_buttongroup_set_connected_ergo
+#define cogito_buttongroup_get_connected cogito_buttongroup_get_connected_ergo
 #define cogito_slider_get_centered cogito_slider_get_centered_ergo
 #define cogito_slider_get_range_end cogito_slider_get_range_end_ergo
 #define cogito_slider_get_range_start cogito_slider_get_range_start_ergo
@@ -494,6 +500,12 @@ static const char *cogito_font_bold_path_active = NULL;
 #undef cogito_searchfield_set_text
 #undef cogito_buttongroup_new
 #undef cogito_buttongroup_on_select
+#undef cogito_buttongroup_set_size
+#undef cogito_buttongroup_get_size
+#undef cogito_buttongroup_set_shape
+#undef cogito_buttongroup_get_shape
+#undef cogito_buttongroup_set_connected
+#undef cogito_buttongroup_get_connected
 #undef cogito_slider_get_value
 #undef cogito_slider_new
 #undef cogito_slider_range_new
@@ -2141,6 +2153,49 @@ void cogito_buttongroup_on_select(cogito_node *seg, cogito_node_fn fn,
   ErgoFn *wrap = cogito_make_fn(cogito_cb_node, env);
   cogito_buttongroup_on_select_ergo(EV_OBJ(seg), EV_FN(wrap));
   ergo_release_val(EV_FN(wrap));
+}
+
+void cogito_buttongroup_set_size(cogito_node *bg, int size) {
+  if (!bg)
+    return;
+  if (size < 0) size = 0;
+  if (size > 4) size = 4;
+  cogito_buttongroup_set_size_ergo(EV_OBJ(bg), EV_INT(size));
+}
+
+int cogito_buttongroup_get_size(cogito_node *bg) {
+  if (!bg)
+    return 2;
+  ErgoVal v = cogito_buttongroup_get_size_ergo(EV_OBJ(bg));
+  return (int)ergo_as_int(v);
+}
+
+void cogito_buttongroup_set_shape(cogito_node *bg, int shape) {
+  if (!bg)
+    return;
+  if (shape < 0) shape = 0;
+  if (shape > 1) shape = 1;
+  cogito_buttongroup_set_shape_ergo(EV_OBJ(bg), EV_INT(shape));
+}
+
+int cogito_buttongroup_get_shape(cogito_node *bg) {
+  if (!bg)
+    return 0;
+  ErgoVal v = cogito_buttongroup_get_shape_ergo(EV_OBJ(bg));
+  return (int)ergo_as_int(v);
+}
+
+void cogito_buttongroup_set_connected(cogito_node *bg, bool connected) {
+  if (!bg)
+    return;
+  cogito_buttongroup_set_connected_ergo(EV_OBJ(bg), EV_BOOL(connected));
+}
+
+bool cogito_buttongroup_get_connected(cogito_node *bg) {
+  if (!bg)
+    return false;
+  ErgoVal v = cogito_buttongroup_get_connected_ergo(EV_OBJ(bg));
+  return ergo_as_bool(v);
 }
 
 void cogito_load_sum_file(const char *path) {

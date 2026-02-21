@@ -1,10 +1,9 @@
 case COGITO_SIDE_SHEET: {
-  int r_x = x, r_y = y, r_w = n->w, r_h = n->h;
+  int r_x = x, r_y = y, r_w = n->w;
   if (n->side_sheet.mode == COGITO_SIDE_SHEET_INSET) {
       r_x += 16;
       r_y += 16;
       r_w -= 32;
-      r_h -= 32;
   }
   // SideSheet uses VStack-like layout: header row (title + close), then children below.
   int pad_l = n->padding_left;
