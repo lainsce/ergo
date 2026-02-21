@@ -265,7 +265,7 @@ label
   color: @on-background
 
 .about-window
-  background: @surface-container-high-dim
+  background: @surface
   color: @on-background
 
 label.about-window-title

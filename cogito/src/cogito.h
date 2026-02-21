@@ -177,6 +177,7 @@ void cogito_banner_set_action(cogito_node *banner, const char *text,
 void cogito_banner_set_icon(cogito_node *banner, const char *icon);
 cogito_node *cogito_bottom_sheet_new(const char *title);
 cogito_node *cogito_side_sheet_new(const char *title);
+void cogito_side_sheet_set_mode(cogito_node *node, int mode);
 cogito_node *cogito_timepicker_new(void);
 void cogito_timepicker_on_change(cogito_node *tp, cogito_node_fn handler,
                                  void *user);

@@ -199,6 +199,7 @@
 #undef cogito_window_set_builder
 #undef cogito_window_set_dialog
 #undef cogito_window_set_side_sheet
+#undef cogito_side_sheet_set_mode
 #undef cogito_window_clear_side_sheet
 #undef cogito_window_set_resizable
 
@@ -773,6 +774,11 @@ static ErgoVal __cogito_side_sheet(ErgoVal titlev) {
   cogito_node* n = cogito_side_sheet_new(title);
   if (tmp) ergo_release_val(EV_STR(tmp));
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+static void __cogito_side_sheet_set_mode(ErgoVal sheetv, ErgoVal modev) {
+  cogito_node* n = cogito_node_from_val(sheetv);
+  cogito_side_sheet_set_mode(n, (int)ergo_as_int(modev));
 }
 // --- TimePicker ---
 static ErgoVal __cogito_timepicker(void) {
@@ -2771,6 +2777,7 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_window_clear_dialog __cogito_window_clear_dialog
 #define cogito_window_set_side_sheet __cogito_window_set_side_sheet
 #define cogito_window_clear_side_sheet __cogito_window_clear_side_sheet
+#define cogito_side_sheet_set_mode __cogito_side_sheet_set_mode
 #define cogito_node_window_val __cogito_node_window
 #define cogito_find_parent __cogito_find_parent
 #define cogito_find_children __cogito_find_children

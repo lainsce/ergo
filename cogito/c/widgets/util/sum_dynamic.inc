@@ -435,6 +435,12 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "side-sheet\n  background: %s\n  color: %s\n  border-radius: 16 0 0 16\n  padding: 16 24 24 24\n  transition: 300 emphasized\n", sclo, ons);
   cogito_sum_append(out, cap, &off,
+  "side-sheet.modal\n  background: %s\n  color: %s\n  border-radius: 16 0 0 16\n  padding: 24 24 24 24\n  transition: 300 emphasized\n", sclo, ons);
+  cogito_sum_append(out, cap, &off,
+  "side-sheet.inset\n  background: %s\n  color: %s\n  border-radius: 16\n  padding: 16 24 24 24\n  transition: 300 emphasized\n", sclo, ons);
+  cogito_sum_append(out, cap, &off,
+  "side-sheet.sidebar\n  background: %s\n  color: %s\n  border-radius: 0\n  border: 1 solid %s\n  padding: 24 24 24 24\n  transition: 300 emphasized\n", sclo, ons, outl);
+  cogito_sum_append(out, cap, &off,
   "button:active\n  background: %s\n  color: %s\n", p, op);
   cogito_sum_append(out, cap, &off,
   "button:disabled\n  background: %s29\n  color: %s52\n", ons, ons);

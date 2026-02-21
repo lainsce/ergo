@@ -16,5 +16,9 @@ case COGITO_SIDE_SHEET: {
   // Generic intrinsic sizing adds node padding after this switch.
   w = title_w + content_w;
   if (w < 200) w = 200;
+  if (n->side_sheet.mode == COGITO_SIDE_SHEET_INSET) {
+      w += 32;
+      h += 32;
+  }
   break;
 }

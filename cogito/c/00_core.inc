@@ -170,6 +170,12 @@ typedef struct CogitoApp {
 } CogitoApp;
 
 typedef enum {
+  COGITO_SIDE_SHEET_MODAL,
+  COGITO_SIDE_SHEET_INSET,
+  COGITO_SIDE_SHEET_SIDEBAR
+} CogitoSideSheetMode;
+
+typedef enum {
   COGITO_APPBAR,
   COGITO_BOTTOM_NAV,
   COGITO_BUTTON,
@@ -842,6 +848,7 @@ typedef struct CogitoNode {
        int drag_start_x;
        int drag_start_w;
        int desired_w;
+       uint8_t mode;
     } side_sheet;
     struct { bool extended;
     } fab;

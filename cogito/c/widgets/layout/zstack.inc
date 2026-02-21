@@ -80,7 +80,15 @@ static void cogito_layout_zstack(CogitoNode* n, int x, int y) {
       c->side_sheet.desired_w = target_w;
       c->side_sheet.expanded = target_w >= (max_w - 8);
 
-      int target_x = host_x + host_w - target_w;
+      // Position side sheet based on mode
+      int target_x;
+      if (c->side_sheet.mode == COGITO_SIDE_SHEET_SIDEBAR) {
+          // Sidebar mode: position on the RIGHT side, adjacent to window
+          target_x = host_x + host_w;
+      } else {
+          // Modal/Inset mode: overlay on the RIGHT side
+          target_x = host_x + host_w - target_w;
+      }
       int target_y = host_y;
 
       cogito_layout_node(c, target_x, target_y, target_w, target_h);

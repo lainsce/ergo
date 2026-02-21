@@ -9,64 +9,89 @@ case COGITO_SIDE_SHEET: {
 
   cogito_anim_apply(n, &s, &bg, &text_color, NULL, NULL);
 
-  // Draw modal scrim when the sheet is overlaid in ZStack/Window.
-  CogitoNode* host = n->parent;
-  if (host && host->kind != COGITO_DIALOG_SLOT &&
-      (host->kind == COGITO_ZSTACK || host->kind == COGITO_WINDOW)) {
-    CogitoStyle slot_style = cogito_theme_resolve(COGITO_DIALOG_SLOT);
-    CogitoColor scrim = slot_style.has_bg ? slot_style.bg : n->bg;
-    if (scrim.a == 0) {
-      CogitoStyle ws = cogito_theme_resolve(COGITO_WINDOW);
-      scrim = ws.has_bg ? ws.bg : n->bg;
-      scrim.a = 110;
-    }
-    CogitoNode* win = cogito_node_window(n);
-    bool window_overlay = (host->kind == COGITO_WINDOW);
-    if (!window_overlay && host->kind == COGITO_ZSTACK && win && host->parent == win) {
-      window_overlay = true;
-    }
-    int sx = window_overlay ? 0 : host->x;
-    int sy = window_overlay ? 0 : host->y;
-    int sw = window_overlay && win ? win->w : host->w;
-    int sh = window_overlay && win ? win->h : host->h;
-    int cover_w = window_overlay && win ? win->w : host->w;
-    if (cover_w > 0) {
-      float cover = (float)n->w / (float)cover_w;
-      if (cover > 0.85f) {
-        int boosted = 110 + (int)lroundf((cover - 0.85f) / 0.15f * 90.0f);
-        if (boosted > 220) boosted = 220;
-        if (scrim.a < boosted) scrim.a = (uint8_t)boosted;
+  // Draw modal scrim when the sheet is overlaid in ZStack/Window (not for sidebar mode).
+  if (n->side_sheet.mode == COGITO_SIDE_SHEET_MODAL || n->side_sheet.mode == COGITO_SIDE_SHEET_INSET) {
+    CogitoNode* host = n->parent;
+    if (host && host->kind != COGITO_DIALOG_SLOT &&
+        (host->kind == COGITO_ZSTACK || host->kind == COGITO_WINDOW)) {
+      CogitoStyle slot_style = cogito_theme_resolve(COGITO_DIALOG_SLOT);
+      CogitoColor scrim = slot_style.has_bg ? slot_style.bg : n->bg;
+      if (scrim.a == 0) {
+        CogitoStyle ws = cogito_theme_resolve(COGITO_WINDOW);
+        scrim = ws.has_bg ? ws.bg : n->bg;
+        scrim.a = 110;
+      }
+      CogitoNode* win = cogito_node_window(n);
+      bool window_overlay = (host->kind == COGITO_WINDOW);
+      if (!window_overlay && host->kind == COGITO_ZSTACK && win && host->parent == win) {
+        window_overlay = true;
+      }
+      int sx = window_overlay ? 0 : host->x;
+      int sy = window_overlay ? 0 : host->y;
+      int sw = window_overlay && win ? win->w : host->w;
+      int sh = window_overlay && win ? win->h : host->h;
+      int cover_w = window_overlay && win ? win->w : host->w;
+      if (cover_w > 0) {
+        float cover = (float)n->w / (float)cover_w;
+        if (cover > 0.85f) {
+          int boosted = 110 + (int)lroundf((cover - 0.85f) / 0.15f * 90.0f);
+          if (boosted > 220) boosted = 220;
+          if (scrim.a < boosted) scrim.a = (uint8_t)boosted;
+        }
+      }
+      if (sw > 0 && sh > 0) {
+        cogito_draw_rect(sx, sy, sw, sh, scrim, 0);
       }
     }
-    if (sw > 0 && sh > 0) {
-      cogito_draw_rect(sx, sy, sw, sh, scrim,
-      0);
-    }
+  }
+
+  int r_x = n->x, r_y = n->y, r_w = n->w, r_h = n->h;
+  if (n->side_sheet.mode == COGITO_SIDE_SHEET_INSET) {
+      r_x += 16;
+      r_y += 16;
+      r_w -= 32;
+      r_h -= 32;
   }
   // Draw docked sheet surface.
-  cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, radius);
+  cogito_draw_rect_node(n, &s, r_x, r_y, r_w, r_h, bg, radius);
+
+  // Draw left border for sidebar mode
+  if (n->side_sheet.mode == COGITO_SIDE_SHEET_SIDEBAR) {
+      CogitoStyle outline_style = cogito_theme_resolve(COGITO_SIDE_SHEET);
+      CogitoColor border_color = n->border_color;
+      // Use outline color from theme if available
+      if (outline_style.has_bg) {
+          border_color = outline_style.bg;
+      } else {
+          CogitoStyle ws = cogito_theme_resolve(COGITO_WINDOW);
+          if (ws.has_bg) border_color = ws.bg;
+      }
+      // Draw left border (1px)
+      cogito_draw_rect(r_x, r_y, 1, r_h, border_color, 0);
+  }
 
   // Draw title (clipped so it does not overlap the close button)
-  if (n->text && n->text->data && n->text->data[
-    0
-  ]) {
+  if (n->text && n->text->data && n->text->data[0]) {
     int pad_l = n->padding_left;
     int pad_t = n->padding_top;
     int size = cogito_node_font_size(n);
-    int title_x = n->x + pad_l;
+    int title_x = r_x + pad_l;
     // Reserve space for the close button (24px pad_r + 24px box + 8px gap)
-    int max_title_right = n->x + n->w - 24 - 24 - 8;
+    int max_title_right = r_x + r_w - 24 - 24 - 8;
     int max_title_w = max_title_right - title_x;
     if (max_title_w > 0) {
-      cogito_draw_text_ellipsis(n, title_x, n->y + pad_t + 12,
+      cogito_draw_text_ellipsis(n, title_x, r_y + pad_t + 12,
                                 max_title_w, n->text->data, text_color, size,
       true,
       0);
     }
   }
 
-  int cx = 0, cy = 0, cw = 0, ch = 0;
-  cogito_side_sheet_close_rect(n, &cx, &cy, &cw, &ch);
+  // Close button is always 24px from top and right edges
+  int cw = 24;
+  int ch = 24;
+  int cx = r_x + r_w - 24 - cw;
+  int cy = r_y + 24;
   if (cw > 0 && ch > 0) {
     int mx = 0, my = 0;
     bool down = false;
@@ -92,8 +117,7 @@ case COGITO_SIDE_SHEET: {
   }
   // Draw children
   for (size_t i = 0; i < n->len; i++) {
-    cogito_draw_node(n->children[i
-    ]);
+    cogito_draw_node(n->children[i]);
   }
   break;
 }

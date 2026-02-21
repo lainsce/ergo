@@ -254,17 +254,32 @@ static void cogito_layout_window(CogitoNode* win) {
     if (ss_w <= 0) ss_w = 320;
     if (ss_w > win->w) ss_w = win->w;
     ss_h = win->h;
-    int ss_x = win->w - ss_w;
-    cogito_layout_node(win->side_sheet_node, ss_x, 0, ss_w, ss_h);
+    // For sidebar mode: position at right edge, pushing window width
+    // For other modes: overlay on right
+    if (win->side_sheet_node->side_sheet.mode == COGITO_SIDE_SHEET_SIDEBAR) {
+        // Sidebar docked on right - positioned at right edge
+        int ss_x = win->w - ss_w;
+        cogito_layout_node(win->side_sheet_node, ss_x, 0, ss_w, ss_h);
+    } else {
+        // Modal/Inset overlay
+        int ss_x = win->w - ss_w;
+        cogito_layout_node(win->side_sheet_node, ss_x, 0, ss_w, ss_h);
+    }
   }
 }
 
 static void cogito_window_desired_size(CogitoNode* win, int* out_w, int* out_h) {
-  int max_w = win->padding_left;
+int max_w = win->padding_left;
   int cy = win->padding_top;
   int appbar_h = 0;
   int toolbar_h = 0;
   int toolbar_reserved_h = 0;
+  int sidebar_w = 0;
+  // Check if there's a sidebar side sheet and get its width
+  if (win->side_sheet_open && win->side_sheet_node && 
+      win->side_sheet_node->side_sheet.mode == COGITO_SIDE_SHEET_SIDEBAR) {
+      cogito_intrinsic_size(win->side_sheet_node, &sidebar_w, NULL);
+  }
   for (size_t i = 0; i < win->len; i++) {
     CogitoNode* c = win->children[i];
     if (c->kind == COGITO_APPBAR) {
@@ -310,7 +325,7 @@ static void cogito_window_desired_size(CogitoNode* win, int* out_w, int* out_h) 
     if (row_w > max_w) max_w = row_w;
     cy += ch_total;
   }
-  int dw = max_w + win->padding_right;
+  int dw = max_w + win->padding_right + sidebar_w;
   // Calculate minimum height needed for intrinsic content
   int min_h = cy + win->padding_bottom;
   // If there's an expanding child, use max of minimum height and current window height

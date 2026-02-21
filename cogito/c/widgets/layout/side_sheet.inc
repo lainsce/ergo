@@ -1,4 +1,11 @@
 case COGITO_SIDE_SHEET: {
+  int r_x = x, r_y = y, r_w = n->w, r_h = n->h;
+  if (n->side_sheet.mode == COGITO_SIDE_SHEET_INSET) {
+      r_x += 16;
+      r_y += 16;
+      r_w -= 32;
+      r_h -= 32;
+  }
   // SideSheet uses VStack-like layout: header row (title + close), then children below.
   int pad_l = n->padding_left;
   int pad_t = n->padding_top;
@@ -6,8 +13,8 @@ case COGITO_SIDE_SHEET: {
   int pad_b = n->padding_bottom;
   int handle_w = 28;
   int gap = n->gap > 0 ? n->gap : 8;
-  int content_x = x + handle_w + pad_l;
-  int avail_w = n->w - handle_w - pad_l - pad_r;
+  int content_x = r_x + handle_w + pad_l;
+  int avail_w = r_w - handle_w - pad_l - pad_r;
   if (avail_w < 0) avail_w = 0;
 
   // Reserve header row for the title / close button area
@@ -22,7 +29,7 @@ case COGITO_SIDE_SHEET: {
     header_h = 24 + 24; // close button pad_t + box height
   }
 
-  int cy = y + pad_t + header_h + gap + pad_b;
+  int cy = r_y + pad_t + header_h + gap + pad_b;
 
   for (size_t i = 0; i < n->len; i++) {
     CogitoNode* c = n->children[i

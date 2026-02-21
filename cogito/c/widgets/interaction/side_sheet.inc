@@ -1,14 +1,14 @@
 static void cogito_side_sheet_close_rect(CogitoNode* n, int* out_x, int* out_y, int* out_w, int* out_h) {
   if (!n || n->kind != COGITO_SIDE_SHEET) return;
-  int pad_t = 24;
-  int pad_r = 24;
-  int box = 24;
-  int x = n->x + n->w - pad_r - box;
-  int y = n->y + pad_t;
-  if (out_x) *out_x = x;
-  if (out_y) *out_y = y;
-  if (out_w) *out_w = box;
-  if (out_h) *out_h = box;
+  // Close button is always 24px from top and right edges of the SHEET
+  int cw = 24;
+  int ch = 24;
+  int cx = n->x + n->w - 24 - cw;
+  int cy = n->y + 24;
+  if (out_x) *out_x = cx;
+  if (out_y) *out_y = cy;
+  if (out_w) *out_w = cw;
+  if (out_h) *out_h = ch;
 }
 
 static int cogito_side_sheet_min_width(CogitoNode* n) {
@@ -90,6 +90,25 @@ static void cogito_side_sheet_handle_rect(CogitoNode* n, int* out_x, int* out_y,
   if (out_h) *out_h = h;
 }
 
+void cogito_side_sheet_set_mode(CogitoNode* n, int mode) {
+    if (!n || n->kind != COGITO_SIDE_SHEET) return;
+    n->side_sheet.mode = mode;
+    // Set class name for theme styling based on mode
+    const char* class_name = NULL;
+    switch (mode) {
+        case 0: class_name = "modal"; break;
+        case 1: class_name = "inset"; break;
+        case 2: class_name = "sidebar"; break;
+        default: class_name = "modal"; break;
+    }
+    if (class_name) {
+        ErgoStr* cls = stdr_str_from_slice(class_name, strlen(class_name));
+        if (n->class_name) ergo_release_val(EV_STR(n->class_name));
+        n->class_name = cls;
+        ergo_retain_val(EV_STR(cls));
+    }
+}
+
 static CogitoNode* cogito_side_sheet_new_obj(ErgoStr* title) {
   CogitoNode* n = cogito_node_new(COGITO_SIDE_SHEET);
   if (title && title->data && title->data[0]) {
@@ -102,6 +121,7 @@ static CogitoNode* cogito_side_sheet_new_obj(ErgoStr* title) {
   n->side_sheet.drag_start_x = 0;
   n->side_sheet.drag_start_w = 0;
   n->side_sheet.desired_w = 0;
+  n->side_sheet.mode = COGITO_SIDE_SHEET_MODAL;
   return n;
 }
 

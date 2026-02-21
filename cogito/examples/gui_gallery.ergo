@@ -1386,16 +1386,50 @@ fun build_side_sheet_page() (( cogito.VStack )) {
     .set_wrap(true)
     vstack.add(status)
 
-    let open_btn = cogito.button(@"Open Side Sheet")
+    let button_row = cogito.hstack().set_gap(12)
+    vstack.add(button_row)
+
+    let open_modal_btn = cogito.button(@"Open Modal Side Sheet")
     .on_click((b = cogito.Button) => {
         let win = b.window()
         if win {
-            let ss = cogito.side_sheet(@"Details")
-            ss.add(cogito.label(@"This is a side sheet content."))
+            let ss = cogito.side_sheet(@"Modal Details")
+            ss.set_mode(0) -- COGITO_SIDE_SHEET_MODAL
+            ss.add(cogito.label(@"This is a modal side sheet content."))
             win.set_side_sheet(ss)
         }
     })
-    vstack.add(open_btn)
+    button_row.add(open_modal_btn)
+
+    let open_inset_btn = cogito.button(@"Open Inset Side Sheet")
+    .on_click((b = cogito.Button) => {
+        let win = b.window()
+        if win {
+            let ss = cogito.side_sheet(@"Inset Details")
+            ss.set_mode(1) -- COGITO_SIDE_SHEET_INSET
+            ss.add(cogito.label(@"This is an inset side sheet content."))
+            win.set_side_sheet(ss)
+        }
+    })
+    button_row.add(open_inset_btn)
+
+    let open_sidebar_btn = cogito.button(@"Open Sidebar")
+    .on_click((b = cogito.Button) => {
+        let win = b.window()
+        if win {
+            let ss = cogito.side_sheet(@"Sidebar")
+            ss.set_mode(2) -- COGITO_SIDE_SHEET_SIDEBAR
+            ss.add(cogito.label(@"This is sidebar content."))
+            win.set_side_sheet(ss)
+        }
+    })
+    button_row.add(open_sidebar_btn)
+
+    -- Placeholder for where sidebar content would go
+    let sidebar_placeholder = cogito.vstack()
+        .set_hexpand(true)
+        .add(cogito.label(@"Press 'Open Sidebar' to show the sidebar."))
+    vstack.add(sidebar_placeholder)
 
     return vstack
 }
@@ -1575,21 +1609,21 @@ fun view_title_from_index(idx = num) (( string )) {
         @"MenuButton"
     } elif idx == 37 {
         @"ContentList"
-    } elif idx == 37 {
-        @"EmptyPage"
     } elif idx == 38 {
-        @"WelcomeScreen"
+        @"EmptyPage"
     } elif idx == 39 {
-        @"SettingsWindow"
+        @"WelcomeScreen"
     } elif idx == 40 {
-        @"ViewDual"
+        @"SettingsWindow"
     } elif idx == 41 {
-        @"ViewChooser"
+        @"ViewDual"
     } elif idx == 42 {
-        @"AboutWindow"
+        @"ViewChooser"
     } elif idx == 43 {
-        @"Typography"
+        @"AboutWindow"
     } elif idx == 44 {
+        @"Typography"
+    } elif idx == 45 {
         @"SideSheet"
     } else {
         @"Button"
