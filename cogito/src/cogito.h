@@ -96,6 +96,7 @@ typedef enum {
   COGITO_NODE_VIEW_CHOOSER,
   COGITO_NODE_ABOUT_WINDOW,
   COGITO_NODE_SPLIT_BUTTON,
+  COGITO_NODE_FAB_MENU,
 } cogito_node_kind;
 
 // App / window lifecycle
@@ -450,6 +451,10 @@ void cogito_chip_on_click(cogito_node *chip, cogito_node_fn fn, void *user);
 void cogito_chip_on_close(cogito_node *chip, cogito_node_fn fn, void *user);
 void cogito_fab_set_extended(cogito_node *fab, bool extended,
                              const char *label);
+void cogito_fab_set_size(cogito_node *fab, int size); // 0=S(42), 1=M(56), 2=L(96)
+void cogito_fab_set_icon(cogito_node *fab, const char *icon);
+void cogito_fab_set_color(cogito_node *fab, int color); // 0=Primary, 1=Secondary, 2=Tertiary, 4=Surface
+void cogito_fab_menu_set_color(cogito_node *fab, int color);
 void cogito_fab_on_click(cogito_node *fab, cogito_node_fn fn, void *user);
 void cogito_switch_on_change(cogito_node *sw, cogito_node_fn fn, void *user);
 

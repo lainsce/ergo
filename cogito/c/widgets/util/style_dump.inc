@@ -21,6 +21,7 @@ static const char* cogito_kind_name(CogitoKind kind) {
     case COGITO_DIALOG_SLOT: return "dialogslot";
     case COGITO_DROPDOWN: return "dropdown";
     case COGITO_FAB: return "fab";
+    case COGITO_FAB_MENU: return "fab-menu";
     case COGITO_FIXED: return "fixed";
     case COGITO_GRID: return "grid";
     case COGITO_HSTACK: return "hstack";

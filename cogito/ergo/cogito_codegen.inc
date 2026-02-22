@@ -4457,6 +4457,60 @@
                         return true;
                     }
                     if (str_eq_c(fname,
+                    "__cogito_fab_set_size")) {
+                        GenExpr fab, sizev;
+                        if (!gen_expr(cg, path, e->as.call.args[
+                            0
+                        ], &fab, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[
+                            1
+                        ], &sizev, err)) { gen_expr_free(&fab); return false;
+                        }
+                        w_line(&cg->w,
+                        "cogito_fab_set_size(%s, %s);", fab.tmp, sizev.tmp);
+                        w_line(&cg->w,
+                        "ergo_release_val(%s);", fab.tmp);
+                        w_line(&cg->w,
+                        "ergo_release_val(%s);", sizev.tmp);
+                        gen_expr_release_except(cg, &fab, fab.tmp);
+                        gen_expr_release_except(cg, &sizev, sizev.tmp);
+                        gen_expr_free(&fab);
+                        gen_expr_free(&sizev);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w,
+                        "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname,
+                    "__cogito_fab_set_color")) {
+                        GenExpr fab, colorv;
+                        if (!gen_expr(cg, path, e->as.call.args[
+                            0
+                        ], &fab, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[
+                            1
+                        ], &colorv, err)) { gen_expr_free(&fab); return false;
+                        }
+                        w_line(&cg->w,
+                        "cogito_fab_set_color(%s, %s);", fab.tmp, colorv.tmp);
+                        w_line(&cg->w,
+                        "ergo_release_val(%s);", fab.tmp);
+                        w_line(&cg->w,
+                        "ergo_release_val(%s);", colorv.tmp);
+                        gen_expr_release_except(cg, &fab, fab.tmp);
+                        gen_expr_release_except(cg, &colorv, colorv.tmp);
+                        gen_expr_free(&fab);
+                        gen_expr_free(&colorv);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w,
+                        "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname,
                     "__cogito_fab_set_extended")) {
                         GenExpr fab, ext, label;
                         if (!gen_expr(cg, path, e->as.call.args[
@@ -4511,6 +4565,84 @@
                         gen_expr_release_except(cg, &handler, handler.tmp);
                         gen_expr_free(&fab);
                         gen_expr_free(&handler);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w,
+                        "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname,
+                    "__cogito_fab_menu")) {
+                        GenExpr icon;
+                        if (!gen_expr(cg, path, e->as.call.args[
+                            0
+                        ], &icon, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w,
+                        "ErgoVal %s = cogito_fab_menu_new(%s);", t, icon.tmp);
+                        w_line(&cg->w,
+                        "ergo_release_val(%s);", icon.tmp);
+                        gen_expr_release_except(cg, &icon, icon.tmp);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname,
+                    "__cogito_fab_menu_add_item")) {
+                        GenExpr fab, label, handler;
+                        if (!gen_expr(cg, path, e->as.call.args[
+                            0
+                        ], &fab, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[
+                            1
+                        ], &label, err)) { gen_expr_free(&fab); return false;
+                        }
+                        if (!gen_expr(cg, path, e->as.call.args[
+                            2
+                        ], &handler, err)) { gen_expr_free(&fab); gen_expr_free(&label); return false;
+                        }
+                        w_line(&cg->w,
+                        "cogito_fab_menu_add_item(%s, %s, %s);", fab.tmp, label.tmp, handler.tmp);
+                        w_line(&cg->w,
+                        "ergo_release_val(%s);", fab.tmp);
+                        w_line(&cg->w,
+                        "ergo_release_val(%s);", label.tmp);
+                        w_line(&cg->w,
+                        "ergo_release_val(%s);", handler.tmp);
+                        gen_expr_release_except(cg, &fab, fab.tmp);
+                        gen_expr_release_except(cg, &label, label.tmp);
+                        gen_expr_release_except(cg, &handler, handler.tmp);
+                        gen_expr_free(&fab);
+                        gen_expr_free(&label);
+                        gen_expr_free(&handler);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w,
+                        "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname,
+                    "__cogito_fab_menu_set_color")) {
+                        GenExpr fab, colorv;
+                        if (!gen_expr(cg, path, e->as.call.args[
+                            0
+                        ], &fab, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[
+                            1
+                        ], &colorv, err)) { gen_expr_free(&fab); return false;
+                        }
+                        w_line(&cg->w,
+                        "cogito_fab_menu_set_color(%s, %s);", fab.tmp, colorv.tmp);
+                        w_line(&cg->w,
+                        "ergo_release_val(%s);", fab.tmp);
+                        w_line(&cg->w,
+                        "ergo_release_val(%s);", colorv.tmp);
+                        gen_expr_release_except(cg, &fab, fab.tmp);
+                        gen_expr_release_except(cg, &colorv, colorv.tmp);
+                        gen_expr_free(&fab);
+                        gen_expr_free(&colorv);
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w,
                         "ErgoVal %s = EV_NULLV;", t);

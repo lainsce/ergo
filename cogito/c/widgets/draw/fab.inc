@@ -63,7 +63,7 @@ case COGITO_FAB: {
 
   // Draw icon
   if (n->text && n->text->data[0]) {
-    int icon_size = 24;
+    int icon_size = (n->fab.size == 2) ? 40 : 24;  // L=40px, S/M=24px
     int icon_x = effective_extended ? (n->x + 16) : (n->x + (n->w - icon_size) / 2);
     int icon_y = n->y + (n->h - icon_size) / 2;
 

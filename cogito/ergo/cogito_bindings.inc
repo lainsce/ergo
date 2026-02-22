@@ -208,6 +208,8 @@
 #undef cogito_side_sheet_set_mode
 #undef cogito_window_clear_side_sheet
 #undef cogito_window_set_resizable
+#undef cogito_fab_menu_set_size
+#undef cogito_fab_menu_set_color
 
 static bool cogito_debug_enabled(void) {
   const char* env = getenv("COGITO_DEBUG");
@@ -598,6 +600,34 @@ static ErgoVal __cogito_fab(ErgoVal iconv) {
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
 }
 
+// Forward declarations for FAB Menu
+struct CogitoNode* cogito_fab_menu_new(const char* icon);
+extern void cogito_fab_menu_add_item(ErgoVal fab_menuv, ErgoVal iconv, ErgoVal action);
+
+static void __cogito_fab_set_size(ErgoVal fabv, ErgoVal sizev) {
+  cogito_node* fab = cogito_node_from_val(fabv);
+  int size = (int)ergo_as_int(sizev);
+  if (size < 0) size = 0;
+  if (size > 2) size = 2;
+  cogito_fab_set_size(fab, size);
+}
+
+static void __cogito_fab_set_color(ErgoVal fabv, ErgoVal colorv) {
+  cogito_node* fab = cogito_node_from_val(fabv);
+  int color = (int)ergo_as_int(colorv);
+  if (color < 0) color = 0;
+  if (color > 3) color = 3;
+  cogito_fab_set_color(fab, color);
+}
+
+static void __cogito_fab_menu_set_color(ErgoVal fabv, ErgoVal colorv) {
+  cogito_node* fab = cogito_node_from_val(fabv);
+  int color = (int)ergo_as_int(colorv);
+  if (color < 0) color = 0;
+  if (color > 3) color = 3;
+  cogito_fab_menu_set_color(fab, color);
+}
+
 static void __cogito_fab_set_extended(ErgoVal fabv, ErgoVal extendedv, ErgoVal labelv) {
   cogito_node* fab = cogito_node_from_val(fabv);
   bool extended = ergo_as_bool(extendedv);
@@ -617,6 +647,19 @@ static void __cogito_fab_on_click(ErgoVal fabv, ErgoVal handler) {
   }
   cogito_set_handler(h, &h->on_click, handler);
   cogito_fab_on_click(fab, cogito_cb_click, h);
+}
+
+static ErgoVal __cogito_fab_menu(ErgoVal iconv) {
+  ErgoStr* tmp = NULL;
+  const char* icon = cogito_required_cstr(iconv, &tmp);
+  cogito_node* n = cogito_fab_menu_new(icon);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+static void __cogito_fab_menu_add_item(ErgoVal fabv, ErgoVal iconv, ErgoVal actionv) {
+  cogito_node* node = cogito_node_from_val(fabv);
+  cogito_fab_menu_add_item(EV_OBJ(node), iconv, actionv);
 }
 
 static ErgoVal __cogito_chip(ErgoVal textv) {
@@ -2865,8 +2908,13 @@ void __cogito_button_on_click(ErgoVal btn, ErgoVal handler);
 #define cogito_iconbtn_set_size __cogito_iconbtn_set_size
 #define cogito_iconbtn_get_size __cogito_iconbtn_get_size
 #define cogito_iconbtn_on_click __cogito_iconbtn_on_click
+#define cogito_fab_set_size __cogito_fab_set_size
+#define cogito_fab_set_color __cogito_fab_set_color
 #define cogito_fab_set_extended __cogito_fab_set_extended
 #define cogito_fab_on_click __cogito_fab_on_click
+#define cogito_fab_menu_new __cogito_fab_menu
+#define cogito_fab_menu_add_item __cogito_fab_menu_add_item
+#define cogito_fab_menu_set_color __cogito_fab_menu_set_color
 #define cogito_chip_new __cogito_chip
 #define cogito_chip_set_selected __cogito_chip_set_selected
 #define cogito_chip_get_selected __cogito_chip_get_selected

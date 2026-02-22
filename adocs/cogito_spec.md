@@ -45,6 +45,8 @@ App metadata:
 - `cogito_app_set_appid(...)`
 - `cogito_app_set_app_name(...)`
 - `cogito_app_set_accent_color(...)`
+- `cogito_app_set_icon(...)`
+- `cogito_app_get_icon(...)`
 - `cogito_open_url(...)`
 
 ### 3.2 Window Lifecycle
@@ -56,6 +58,7 @@ Public entry points:
 - `cogito_window_set_resizable(...)`
 - `cogito_window_set_autosize(...)`
 - `cogito_window_set_builder(...)`
+- `cogito_window_set_a11y_label(...)`
 - `cogito_rebuild_active_window()`
 
 Current behavior: application runtime exits when the last open window closes.
@@ -68,15 +71,79 @@ Current behavior: application runtime exits when the last open window closes.
 - `cogito_node_add(parent, child)` appends child nodes.
 - `cogito_node_remove(parent, child)` detaches child nodes.
 - `cogito_node_free(node)` releases detached nodes.
+- `cogito_node_new(kind)` creates a node of the specified kind.
 
 Tree/query helpers:
 
 - `cogito_node_get_parent(...)`
+- `cogito_node_parent(...)` (alias)
 - `cogito_node_get_child_count(...)`
 - `cogito_node_get_child(...)`
 - `cogito_node_window(...)`
 
-### 4.2 Widget Kinds
+### 4.2 Node Creation
+
+Widget factory functions:
+
+- `cogito_node_new(kind)` - generic node creation.
+- `cogito_grid_new_with_cols(cols)` - grid with column count.
+- `cogito_label_new(text)` - label with text.
+- `cogito_button_new(text)` - button with text.
+- `cogito_iconbtn_new(text)` - icon button.
+- `cogito_checkbox_new(text, group)` - checkbox with optional group.
+- `cogito_chip_new(text)` - chip/filter chip.
+- `cogito_fab_new(icon)` - floating action button.
+- `cogito_switch_new(text)` - toggle switch.
+- `cogito_textfield_new(text)` - single-line text input.
+- `cogito_textview_new(text)` - multi-line text input.
+- `cogito_searchfield_new(text)` - search input field.
+- `cogito_dropdown_new()` - dropdown selector.
+- `cogito_slider_new(min, max, value)` - slider control.
+- `cogito_slider_range_new(min, max, start, end)` - range slider.
+- `cogito_tabs_new()` - tab bar.
+- `cogito_view_switcher_new()` - view container for tabs.
+- `cogito_progress_new(value)` - progress indicator.
+- `cogito_divider_new(orientation, is_inset)` - divider line.
+- `cogito_card_new(title)` - card container.
+- `cogito_avatar_new(text_or_icon)` - avatar display.
+- `cogito_badge_new(count)` - notification badge.
+- `cogito_banner_new(text)` - banner message.
+- `cogito_bottom_sheet_new(title)` - bottom sheet.
+- `cogito_side_sheet_new(title)` - side sheet.
+- `cogito_timepicker_new()` - time picker.
+- `cogito_datepicker_new()` - date picker.
+- `cogito_colorpicker_new()` - color picker.
+- `cogito_stepper_new(min, max, value, step)` - stepper control.
+- `cogito_buttongroup_new()` - segmented button group.
+- `cogito_treeview_new()` - tree view.
+- `cogito_toasts_new()` - toast container.
+- `cogito_toast_new(text)` - toast notification.
+- `cogito_bottom_toolbar_new()` - bottom toolbar.
+- `cogito_dialog_new(title)` - dialog.
+- `cogito_dialog_slot_new()` - dialog slot.
+- `cogito_appbar_new(title, subtitle)` - app bar.
+- `cogito_image_new(icon)` - image/icon display.
+- `cogito_nav_rail_new()` - navigation rail.
+- `cogito_bottom_nav_new()` - bottom navigation.
+- `cogito_carousel_new()` - carousel container.
+- `cogito_carousel_item_new()` - carousel item.
+- `cogito_active_indicator_new()` - loading indicator.
+- `cogito_switchbar_new(text)` - switch bar.
+- `cogito_content_list_new()` - content list.
+- `cogito_empty_page_new(title)` - empty state page.
+- `cogito_tip_view_new(text)` - tip view.
+- `cogito_settings_window_new(title)` - settings window.
+- `cogito_settings_page_new(title)` - settings page.
+- `cogito_settings_list_new(title)` - settings list.
+- `cogito_settings_row_new(label)` - settings row.
+- `cogito_welcome_screen_new(title)` - welcome screen.
+- `cogito_view_dual_new()` - dual view container.
+- `cogito_view_chooser_new()` - view chooser.
+- `cogito_about_window_new(app_name, version)` - about window.
+- `cogito_split_button_new(text)` - split button.
+- `cogito_menu_button_new(icon)` - menu button.
+
+### 4.3 Widget Kinds
 
 Current public kinds include:
 
@@ -85,6 +152,13 @@ Current public kinds include:
 - Button/container: `buttongroup`
 - Actions/inputs: `button`, `iconbtn`, `fab`, `checkbox`, `switch`, `chip`, `textfield`, `textview`, `searchfield`, `dropdown`, `slider`, `stepper`.
 - Navigation/surfaces: `tabs`, `view_switcher`, `appbar`, `bottom_toolbar`, `nav_rail`, `bottom_nav`, `dialog`, `dialog_slot`, `toast`, `toasts`, `treeview`, `progress`, `datepicker`, `colorpicker`.
+- Display/surfaces: `divider`, `card`, `avatar`, `badge`, `banner`, `bottom_sheet`, `side_sheet`, `carousel`, `carousel_item`.
+- Time/pickers: `timepicker`.
+- Indicators: `active_indicator`, `switchbar`.
+- Content containers: `content_list`, `empty_page`, `tip_view`.
+- Settings: `settings_window`, `settings_page`, `settings_list`, `settings_row`.
+- Welcome/view: `welcome_screen`, `view_dual`, `view_chooser`, `about_window`.
+- Composite: `split_button`, `fab_menu`.
 
 Exact C enum values are defined in `cogito/src/cogito.h`.
 
@@ -111,6 +185,15 @@ Key APIs:
 - `cogito_node_set_gap(...)`
 - `cogito_node_set_id(...)`
 - `cogito_node_set_class(...)`
+- `cogito_node_set_text(...)`
+- `cogito_node_get_text(...)`
+- `cogito_node_set_disabled(...)`
+- `cogito_node_set_editable(...)`
+- `cogito_node_get_editable(...)`
+- `cogito_node_set_a11y_label(...)`
+- `cogito_node_set_a11y_role(...)`
+- `cogito_node_set_tooltip(...)`
+- `cogito_node_build(...)`
 
 ## 6. Interaction Model
 
@@ -125,6 +208,33 @@ Common registration points:
 - `cogito_node_on_change(...)`
 - `cogito_node_on_select(...)`
 - `cogito_node_on_activate(...)`
+
+Widget-specific callback registration:
+
+- `cogito_checkbox_on_change(...)`
+- `cogito_switch_on_change(...)`
+- `cogito_textfield_on_change(...)`
+- `cogito_textview_on_change(...)`
+- `cogito_searchfield_on_change(...)`
+- `cogito_dropdown_on_change(...)`
+- `cogito_slider_on_change(...)`
+- `cogito_tabs_on_change(...)`
+- `cogito_datepicker_on_change(...)`
+- `cogito_colorpicker_on_change(...)`
+- `cogito_timepicker_on_change(...)`
+- `cogito_stepper_on_change(...)`
+- `cogito_buttongroup_on_select(...)`
+- `cogito_nav_rail_on_change(...)`
+- `cogito_bottom_nav_on_change(...)`
+- `cogito_fab_on_click(...)`
+- `cogito_chip_on_click(...)`
+- `cogito_chip_on_close(...)`
+- `cogito_toast_on_click(...)`
+- `cogito_list_on_select(...)`
+- `cogito_list_on_activate(...)`
+- `cogito_grid_on_select(...)`
+- `cogito_grid_on_activate(...)`
+- `cogito_switchbar_on_change(...)`
 
 ### 6.2 Pointer Capture
 
@@ -141,6 +251,34 @@ Cogito provides helper APIs for richer widgets, for example:
 - Text setters/getters: textfield/textview/searchfield.
 - Dialog management: dialog slot and window dialog helpers.
 - Appbar controls: add buttons and control layout.
+- Banner actions: `cogito_banner_set_action()`, `cogito_banner_set_icon()`.
+- Avatar: `cogito_avatar_set_image()`.
+- Badge: `cogito_badge_set_count()`, `cogito_badge_get_count()`.
+- Timepicker: `cogito_timepicker_get_hour()`, `cogito_timepicker_get_minute()`, `cogito_timepicker_set_time()`.
+- Switchbar: `cogito_switchbar_get_checked()`, `cogito_switchbar_set_checked()`.
+- Empty page: `cogito_empty_page_set_description()`, `cogito_empty_page_set_icon()`, `cogito_empty_page_set_action()`.
+- Welcome screen: `cogito_welcome_screen_set_description()`, `cogito_welcome_screen_set_icon()`, `cogito_welcome_screen_set_action()`.
+- About window: `cogito_about_window_set_icon()`, `cogito_about_window_set_description()`, `cogito_about_window_set_website()`, `cogito_about_window_set_issue_url()`.
+- Split button: `cogito_split_button_add_menu()`, `cogito_split_button_add_menu_section()`.
+- View dual: `cogito_view_dual_set_ratio()`.
+- View chooser: `cogito_view_chooser_set_items()`, `cogito_view_chooser_bind()`.
+- View switcher: `cogito_view_switcher_set_active()`, `cogito_view_switcher_add_lazy()`.
+- Side sheet: `cogito_side_sheet_set_mode()`.
+- Toast: `cogito_toast_set_text()`, `cogito_toast_on_click()`, `cogito_toast_set_action()`.
+- Toolbar: `cogito_toolbar_set_vibrant()`, `cogito_toolbar_get_vibrant()`.
+- Button menu: `cogito_button_add_menu()`, `cogito_button_add_menu_section()`, `cogito_button_set_menu_divider()`, `cogito_button_set_menu_vibrant()`.
+- Icon button menu: `cogito_iconbtn_add_menu()`, `cogito_iconbtn_add_menu_section()`.
+- Carousel: `cogito_carousel_get_active_index()`, `cogito_carousel_set_active_index()`, `cogito_carousel_item_set_text()`.
+- Icon button: `cogito_iconbtn_set_shape()`, `cogito_iconbtn_set_color_style()`, `cogito_iconbtn_set_toggle()`, `cogito_iconbtn_set_checked()`.
+- FAB: `cogito_fab_set_extended()`, `cogito_fab_set_size()`, `cogito_fab_set_icon()`, `cogito_fab_set_color()`.
+- Progress: `cogito_progress_set_indeterminate()`, `cogito_progress_set_thickness()`, `cogito_progress_set_wavy()`, `cogito_progress_set_circular()`.
+- Slider: `cogito_slider_set_size()`, `cogito_slider_set_icon()`, `cogito_slider_set_centered()`, `cogito_slider_set_range()`.
+- Button group: `cogito_buttongroup_set_size()`, `cogito_buttongroup_set_shape()`, `cogito_buttongroup_set_connected()`.
+- Label: `cogito_label_set_wrap()`, `cogito_label_set_ellipsis()`, `cogito_label_set_align()`.
+- Image: `cogito_image_set_icon()`, `cogito_image_set_source()`, `cogito_image_set_size()`, `cogito_image_set_radius()`.
+- Grid: `cogito_grid_set_gap()`, `cogito_grid_set_span()`, `cogito_grid_set_align()`.
+- Fixed: `cogito_fixed_set_pos()`.
+- Scroller: `cogito_scroller_set_axes()`.
 
 The authoritative API surface is `cogito/src/cogito.h`.
 
@@ -153,6 +291,8 @@ Themes can be loaded from file or source text:
 
 - `cogito_load_sum_file(path)`
 - `cogito_load_sum_inline(src)`
+- `cogito_set_script_dir(dir)`
+- `cogito_get_script_dir()`
 
 ### 8.2 Cascade Model (Framework-Level)
 
@@ -194,6 +334,7 @@ Cogito exposes custom hit-test integration for borderless/custom-decorated windo
 
 - `cogito_window_set_hit_test(window, callback, user)`
 - `cogito_window_set_debug_overlay(window, enable)`
+- `cogito_hit_test_cleanup()`
 
 Hit-test callback returns `cogito_hit_test_result` values including:
 
@@ -205,6 +346,22 @@ Hit-test callback returns `cogito_hit_test_result` values including:
 Debug environment:
 
 - `COGITO_DEBUG_CSD=1` enables CSD overlay diagnostics.
+
+### 9.3 Dialog and Sheet Management
+
+Window-level dialog and sheet management:
+
+- `cogito_window_set_dialog(window, dialog)`
+- `cogito_window_clear_dialog(window)`
+- `cogito_window_set_side_sheet(window, side_sheet)`
+- `cogito_window_clear_side_sheet(window)`
+
+Dialog operations:
+
+- `cogito_dialog_slot_show(slot, dialog)`
+- `cogito_dialog_slot_clear(slot)`
+- `cogito_dialog_close(dialog)`
+- `cogito_dialog_remove(dialog)`
 
 ## 10. Inspector and Debug Flags
 

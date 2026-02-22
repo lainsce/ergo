@@ -193,6 +193,7 @@ typedef enum {
   COGITO_DIALOG_SLOT,
   COGITO_DROPDOWN,
   COGITO_FAB,
+  COGITO_FAB_MENU,
   COGITO_FIXED,
   COGITO_GRID,
   COGITO_HSTACK,
@@ -654,6 +655,7 @@ typedef struct CogitoNode {
   float opacity;
   bool has_opacity;
 
+
   // Animation (legacy time fields — kept for anim_ms/ease compat)
   bool anim_inited;
   double anim_start;
@@ -750,6 +752,8 @@ typedef struct CogitoNode {
     struct {
       double h, c, t;
       bool hex_editing;
+      bool popover_panel;
+      struct CogitoNode* owner;
     } colorpicker;
 
     struct {
@@ -855,7 +859,7 @@ typedef struct CogitoNode {
        int desired_w;
        uint8_t mode;
     } side_sheet;
-    struct { bool extended;
+    struct { bool extended; uint8_t size; // 0=S(42), 1=M(56, default), 2=L(96)
     } fab;
     struct { bool vertical, inset;
     } divider;
@@ -902,6 +906,7 @@ static bool cogito_backend_ready = false;
 static CogitoMenu cogito_menu = {
   0
 };
+static CogitoNode* cogito_fab_menu_open_node = NULL;
 static CogitoFont* cogito_font = NULL;
 static bool cogito_font_ready = false;
 static CogitoFont* cogito_font_serif = NULL;
@@ -945,6 +950,7 @@ static CogitoColor cogito_selection_text = {
 static bool cogito_has_selection_text = false;
 static bool cogito_dialog_slot_force_draw = false;
 static bool cogito_toasts_force_draw = false;
+static bool cogito_fab_menu_force_draw = false;
 static CogitoNode* cogito_slider_active = NULL;
 static CogitoNode* cogito_carousel_active = NULL;
 static CogitoNode* cogito_bottom_sheet_active = NULL;

@@ -1,12 +1,13 @@
 case COGITO_COLORPICKER: {
-      CogitoStyle cs = cogito_theme_resolve_node(n);
-      int cp_size = cogito_node_font_size(n);
-      int cp_pad_t = cs.has_padding_top ? cs.padding_top : 12;
-      int cp_pad_b = cs.has_padding_bottom ? cs.padding_bottom : cp_pad_t;
-      int cp_row_h = cp_size + 10;
-      int cp_gap = 8;
-      h = cp_pad_t + cp_row_h * 4 + cp_gap * 3 + cp_pad_b;
-      if (h < 140) h = 140;
-      w = 240;
+      if (n->colorpicker.popover_panel) {
+        // Panel: 3 XS sliders (48dp each) + 2 gaps (12dp) + top/bottom pad (16dp each) + footer (48dp)
+        h = 16 + 3 * 48 + 2 * 12 + 16 + COGITO_COLORPICKER_PANEL_FOOTER_H;
+        w = COGITO_COLORPICKER_PANEL_W;
+      } else {
+        // Trigger: compact field
+        w = COGITO_COLORPICKER_FIELD_MIN_WIDTH;
+        h = COGITO_COLORPICKER_FIELD_HEIGHT;
+      }
       break;
     }
+

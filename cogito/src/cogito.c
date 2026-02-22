@@ -113,6 +113,8 @@ static const char *cogito_font_bold_path_active = NULL;
 #define cogito_fab_new cogito_fab_new_ergo
 #define cogito_fab_on_click cogito_fab_on_click_ergo
 #define cogito_fab_set_extended cogito_fab_set_extended_ergo
+#define cogito_fab_set_size cogito_fab_set_size_ergo
+#define cogito_fab_set_color cogito_fab_set_color_ergo
 #define cogito_fixed_new cogito_fixed_new_ergo
 #define cogito_fixed_set_pos cogito_fixed_set_pos_ergo
 #define cogito_grid_new cogito_grid_new_ergo
@@ -313,6 +315,9 @@ static const char *cogito_font_bold_path_active = NULL;
 #define cogito_split_button_add_menu cogito_split_button_add_menu_ergo
 #define cogito_split_button_add_menu_section                                   \
   cogito_split_button_add_menu_section_ergo
+#define cogito_fab_menu_new cogito_fab_menu_new_ergo
+#define cogito_fab_menu_set_color cogito_fab_menu_set_color_ergo
+
 
 // Internal engine (same order as previous runtime include).
 #include "../c/00_core.inc"
@@ -407,6 +412,8 @@ static const char *cogito_font_bold_path_active = NULL;
 #undef cogito_fab_new
 #undef cogito_fab_on_click
 #undef cogito_fab_set_extended
+#undef cogito_fab_set_size
+#undef cogito_fab_set_color
 #undef cogito_fixed_new
 #undef cogito_fixed_set_pos
 #undef cogito_grid_new
@@ -607,6 +614,8 @@ static const char *cogito_font_bold_path_active = NULL;
 #undef cogito_split_button_new
 #undef cogito_split_button_add_menu
 #undef cogito_split_button_add_menu_section
+#undef cogito_fab_menu_new
+#undef cogito_fab_menu_set_color
 
 // Public C API implementations for node hierarchy (use internal functions)
 cogito_node *cogito_node_get_parent(cogito_node *node) {
@@ -2943,6 +2952,15 @@ cogito_node *cogito_fab_new(const char *icon) {
   return cogito_from_val(v);
 }
 
+cogito_node *cogito_fab_menu_new(const char *icon) {
+  return cogito_from_val(cogito_fab_menu_new_ergo(cogito_val_from_cstr(icon)));
+}
+
+void cogito_fab_menu_set_color(cogito_node *fabm, int color) {
+  if (!fabm) return;
+  cogito_fab_menu_set_color_ergo(EV_OBJ(fabm), EV_INT(color));
+}
+
 void cogito_chip_set_selected(cogito_node *chip, bool selected) {
   if (!chip)
     return;
@@ -3000,6 +3018,16 @@ void cogito_fab_set_extended(cogito_node *fab, bool extended,
   cogito_fab_set_extended_ergo(EV_OBJ(fab), EV_BOOL(extended), lv);
   if (lv.tag == EVT_STR)
     ergo_release_val(lv);
+}
+
+void cogito_fab_set_size(cogito_node *fab, int size) {
+  if (!fab) return;
+  cogito_fab_set_size_ergo(EV_OBJ(fab), EV_INT(size));
+}
+
+void cogito_fab_set_color(cogito_node *fab, int color) {
+  if (!fab) return;
+  cogito_fab_set_color_ergo(EV_OBJ(fab), EV_INT(color));
 }
 
 void cogito_fab_on_click(cogito_node *fab, cogito_node_fn fn, void *user) {

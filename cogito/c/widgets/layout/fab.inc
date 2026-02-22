@@ -40,22 +40,32 @@ case COGITO_FAB: {
         break;
       }
 
-      // Inside normal layout containers (HStack/VStack/etc.), keep the slot
-      // position assigned by the parent layout pass. Only free-position FABs
-      // when they are direct children of a window.
-      if (p->kind != COGITO_WINDOW) {
+      // Always position FAB relative to its window, floating at the bottom
+      // regardless of nesting depth (same approach as FAB Menu).
+      CogitoNode* win = cogito_node_window(n);
+      if (!win) break;
+
+      // Check for a sibling floating FAB already laid out in this window.
+      // If found, this becomes the secondary (S-size) FAB to its left.
+      CogitoNode* primary = cogito_find_other_floating_fab(win, n);
+      if (primary && primary->y > 0) {
+        // Force S size (42x42) for the secondary FAB
+        n->w = 42;
+        n->h = 42;
+        n->y = win->y + win->h - 18 - n->h - n->margin_bottom;
+        n->x = primary->x - 8 - n->w;
         break;
       }
 
       int col = n->align % 3;
       if (col < 0 || col > 2) col = 2;  // FAB defaults to right lane.
       if (col == 0) {
-        n->x = p->x + 18 + n->margin_left;
+        n->x = win->x + 18 + n->margin_left;
       } else if (col == 1) {
-        n->x = p->x + (p->w - n->w) / 2 + n->margin_left - n->margin_right;
+        n->x = win->x + (win->w - n->w) / 2 + n->margin_left - n->margin_right;
       } else {
-        n->x = p->x + p->w - 18 - n->w - n->margin_right;
+        n->x = win->x + win->w - 16 - n->w - n->margin_right;
       }
-      n->y = p->y + p->h - 18 - n->h - n->margin_bottom;
+      n->y = win->y + win->h - 18 - n->h - n->margin_bottom;
       break;
     }

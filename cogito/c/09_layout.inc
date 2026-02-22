@@ -4,6 +4,26 @@ static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h);
 static void cogito_window_relayout(CogitoNode* win);
 static void cogito_dialog_close_rect(CogitoNode* n, int* out_x, int* out_y, int* out_w, int* out_h);
 
+// Find another floating FAB (COGITO_FAB or COGITO_FAB_MENU, not in nav_rail/bottom_nav)
+// in the subtree of `root`, excluding `exclude`. Returns the first one found with y > 0
+// (already laid out), or the first one found (for pre-layout detection).
+static CogitoNode* cogito_find_other_floating_fab(CogitoNode* root, CogitoNode* exclude) {
+  if (!root || root == exclude) goto children;
+  if (root->kind == COGITO_FAB || root->kind == COGITO_FAB_MENU) {
+    CogitoNode* p = root->parent;
+    if (!p || (p->kind != COGITO_NAV_RAIL && p->kind != COGITO_BOTTOM_NAV)) {
+      return root;
+    }
+    return NULL; // docked fab, skip children
+  }
+children:
+  for (size_t i = 0; i < root->len; i++) {
+    CogitoNode* found = cogito_find_other_floating_fab(root->children[i], exclude);
+    if (found) return found;
+  }
+  return NULL;
+}
+
 static void cogito_distribute_axis_sizes(size_t count, const int* min_sizes, const bool* expand_flags, int available, int* out_sizes) {
   if (!out_sizes || !min_sizes || count == 0) return;
   if (available < 0) available = 0;
@@ -130,6 +150,8 @@ static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h) {
     #include "widgets/layout/datepicker.inc"
 
     #include "widgets/layout/fab.inc"
+
+    #include "widgets/layout/fab_menu.inc"
 
     #include "widgets/layout/stepper.inc"
 

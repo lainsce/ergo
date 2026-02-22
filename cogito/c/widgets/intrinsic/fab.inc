@@ -8,15 +8,16 @@ case COGITO_FAB: {
     : "Create";
 
   if (effective_extended) {
-    // Extended FAB: icon + label + padding
-    int size = cogito_node_font_size(n);
-    int label_w = cogito_text_width_size_node(n, label, size);
+    // Extended FAB: icon + label + padding (always M height)
+    int font_size = cogito_node_font_size(n);
+    int label_w = cogito_text_width_size_node(n, label, font_size);
     w = 16 + 24 + 12 + label_w + 16;  // padding + icon + gap + label + padding
     h = 56;
   } else {
-    // Standard FAB: circular
-    w = 56;
-    h = 56;
+    // Standard circular FAB: S=42, M=56 (default), L=96
+    int dim = (n->fab.size == 0) ? 42 : (n->fab.size == 2) ? 96 : 56;
+    w = dim;
+    h = dim;
   }
   break;
 }

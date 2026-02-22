@@ -1,3 +1,12 @@
+// ColorPicker sizing constants
+enum {
+  COGITO_COLORPICKER_FIELD_MIN_WIDTH = 220,
+  COGITO_COLORPICKER_FIELD_HEIGHT    = 56,
+  COGITO_COLORPICKER_PANEL_W         = 360,
+  COGITO_COLORPICKER_PANEL_PAD       = 16,
+  COGITO_COLORPICKER_PANEL_FOOTER_H  = 48,
+};
+
 static void cogito_colorpicker_sync_hex(CogitoNode* n) {
   if (!n || n->kind != COGITO_COLORPICKER) return;
   CogitoColor c = cogito_hct_to_rgb(n->colorpicker.h, n->colorpicker.c, n->colorpicker.t);
@@ -39,6 +48,60 @@ static void cogito_colorpicker_layout(CogitoNode* n, int* out_pad_l, int* out_pa
   if (out_hex_h) *out_hex_h = hex_h;
 }
 
+// Trigger field layout: [swatch 28x28] [hex text] [icon button 44xh]
+static void cogito_colorpicker_field_layout(
+    CogitoNode* n,
+    int* swatch_x, int* swatch_y, int* swatch_w, int* swatch_h,
+    int* hex_x, int* hex_y, int* hex_w, int* hex_h,
+    int* icon_x, int* icon_y, int* icon_w, int* icon_h) {
+  int sw = 28, sh = 28;
+  int pad_l = 12;
+  int gap = 8;
+  int icon_btn_w = 44;
+  int sx = n->x + pad_l;
+  int sy = n->y + (n->h - sh) / 2;
+  int hx = sx + sw + gap;
+  int hw = n->w - pad_l - sw - gap - icon_btn_w;
+  if (hw < 0) hw = 0;
+  int ix = n->x + n->w - icon_btn_w;
+  if (swatch_x) *swatch_x = sx;
+  if (swatch_y) *swatch_y = sy;
+  if (swatch_w) *swatch_w = sw;
+  if (swatch_h) *swatch_h = sh;
+  if (hex_x) *hex_x = hx;
+  if (hex_y) *hex_y = n->y;
+  if (hex_w) *hex_w = hw;
+  if (hex_h) *hex_h = n->h;
+  if (icon_x) *icon_x = ix;
+  if (icon_y) *icon_y = n->y;
+  if (icon_w) *icon_w = icon_btn_w;
+  if (icon_h) *icon_h = n->h;
+}
+
+// Panel footer layout: Cancel and OK buttons at the bottom
+static void cogito_colorpicker_panel_footer_layout(
+    CogitoNode* n,
+    int* cancel_x, int* cancel_y, int* cancel_w, int* cancel_h,
+    int* ok_x, int* ok_y, int* ok_w, int* ok_h) {
+  int footer_h = COGITO_COLORPICKER_PANEL_FOOTER_H;
+  int fy = n->y + n->h - footer_h;
+  int btn_w = 80;
+  int btn_h = 36;
+  int btn_pad_r = 12;
+  int gap = 8;
+  int bty = fy + (footer_h - btn_h) / 2;
+  int ox = n->x + n->w - btn_pad_r - btn_w;
+  int cx = ox - gap - btn_w;
+  if (cancel_x) *cancel_x = cx;
+  if (cancel_y) *cancel_y = bty;
+  if (cancel_w) *cancel_w = btn_w;
+  if (cancel_h) *cancel_h = btn_h;
+  if (ok_x) *ok_x = ox;
+  if (ok_y) *ok_y = bty;
+  if (ok_w) *ok_w = btn_w;
+  if (ok_h) *ok_h = btn_h;
+}
+
 static void cogito_colorpicker_slider_rect(CogitoNode* n, int idx, int* out_x, int* out_y, int* out_w, int* out_h) {
   int pad_l = 0, pad_t = 0, pad_r = 0, label_w = 0, row_h = 0, slider_h = 0, gap = 0;
   cogito_colorpicker_layout(n, &pad_l, &pad_t, &pad_r, NULL, &label_w, &row_h, &slider_h, &gap, NULL, NULL, NULL, NULL);
@@ -53,13 +116,24 @@ static void cogito_colorpicker_slider_rect(CogitoNode* n, int idx, int* out_x, i
   if (out_h) *out_h = slider_h;
 }
 
+// Mode-aware hex input rect — panel uses panel layout, trigger uses field layout
 static bool cogito_colorpicker_hex_rect(CogitoNode* n, int* out_x, int* out_y, int* out_w, int* out_h) {
-  int hx = 0, hy = 0, hw = 0, hh = 0;
-  cogito_colorpicker_layout(n, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &hx, &hy, &hw, &hh);
-  if (out_x) *out_x = hx;
-  if (out_y) *out_y = hy;
-  if (out_w) *out_w = hw;
-  if (out_h) *out_h = hh;
+  if (!n) return false;
+  if (n->colorpicker.popover_panel) {
+    int hx = 0, hy = 0, hw = 0, hh = 0;
+    cogito_colorpicker_layout(n, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &hx, &hy, &hw, &hh);
+    if (out_x) *out_x = hx;
+    if (out_y) *out_y = hy;
+    if (out_w) *out_w = hw;
+    if (out_h) *out_h = hh;
+  } else {
+    int hx = 0, hw = 0, hh = 0;
+    cogito_colorpicker_field_layout(n, NULL, NULL, NULL, NULL, &hx, NULL, &hw, &hh, NULL, NULL, NULL, NULL);
+    if (out_x) *out_x = hx;
+    if (out_y) *out_y = n->y;
+    if (out_w) *out_w = hw;
+    if (out_h) *out_h = hh;
+  }
   return true;
 }
 

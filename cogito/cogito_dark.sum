@@ -216,11 +216,6 @@ tabs
 tabs:selection
   background: @surface-container-highest
 
-buttongroup
-  background: transparent
-  color: @on-surface
-  border: 1 solid @outline
-
 buttongroup:disabled
   background: alpha(@on-background, 16%)
   color: alpha(@on-background, 32%)

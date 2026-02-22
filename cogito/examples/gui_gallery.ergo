@@ -1413,6 +1413,31 @@ fun build_view_chooser_page() (( cogito.VStack )) {
     return vstack
 }
 
+fun build_fabmenu_page() (( cogito.VStack )) {
+    let vstack = build_page(@"FabMenu", @"FabMenu is a floating action button that shows a menu of actions.")
+
+    let status = cogito.label(@"Tap a FAB.")
+    .set_class(@"body")
+    .set_wrap(true)
+    vstack.add(status)
+
+    let fabmenu = cogito.fab_menu(@"plus")
+    .set_hexpand(true)
+    .set_vexpand(true)
+    .add_item(@"Add", (b = any) => {
+        status.set_text(@"Add action selected.")
+    })
+    .add_item(@"Edit", (b = any) => {
+        status.set_text(@"Edit action selected.")
+    })
+    .add_item(@"Delete", (b = any) => {
+        status.set_text(@"Delete action selected.")
+    })
+    vstack.add(fabmenu)
+
+    return vstack
+}
+
 fun build_about_window_page() (( cogito.VStack )) {
     let vstack = build_page(@"AboutWindow", @"AboutWindow presents product metadata such as name, version, description, and website.")
 
@@ -1686,6 +1711,8 @@ fun view_id_from_index(idx = num) (( string )) {
         @"typography"
     } elif idx == 45 {
         @"side_sheet"
+    } elif idx == 46 {
+        @"fabmenu"
     } else {
         @"button"
     }
@@ -1784,6 +1811,8 @@ fun view_title_from_index(idx = num) (( string )) {
         @"Typography"
     } elif idx == 45 {
         @"SideSheet"
+    } elif idx == 46 {
+        @"FabMenu"
     } else {
         @"Button"
     }
@@ -1847,6 +1876,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
     .add(@"about_window", (vs = cogito.ViewSwitcher) => build_about_window_page())
     .add(@"typography", (vs = cogito.ViewSwitcher) => build_typography_page())
     .add(@"side_sheet", (vs = cogito.ViewSwitcher) => build_side_sheet_page())
+    .add(@"fabmenu", (vs = cogito.ViewSwitcher) => build_fabmenu_page())
 
     let selected_idx = 0
     views.set_active(view_id_from_index(selected_idx))
@@ -1906,6 +1936,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
     .add(cogito.label(@"AboutWindow").set_padding(10,16,10,16))
     .add(cogito.label(@"Typography").set_padding(10,16,10,16))
     .add(cogito.label(@"SideSheet").set_padding(10,16,10,16))
+    .add(cogito.label(@"FAB Menu").set_padding(10,16,10,16))
     .on_select((idx) => {
         views.set_active(view_id_from_index(idx))
         content_bar.set_title(view_title_from_index(idx))

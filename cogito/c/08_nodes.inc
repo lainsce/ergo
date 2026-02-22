@@ -360,6 +360,8 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
 
     #include "widgets/intrinsic/fab.inc"
 
+    #include "widgets/intrinsic/fab_menu.inc"
+
     #include "widgets/intrinsic/nav_rail.inc"
 
     #include "widgets/intrinsic/bottom_nav.inc"

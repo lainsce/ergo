@@ -61,7 +61,7 @@
 
 *
   color: @on-surface
-  font-size: 13
+  font-size: 14
 
 window
   background: @surface
@@ -95,7 +95,7 @@ carousel
   background: transparent
   color: @on-background
   min-height: 240
-  min-width: 400
+  min-width: 360
   border-radius: 26
 
 carousel_item
@@ -165,7 +165,7 @@ button.toolbar_format
   background: transparent
   color: @primary
   border-radius: 100
-  min-width: 40
+  min-width: 48
   min-height: 48
   padding: 0 8
   box-shadow: none
@@ -174,9 +174,9 @@ button.toolbar_format_active
   background: @primary
   color: @on-primary
   border-radius: 100
-  min-width: 56
+  min-width: 48
   min-height: 48
-  padding: 0 20
+  padding: 0 8
   box-shadow: none
 
 fab
@@ -223,7 +223,7 @@ chip:checked
 nav-rail
   background: @surface
   color: @on-background
-  min-width: 80
+  min-width: 96
   padding: 4 0
 
 nav-rail:selection
@@ -247,7 +247,7 @@ searchfield
   min-height: 56
   min-width: 180
   padding: 8 16
-  border-radius: 21
+  border-radius: 100
 
 textview
   background: @surface-container-low
@@ -274,7 +274,7 @@ dropdown:hover
 datepicker
   background: @on-secondary
   border-radius: 18
-  min-width: 300
+  min-width: 360
   padding: 16
   box-shadow: [
     0 1 3 0 alpha(@shadow, 12%)
@@ -285,7 +285,7 @@ slider
   color: @primary
   track-height: 4
   min-height: 48
-  min-width: 200
+  min-width: 360
 
 slider:hover
   color: @inverse-primary
@@ -324,7 +324,7 @@ progress:selection
   background: @primary
 
 toasts
-  padding: 12
+  padding: 8 16
 
 toast
   background: @on-background
@@ -337,17 +337,8 @@ treeview
   color: @on-background
   border-radius: 8
   min-height: 180
-  min-width: 200
+  min-width: 360
   padding: 8
-
-colorpicker
-  background: @on-secondary
-  border-radius: 18
-  min-width: 300
-  padding: 16
-  box-shadow: [
-    0 1 3 0 alpha(@shadow, 12%)
-  ]
 
 toolbar
   background: @inverse-on-surface
@@ -380,7 +371,7 @@ iconbtn.toolbar_plus
 
 label
   color: @on-background
-  padding: 6
+  padding: 8
 
 .about-window
   background: @on-secondary
@@ -407,8 +398,8 @@ tooltip
   background: @on-background
   color: @on-secondary
   border-radius: 6
-  font-size: 13
-  padding: 6 8
+  font-size: 14
+  padding: 8
 
 radio
 checkbox
@@ -485,11 +476,11 @@ switch knob:active
   background: @surface-container-high
 
 .monospace
-  font-size: 13
+  font-size: 14
   font-weight: normal
 
 .tabular
-  font-size: 13
+  font-size: 14
   font-weight: normal
   font-variant-numeric: tnum
 
@@ -648,7 +639,7 @@ menu
   border-radius: 4
   color: @on-background
   box-shadow: 2
-  font-size: 13
+  font-size: 14
 
 menu:selection
   background: @primary
@@ -676,11 +667,18 @@ bottom-nav:selection
   background: @surface-container-high
   color: @on-background
 
+.colorpicker
+  background: @on-secondary
+  color: @on-background
+  border-radius: 18
+  min-width: 360
+  padding: 16
+
 .datepicker
   background: @on-secondary
   color: @on-background
   border-radius: 18
-  min-width: 300
+  min-width: 360
   padding: 16
 
 .datepicker:selection

@@ -38,5 +38,7 @@ case COGITO_WINDOW: {
       }
       // Draw toasts in a final overlay pass so they are never clipped by containers.
       cogito_draw_toasts_overlay(n);
+      // Draw FAB Menus in a final overlay pass so they always float above all content.
+      cogito_draw_fab_overlay(n);
       break;
 }

@@ -122,6 +122,7 @@ static void cogito_container_remove_child(CogitoNode* parent, CogitoNode* child)
 #include "widgets/interaction/menu_button.inc"
 #include "widgets/interaction/menu_section.inc"
 #include "widgets/interaction/fab.inc"
+#include "widgets/interaction/fab_menu.inc"
 #include "widgets/interaction/fixed.inc"
 #include "widgets/interaction/grid.inc"
 #include "widgets/interaction/hstack.inc"
@@ -201,6 +202,16 @@ static bool cogito_hit_node(CogitoNode* n, int x, int y) {
   return cogito_hit_rect(x, y, n->x, n->y, n->w, n->h);
 }
 
+// Expanded hit test: inflates the hit rect to a minimum of 48×48dp (centered),
+// so small interactive widgets meet the accessibility touch-target requirement (§11.1).
+static bool cogito_hit_node_min48(const CogitoNode* n, int x, int y) {
+  int hit_w = n->w < 48 ? 48 : n->w;
+  int hit_h = n->h < 48 ? 48 : n->h;
+  int hit_x = n->x - (hit_w - n->w) / 2;
+  int hit_y = n->y - (hit_h - n->h) / 2;
+  return cogito_hit_rect(x, y, hit_x, hit_y, hit_w, hit_h);
+}
+
 static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
   if (!n) return NULL;
   if (n->kind == COGITO_WINDOW && n->popover_open && n->popover) {
@@ -258,26 +269,32 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
       if (child) return child;
     }
   }
-  if (n->kind == COGITO_BUTTON || n->kind == COGITO_ICONBTN || n->kind == COGITO_CHECKBOX ||
-      n->kind == COGITO_SWITCH || n->kind == COGITO_LIST || n->kind == COGITO_GRID ||
+  if (n->kind == COGITO_BUTTON || n->kind == COGITO_ICONBTN ||
+      n->kind == COGITO_LIST || n->kind == COGITO_GRID ||
       n->kind == COGITO_TREEVIEW ||
       n->kind == COGITO_TEXTFIELD || n->kind == COGITO_TEXTVIEW ||
       n->kind == COGITO_DROPDOWN || n->kind == COGITO_SLIDER ||
       n->kind == COGITO_CAROUSEL || n->kind == COGITO_CAROUSEL_ITEM ||
       n->kind == COGITO_TABS || n->kind == COGITO_TOAST ||
       n->kind == COGITO_DATEPICKER || n->kind == COGITO_COLORPICKER ||
-      n->kind == COGITO_CHIP || n->kind == COGITO_FAB ||
-      n->kind == COGITO_STEPPER || n->kind == COGITO_BUTTON_GROUP ||
+      n->kind == COGITO_FAB || n->kind == COGITO_FAB_MENU ||
+      n->kind == COGITO_BUTTON_GROUP ||
       n->kind == COGITO_SEARCHFIELD ||
       n->kind == COGITO_NAV_RAIL || n->kind == COGITO_BOTTOM_NAV ||
       n->kind == COGITO_TIMEPICKER || n->kind == COGITO_BANNER ||
-       n->kind == COGITO_BOTTOM_SHEET || n->kind == COGITO_SIDE_SHEET ||
+      n->kind == COGITO_BOTTOM_SHEET || n->kind == COGITO_SIDE_SHEET ||
       n->kind == COGITO_SWITCHBAR || n->kind == COGITO_SPLIT_BUTTON ||
       n->kind == COGITO_VIEW_CHOOSER || n->kind == COGITO_VIEW_DUAL ||
       n->kind == COGITO_SETTINGS_WINDOW ||
       n->kind == COGITO_EMPTY_PAGE || n->kind == COGITO_WELCOME_SCREEN ||
       n->kind == COGITO_ABOUT_WINDOW) {
     if (cogito_hit_node(n, x, y)) return n;
+  }
+  // Small interactive widgets: expand hit target to 48×48dp minimum (§11.1 Accessibility).
+  // The visual size is unchanged; only the clickable/hover detection area is enlarged.
+  if (n->kind == COGITO_CHIP || n->kind == COGITO_STEPPER ||
+      n->kind == COGITO_CHECKBOX || n->kind == COGITO_SWITCH) {
+    if (cogito_hit_node_min48(n, x, y)) return n;
   }
   return NULL;
 }
@@ -319,6 +336,7 @@ static bool cogito_node_focusable(const CogitoNode* n) {
     #include "widgets/interaction/focusable/colorpicker.inc"
     #include "widgets/interaction/focusable/datepicker.inc"
     #include "widgets/interaction/focusable/fab.inc"
+    #include "widgets/interaction/focusable/fab_menu.inc"
     #include "widgets/interaction/focusable/nav_rail.inc"
     #include "widgets/interaction/focusable/bottom_nav.inc"
     #include "widgets/interaction/focusable/stepper.inc"
