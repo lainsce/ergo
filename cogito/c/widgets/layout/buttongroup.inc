@@ -1,8 +1,8 @@
 case COGITO_BUTTON_GROUP: {
       // ButtonGroup is a layout container for Button/IconButton children
-      // MD3 Expressive: arranges children horizontally with optional connected styling
+      // Arranges children horizontally with optional connected styling
       
-      // Use buttongroup size for gap (MD3 spec values)
+      // Use buttongroup size for gap (spec values)
       int btn_size = (n->buttongroup.size >= 0 && n->buttongroup.size <= 4) ? n->buttongroup.size : 2;
       int buttongroup_gaps[] = {12, 12, 8, 8, 8};      // XS, S, M, L, XL (unconnected)
       int size_gap = buttongroup_gaps[btn_size];

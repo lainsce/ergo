@@ -1,18 +1,18 @@
 case COGITO_SPLIT_BUTTON: {
-  bool hover = false, active = false;
-  cogito_node_hover_state(n, &hover, &active);
-  CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
+  // Resolve base style (no hover/active — we apply those per-part)
+  CogitoStyle s = cogito_theme_resolve_node(n);
 
   CogitoColor bg = s.has_bg ? s.bg : n->bg;
   CogitoColor text_color = s.has_text ? s.text : n->text_color;
   CogitoColor border_color = s.has_border ? s.border : n->border_color;
   int border_w = s.has_border_width ? s.border_width : 0;
+  if (n->button.outlined && border_w == 0) border_w = 1;
+  if (n->button.text_style) { bg = cogito_rgba(0,0,0,0); border_w = 0; }
 
   cogito_anim_apply(n, &s, &bg, &text_color, &border_color, NULL);
 
   // Split button dimensions
   int menu_w = n->h;
-  if (menu_w < 56) menu_w = 56;
   bool menu_active = cogito_menu.open && cogito_menu.owner == n;
   int gap = 2;
   if (menu_w > n->w - 1) menu_w = n->w - 1;
@@ -23,6 +23,33 @@ case COGITO_SPLIT_BUTTON: {
   if (main_w < 1) main_w = 1;
   int menu_x = n->x + main_w + gap;
   n->split_btn.arrow_x = menu_x;
+
+  // Per-part hover/active detection
+  int mx = 0, my = 0;
+  bool have_mouse = (cogito_backend && cogito_backend->get_mouse_position);
+  if (have_mouse) cogito_backend->get_mouse_position(&mx, &my);
+  bool over_whole = have_mouse && cogito_hit_rect(mx, my, n->x, n->y, n->w, n->h) && !n->disabled;
+  bool btn_down = have_mouse && cogito_backend->is_mouse_button_down && cogito_backend->is_mouse_button_down(0);
+  bool over_main = over_whole && mx < menu_x;
+  bool over_menu = over_whole && mx >= menu_x;
+  bool main_hover = over_main && !btn_down;
+  bool main_active = over_main && btn_down;
+  bool menu_hover = (over_menu && !btn_down) || menu_active;
+  bool menu_active_press = over_menu && btn_down;
+
+  // State layer colors for each part
+  CogitoColor main_bg = bg;
+  CogitoColor menu_bg = bg;
+  if (main_hover || main_active) {
+    CogitoColor layer = text_color;
+    layer.a = main_active ? 25 : 15;
+    main_bg = cogito_color_blend(main_bg, layer);
+  }
+  if (menu_hover || menu_active_press) {
+    CogitoColor layer = text_color;
+    layer.a = menu_active_press ? 25 : 15;
+    menu_bg = cogito_color_blend(menu_bg, layer);
+  }
 
   int outer_radius = n->h / 2;
   if (outer_radius < 0) outer_radius = 0;
@@ -48,7 +75,7 @@ case COGITO_SPLIT_BUTTON: {
   n->anim_ease = prev_anim_ease;
 
   // Draw main button with circular outer corners and 4px inner corners
-  cogito_draw_rect_radii_aa(n->x, n->y, main_w, n->h, bg,
+  cogito_draw_rect_radii_aa(n->x, n->y, main_w, n->h, main_bg,
                             outer_radius, main_inner_radius, main_inner_radius, outer_radius);
   if (border_w > 0) {
     cogito_draw_rect_lines_radii_aa(n->x, n->y, main_w, n->h, border_color,
@@ -56,7 +83,7 @@ case COGITO_SPLIT_BUTTON: {
   }
 
   // Draw menu button with reversed corner radii; when menu is active make it fully circular.
-  cogito_draw_rect_radii_aa(menu_x, n->y, menu_w, n->h, bg,
+  cogito_draw_rect_radii_aa(menu_x, n->y, menu_w, n->h, menu_bg,
                             menu_inner_radius, outer_radius, outer_radius, menu_inner_radius);
   if (border_w > 0) {
     cogito_draw_rect_lines_radii_aa(menu_x, n->y, menu_w, n->h, border_color,

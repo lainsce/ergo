@@ -50,6 +50,12 @@ case COGITO_ICONBTN: {
       }
       if (s.has_border) border = s.border;
       if (s.has_border_width) border_w = s.border_width;
+      // Effective shape: when toggle is active and checked, swap shape
+      int eff_shape = n->button.icon_shape;
+      if (n->button.icon_toggle && n->checked) {
+        eff_shape = eff_shape ? 0 : 1; // circle↔square swap
+      }
+
       // Only apply default radius logic if NOT in a ButtonGroup (let buttongroup handle radius)
       if (!in_buttongroup) {
         if (in_appbar && !n->radius_set) {
@@ -60,7 +66,7 @@ case COGITO_ICONBTN: {
           radius = s.radius;
         } else {
           int min_dim = n->w < n->h ? n->w : n->h;
-          if (n->button.icon_shape == 1) {
+          if (eff_shape == 1) {
             if (n->button.size == COGITO_BUTTON_SIZE_XS) {
               radius = 12;
             } else if (n->button.size == COGITO_BUTTON_SIZE_S) {
@@ -167,9 +173,9 @@ case COGITO_ICONBTN: {
         }
         cogito_buttongroup_child_radii(n, &rtl, &rtr, &rbr, &rbl, radius);
       } else {
-        // Plain IconButtons outside ButtonGroup: respect icon_shape option
+        // Plain IconButtons outside ButtonGroup: respect effective shape (toggle-aware)
         if (!n->radius_set && !s.has_radius) {
-          if (n->button.icon_shape == 1) {
+          if (eff_shape == 1) {
             // Squared IconButton: use 16px radius
             radius = 16;
           } else {

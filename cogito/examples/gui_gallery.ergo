@@ -3,6 +3,8 @@ cask gui_gallery
 bring stdr
 bring cogito
 
+def app = cogito.app()
+
 fun build_page(title = string, blurb = string) (( cogito.VStack )) {
     let vstack = cogito.vstack()
     .set_vexpand(true)
@@ -1130,7 +1132,7 @@ fun build_banner_page() (( cogito.VStack )) {
 
     let banner = cogito.banner(@"Your connection was lost.")
     .set_hexpand(true)
-    .set_icon(@"sf:warninexclamationmark.triangle")
+    .set_icon(@"sf:exclamationmark.triangle")
     .set_action(@"Retry", (b = any) => {
         status.set_text(@"Retry clicked.")
     })
@@ -1713,6 +1715,8 @@ fun view_id_from_index(idx = num) (( string )) {
         @"side_sheet"
     } elif idx == 46 {
         @"fabmenu"
+    } elif idx == 47 {
+        @"ensor"
     } else {
         @"button"
     }
@@ -1813,9 +1817,39 @@ fun view_title_from_index(idx = num) (( string )) {
         @"SideSheet"
     } elif idx == 46 {
         @"FabMenu"
+    } elif idx == 47 {
+        @"Ensor"
     } else {
         @"Button"
     }
+}
+
+fun build_ensor_page() (( cogito.VStack )) {
+    let vstack = build_page(@"Ensor Color System", @"Ensor generates color schemes from a single accent color. Choose a variant to change the palette character.")
+
+    let variants_label = cogito.label(@"Scheme Variant")
+    .set_class(@"heading")
+    vstack.add(variants_label)
+
+    let variants = cogito.buttongroup()
+    .add(cogito.button(@"Default").on_click((b = cogito.Button) => {
+        app.set_ensor_variant(0)
+    }))
+    .add(cogito.button(@"Vibrant").on_click((b = cogito.Button) => {
+        app.set_ensor_variant(1)
+    }))
+    .add(cogito.button(@"Muted").on_click((b = cogito.Button) => {
+        app.set_ensor_variant(2)
+    }))
+    .add(cogito.button(@"Fruit Salad").on_click((b = cogito.Button) => {
+        app.set_ensor_variant(4)
+    }))
+    .set_connected (true)
+    .set_size(3)
+
+    vstack.add(variants)
+
+    return vstack
 }
 
 fun build_ui(win = cogito.Window) (( -- )) {
@@ -1877,6 +1911,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
     .add(@"typography", (vs = cogito.ViewSwitcher) => build_typography_page())
     .add(@"side_sheet", (vs = cogito.ViewSwitcher) => build_side_sheet_page())
     .add(@"fabmenu", (vs = cogito.ViewSwitcher) => build_fabmenu_page())
+    .add(@"ensor", (vs = cogito.ViewSwitcher) => build_ensor_page())
 
     let selected_idx = 0
     views.set_active(view_id_from_index(selected_idx))
@@ -1937,6 +1972,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
     .add(cogito.label(@"Typography").set_padding(10,16,10,16))
     .add(cogito.label(@"SideSheet").set_padding(10,16,10,16))
     .add(cogito.label(@"FAB Menu").set_padding(10,16,10,16))
+    .add(cogito.label(@"Ensor").set_padding(10,16,10,16))
     .on_select((idx) => {
         views.set_active(view_id_from_index(idx))
         content_bar.set_title(view_title_from_index(idx))
@@ -1969,9 +2005,9 @@ fun build_ui(win = cogito.Window) (( -- )) {
 }
 
 entry () (( -- )) {
-    let app = cogito.app()
-    .set_appid(@"ergo.cogito.Gallery")
-    .set_accent_color(@"#72dec2", false)
+    let the_app = app
+    the_app.set_appid(@"ergo.cogito.Gallery")
+    the_app.set_accent_color(@"#72dec2", false)
 
     let main_win = cogito.window_size(@"Cogito Gallery", 800, 700)
     .build(build_ui)

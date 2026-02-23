@@ -14,6 +14,7 @@
 #undef cogito_app_set_accent_color
 #undef cogito_app_set_app_name
 #undef cogito_app_set_appid
+#undef cogito_app_set_ensor_variant
 #undef cogito_app_set_icon
 #undef cogito_appbar_add_button
 #undef cogito_appbar_new
@@ -213,11 +214,7 @@
 
 static bool cogito_debug_enabled(void) {
   const char* env = getenv("COGITO_DEBUG");
-  return env && env[
-    0
-  ] && env[
-    0
-  ] != '0';
+  return env && env[0] && env[0] != '0';
 }
 
 typedef enum {
@@ -512,6 +509,13 @@ static void __cogito_app_set_accent_color(ErgoVal appv, ErgoVal colorv, ErgoVal 
   bool ov = overridev.tag == EVT_BOOL ? overridev.as.b : false;
   if (color) cogito_app_set_accent_color(app, color, ov);
   if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
+static void __cogito_app_set_ensor_variant(ErgoVal appv, ErgoVal variantv) {
+  cogito_app* app = cogito_app_from_val(appv);
+  if (app) {
+    cogito_app_set_ensor_variant(app, (int)ergo_as_int(variantv));
+  }
 }
 
 static void __cogito_app_set_icon(ErgoVal appv, ErgoVal pathv) {
@@ -2194,12 +2198,12 @@ static void __cogito_buttongroup_on_select(ErgoVal segv, ErgoVal handler) {
   cogito_node* seg = cogito_node_from_val(segv);
   CogitoHandle* h = (CogitoHandle*)segv.as.p;
   if (handler.tag != EVT_FN) {
-    cogito_set_handler(h, &h->on_change, handler);
+    cogito_set_handler(h, &h->on_select, handler);
     cogito_buttongroup_on_select(seg, NULL, NULL);
     return;
   }
-  cogito_set_handler(h, &h->on_change, handler);
-  cogito_buttongroup_on_select(seg, cogito_cb_change, h);
+  cogito_set_handler(h, &h->on_select, handler);
+  cogito_buttongroup_on_select(seg, cogito_cb_select, h);
 }
 
 static void __cogito_buttongroup_set_size(ErgoVal bgv, ErgoVal sizev) {
@@ -2396,8 +2400,7 @@ static void __cogito_nav_rail_set_badges(ErgoVal railv, ErgoVal badgesv) {
         free(vals);
         ergo_trap("cogito.nav_rail_set_badges expects int/bool/null entries");
     }
-    vals[i
-    ] = v;
+    vals[i] = v;
   }
   cogito_nav_rail_set_badges(rail, vals, count);
   free(vals);
@@ -2443,10 +2446,7 @@ static void __cogito_bottom_nav_set_items(ErgoVal navv, ErgoVal labelsv, ErgoVal
   const char** label_strs = (const char**)calloc(count, sizeof(char*));
   ErgoStr** label_temps = (ErgoStr**)calloc(count, sizeof(ErgoStr*));
   for (size_t i = 0; i < count; i++) {
-    label_strs[i
-    ] = cogito_required_cstr(labels->items[i
-    ], &label_temps[i
-    ]);
+    label_strs[i] = cogito_required_cstr(labels->items[i], &label_temps[i]);
   }
   const char** icon_strs = NULL;
   ErgoStr** icon_temps = NULL;
@@ -2456,16 +2456,11 @@ static void __cogito_bottom_nav_set_items(ErgoVal navv, ErgoVal labelsv, ErgoVal
     icon_strs = (const char**)calloc(icon_count, sizeof(char*));
     icon_temps = (ErgoStr**)calloc(icon_count, sizeof(ErgoStr*));
     for (size_t i = 0; i < icon_count; i++) {
-      icon_strs[i
-      ] = cogito_required_cstr(icons->items[i
-      ], &icon_temps[i
-      ]);
+      icon_strs[i] = cogito_required_cstr(icons->items[i], &icon_temps[i]);
     }
     cogito_bottom_nav_set_items(nav, label_strs, icon_strs, icon_count < count ? icon_count : count);
     for (size_t i = 0; i < icon_count; i++) {
-      if (icon_temps[i
-      ]) ergo_release_val(EV_STR(icon_temps[i
-      ]));
+      if (icon_temps[i]) ergo_release_val(EV_STR(icon_temps[i]));
     }
     free(icon_temps);
     free(icon_strs);
@@ -2473,9 +2468,7 @@ static void __cogito_bottom_nav_set_items(ErgoVal navv, ErgoVal labelsv, ErgoVal
     cogito_bottom_nav_set_items(nav, label_strs, NULL, count);
   }
   for (size_t i = 0; i < count; i++) {
-    if (label_temps[i
-    ]) ergo_release_val(EV_STR(label_temps[i
-    ]));
+    if (label_temps[i]) ergo_release_val(EV_STR(label_temps[i]));
   }
   free(label_temps);
   free(label_strs);
@@ -2658,8 +2651,7 @@ static void __cogito_build(ErgoVal nodev, ErgoVal builder) {
   if (builder.tag != EVT_FN) ergo_trap("cogito.build expects function");
   ErgoVal arg = nodev;
   ergo_retain_val(arg);
-  ErgoVal ret = ergo_call(builder,
-  1, &arg);
+  ErgoVal ret = ergo_call(builder, 1, &arg);
   ergo_release_val(arg);
   ergo_release_val(ret);
 }
@@ -2677,6 +2669,11 @@ static void __cogito_run(ErgoVal appv, ErgoVal winv) {
   cogito_app_run(app, win);
 }
 
+static void __cogito_set_ensor_variant(ErgoVal appv, ErgoVal variantv) {
+  cogito_app* app = cogito_app_from_val(appv);
+  if (app) cogito_app_set_ensor_variant(app, (int)ergo_as_int(variantv));
+}
+
 static void __cogito_load_sum(ErgoVal pathv) {
   ErgoStr* tmp = NULL;
   const char* path = cogito_required_cstr(pathv, &tmp);
@@ -2687,9 +2684,7 @@ static void __cogito_load_sum(ErgoVal pathv) {
 static void __cogito_set_script_dir(ErgoVal dirv) {
   ErgoStr* tmp = NULL;
   const char* dir = cogito_optional_cstr(dirv, &tmp);
-  if (dir && dir[
-    0
-  ]) cogito_set_script_dir(dir); // Call the actual cogito library function
+  if (dir && dir[0]) cogito_set_script_dir(dir); // Call the actual cogito library function
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
 
@@ -2697,9 +2692,7 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
   ErgoStr* tmp = NULL;
   const char* url = cogito_optional_cstr(urlv, &tmp);
   bool ok = false;
-  if (url && url[
-    0
-  ]) ok = cogito_open_url(url);
+  if (url && url[0]) ok = cogito_open_url(url);
   if (tmp) ergo_release_val(EV_STR(tmp));
   return EV_BOOL(ok);
 }
@@ -2708,6 +2701,7 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_app_set_appid __cogito_app_set_appid
 #define cogito_app_set_app_name __cogito_app_set_app_name
 #define cogito_app_set_accent_color __cogito_app_set_accent_color
+#define cogito_app_set_ensor_variant __cogito_app_set_ensor_variant
 #define cogito_app_set_icon __cogito_app_set_icon
 #define cogito_app_get_icon __cogito_app_get_icon
 #define cogito_open_url __cogito_open_url
@@ -2791,6 +2785,7 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_app_set_appid __cogito_app_set_appid
 #define cogito_app_set_app_name __cogito_app_set_app_name
 #define cogito_app_set_accent_color __cogito_app_set_accent_color
+#define cogito_app_set_ensor_variant __cogito_app_set_ensor_variant
 #define cogito_app_set_icon __cogito_app_set_icon
 #define cogito_app_get_icon __cogito_app_get_icon
 #define cogito_pointer_capture_set __cogito_pointer_capture

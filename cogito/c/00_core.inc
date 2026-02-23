@@ -14,6 +14,11 @@
 
 static bool sum_system_is_dark(void);
 static bool sum_system_accent(CogitoColor* out);
+static int sum_system_ensor_scheme(void);
+static double sum_system_font_weight(void);
+static double sum_system_roundness(void);
+static double sum_system_contrast(void);
+static int sum_system_spacing(void);
 
 static bool cogito_system_is_dark(void) {
   return sum_system_is_dark();
@@ -28,6 +33,26 @@ static bool cogito_system_accent(CogitoColor* out) {
     255);
   }
   return false;
+}
+
+static int cogito_system_ensor_scheme(void) {
+  return sum_system_ensor_scheme();
+}
+
+static double cogito_system_font_weight(void) {
+  return sum_system_font_weight();
+}
+
+static double cogito_system_roundness(void) {
+  return sum_system_roundness();
+}
+
+static double cogito_system_contrast(void) {
+  return sum_system_contrast();
+}
+
+static int cogito_system_spacing(void) {
+  return sum_system_spacing();
 }
 
 static void cogito_apply_theme(bool dark, CogitoColor accent);
@@ -869,7 +894,7 @@ typedef struct CogitoNode {
     } indicator;
     struct { float ratio; bool dragging; int drag_offset;
     } view_dual;
-    struct { int arrow_x;
+    struct { int arrow_x; uint8_t size; // 0=XS..4=XL, same as button
     } split_btn;
     struct { bool has_divider_before; bool has_divider_after;
     } menu_section;
@@ -966,6 +991,11 @@ static CogitoApp* cogito_active_app = NULL;
 static CogitoNode* cogito_active_window = NULL;
 static CogitoWindow* cogito_active_backend_window = NULL;
 static bool cogito_theme_dark = false;
+static int    cogito_theme_ensor_variant = 0;  // 0=default,1=vibrant,2=muted,3=mono,4=salad,5=content
+static double cogito_theme_contrast = 0.0;    // -1.0 to 1.0 (from system or user)
+static double cogito_theme_font_weight = 0.0; // 0=unset, 100-900
+static double cogito_theme_roundness = 0.0;   // 0=unset, multiplier
+static int    cogito_theme_spacing = 0;        // 0=unset, 1=compact, 2=normal, 3=comfortable
 static CogitoColor cogito_theme_accent = {
   0,
   0,

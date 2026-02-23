@@ -74,7 +74,7 @@ case COGITO_SCROLLER: {
           if (anim_end > cogito_anim_end_time) cogito_anim_end_time = anim_end;
     }
         if (n->scroller.bar_alpha > 0) {
-      // MD3: scrollbar uses on-surface tint derived from theme text, not hardcoded grey
+      // Scrollbar uses on-surface tint derived from theme text, not hardcoded grey
           CogitoColor on_surface = s.has_text ? s.text : n->text_color;
           CogitoColor track = on_surface;
           track.a = (uint8_t)((int)n->scroller.bar_alpha * 30 / 255);

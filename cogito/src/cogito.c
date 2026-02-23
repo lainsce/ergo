@@ -38,6 +38,7 @@ static const char *cogito_font_bold_path_active = NULL;
 #define cogito_app_set_app_name cogito_app_set_app_name_ergo
 #define cogito_app_set_appid cogito_app_set_appid_ergo
 #define cogito_app_set_icon cogito_app_set_icon_ergo
+#define cogito_app_set_ensor_variant cogito_app_set_ensor_variant_ergo
 #define cogito_appbar_add_button cogito_appbar_add_button_ergo
 #define cogito_appbar_new cogito_appbar_new_ergo
 #define cogito_appbar_set_controls cogito_appbar_set_controls_ergo
@@ -342,6 +343,7 @@ static const char *cogito_font_bold_path_active = NULL;
 #undef cogito_app_set_accent_color
 #undef cogito_app_set_app_name
 #undef cogito_app_set_appid
+#undef cogito_app_set_ensor_variant
 #undef cogito_app_set_icon
 #undef cogito_appbar_add_button
 #undef cogito_appbar_new
@@ -721,7 +723,9 @@ void cogito_app_free(cogito_app *app) {
 void cogito_app_run(cogito_app *app, cogito_window *window) {
   if (!app || !window)
     return;
+  cogito_active_app = app;
   cogito_run_ergo(EV_OBJ(app), EV_OBJ(window));
+  cogito_active_app = NULL;
 }
 
 void cogito_app_set_appid(cogito_app *app, const char *rdnn) {
@@ -765,6 +769,25 @@ void cogito_app_set_accent_color(cogito_app *app, const char *hex,
   cogito_app_set_accent_color_ergo(EV_OBJ(app), hv, EV_BOOL(follow_system));
   if (hv.tag == EVT_STR)
     ergo_release_val(hv);
+}
+
+void cogito_app_set_ensor_variant(cogito_app *app, int variant) {
+  if (!app)
+    return;
+  cogito_app_set_ensor_variant_ergo(EV_OBJ(app), EV_INT(variant));
+}
+
+int cogito_accent_from_pixels(const unsigned char *pixels, int n_bytes,
+                               bool alpha, int *out_argb, int out_cap) {
+  if (!pixels || !out_argb || n_bytes <= 0 || out_cap <= 0)
+    return 0;
+  int cap = out_cap < 4 ? out_cap : 4;
+  CogitoColor cols[4];
+  int n = cogito_ensor_accent_from_pixels(pixels, n_bytes, alpha, cols);
+  if (n > cap) n = cap;
+  for (int i = 0; i < n; i++)
+    out_argb[i] = cogito_ensor_pack_argb(cols[i].r, cols[i].g, cols[i].b);
+  return n;
 }
 
 bool cogito_open_url(const char *url) {
@@ -2152,7 +2175,7 @@ void cogito_stepper_on_change(cogito_node *stepper, cogito_node_fn fn,
   ergo_release_val(EV_FN(wrap));
 }
 
-void cogito_buttongroup_on_select(cogito_node *seg, cogito_node_fn fn,
+void cogito_buttongroup_on_select(cogito_node *seg, cogito_index_fn fn,
                                 void *user) {
   if (!seg)
     return;
@@ -2160,10 +2183,11 @@ void cogito_buttongroup_on_select(cogito_node *seg, cogito_node_fn fn,
     cogito_buttongroup_on_select_ergo(EV_OBJ(seg), EV_NULLV);
     return;
   }
-  CogitoCbNode *env = (CogitoCbNode *)calloc(1, sizeof(*env));
+  CogitoCbIndex *env = (CogitoCbIndex *)calloc(1, sizeof(*env));
   env->fn = fn;
   env->user = user;
-  ErgoFn *wrap = cogito_make_fn(cogito_cb_node, env);
+  env->node = (CogitoNode *)seg;
+  ErgoFn *wrap = cogito_make_fn(cogito_cb_index, env);
   cogito_buttongroup_on_select_ergo(EV_OBJ(seg), EV_FN(wrap));
   ergo_release_val(EV_FN(wrap));
 }

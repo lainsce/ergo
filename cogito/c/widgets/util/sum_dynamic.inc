@@ -1,5 +1,16 @@
 // Dynamic theme generator
-// Builds SUM source from accent color and dark/light mode.
+// Builds SUM source from accent color, dark/light mode, and Ensor scheme variant.
+
+// Set the Ensor scheme variant and re-apply the current theme.
+static void cogito_app_set_ensor_variant(ErgoVal app, ErgoVal variant) {
+  int v = ergo_as_int(variant);
+  if (v < 0) v = 0;
+  if (v > 5) v = 5;
+  cogito_theme_ensor_variant = v;
+  CogitoColor accent = cogito_app_effective_accent(app);
+  cogito_apply_theme(cogito_theme_dark, accent);
+  cogito_rebuild_active_window();
+}
 
 static void cogito_sum_append(char* dst, size_t dst_cap, size_t* dst_off, const char* fmt, ...) {
   if (!dst || !dst_off || *dst_off >= dst_cap) return;
@@ -15,275 +26,67 @@ static void cogito_sum_append(char* dst, size_t dst_cap, size_t* dst_off, const 
   }
 }
 
-static double cogito_sum_sanitize_degrees(double deg) {
-  deg = fmod(deg,
-  360.0);
-  if (deg < 0.0) deg += 360.0;
-  return deg;
-}
-
-static double cogito_sum_piecewise_val(double src_h,
-                                       const double* huebps, size_t huebps_len,
-                                       const double* vals, size_t vals_len) {
-  if (!huebps || !vals || huebps_len < 2 || vals_len < 1) {
-    return cogito_sum_sanitize_degrees(src_h);
-  }
-
-  size_t size = huebps_len - 1;
-  if (vals_len < size) size = vals_len;
-  for (size_t i = 0; i < size; i++) {
-    if (src_h >= huebps[i
-    ] && src_h < huebps[i + 1
-    ]) {
-      return cogito_sum_sanitize_degrees(vals[i
-      ]);
-    }
-  }
-  return cogito_sum_sanitize_degrees(src_h);
-}
-
-static double cogito_sum_get_rotated_hue(double src_h,
-                                         const double* huebps, size_t huebps_len,
-                                         const double* rotations, size_t rotations_len) {
-  double piece = cogito_sum_piecewise_val(src_h, huebps, huebps_len, rotations, rotations_len);
-  return cogito_sum_sanitize_degrees(piece + src_h);
-}
-
 static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t cap) {
   size_t off = 0;
   if (cap == 0) return;
-  out[
-    0
-  ] = 0;
+  out[0] = 0;
 
   double h = 0.0, c = 0.0, t = 0.0;
   cogito_rgb_to_hct(accent, &h, &c, &t);
 
-  // === Full Color Token System ===
-  // Primary palette — Expressive: chroma 36 dark / 40 light
-  double primary_c = dark ? 36.0 : 40.0;
-  CogitoColor primary = cogito_hct_to_rgb(h, primary_c, dark ? 80.0 : 40.0);
-  CogitoColor on_primary = dark ? cogito_hct_to_rgb(h, primary_c,
-  20.0) : cogito_hct_to_rgb(h, primary_c,
-  100.0);
-  CogitoColor primary_container = cogito_hct_to_rgb(h, primary_c, dark ? 30.0 : 90.0);
-  CogitoColor on_primary_container = cogito_hct_to_rgb(h, primary_c, dark ? 90.0 : 30.0);
-  CogitoColor surface_tint = cogito_alpha(primary,
-  0.1f);
+  // Build scheme using Ensor dynamic scheme
+  CogitoEnsorScheme scheme = cogito_ensor_build_dynamic_scheme(dark, h, c, t, cogito_theme_ensor_variant, cogito_theme_contrast);
 
-  // Secondary palette — Expressive: +60° hue, chroma 24 for vibrancy
-  double secondary_h = cogito_sum_sanitize_degrees(h + 60.0);
-  double secondary_c = 24.0;
-  CogitoColor secondary = cogito_hct_to_rgb(secondary_h, secondary_c, dark ? 80.0 : 40.0);
-  CogitoColor on_secondary = dark ? cogito_hct_to_rgb(secondary_h, secondary_c,
-  20.0) : cogito_hct_to_rgb(secondary_h, secondary_c,
-  100.0);
-  CogitoColor secondary_container = cogito_hct_to_rgb(secondary_h, secondary_c, dark ? 30.0 : 90.0);
-  CogitoColor on_secondary_container = cogito_hct_to_rgb(secondary_h, secondary_c, dark ? 90.0 : 30.0);
+  // Hex buffer per color
+  char p[8], op[8], pc[8], opc[8];
+  char sec[8], osec[8], secc[8], osecc[8];
+  char tert[8], otert[8], tertc[8], otertc[8];
+  char err[8], oerr[8], errc[8], oerrc[8];
+  char bg[8], obg[8], surf[8], surft[8], ons[8];
+  char outl[8], outlv[8];
+  char surfvar[8], osurfvar[8];
+  char surfdim[8], surfbrt[8];
+  char sclo[8], scl[8], sc[8], sch[8], schi[8];
+  char invsrf[8], invons[8], invp[8];
+  char shad[8], scrm[8];
 
-  // Tertiary palette
-  static const double tertiary_hues[] = {
-    0.0,
-    20.0,
-    71.0,
-    161.0,
-    333.0,
-    360.0
-  };
-  static const double tertiary_rotations[] = {
-    -40.0,
-    48.0,
-    -32.0,
-    29.5,
-    -32.0
-  };
-  double tert_h = cogito_sum_get_rotated_hue(
-    h,
-    tertiary_hues, sizeof(tertiary_hues) / sizeof(tertiary_hues[
-    0
-  ]),
-    tertiary_rotations, sizeof(tertiary_rotations) / sizeof(tertiary_rotations[
-    0
-  ])
-  );
-  double tert_c = dark ? 28.0 : 48.0;
-  CogitoColor tertiary = cogito_hct_to_rgb(tert_h, tert_c, dark ? 80.0 : 40.0);
-  CogitoColor on_tertiary = dark ? cogito_hct_to_rgb(tert_h, tert_c,
-  20.0) : cogito_hct_to_rgb(tert_h, tert_c,
-  100.0);
-  CogitoColor tertiary_container = cogito_hct_to_rgb(tert_h, tert_c, dark ? 30.0 : 90.0);
-  CogitoColor on_tertiary_container = cogito_hct_to_rgb(tert_h, tert_c, dark ? 90.0 : 30.0);
-
-  // Error palette
-  CogitoColor error = cogito_hct_to_rgb(25.0,
-  84.0, dark ? 80.0 : 40.0);
-  CogitoColor on_error = cogito_hct_to_rgb(25.0,
-  84.0, dark ? 20.0 : 100.0);
-  CogitoColor error_container = cogito_hct_to_rgb(25.0,
-  84.0, dark ? 30.0 : 90.0);
-  CogitoColor on_error_container = cogito_hct_to_rgb(25.0,
-  84.0, dark ? 90.0 : 30.0);
-
-  // Neutral palette — MD3: chroma 6 for tinted neutrals
-  double neutral_c = 6.0;
-  CogitoColor background = cogito_hct_to_rgb(h, neutral_c, dark ? 6.0 : 98.0);
-  CogitoColor on_background = cogito_hct_to_rgb(h, neutral_c, dark ? 90.0 : 10.0);
-  CogitoColor surface = cogito_hct_to_rgb(h, neutral_c, dark ? 6.0 : 98.0);
-  CogitoColor on_surface = cogito_hct_to_rgb(h, neutral_c, dark ? 90.0 : 10.0);
-
-  // Neutral Variant palette — MD3: chroma 8 for visible outline/surface-variant
-  double neutralv_c = 8.0;
-  CogitoColor outline = cogito_hct_to_rgb(h, neutralv_c, dark ? 60.0 : 50.0);
-  CogitoColor outline_variant = cogito_hct_to_rgb(h, neutralv_c, dark ? 30.0 : 80.0);
-  CogitoColor surface_variant = cogito_hct_to_rgb(h, neutralv_c, dark ? 30.0 : 90.0);
-  CogitoColor on_surface_variant = cogito_hct_to_rgb(h, neutralv_c, dark ? 80.0 : 30.0);
-
-  // Surface containers
-  CogitoColor surface_dim = cogito_hct_to_rgb(h, neutral_c, dark ? 6.0 : 87.0);
-  CogitoColor surface_bright = cogito_hct_to_rgb(h, neutral_c, dark ? 24.0 : 98.0);
-  CogitoColor surface_cont_lowest = cogito_hct_to_rgb(h, neutral_c, dark ? 4.0 : 100.0);
-  CogitoColor surface_cont_low = cogito_hct_to_rgb(h, neutral_c, dark ? 10.0 : 96.0);
-  CogitoColor surface_cont = cogito_hct_to_rgb(h, neutral_c, dark ? 12.0 : 94.0);
-  CogitoColor surface_cont_high = cogito_hct_to_rgb(h, neutral_c, dark ? 17.0 : 92.0);
-  CogitoColor surface_cont_highest = cogito_hct_to_rgb(h, neutral_c, dark ? 22.0 : 90.0);
-
-  // Inverse colors
-  CogitoColor inverse_surface = cogito_hct_to_rgb(h, neutral_c, dark ? 90.0 : 20.0);
-  CogitoColor inverse_on_surface = cogito_hct_to_rgb(h, neutral_c, dark ? 20.0 : 95.0);
-  CogitoColor inverse_primary = cogito_hct_to_rgb(h, primary_c, dark ? 40.0 : 80.0);
-
-  // Shadow & Scrim
-  CogitoColor shadow = cogito_hct_to_rgb(h,
-  0.0,
-  0.0);
-  CogitoColor scrim = cogito_hct_to_rgb(h,
-  0.0,
-  0.0);
-
-  // === Hex conversions ===
-  char p[
-    8
-  ], op[
-    8
-  ], pc[
-    8
-  ], opc[
-    8
-  ];
-  char sec[
-    8
-  ], osec[
-    8
-  ], secc[
-    8
-  ], osecc[
-    8
-  ];
-  char tert[
-    8
-  ], otert[
-    8
-  ], tertc[
-    8
-  ], otertc[
-    8
-  ];
-  char err[
-    8
-  ], oerr[
-    8
-  ], errc[
-    8
-  ], oerrc[
-    8
-  ];
-  char bg[
-    8
-  ], obg[
-    8
-  ], surf[
-    8
-  ], surft[
-    8
-  ], ons[
-    8
-  ];
-  char outl[
-    8
-  ], outlv[
-    8
-  ];
-  char surfvar[
-    8
-  ], osurfvar[
-    8
-  ];
-  char surfdim[
-    8
-  ], surfbrt[
-    8
-  ];
-  char scl[
-    8
-  ], sclo[
-    8
-  ], sc[
-    8
-  ], sch[
-    8
-  ], schi[
-    8
-  ];
-  char invsrf[
-    8
-  ], invons[
-    8
-  ], invp[
-    8
-  ];
-  char shad[
-    8
-  ], scrm[
-    8
-  ];
-
-  cogito_color_to_hex(primary, p);
-  cogito_color_to_hex(on_primary, op);
-  cogito_color_to_hex(primary_container, pc);
-  cogito_color_to_hex(on_primary_container, opc);
-  cogito_color_to_hex(secondary, sec);
-  cogito_color_to_hex(on_secondary, osec);
-  cogito_color_to_hex(secondary_container, secc);
-  cogito_color_to_hex(on_secondary_container, osecc);
-  cogito_color_to_hex(tertiary, tert);
-  cogito_color_to_hex(on_tertiary, otert);
-  cogito_color_to_hex(tertiary_container, tertc);
-  cogito_color_to_hex(on_tertiary_container, otertc);
-  cogito_color_to_hex(error, err);
-  cogito_color_to_hex(on_error, oerr);
-  cogito_color_to_hex(error_container, errc);
-  cogito_color_to_hex(on_error_container, oerrc);
-  cogito_color_to_hex(background, bg);
-  cogito_color_to_hex(on_background, obg);
-  cogito_color_to_hex(surface, surf);
-  cogito_color_to_hex(surface_tint, surft);
-  cogito_color_to_hex(on_surface, ons);
-  cogito_color_to_hex(outline, outl);
-  cogito_color_to_hex(outline_variant, outlv);
-  cogito_color_to_hex(surface_variant, surfvar);
-  cogito_color_to_hex(on_surface_variant, osurfvar);
-  cogito_color_to_hex(surface_dim, surfdim);
-  cogito_color_to_hex(surface_bright, surfbrt);
-  cogito_color_to_hex(surface_cont_lowest, scl);
-  cogito_color_to_hex(surface_cont_low, sclo);
-  cogito_color_to_hex(surface_cont, sc);
-  cogito_color_to_hex(surface_cont_high, sch);
-  cogito_color_to_hex(surface_cont_highest, schi);
-  cogito_color_to_hex(inverse_surface, invsrf);
-  cogito_color_to_hex(inverse_on_surface, invons);
-  cogito_color_to_hex(inverse_primary, invp);
-  cogito_color_to_hex(shadow, shad);
-  cogito_color_to_hex(scrim, scrm);
+  cogito_color_to_hex(scheme.primary,              p);
+  cogito_color_to_hex(scheme.on_primary,           op);
+  cogito_color_to_hex(scheme.primary_container,    pc);
+  cogito_color_to_hex(scheme.on_primary_container, opc);
+  cogito_color_to_hex(scheme.secondary,              sec);
+  cogito_color_to_hex(scheme.on_secondary,           osec);
+  cogito_color_to_hex(scheme.secondary_container,    secc);
+  cogito_color_to_hex(scheme.on_secondary_container, osecc);
+  cogito_color_to_hex(scheme.tertiary,              tert);
+  cogito_color_to_hex(scheme.on_tertiary,           otert);
+  cogito_color_to_hex(scheme.tertiary_container,    tertc);
+  cogito_color_to_hex(scheme.on_tertiary_container, otertc);
+  cogito_color_to_hex(scheme.error,              err);
+  cogito_color_to_hex(scheme.on_error,           oerr);
+  cogito_color_to_hex(scheme.error_container,    errc);
+  cogito_color_to_hex(scheme.on_error_container, oerrc);
+  cogito_color_to_hex(scheme.background,         bg);
+  cogito_color_to_hex(scheme.on_background,      obg);
+  cogito_color_to_hex(scheme.surface,            surf);
+  cogito_color_to_hex(scheme.surface_tint,       surft);
+  cogito_color_to_hex(scheme.on_surface,         ons);
+  cogito_color_to_hex(scheme.outline,            outl);
+  cogito_color_to_hex(scheme.outline_variant,    outlv);
+  cogito_color_to_hex(scheme.surface_variant,    surfvar);
+  cogito_color_to_hex(scheme.on_surface_variant, osurfvar);
+  cogito_color_to_hex(scheme.surface_dim,                  surfdim);
+  cogito_color_to_hex(scheme.surface_bright,               surfbrt);
+  cogito_color_to_hex(scheme.surface_container_lowest,     sclo);
+  cogito_color_to_hex(scheme.surface_container_low,        scl);
+  cogito_color_to_hex(scheme.surface_container,            sc);
+  cogito_color_to_hex(scheme.surface_container_high,       sch);
+  cogito_color_to_hex(scheme.surface_container_highest,    schi);
+  cogito_color_to_hex(scheme.inverse_surface,    invsrf);
+  cogito_color_to_hex(scheme.inverse_on_surface, invons);
+  cogito_color_to_hex(scheme.inverse_primary,    invp);
+  cogito_color_to_hex(scheme.shadow,             shad);
+  cogito_color_to_hex(scheme.scrim,              scrm);
 
   // === SUM output ===
   cogito_sum_append(out, cap, &off,
@@ -296,9 +99,9 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   ".surface-container-highest\n  background: %s\n", schi);
   cogito_sum_append(out, cap, &off,
-  ".surface-container-low\n  background: %s\n", sclo);
+  ".surface-container-low\n  background: %s\n", scl);
   cogito_sum_append(out, cap, &off,
-  ".surface-container-lowest\n  background: %s\n", scl);
+  ".surface-container-lowest\n  background: %s\n", sclo);
   cogito_sum_append(out, cap, &off,
   ".surface-container\n  background: %s\n", sc);
   cogito_sum_append(out, cap, &off,
@@ -416,13 +219,11 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "banner\n  background: %s\n  color: %s\n  padding: 16\n  min-height: 52\n  transition: 200 standard\n", secc, osecc);
   cogito_sum_append(out, cap, &off,
-  "bottom_sheet\n  background: %s\n  color: %s\n  border-radius: 28 28 0 0\n  padding: 16\n  transition: 300 emphasized\n", sclo, ons);
+  "bottom_sheet\n  background: %s\n  color: %s\n  border-radius: 28 28 0 0\n  padding: 16\n  transition: 300 emphasized\n", scl, ons);
   cogito_sum_append(out, cap, &off,
   "bottom_toolbar.floating_compact\n  border-radius: 999\n  elevation: 1\n  padding: 8\n");
   cogito_sum_append(out, cap, &off,
   "bottom_toolbar.floating\n  border-radius: 999\n  elevation: 1\n");
-  cogito_sum_append(out, cap, &off,
-  "bottom_toolbar .iconbtn\n  color: %s\n  background: transparent\n", ons);
   cogito_sum_append(out, cap, &off,
   "bottom_toolbar .iconbtn\n  color: %s\n  background: transparent\n", ons);
   cogito_sum_append(out, cap, &off,
@@ -432,15 +233,15 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "bottom-nav\n  background: %s\n  color: %s\n  min-height: 80\n  padding: 0 8\n  transition: 220 standard\n", sc, ons);
   cogito_sum_append(out, cap, &off,
-  "bottom-sheet\n  background: %s\n  color: %s\n  border-radius: 28 28 0 0\n  padding: 16\n  transition: 300 emphasized\n", sclo, ons);
+  "bottom-sheet\n  background: %s\n  color: %s\n  border-radius: 28 28 0 0\n  padding: 16\n  transition: 300 emphasized\n", scl, ons);
   cogito_sum_append(out, cap, &off,
-  "side-sheet\n  background: %s\n  color: %s\n  border-radius: 16 0 0 16\n  padding: 16 24 24 24\n  transition: 300 emphasized\n", sclo, ons);
+  "side-sheet\n  background: %s\n  color: %s\n  border-radius: 16 0 0 16\n  padding: 16 24 24 24\n  transition: 300 emphasized\n", scl, ons);
   cogito_sum_append(out, cap, &off,
-  "side-sheet.modal\n  background: %s\n  color: %s\n  border-radius: 16 0 0 16\n  padding: 24 24 24 24\n  transition: 300 emphasized\n", sclo, ons);
+  "side-sheet.modal\n  background: %s\n  color: %s\n  border-radius: 16 0 0 16\n  padding: 24 24 24 24\n  transition: 300 emphasized\n", scl, ons);
   cogito_sum_append(out, cap, &off,
-  "side-sheet.inset\n  background: %s\n  color: %s\n  border-radius: 16\n  padding: 16 24 24 24\n  transition: 300 emphasized\n", sclo, ons);
+  "side-sheet.inset\n  background: %s\n  color: %s\n  border-radius: 16\n  padding: 16 24 24 24\n  transition: 300 emphasized\n", scl, ons);
   cogito_sum_append(out, cap, &off,
-  "side-sheet.sidebar\n  background: %s\n  color: %s\n  border-radius: 0\n  border: 1 solid %s\n  padding: 24 24 24 24\n  transition: 300 emphasized\n", sclo, ons, outl);
+  "side-sheet.sidebar\n  background: %s\n  color: %s\n  border-radius: 0\n  border: 1 solid %s\n  padding: 24 24 24 24\n  transition: 300 emphasized\n", scl, ons, outl);
   cogito_sum_append(out, cap, &off,
   "button:active\n  background: %s\n  color: %s\n", p, op);
   cogito_sum_append(out, cap, &off,
@@ -472,9 +273,9 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "button\n  background: %s\n  color: %s\n  font-weight: bold\n  transition: 180 standard\n", p, op);
   cogito_sum_append(out, cap, &off,
-  "card:hover\n  box-shadow: [ 0 2 8 0 #0000002a ]\n");
+  "card:hover\n  elevation: 2\n");
   cogito_sum_append(out, cap, &off,
-  "card\n  background: %s\n  color: %s\n  border-radius: 16\n  padding: 16\n  transition: 200 standard\n", sclo, ons);
+  "card\n  background: %s\n  color: %s\n  border-radius: 16\n  padding: 16\n  transition: 200 standard\n", scl, ons);
   cogito_sum_append(out, cap, &off,
   "carousel_item\n  background: %s\n  color: %s\n  border-radius: 26\n  padding: 16\n", sc, ons);
   cogito_sum_append(out, cap, &off,
@@ -485,8 +286,6 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   "checkbox .box:active\n  border-color: %s\n", p);
   cogito_sum_append(out, cap, &off,
   "checkbox .box:hover\n  border-color: %s\n", ons);
-  cogito_sum_append(out, cap, &off,
-  "checkbox .box\n  background: transparent\n  border-radius: 4\n  border: 2 solid %s\n", osurfvar);
   cogito_sum_append(out, cap, &off,
   "checkbox .box\n  background: transparent\n  border-radius: 4\n  border: 2 solid %s\n", osurfvar);
   cogito_sum_append(out, cap, &off,
@@ -506,15 +305,13 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "checkbox\n  color: %s\n  min-height: 24\n  min-width: 24\n  transition: 120 standard\n", ons);
   cogito_sum_append(out, cap, &off,
-  "checkbox\n  color: %s\n  min-height: 24\n  min-width: 24\n  transition: 120 standard\n", ons);
-  cogito_sum_append(out, cap, &off,
   "chip:active\n  background: %s\n", sc);
   cogito_sum_append(out, cap, &off,
   "chip:checked\n  background: %s\n  color: %s\n  border: 0 none %s\n", secc, osecc, secc);
   cogito_sum_append(out, cap, &off,
   "chip:disabled\n  background: %s29\n  color: %s52\n  border-color: %s52\n", ons, ons, ons);
   cogito_sum_append(out, cap, &off,
-  "chip:hover\n  background: %s\n  border-color: %s\n", sclo, ons);
+  "chip:hover\n  background: %s\n  border-color: %s\n", scl, ons);
   cogito_sum_append(out, cap, &off,
   "chip\n  background: transparent\n  color: %s\n  border-radius: 100\n  min-height: 32\n  padding: 0 16\n  border: 1 solid %s\n  transition: 150 standard\n", ons, outl);
   cogito_sum_append(out, cap, &off,
@@ -550,11 +347,11 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "empty_page\n  background: transparent\n  color: %s\n", ons);
   cogito_sum_append(out, cap, &off,
-  "fab:active\n  background: %s\n  color: %s\n", p, op);
+  "fab:active\n  background: %s\n  color: %s\n\n  elevation: 2\n", p, op);
   cogito_sum_append(out, cap, &off,
   "fab:disabled\n  background: %s29\n  color: %s52\n", ons, ons);
   cogito_sum_append(out, cap, &off,
-  "fab:hover\n  background: %s\n  color: %s\n", pc, op);
+  "fab:hover\n  background: %s\n  color: %s\n  elevation: 3\n", pc, op);
   cogito_sum_append(out, cap, &off,
   "fab.toolbar_plus\n  background: %s\n  color: %s\n  border-radius: 20\n  min-width: 56\n  min-height: 56\n  elevation: 3\n", secc, osecc);
   cogito_sum_append(out, cap, &off,
@@ -566,7 +363,7 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "fab.surface\n  background: %s\n  color: %s\n", sch, p);
   cogito_sum_append(out, cap, &off,
-  "fab\n  background: %s\n  color: %s\n  border-radius: 100\n  min-width: 56\n  min-height: 56\n  transition: 180 standard\n", p, op);
+  "fab\n  background: %s\n  color: %s\n  border-radius: 100\n  min-width: 56\n  min-height: 56\n  elevation: 2\n  transition: 180 standard\n", p, op);
   cogito_sum_append(out, cap, &off,
   "fixed\n  background: transparent\n  color: %s\n", ons);
   cogito_sum_append(out, cap, &off,
@@ -630,23 +427,17 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "menu_button:checked\n  background: %s\n  color: %s\n", secc, osecc);
   cogito_sum_append(out, cap, &off,
-  "menu_button:hover\n  background: %s\n", surfvar);
-  cogito_sum_append(out, cap, &off,
-  "menu_button:active\n  background: %s\n  color: %s\n", secc, osecc);
-  cogito_sum_append(out, cap, &off,
-  "menu_button:checked\n  background: %s\n  color: %s\n", secc, osecc);
-  cogito_sum_append(out, cap, &off,
   "menu_button\n  background: transparent\n  color: %s\n  padding: 8 12\n", ons);
   cogito_sum_append(out, cap, &off,
   "menu:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off,
-  "menu\n  background: %s\n  border-radius: 4\n  color: %s\n  box-shadow: 2\n  font-size: 14\n", sc, ons);
+  "menu\n  background: %s\n  border-radius: 4\n  color: %s\n  elevation: 2\n  font-size: 14\n", sc, ons);
   cogito_sum_append(out, cap, &off,
   "nav-rail:selection\n  background: %s\n  color: %s\n", secc, osecc);
   cogito_sum_append(out, cap, &off,
   "nav-rail\n  background: %s\n  color: %s\n  min-width: 96\n  padding: 4 0\n  transition: 220 standard\n", surf, ons);
   cogito_sum_append(out, cap, &off,
-  "popover\n  background: %s\n  border-radius: 12\n  padding: 16\n  box-shadow: [ 0 2 8 0 #0000001f ]\n", sc);
+  "popover\n  background: %s\n  border-radius: 12\n  padding: 16\n  elevation: 2\n", sc);
   cogito_sum_append(out, cap, &off,
   "progress:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off,
@@ -655,8 +446,6 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   "radio .box:active\n  border-color: %s\n", p);
   cogito_sum_append(out, cap, &off,
   "radio .box:hover\n  border-color: %s\n", ons);
-  cogito_sum_append(out, cap, &off,
-  "radio .box\n  background: transparent\n  border-radius: 100\n  border: 2 solid %s\n", osurfvar);
   cogito_sum_append(out, cap, &off,
   "radio .box\n  background: transparent\n  border-radius: 100\n  border: 2 solid %s\n", osurfvar);
   cogito_sum_append(out, cap, &off,
@@ -718,10 +507,6 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "split_button:active\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off,
-  "split_button:hover\n  background: %s\n", pc);
-  cogito_sum_append(out, cap, &off,
-  "split_button:active\n  background: %s\n", p);
-  cogito_sum_append(out, cap, &off,
   "split_button\n  background: %s\n  color: %s\n  border-radius: 20\n", p, op);
   cogito_sum_append(out, cap, &off,
   "stepper:disabled\n  background: %s29\n  color: %s52\n", ons, ons);
@@ -732,7 +517,7 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "switch .knob:hover\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off,
-  "switch .knob\n  background: %s\n  min-width: 32\n  min-height: 24\n", outl);
+  "switch .knob\n  background: %s\n  min-width: 32\n  min-height: 24\n  elevation: 1\n", outl);
   cogito_sum_append(out, cap, &off,
   "switch .track:active\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off,
@@ -861,5 +646,4 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   "fab-menu.tertiary\n  background: %s\n  color: %s\n", tertc, otertc);
   cogito_sum_append(out, cap, &off,
   "fab-menu.surface\n  background: %s\n  color: %s\n", sch, p);
-  
 }

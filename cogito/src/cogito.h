@@ -101,6 +101,7 @@ typedef enum {
 
 // App / window lifecycle
 cogito_app *cogito_app_new(void);
+cogito_app *cogito_app_get_active(void);
 void cogito_app_free(cogito_app *app);
 void cogito_app_run(cogito_app *app, cogito_window *window);
 
@@ -108,6 +109,11 @@ void cogito_app_set_appid(cogito_app *app, const char *rdnn);
 void cogito_app_set_app_name(cogito_app *app, const char *name);
 void cogito_app_set_accent_color(cogito_app *app, const char *hex,
                                  bool follow_system);
+void cogito_app_set_ensor_variant(cogito_app *app, int variant);
+// Extract up to 4 accent colors from a pixel buffer (RGB or RGBA).
+// out_argb receives up to 4 packed 0xRRGGBB values. Returns count written (1..4).
+int cogito_accent_from_pixels(const unsigned char *pixels, int n_bytes,
+                               bool alpha, int *out_argb, int out_cap);
 void cogito_app_set_icon(cogito_app *app, const char *path);
 const char *cogito_app_get_icon(cogito_app *app);
 bool cogito_open_url(const char *url);
@@ -362,7 +368,7 @@ void cogito_stepper_set_value(cogito_node *stepper, double value);
 double cogito_stepper_get_value(cogito_node *stepper);
 void cogito_stepper_on_change(cogito_node *stepper, cogito_node_fn fn,
                               void *user);
-void cogito_buttongroup_on_select(cogito_node *seg, cogito_node_fn fn,
+void cogito_buttongroup_on_select(cogito_node *seg, cogito_index_fn fn,
                                 void *user);
 void cogito_buttongroup_set_size(cogito_node *bg, int size);
 int cogito_buttongroup_get_size(cogito_node *bg);

@@ -20,8 +20,4 @@ run.exe
 .ergo_run.c
 
 # Generated files
-cogito/cogito.ergo
-
 *.app
-
-Ensor

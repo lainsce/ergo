@@ -2,7 +2,7 @@ static CogitoNode* cogito_buttongroup_new_obj(void) {
   CogitoNode* s = cogito_node_new(COGITO_BUTTON_GROUP);
   s->selected = 0;
   s->gap = 2;
-  // Initialize buttongroup properties with defaults (MD3: M size, round, standard)
+  // Initialize buttongroup properties with defaults (M size, round, standard)
   s->buttongroup.size = 2;    // Medium (M) by default
   s->buttongroup.shape = 0;    // Round by default
   s->buttongroup.connected = 0; // Standard (not connected) by default
@@ -18,9 +18,9 @@ static void cogito_buttongroup_on_select(ErgoVal nodev, ErgoVal handler) {
   if (handler.tag != EVT_FN) ergo_trap("cogito.buttongroup_on_select expects function");
   CogitoNode* n = (CogitoNode*)nodev.as.p;
   if (n->kind != COGITO_BUTTON_GROUP) ergo_trap("cogito.buttongroup_on_select expects buttongroup");
-  if (n->on_change) ergo_release_val(EV_FN(n->on_change));
-  n->on_change = (ErgoFn*)handler.as.p;
-  ergo_retain_val(EV_FN(n->on_change));
+  if (n->on_select) ergo_release_val(EV_FN(n->on_select));
+  n->on_select = (ErgoFn*)handler.as.p;
+  ergo_retain_val(EV_FN(n->on_select));
 }
 
 // Handle click from a child button - update selection
@@ -42,9 +42,9 @@ static void cogito_buttongroup_child_clicked(CogitoNode* buttongroup, CogitoNode
   int prev = buttongroup->selected;
   buttongroup->selected = idx;
   
-  if (buttongroup->selected != prev && buttongroup->on_change) {
+  if (buttongroup->selected != prev && buttongroup->on_select) {
     ErgoVal arg = EV_INT(idx);
-    cogito_invoke(buttongroup->on_change, 1, &arg);
+    cogito_invoke(buttongroup->on_select, 1, &arg);
   }
 }
 
@@ -96,11 +96,11 @@ static bool cogito_buttongroup_child_radii(CogitoNode* child,
   int inner_radius = 0;
   
   if (is_connected) {
-    inner_radius = 0; // Flat edge between buttons
+    inner_radius = 4; // Slight edge between buttons
   } else {
     // Unconnected (standard) buttons: each button has its own rounded corners
     // For rounded shape: full circles
-    // For square shape: use full outer radius (not 4px) - MD3 square shape uses full radii
+    // For square shape: use full outer radius (not 4px) - square shape uses full radii
     if (is_rounded) {
       inner_radius = default_radius; // Full circles
     } else {

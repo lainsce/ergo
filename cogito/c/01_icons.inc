@@ -432,6 +432,7 @@ static const char* cogito_icon_alias_sf(const char* token) {
   if (strcmp(token, "remove") == 0) return "minus";
   if (strcmp(token, "question") == 0) return "questionmark";
   if (strcmp(token, "check") == 0) return "checkmark";
+  if (strcmp(token, "exclamationmark.triangle") == 0) return "exclamationmark.triangle";
   return token;
 }
 

@@ -33,16 +33,18 @@ static CogitoApp* cogito_app_new_obj(void) {
   return app;
 }
 
-static CogitoColor cogito_app_effective_accent(const CogitoApp* app) {
+static CogitoColor cogito_app_effective_accent(ErgoVal appv) {
+  CogitoApp* app = (CogitoApp*)appv.as.p;
   if (app->accent_override && app->accent_set) return app->accent_color;
   if (app->system_accent_set) return app->system_accent;
   if (app->accent_set) return app->accent_color;
   return cogito_rgba(114, 222, 194, 255);
 }
 
-static void cogito_app_update_theme(CogitoApp* app) {
+static void cogito_app_update_theme(ErgoVal appv) {
+  CogitoApp* app = (CogitoApp*)appv.as.p;
   bool dark = app ? app->system_dark : false;
-  CogitoColor accent = app ? cogito_app_effective_accent(app) : cogito_rgba(114, 222, 194, 255);
+  CogitoColor accent = app ? cogito_app_effective_accent(appv) : cogito_rgba(114, 222, 194, 255);
   if (getenv("COGITO_THEME_TRACE")) {
     fprintf(stderr,
             "cogito: app_update_theme dark=%d accent=#%02X%02X%02X override=%d accent_set=%d system_accent_set=%d\n",
@@ -60,7 +62,8 @@ static void cogito_app_update_theme(CogitoApp* app) {
   }
 }
 
-static void cogito_update_system_theme(CogitoApp* app) {
+static void cogito_update_system_theme(ErgoVal appv) {
+  CogitoApp* app = (CogitoApp*)appv.as.p;
   if (!app) return;
   if (cogito_backend && cogito_backend->get_time) {
     double now = cogito_backend->get_time();
@@ -84,7 +87,21 @@ static void cogito_update_system_theme(CogitoApp* app) {
     app->system_accent_set = true;
     if (!app->accent_override) changed = true;
   }
-  if (changed) cogito_app_update_theme(app);
+  // Poll system personalization settings
+  int sys_scheme = cogito_system_ensor_scheme();
+  if (sys_scheme > 0 && sys_scheme != cogito_theme_ensor_variant) {
+    cogito_theme_ensor_variant = sys_scheme;
+    changed = true;
+  }
+  double sys_contrast = cogito_system_contrast();
+  if (sys_contrast != cogito_theme_contrast) {
+    cogito_theme_contrast = sys_contrast;
+    changed = true;
+  }
+  cogito_theme_font_weight = cogito_system_font_weight();
+  cogito_theme_roundness = cogito_system_roundness();
+  cogito_theme_spacing = cogito_system_spacing();
+  if (changed) cogito_app_update_theme(appv);
 }
 
 static void cogito_app_set_appid(ErgoVal appv, ErgoVal idv) {
@@ -154,7 +171,7 @@ static void cogito_app_set_accent_color(ErgoVal appv, ErgoVal colorv, ErgoVal fo
     }
     if (temp && s) ergo_release_val(EV_STR(s));
   }
-  cogito_app_update_theme(app);
+  cogito_app_update_theme(appv);
 }
 
 static void cogito_app_set_icon(ErgoVal appv, ErgoVal pathv) {
@@ -189,6 +206,7 @@ static ErgoVal cogito_app_new(void) {
     fflush(stderr);
   }
   CogitoApp* app = cogito_app_new_obj();
-  cogito_app_update_theme(app);
+  ErgoVal appv = EV_OBJ(app);
+  cogito_app_update_theme(appv);
   return EV_OBJ(app);
 }

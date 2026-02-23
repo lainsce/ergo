@@ -1687,6 +1687,29 @@
                         return true;
                     }
                     if (str_eq_c(fname,
+                    "__cogito_app_set_ensor_variant")) {
+                        GenExpr app, variantv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &app, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &variantv, err)) { gen_expr_free(&app); return false;
+                        }
+                        w_line(&cg->w,
+                        "cogito_app_set_ensor_variant(%s, %s);", app.tmp, variantv.tmp);
+                        w_line(&cg->w,
+                        "ergo_release_val(%s);", app.tmp);
+                        w_line(&cg->w,
+                        "ergo_release_val(%s);", variantv.tmp);
+                        gen_expr_release_except(cg, &app, app.tmp);
+                        gen_expr_release_except(cg, &variantv, variantv.tmp);
+                        gen_expr_free(&app);
+                        gen_expr_free(&variantv);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w,
+                        "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname,
                     "__cogito_pointer_capture")) {
                         GenExpr node;
                         if (!gen_expr(cg, path, e->as.call.args[
@@ -3406,6 +3429,33 @@
                         gen_expr_release_except(cg, &sw, sw.tmp);
                         gen_expr_release_except(cg, &handler, handler.tmp);
                         gen_expr_free(&sw);
+                        gen_expr_free(&handler);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w,
+                        "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname,
+                    "__cogito_buttongroup_on_select")) {
+                        GenExpr button_group, handler;
+                        if (!gen_expr(cg, path, e->as.call.args[
+                            0
+                        ], &button_group, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[
+                            1
+                        ], &handler, err)) { gen_expr_free(&button_group); return false;
+                        }
+                        w_line(&cg->w,
+                        "cogito_buttongroup_on_select(%s, %s);", button_group.tmp, handler.tmp);
+                        w_line(&cg->w,
+                        "ergo_release_val(%s);", button_group.tmp);
+                        w_line(&cg->w,
+                        "ergo_release_val(%s);", handler.tmp);
+                        gen_expr_release_except(cg, &button_group, button_group.tmp);
+                        gen_expr_release_except(cg, &handler, handler.tmp);
+                        gen_expr_free(&button_group);
                         gen_expr_free(&handler);
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w,

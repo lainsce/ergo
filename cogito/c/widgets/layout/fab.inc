@@ -40,19 +40,21 @@ case COGITO_FAB: {
         break;
       }
 
-      // Always position FAB relative to its window, floating at the bottom
-      // regardless of nesting depth (same approach as FAB Menu).
-      CogitoNode* win = cogito_node_window(n);
-      if (!win) break;
+      // Position FAB relative to its parent container, floating at the bottom.
+      CogitoNode* ctr = p;
+      if (!ctr || ctr->w <= 0 || ctr->h <= 0) {
+        ctr = cogito_node_window(n);
+      }
+      if (!ctr) break;
 
-      // Check for a sibling floating FAB already laid out in this window.
+      // Check for a sibling floating FAB already laid out in this container.
       // If found, this becomes the secondary (S-size) FAB to its left.
-      CogitoNode* primary = cogito_find_other_floating_fab(win, n);
+      CogitoNode* primary = cogito_find_other_floating_fab(ctr, n);
       if (primary && primary->y > 0) {
         // Force S size (42x42) for the secondary FAB
         n->w = 42;
         n->h = 42;
-        n->y = win->y + win->h - 18 - n->h - n->margin_bottom;
+        n->y = ctr->y + ctr->h - 18 - n->h - n->margin_bottom;
         n->x = primary->x - 8 - n->w;
         break;
       }
@@ -60,12 +62,12 @@ case COGITO_FAB: {
       int col = n->align % 3;
       if (col < 0 || col > 2) col = 2;  // FAB defaults to right lane.
       if (col == 0) {
-        n->x = win->x + 18 + n->margin_left;
+        n->x = ctr->x + 18 + n->margin_left;
       } else if (col == 1) {
-        n->x = win->x + (win->w - n->w) / 2 + n->margin_left - n->margin_right;
+        n->x = ctr->x + (ctr->w - n->w) / 2 + n->margin_left - n->margin_right;
       } else {
-        n->x = win->x + win->w - 16 - n->w - n->margin_right;
+        n->x = ctr->x + ctr->w - 16 - n->w - n->margin_right;
       }
-      n->y = win->y + win->h - 18 - n->h - n->margin_bottom;
+      n->y = ctr->y + ctr->h - 18 - n->h - n->margin_bottom;
       break;
     }

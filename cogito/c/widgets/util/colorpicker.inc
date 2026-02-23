@@ -137,15 +137,6 @@ static bool cogito_colorpicker_hex_rect(CogitoNode* n, int* out_x, int* out_y, i
   return true;
 }
 
-static int cogito_colorpicker_hit_slider(CogitoNode* n, int mx, int my) {
-  for (int i = 0; i < 3; i++) {
-    int sx = 0, sy = 0, sw = 0, sh = 0;
-    cogito_colorpicker_slider_rect(n, i, &sx, &sy, &sw, &sh);
-    if (cogito_hit_rect(mx, my, sx, sy - 6, sw, sh + 12)) return i;
-  }
-  return -1;
-}
-
 static bool cogito_colorpicker_set_from_mouse(CogitoNode* n, int channel, int mx) {
   int sx = 0, sy = 0, sw = 0, sh = 0;
   cogito_colorpicker_slider_rect(n, channel, &sx, &sy, &sw, &sh);

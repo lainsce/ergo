@@ -57,8 +57,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   ]) ? app->app_name->data : title;
   cogito_active_window = win;
   cogito_active_app = app;
-  cogito_update_system_theme(app);
-  cogito_app_update_theme(app);
+  cogito_update_system_theme(appv);
+  cogito_app_update_theme(appv);
   cogito_apply_style_tree(win);
   if (cogito_debug_style_enabled_internal()) {
     cogito_style_dump_tree_internal(win,
@@ -399,7 +399,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
 #endif
     
     if (cogito_active_app) {
-      cogito_update_system_theme(cogito_active_app);
+      cogito_update_system_theme(appv);
     }
     // Only update inspector button metrics when the inspector is actually open
     if (cogito_inspector_open && inspector_window) {

@@ -96,11 +96,6 @@ static void cogito_about_window_sync_icon(CogitoNode* aw) {
   CogitoNode* icon = cogito_about_window_icon_node(aw);
   if (!icon) return;
   ErgoStr* source = aw->icon;
-  if ((!source || !source->data || !source->data[0]) &&
-      cogito_active_app && cogito_active_app->app_icon &&
-      cogito_active_app->app_icon->data && cogito_active_app->app_icon->data[0]) {
-    source = cogito_active_app->app_icon;
-  }
   if (icon->icon != source) {
     cogito_node_set_icon(icon, source);
   }

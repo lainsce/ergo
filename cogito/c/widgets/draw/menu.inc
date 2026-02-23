@@ -83,7 +83,7 @@ static void cogito_draw_menu(void) {
   };
   cogito_menu_theme_tertiary(&tertiary, &tertiary_container, &on_tertiary_container, &on_tertiary);
   
-  // MD3: derive surface/on-surface/outline from theme accent via HCT if theme has no explicit values
+  // Derive surface/on-surface/outline from theme accent via HCT if theme has no explicit values
   // Surface-container-high: chroma ~4, tone 94 (light) / 22 (dark)
   // On-surface: chroma ~4, tone 10 (light) / 90 (dark)
   // Outline: chroma ~6, tone 50 (light) / 60 (dark)

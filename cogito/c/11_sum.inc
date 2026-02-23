@@ -4,6 +4,12 @@
 static void cogito_sum_add_styles(const char* parent, const char* child, CogitoStyle** styles, int* flags, int* count, int max);
 static void cogito_sum_apply_property(CogitoStyle* style, const char* prop, const char** p, bool selection_mode);
 static bool sum_system_is_dark(void);
+static bool sum_system_accent(CogitoColor* out);
+static int sum_system_ensor_scheme(void);  // 0=default, 1=vibrant, 2=muted, 3=monochrome, 4=salad
+static double sum_system_font_weight(void);  // 0.0 = unset
+static double sum_system_roundness(void);  // 0.0 = unset
+static double sum_system_contrast(void);  // 0.0 = unset
+static int sum_system_spacing(void);  // 0 = unset, 1=compact, 2=normal, 3=comfortable
 
 typedef enum {
   SUM_DIAG_OFF = 0,
@@ -1109,4 +1115,132 @@ static bool sum_system_accent(CogitoColor* out) {
 #endif
 }
 
+// ---- Desktop Portal / System Properties (port of Desktop.vala + Portal.vala) ----
+
+#if !defined(__APPLE__) && !defined(_WIN32)
+// Linux: Try D-Bus portal first, then fall back to environment variables
+
+// Parse accent color from portal D-Bus response (RGB array as "[ddd, ddd, ddd]")
+static bool sum_parse_accent_color(const char* s, CogitoColor* out) {
+  if (!s || s[0] != '[') return false;
+  int r = 0, g = 0, b = 0;
+  if (sscanf(s, "[%d, %d, %d]", &r, &g, &b) == 3 ||
+      sscanf(s, "[%d,%d,%d]", &r, &g, &b) == 3) {
+    if (r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255) {
+      *out = cogito_rgba(r, g, b, 255);
+      return true;
+    }
+  }
+  return false;
+}
+
+// Check if D-Bus portal is available and read settings
+// This is a simplified version - full implementation would use GDBus
+static bool sum_portal_read(const char* namespace, const char* key, char* buf, size_t bufsize) {
+  // For now, we use a simple approach via gsettings or reading from portal files
+  // Full D-Bus implementation would require GDBus linkage
+  (void)namespace;
+  (void)key;
+  (void)buf;
+  (void)bufsize;
+  return false;
+}
+#endif
+
+// Ensor scheme: 0=default, 1=vibrant, 2=muted, 3=monochrome, 4=salad
+static int sum_system_ensor_scheme(void) {
+#if defined(__APPLE__)
+  // macOS: Check for custom ensor-scheme via defaults
+  // Could be extended to read from a plist or environment variable
+  /* future implementation */
+  return 0;
+#elif defined(_WIN32)
+  // Windows: Could check registry for custom scheme
+  (void)/* future implementation */;
+  return 0;
+#else
+  // Linux: Check environment variables first
+  const char* env = getenv("COGITO_ENSOR_SCHEME");
+  if (env) {
+    if (strcmp(env, "vibrant") == 0) return 1;
+    if (strcmp(env, "muted") == 0) return 2;
+    if (strcmp(env, "monochrome") == 0 || strcmp(env, "monochromatic") == 0) return 3;
+    if (strcmp(env, "salad") == 0) return 4;
+    if (strcmp(env, "default") == 0) return 0;
+  }
+  // Check for portal D-Bus value (future)
+  return 0;
+#endif
+}
+
+// Font weight: 0.0 = unset, otherwise 100-900
+static double sum_system_font_weight(void) {
+#if defined(__APPLE__)
+  // Could read from NSUserDefaults
+  return 0.0;
+#elif defined(_WIN32)
+  // Could read from registry
+  return 0.0;
+#else
+  const char* env = getenv("COGITO_FONT_WEIGHT");
+  if (env) {
+    double w = atof(env);
+    if (w >= 100.0 && w <= 900.0) return w;
+  }
+  return 0.0;
+#endif
+}
+
+// Roundness: 0.0 = unset, otherwise 0.0-2.0+ (multiplier)
+static double sum_system_roundness(void) {
+#if defined(__APPLE__)
+  return 0.0;
+#elif defined(_WIN32)
+  return 0.0;
+#else
+  const char* env = getenv("COGITO_ROUNDNESS");
+  if (env) {
+    double r = atof(env);
+    if (r >= 0.0) return r;
+  }
+  return 0.0;
+#endif
+}
+
+// Contrast: 0.0 = unset, -1.0 to 1.0
+static double sum_system_contrast(void) {
+#if defined(__APPLE__)
+  return 0.0;
+#elif defined(_WIN32)
+  return 0.0;
+#else
+  const char* env = getenv("COGITO_CONTRAST");
+  if (env) {
+    double c = atof(env);
+    if (c >= -1.0 && c <= 1.0) return c;
+  }
+  return 0.0;
+#endif
+}
+
+// Spacing: 0 = unset, 1=compact, 2=normal, 3=comfortable
+static int sum_system_spacing(void) {
+#if defined(__APPLE__)
+  return 0;
+#elif defined(_WIN32)
+  return 0;
+#else
+  const char* env = getenv("COGITO_SPACING");
+  if (env) {
+    if (strcmp(env, "compact") == 0) return 1;
+    if (strcmp(env, "normal") == 0) return 2;
+    if (strcmp(env, "comfortable") == 0) return 3;
+    int v = atoi(env);
+    if (v >= 1 && v <= 3) return v;
+  }
+  return 0;
+#endif
+}
+
+#include "ensor/ensor.inc"
 #include "widgets/util/sum_dynamic.inc"

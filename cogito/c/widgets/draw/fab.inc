@@ -13,9 +13,19 @@ case COGITO_FAB: {
     rail_style = cogito_theme_resolve_node(n->parent);
   }
 
+  // Extended FAB size metrics: S(0), M(1), L(2)
+  int ext_icon, ext_lpad, ext_gap;
+  if (n->fab.size == 0) {
+    ext_icon = 24; ext_lpad = 16; ext_gap = 8;
+  } else if (n->fab.size == 2) {
+    ext_icon = 36; ext_lpad = 28; ext_gap = 16;
+  } else {
+    ext_icon = 28; ext_lpad = 26; ext_gap = 12;
+  }
+
   CogitoColor bg = s.has_bg ? s.bg : n->bg;
   CogitoColor text_color = s.has_text ? s.text : n->text_color;
-  int radius = effective_extended ? 16 : (n->h / 2);
+  int radius = effective_extended ? (n->h / 2) : (n->h / 2);
   if (in_nav_rail) {
     bg = rail_style.has_selection ? rail_style.selection : n->parent->selection_color;
     text_color = cogito_on_color(bg);
@@ -63,8 +73,8 @@ case COGITO_FAB: {
 
   // Draw icon
   if (n->text && n->text->data[0]) {
-    int icon_size = (n->fab.size == 2) ? 40 : 24;  // L=40px, S/M=24px
-    int icon_x = effective_extended ? (n->x + 16) : (n->x + (n->w - icon_size) / 2);
+    int icon_size = effective_extended ? ext_icon : ((n->fab.size == 2) ? 40 : 24);
+    int icon_x = effective_extended ? (n->x + ext_lpad) : (n->x + (n->w - icon_size) / 2);
     int icon_y = n->y + (n->h - icon_size) / 2;
 
     cogito_draw_icon_fallback(n, n->text->data, icon_x, icon_y, icon_size, text_color);
@@ -74,7 +84,7 @@ case COGITO_FAB: {
   if (effective_extended && label[0]) {
     int size = cogito_node_font_size(n);
     int text_h = cogito_text_height_size(size);
-    int label_x = n->x + 16 + 24 + 12;
+    int label_x = n->x + ext_lpad + ext_icon + ext_gap;
     int label_y = n->y + (n->h - text_h) / 2;
     cogito_draw_text_size_node(n, label_x, label_y, label, text_color, size, false);
   }
