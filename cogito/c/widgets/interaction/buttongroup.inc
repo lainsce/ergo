@@ -6,6 +6,7 @@ static CogitoNode* cogito_buttongroup_new_obj(void) {
   s->buttongroup.size = 2;    // Medium (M) by default
   s->buttongroup.shape = 0;    // Round by default
   s->buttongroup.connected = 0; // Standard (not connected) by default
+  s->buttongroup.pressed_child = -1; // No child pressed initially
   return s;
 }
 

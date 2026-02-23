@@ -48,6 +48,10 @@ fun __cogito_button_set_menu_item_gap(btn = Button, gap = num) (( -- )) { }
 fun __cogito_button_get_menu_item_gap(btn = Button) (( num )) { }
 fun __cogito_button_set_menu_vibrant(btn = Button, vibrant = bool) (( -- )) { }
 fun __cogito_button_get_menu_vibrant(btn = Button) (( bool )) { }
+fun __cogito_menu_set_icon(node = any, icon = string) (( -- )) { }
+fun __cogito_menu_set_shortcut(node = any, shortcut = string) (( -- )) { }
+fun __cogito_menu_set_submenu(node = any, submenu = bool) (( -- )) { }
+fun __cogito_menu_set_toggled(node = any, toggled = bool) (( -- )) { }
 fun __cogito_button_get_size(btn = Button) (( num )) { }
 fun __cogito_button_on_click(btn = Button, handler = any) (( -- )) { }
 fun __cogito_button_set_size(btn = Button, size = num) (( -- )) { }
@@ -225,6 +229,8 @@ fun __cogito_slider_set_value(sl = Slider, value = num) (( -- )) { }
 fun __cogito_slider(min = num, max = num, value = num) (( Slider )) { }
 fun __cogito_split_button_add_menu(btn = SplitButton, label = string, handler = any) (( -- )) { }
 fun __cogito_split_button_add_menu_section(btn = SplitButton, label = string, handler = any) (( -- )) { }
+fun __cogito_split_button_set_size(btn = SplitButton, size = num) (( -- )) { }
+fun __cogito_split_button_set_variant(btn = SplitButton, variant = num) (( -- )) { }
 fun __cogito_split_button(text = string) (( SplitButton )) { }
 fun __cogito_state_get(state = State) (( any )) { }
 fun __cogito_state_new(value = any) (( State )) { }
@@ -1252,6 +1258,22 @@ class Button {
         __cogito_button_add_menu_section(this, label, handler)
         return this
     }
+    fun menu_set_icon(this, icon = string) (( Button )) {
+        __cogito_menu_set_icon(this, icon)
+        return this
+    }
+    fun menu_set_shortcut(this, shortcut = string) (( Button )) {
+        __cogito_menu_set_shortcut(this, shortcut)
+        return this
+    }
+    fun menu_set_submenu(this, submenu = bool) (( Button )) {
+        __cogito_menu_set_submenu(this, submenu)
+        return this
+    }
+    fun menu_set_toggled(this, toggled = bool) (( Button )) {
+        __cogito_menu_set_toggled(this, toggled)
+        return this
+    }
     fun set_menu_divider(this, divider = bool) (( Button )) {
         __cogito_button_set_menu_divider(this, divider)
         return this
@@ -1337,6 +1359,22 @@ class IconButton {
     }
     fun add_menu_section(this, label = string, handler = any) (( IconButton )) {
         __cogito_iconbtn_add_menu_section(this, label, handler)
+        return this
+    }
+    fun menu_set_icon(this, icon = string) (( IconButton )) {
+        __cogito_menu_set_icon(this, icon)
+        return this
+    }
+    fun menu_set_shortcut(this, shortcut = string) (( IconButton )) {
+        __cogito_menu_set_shortcut(this, shortcut)
+        return this
+    }
+    fun menu_set_submenu(this, submenu = bool) (( IconButton )) {
+        __cogito_menu_set_submenu(this, submenu)
+        return this
+    }
+    fun menu_set_toggled(this, toggled = bool) (( IconButton )) {
+        __cogito_menu_set_toggled(this, toggled)
         return this
     }
     fun window(this) (( Window )) {
@@ -3926,6 +3964,22 @@ class SplitButton {
         __cogito_split_button_add_menu_section(this, label, handler)
         return this
     }
+    fun menu_set_icon(this, icon = string) (( SplitButton )) {
+        __cogito_menu_set_icon(this, icon)
+        return this
+    }
+    fun menu_set_shortcut(this, shortcut = string) (( SplitButton )) {
+        __cogito_menu_set_shortcut(this, shortcut)
+        return this
+    }
+    fun menu_set_submenu(this, submenu = bool) (( SplitButton )) {
+        __cogito_menu_set_submenu(this, submenu)
+        return this
+    }
+    fun menu_set_toggled(this, toggled = bool) (( SplitButton )) {
+        __cogito_menu_set_toggled(this, toggled)
+        return this
+    }
     fun on_click(this, handler = any) (( SplitButton )) {
         __cogito_button_on_click(this, handler)
         return this
@@ -3940,6 +3994,14 @@ class SplitButton {
     }
     fun set_id(this, id = string) (( SplitButton )) {
         __cogito_node_set_id(this, id)
+        return this
+    }
+    fun set_size(this, size = num) (( SplitButton )) {
+        __cogito_split_button_set_size(this, size)
+        return this
+    }
+    fun set_variant(this, variant = num) (( SplitButton )) {
+        __cogito_split_button_set_variant(this, variant)
         return this
     }
 }

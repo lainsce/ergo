@@ -66,6 +66,29 @@ case COGITO_BUTTON_GROUP: {
         free(expand);
       }
       
+      // ---- Press animation: expand pressed button by 15%, shrink adjacent ----
+      // NOTE: Uses child's spring_w for width multiplier (1.0-1.15). This is a semantic
+      // change from typical pixel-width animation (e.g., tabs.inc uses spring_w for pixels).
+      // If a Button/IconButton is used in multiple animated contexts, consider a dedicated field.
+      // IMPORTANT: Spring is ticked during draw phase (see buttongroup draw), not here.
+      // Layout just reads the current spring value.
+      
+      // Read current spring values for width multipliers
+      double* width_mult = (double*)calloc(count, sizeof(double));
+      if (width_mult) {
+        for (size_t i = 0; i < count; i++) {
+          CogitoNode* c = n->children[i];
+          // Use current spring value (ticked during draw phase)
+          width_mult[i] = c->spring_w.inited ? c->spring_w.x : 1.0;
+        }
+        
+        // Apply width multipliers
+        for (size_t i = 0; i < count; i++) {
+          assigned_w[i] = (int)(assigned_w[i] * width_mult[i] + 0.5);
+        }
+        free(width_mult);
+      }
+      
       // Layout children horizontally
       int cx = x + n->padding_left;
       for (size_t i = 0; i < count; i++) {

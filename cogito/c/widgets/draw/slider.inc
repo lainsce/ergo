@@ -1,7 +1,13 @@
 case COGITO_SLIDER: {
       bool hover = false;
       bool active = false;
-      cogito_node_hover_state(n, &hover, &active);
+      // If slider is being dragged, force active state
+      if (n->slider.dragging) {
+        hover = true;
+        active = true;
+      } else {
+        cogito_node_hover_state(n, &hover, &active);
+      }
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
       CogitoColor inactive_track = s.has_bg ? s.bg : (s.has_track ? s.track : n->bg);
       CogitoColor active_track = s.has_text ? s.text : (s.has_knob ? s.knob : n->text_color);
@@ -16,6 +22,8 @@ case COGITO_SLIDER: {
       const int endpoint_pad_x = 4;
       const int endpoint_pad_y = 6;
       const int thumb_w = 6;
+      int thumb_w_active = thumb_w;
+      if (active || n->slider.dragging) thumb_w_active = 2;
       int rail_h = 16;
       int thumb_h = 44;
       int track_r = 8;
@@ -41,7 +49,7 @@ case COGITO_SLIDER: {
       int thumb_max = n->h - 4;
       if (thumb_max < rail_h + 4) thumb_max = rail_h + 4;
       if (thumb_h > thumb_max) thumb_h = thumb_max;
-      int thumb_r = thumb_w / 2;
+      int thumb_r = thumb_w_active / 2;
       if (thumb_r < 2) thumb_r = 2;
       const int gap = 6;
       int pad = rail_h / 2 + 7;
@@ -81,10 +89,10 @@ case COGITO_SLIDER: {
         zero_k = x0 + (int)lround((double)(x1 - x0) * tz);
       }
 
-      int k0_left = k0 - thumb_w / 2;
-      int k0_right = k0 + thumb_w / 2;
-      int k1_left = k1 - thumb_w / 2;
-      int k1_right = k1 + thumb_w / 2;
+      int k0_left = k0 - thumb_w_active / 2;
+      int k0_right = k0 + thumb_w_active / 2;
+      int k1_left = k1 - thumb_w_active / 2;
+      int k1_right = k1 + thumb_w_active / 2;
       int inactive_left_end = rx0;
       int inactive_right_start = rx1;
       int active_start = rx0;
@@ -180,18 +188,18 @@ case COGITO_SLIDER: {
         CogitoColor state_layer = active_track;
         state_layer.a = active ? 28 : 18;
         const int state_pad = 6;
-        int state_x0 = state_x - thumb_w / 2 - state_pad;
+        int state_x0 = state_x - thumb_w_active / 2 - state_pad;
         int state_y0 = cy - thumb_h / 2 - state_pad;
-        int state_w = thumb_w + state_pad * 2;
+        int state_w = thumb_w_active + state_pad * 2;
         int state_h = thumb_h + state_pad * 2;
         int state_r = thumb_r + state_pad;
         if (state_r > state_w / 2) state_r = state_w / 2;
         cogito_draw_rect(state_x0, state_y0, state_w, state_h, state_layer, state_r);
       }
 
-      cogito_draw_rect(k0_left, cy - thumb_h / 2, thumb_w, thumb_h, active_track, thumb_r);
+      cogito_draw_rect(k0_left, cy - thumb_h / 2, thumb_w_active, thumb_h, active_track, thumb_r);
       if (n->slider.mode == COGITO_SLIDER_MODE_RANGE) {
-        cogito_draw_rect(k1_left, cy - thumb_h / 2, thumb_w, thumb_h, active_track, thumb_r);
+        cogito_draw_rect(k1_left, cy - thumb_h / 2, thumb_w_active, thumb_h, active_track, thumb_r);
       }
       break;
     }

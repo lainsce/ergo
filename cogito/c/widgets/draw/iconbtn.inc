@@ -174,12 +174,27 @@ case COGITO_ICONBTN: {
         cogito_buttongroup_child_radii(n, &rtl, &rtr, &rbr, &rbl, radius);
       } else {
         // Plain IconButtons outside ButtonGroup: respect effective shape (toggle-aware)
-        if (!n->radius_set && !s.has_radius) {
+        // When pressed/active, use size-based pressed radius
+        if (active) {
+          radius = cogito_button_pressed_radius(n->button.size);
+        } else if (!n->radius_set && !s.has_radius) {
           if (eff_shape == 1) {
-            // Squared IconButton: use 16px radius
-            radius = 16;
+            // Squared IconButton: use size-based radii (12, 12, 16, 28, 28)
+            if (n->button.size == COGITO_BUTTON_SIZE_XS) {
+              radius = 12;
+            } else if (n->button.size == COGITO_BUTTON_SIZE_S) {
+              radius = 12;
+            } else if (n->button.size == COGITO_BUTTON_SIZE_M) {
+              radius = 16;
+            } else if (n->button.size == COGITO_BUTTON_SIZE_L) {
+              radius = 28;
+            } else if (n->button.size == COGITO_BUTTON_SIZE_XL) {
+              radius = 28;
+            } else {
+              radius = 16;
+            }
           } else {
-            // Circle shape: use half of min dimension
+            // Circle shape: use half of min dimension (fully rounded)
             int min_dim = n->w < n->h ? n->w : n->h;
             radius = min_dim / 2;
           }

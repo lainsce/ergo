@@ -3,18 +3,13 @@ static void cogito_menu_theme_tertiary(CogitoColor* out_color, CogitoColor* out_
   if (!out_color && !out_container && !on_container && !on_color) return;
   double h = 0.0, c = 0.0, t = 0.0;
   cogito_rgb_to_hct(cogito_theme_accent, &h, &c, &t);
-  double tert_h = fmod(h + 60.0,
-  360.0);
+  double tert_h = fmod(h + 60.0, 360.0);
   if (tert_h < 0.0) tert_h += 360.0;
   double tert_c = 24.0;
   CogitoColor tertiary = cogito_hct_to_rgb(tert_h, tert_c, cogito_theme_dark ? 80.0 : 40.0);
   CogitoColor tertiary_container = cogito_hct_to_rgb(tert_h, tert_c, cogito_theme_dark ? 30.0 : 90.0);
   CogitoColor on_tertiary_container = cogito_hct_to_rgb(tert_h, tert_c, cogito_theme_dark ? 90.0 : 30.0);
-  CogitoColor on_tertiary = cogito_theme_dark ? cogito_hct_to_rgb(tert_h, tert_c,
-  20.0) : cogito_rgba(255,
-  255,
-  255,
-  255);
+  CogitoColor on_tertiary = cogito_theme_dark ? cogito_hct_to_rgb(tert_h, tert_c, 20.0) : cogito_rgba(255, 255, 255, 255);
   if (out_color) *out_color = tertiary;
   if (out_container) *out_container = tertiary_container;
   if (on_container) *on_container = on_tertiary_container;
@@ -25,19 +20,14 @@ static int cogito_menu_count_sections(CogitoNode* owner, int* section_of_item) {
   if (!owner || owner->menu_len == 0) return 0;
   bool use_section = owner->menu_section_after != NULL;
   if (!use_section) {
-    for (size_t i = 0; i < owner->menu_len; i++) section_of_item[i
-    ] = 0;
+    for (size_t i = 0; i < owner->menu_len; i++) section_of_item[i] = 0;
     return 1; // Single section
   }
   int section_count = 1;
-  section_of_item[
-    0
-  ] = 0;
+  section_of_item[0] = 0;
   for (size_t i = 1; i < owner->menu_len; i++) {
-    if (owner->menu_section_after[i - 1
-    ]) section_count++;
-    section_of_item[i
-    ] = section_count - 1;
+    if (owner->menu_section_after[i - 1]) section_count++;
+    section_of_item[i] = section_count - 1;
   }
   return section_count;
 }
@@ -46,20 +36,14 @@ static void cogito_menu_section_bounds(CogitoNode* owner, int section_count, int
   if (!owner || owner->menu_len == 0) return;
   bool use_section = owner->menu_section_after != NULL;
   for (int s = 0; s < section_count; s++) {
-    first_item[s
-    ] = -1;
-    last_item[s
-    ] = -1;
+    first_item[s] = -1;
+    last_item[s] = -1;
   }
   int current_section = 0;
   for (size_t i = 0; i < owner->menu_len; i++) {
-    if (first_item[current_section
-    ] < 0) first_item[current_section
-    ] = (int)i;
-    last_item[current_section
-    ] = (int)i;
-    if (use_section && owner->menu_section_after[i
-    ] && i < owner->menu_len - 1) {
+    if (first_item[current_section] < 0) first_item[current_section] = (int)i;
+    last_item[current_section] = (int)i;
+    if (use_section && owner->menu_section_after[i] && i < owner->menu_len - 1) {
       current_section++;
     }
   }
@@ -67,51 +51,38 @@ static void cogito_menu_section_bounds(CogitoNode* owner, int section_count, int
 
 static void cogito_draw_menu(void) {
   if (!cogito_menu.open || !cogito_menu.owner) return;
-  
-  // Check if vibrant mode is enabled
+
   bool vibrant = cogito_menu.owner->button.menu_vibrant;
-  
-  // Get tertiary colors (always compute for selection text)
-  CogitoColor tertiary = {
-    0
-  }, tertiary_container = {
-    0
-  }, on_tertiary_container = {
-    0
-  }, on_tertiary = {
-    0
-  };
+
+  // Tertiary colors for toggled items (and vibrant mode)
+  CogitoColor tertiary = {0}, tertiary_container = {0}, on_tertiary_container = {0}, on_tertiary = {0};
   cogito_menu_theme_tertiary(&tertiary, &tertiary_container, &on_tertiary_container, &on_tertiary);
-  
-  // Derive surface/on-surface/outline from theme accent via HCT if theme has no explicit values
-  // Surface-container-high: chroma ~4, tone 94 (light) / 22 (dark)
-  // On-surface: chroma ~4, tone 10 (light) / 90 (dark)
-  // Outline: chroma ~6, tone 50 (light) / 60 (dark)
+
+  // Derive surface/on-surface/outline from theme accent via HCT
   double h_acc = 0.0, c_acc = 0.0, t_acc = 0.0;
   cogito_rgb_to_hct(cogito_theme_accent, &h_acc, &c_acc, &t_acc);
   double surf_chroma = c_acc > 4.0 ? 4.0 : c_acc;
   CogitoColor md3_surface   = cogito_hct_to_rgb(h_acc, surf_chroma, cogito_theme_dark ? 22.0 : 94.0);
   CogitoColor md3_on_surf   = cogito_hct_to_rgb(h_acc, surf_chroma, cogito_theme_dark ? 90.0 : 10.0);
-  CogitoColor md3_outline   = cogito_hct_to_rgb(h_acc,
-  6.0,         cogito_theme_dark ? 60.0 : 50.0);
-  CogitoColor md3_sel       = cogito_hct_to_rgb(h_acc,
-  24.0,        cogito_theme_dark ? 30.0 : 90.0); // secondary-container
+  CogitoColor md3_outline   = cogito_hct_to_rgb(h_acc, 6.0, cogito_theme_dark ? 60.0 : 50.0);
 
   CogitoColor bg         = cogito_theme.menu.has_bg        ? cogito_theme.menu.bg        : md3_surface;
   CogitoColor border     = cogito_theme.menu.has_border    ? cogito_theme.menu.border    : md3_outline;
   CogitoColor text_color = cogito_theme.menu.has_text      ? cogito_theme.menu.text      : md3_on_surf;
-  CogitoColor sel        = cogito_theme.menu.has_selection ? cogito_theme.menu.selection : md3_sel;
-  
+
+  // Hover state layer: On Surface at 8% opacity
+  CogitoColor hover_layer = md3_on_surf;
+  hover_layer.a = 20; // ~8% of 255
+
   // Override with tertiary colors in vibrant mode
   if (vibrant) {
     bg         = tertiary_container;
     text_color = on_tertiary_container;
-    sel        = tertiary;
   }
-  
+
   bool has_border = cogito_theme.menu.has_border || cogito_theme.menu.has_border_width;
-  int border_w = cogito_theme.menu.has_border_width ? cogito_theme.menu.border_width : 0; // No border by default
-  int shadow_level = cogito_theme.menu.has_shadow ? cogito_theme.menu.shadow_level : 1; // Default elevation = 1
+  int border_w = cogito_theme.menu.has_border_width ? cogito_theme.menu.border_width : 0;
+  int shadow_level = cogito_theme.menu.has_shadow ? cogito_theme.menu.shadow_level : 1;
   int font_size = cogito_font_size();
   if (cogito_theme.menu.has_font_size && cogito_theme.menu.font_size > 0) {
     font_size = cogito_theme.menu.font_size;
@@ -120,47 +91,56 @@ static void cogito_draw_menu(void) {
   int y = cogito_menu.y;
   int w = cogito_menu.w;
   int h = cogito_menu.h;
-  
-  // Sections use gap by default; dividers are opt-in via menu_divider flag
+
+  // Layout constants from design spec
+  int icon_size = 20;       // Leading icon size
+  int icon_text_gap = 8;    // Gap between icon and text
+  int trailing_pad = 12;    // Right padding for trailing content
+
+  // Detect if any item has a leading icon (to reserve column space)
+  bool has_any_icon = false;
+  for (size_t i = 0; i < cogito_menu.owner->menu_len; i++) {
+    if (cogito_menu.owner->menu_icons && cogito_menu.owner->menu_icons[i]) has_any_icon = true;
+  }
+
+  // Text X offset: pad_x + optional icon column
+  int text_x_offset = cogito_menu.pad_x;
+  if (has_any_icon) {
+    text_x_offset = cogito_menu.pad_x + icon_size + icon_text_gap;
+  }
+
+  // Sections use gap by default; dividers are opt-in
   bool use_section = cogito_menu.owner->menu_section_after != NULL;
   bool use_divider = cogito_menu.owner->button.menu_divider;
-  int item_gap = (cogito_menu.owner->button.menu_item_gap > 0) ? cogito_menu.owner->button.menu_item_gap : 
+  int item_gap = (cogito_menu.owner->button.menu_item_gap > 0) ? cogito_menu.owner->button.menu_item_gap :
                  (cogito_theme.menu.has_item_gap ? cogito_theme.menu.item_gap : 2);
-  int section_gap = 2; // Gap between sections
+  int section_gap = 2;
   int divider_h = use_divider ? 1 : 0;
-  
-  // Count sections and determine section membership for radius scheme
+
+  // Count sections and determine section membership
   int max_items = (int)cogito_menu.owner->menu_len;
   int* section_of_item = (int*)malloc(max_items * sizeof(int));
   int* first_item_of_section = (int*)malloc((max_items + 1) * sizeof(int));
   int* last_item_of_section = (int*)malloc((max_items + 1) * sizeof(int));
   int section_count = cogito_menu_count_sections(cogito_menu.owner, section_of_item);
   cogito_menu_section_bounds(cogito_menu.owner, section_count, first_item_of_section, last_item_of_section);
-  
-  // Calculate section Y positions and heights for section-based backgrounds
-  int section_padding = 2; // 2px padding at top and bottom of each section
+
+  // Calculate section Y positions and heights
+  int section_padding = 2;
   int* section_y = (int*)malloc((section_count + 1) * sizeof(int));
-  int* section_h = (int*)malloc((section_count + 1) * sizeof(int));
+  int* section_h_arr = (int*)malloc((section_count + 1) * sizeof(int));
   int current_y_calc = y + cogito_menu.pad_top;
   for (int s = 0; s < section_count; s++) {
-    section_y[s
-    ] = current_y_calc;
-    int items_in_section = last_item_of_section[s
-    ] - first_item_of_section[s
-    ] + 1;
+    section_y[s] = current_y_calc;
+    int items_in_section = last_item_of_section[s] - first_item_of_section[s] + 1;
     int section_height = items_in_section * cogito_menu.item_h;
-    // Add gaps between items within section
-     if (items_in_section > 1) {
-       section_height += (items_in_section - 1) * item_gap;
+    if (items_in_section > 1) {
+      section_height += (items_in_section - 1) * item_gap;
     }
-    // Add 2px padding at top and bottom of section
-     section_height += section_padding * 2;
-     // Minimum 48px per section for accessibility
-     if (section_height < 48) section_height = 48;
-     section_h[s
-    ] = section_height;
+    section_height += section_padding * 2;
+    if (section_height < 48) section_height = 48;
+    section_h_arr[s] = section_height;
     current_y_calc += section_height;
-    // Add section gap or divider space after section (except last)
     if (s < section_count - 1) {
       if (use_divider) {
         current_y_calc += divider_h + item_gap;
@@ -169,34 +149,26 @@ static void cogito_draw_menu(void) {
       }
     }
   }
-  
+
   int inner_radius = 4;
-  int outer_radius = 12;
-  // Draw single shadow for entire menu instead of per-section shadows
+  int outer_radius = 16;
+  int item_sel_radius = 12; // Radius for hover/toggled corners at menu edges
+
+  // Draw single shadow for entire menu
   if (shadow_level > 0 && section_count > 0) {
     cogito_draw_shadow_radii_level(x, y + cogito_menu.pad_top, w, h - cogito_menu.pad_top - cogito_menu.pad_bottom, outer_radius, outer_radius, outer_radius, outer_radius, shadow_level);
   }
-  // Draw section backgrounds with appropriate radii
-  // For bubble style (no dividers): each section is fully rounded
-  // For divider style: sections connect with small radii at junctions
+  // Draw section backgrounds
   for (int s = 0; s < section_count; s++) {
     int tl = inner_radius, tr = inner_radius, br = inner_radius, bl = inner_radius;
     if (section_count == 1) {
-      // Single section or bubble style: use outer radius on all corners
       tl = tr = br = bl = outer_radius;
     } else if (s == 0) {
-      // First section: outer radius on top, inner on bottom
       tl = tr = outer_radius;
-      br = bl = inner_radius;
     } else if (s == section_count - 1) {
-      // Last section: inner radius on top, outer on bottom
-      tl = tr = inner_radius;
       br = bl = outer_radius;
     }
-    // Middle sections: all inner radius (already set)
-    cogito_draw_rect_radii_aa(x, section_y[s
-    ], w, section_h[s
-    ], bg, tl, tr, br, bl);
+    cogito_draw_rect_radii_aa(x, section_y[s], w, section_h_arr[s], bg, tl, tr, br, bl);
   }
   // Draw section borders if needed
   if (has_border && border_w > 0) {
@@ -207,17 +179,13 @@ static void cogito_draw_menu(void) {
         tl = tr = br = bl = outer_radius;
       } else if (s == 0) {
         tl = tr = outer_radius;
-        br = bl = inner_radius;
       } else if (s == section_count - 1) {
-        tl = tr = inner_radius;
         br = bl = outer_radius;
       }
-      cogito_draw_rect_lines_radii(x, section_y[s
-      ], w, section_h[s
-      ], border_color, tl, tr, br, bl, border_w);
+      cogito_draw_rect_lines_radii(x, section_y[s], w, section_h_arr[s], border_color, tl, tr, br, bl, border_w);
     }
   }
-  
+
   if (cogito_menu.owner->kind == COGITO_DROPDOWN && w > 2) {
     int seam_y = -1;
     if (y == cogito_menu.owner->y + cogito_menu.owner->h) seam_y = y;
@@ -232,110 +200,132 @@ static void cogito_draw_menu(void) {
     cogito_backend->get_mouse_position(&mx, &my);
   }
   int hover = cogito_menu_hit(&cogito_menu, mx, my);
-  
-  // Selection styling for sectioned menus
-  int sel_inset_edge = 4; // 4px inset from section edges (horizontal)
-  int sel_inset_between = 2; // 2px between items (vertical)
-  int sel_inset_section_edge = 2; // 2px inset from section top/bottom edges for first/last items
-  
-  // Calculate item Y positions aligned to sections (accounting for section padding)
+
+  // Insets for hover/toggled highlight
+  int sel_inset_edge = 4;
+  int sel_inset_between = 2;
+  int sel_inset_section_edge = 2;
+
+  // Calculate item Y positions
   int* item_y = (int*)malloc(max_items * sizeof(int));
   for (int s = 0; s < section_count; s++) {
-    int item_idx = first_item_of_section[s
-    ];
-    int item_y_pos = section_y[s
-    ] + section_padding; // Start after section top padding
-    int items_count = last_item_of_section[s
-    ] - first_item_of_section[s
-    ] + 1;
+    int item_idx = first_item_of_section[s];
+    int item_y_pos = section_y[s] + section_padding;
+    int items_count = last_item_of_section[s] - first_item_of_section[s] + 1;
     for (int j = 0; j < items_count; j++) {
-      item_y[item_idx + j
-      ] = item_y_pos;
+      item_y[item_idx + j] = item_y_pos;
       item_y_pos += cogito_menu.item_h + item_gap;
     }
   }
-  
+
   for (size_t i = 0; i < cogito_menu.owner->menu_len; i++) {
-    int current_item_y = item_y[i
-    ];
-    int section_idx = section_of_item[i
-    ];
-    bool is_first_in_section = (i == (size_t)first_item_of_section[section_idx
-    ]);
-    bool is_last_in_section = (i == (size_t)last_item_of_section[section_idx
-    ]);
-    
-    if ((int)i == hover) {
-      // Calculate selection background with proper insets
-      int sel_x = x + sel_inset_edge;
-      int sel_w = w - sel_inset_edge * 2;
-      int sel_y = current_item_y;
-      int sel_h = cogito_menu.item_h;
-      
+    int current_item_y = item_y[i];
+    int section_idx = section_of_item[i];
+    bool is_first_in_section = (i == (size_t)first_item_of_section[section_idx]);
+    bool is_last_in_section = (i == (size_t)last_item_of_section[section_idx]);
+    bool is_first_overall = (section_idx == 0 && is_first_in_section);
+    bool is_last_overall = (section_idx == section_count - 1 && is_last_in_section);
+
+    bool is_toggled = cogito_menu.owner->menu_toggled && cogito_menu.owner->menu_toggled[i];
+    bool is_hovered = ((int)i == hover);
+
+    // Draw highlight background for toggled or hovered items
+    if (is_toggled || is_hovered) {
+      int hl_x = x + sel_inset_edge;
+      int hl_w = w - sel_inset_edge * 2;
+      int hl_y = current_item_y;
+      int hl_h = cogito_menu.item_h;
+
       // Apply insets based on position within section
       if (is_first_in_section) {
-        // First item: add 2px padding from section top edge
-        sel_y += sel_inset_section_edge;
-        sel_h -= sel_inset_section_edge;
+        hl_y += sel_inset_section_edge;
+        hl_h -= sel_inset_section_edge;
       } else {
-        // Not first: add 2px inset from item above
-        sel_y += sel_inset_between;
-        sel_h -= sel_inset_between;
+        hl_y += sel_inset_between;
+        hl_h -= sel_inset_between;
       }
       if (is_last_in_section) {
-        // Last item: add 2px padding from section bottom edge
-        sel_h -= sel_inset_section_edge;
+        hl_h -= sel_inset_section_edge;
       } else {
-        // Not last: add 2px inset from item below
-        sel_h -= sel_inset_between;
+        hl_h -= sel_inset_between;
       }
-      // Calculate selection radius based on position within section
-      // Follows section's radius: outer_radius at section edges, inner_radius elsewhere
-      int sel_tl = inner_radius, sel_tr = inner_radius, sel_br = inner_radius, sel_bl = inner_radius;
-      if (section_count == 1 || !use_divider) {
-        // Single section or bubble style: all corners use outer radius
-        sel_tl = sel_tr = sel_br = sel_bl = outer_radius;
+
+      int hl_tl, hl_tr, hl_br, hl_bl;
+      CogitoColor hl_color;
+
+      if (is_toggled) {
+        // Toggled: Tertiary Container, uniform 12dp radius
+        hl_color = tertiary_container;
+        hl_tl = hl_tr = hl_br = hl_bl = item_sel_radius;
       } else {
-        // Divider style: match section corners at edges
-        if (section_idx == 0 && is_first_in_section) {
-          sel_tl = sel_tr = outer_radius; // First item in first section
+        // Hovered: On Surface at 8%, position-aware radius
+        hl_color = hover_layer;
+        hl_tl = hl_tr = hl_br = hl_bl = inner_radius;
+        // Corners meeting menu outer radius get item_sel_radius
+        if (is_first_overall) {
+          hl_tl = hl_tr = item_sel_radius;
         }
-        if (section_idx == section_count - 1 && is_last_in_section) {
-          sel_br = sel_bl = outer_radius; // Last item in last section
+        if (is_last_overall) {
+          hl_br = hl_bl = item_sel_radius;
         }
       }
-      // For middle items, use inner_radius (already set)
-      
-      cogito_draw_rect_radii_aa(sel_x, sel_y, sel_w, sel_h, sel, sel_tl, sel_tr, sel_br, sel_bl);
+
+      cogito_draw_rect_radii_aa(hl_x, hl_y, hl_w, hl_h, hl_color, hl_tl, hl_tr, hl_br, hl_bl);
     }
-    const char* text = cogito_menu.owner->menu_labels[i
-    ] ? cogito_menu.owner->menu_labels[i
-    ]->data : "";
+
+    // Determine text color for this item
+    CogitoColor item_text_color;
+    if (is_toggled) {
+      item_text_color = on_tertiary_container;
+    } else {
+      // Hovered or normal: On Surface
+      item_text_color = text_color;
+    }
+
+    const char* text = cogito_menu.owner->menu_labels[i] ? cogito_menu.owner->menu_labels[i]->data : "";
     int th = cogito_text_height_size(font_size);
     int ty = current_item_y + (cogito_menu.item_h - th) / 2;
-    // Use on_tertiary for text on selection (always, for both vibrant and non-vibrant)
-    CogitoColor item_text_color = ((int)i == hover) ? on_tertiary : text_color;
-    cogito_draw_text_size_node(cogito_menu.owner, x + cogito_menu.pad_x, ty, text, item_text_color, font_size, false);
-    
-    // Check if this item has a section break after it
-    bool has_section_after = use_section && cogito_menu.owner->menu_section_after[i
-    ];
-    
-    // Draw divider only if using sections with menu_divider enabled
+
+    // Draw leading icon if present
+    if (has_any_icon) {
+      ErgoStr* icon_str = cogito_menu.owner->menu_icons ? cogito_menu.owner->menu_icons[i] : NULL;
+      if (icon_str) {
+        int icon_y = current_item_y + (cogito_menu.item_h - icon_size) / 2;
+        cogito_draw_icon_fallback(cogito_menu.owner, icon_str->data, x + cogito_menu.pad_x, icon_y, icon_size, item_text_color);
+      }
+    }
+
+    // Draw label text
+    cogito_draw_text_size_node(cogito_menu.owner, x + text_x_offset, ty, text, item_text_color, font_size, false);
+
+    // Draw trailing content: shortcut text or submenu arrow
+    bool is_submenu = cogito_menu.owner->menu_submenu && cogito_menu.owner->menu_submenu[i];
+    ErgoStr* shortcut = cogito_menu.owner->menu_shortcuts ? cogito_menu.owner->menu_shortcuts[i] : NULL;
+    if (is_submenu) {
+      int arrow_size = 16;
+      int arrow_x = x + w - trailing_pad - arrow_size;
+      int arrow_y = current_item_y + (cogito_menu.item_h - arrow_size) / 2;
+      cogito_draw_icon_fallback(cogito_menu.owner, "chevron.right", arrow_x, arrow_y, arrow_size, item_text_color);
+    } else if (shortcut) {
+      int sc_w = cogito_text_width_size(shortcut->data, font_size);
+      int sc_x = x + w - trailing_pad - sc_w;
+      cogito_draw_text_size_node(cogito_menu.owner, sc_x, ty, shortcut->data, item_text_color, font_size, false);
+    }
+
+    // Draw divider if this item has a section break after it
+    bool has_section_after = use_section && cogito_menu.owner->menu_section_after[i];
     if (use_divider && has_section_after && i < cogito_menu.owner->menu_len - 1) {
       int divider_y = current_item_y + cogito_menu.item_h + item_gap;
       CogitoColor divider_color = vibrant ? tertiary : (cogito_theme.menu.has_border ? cogito_theme.menu.border : md3_outline);
-      int divider_inset = 12; // Inset from left and right
+      int divider_inset = 12;
       cogito_draw_line(x + divider_inset, divider_y, x + w - divider_inset, divider_y, divider_color);
     }
   }
-  
+
   free(item_y);
-  
-  // Free allocated memory
   free(section_of_item);
   free(first_item_of_section);
   free(last_item_of_section);
   free(section_y);
-  free(section_h);
+  free(section_h_arr);
 }

@@ -23,11 +23,21 @@ static void cogito_view_chooser_set_items(ErgoVal vcv, ErgoVal arrv) {
     for (size_t i = 0; i < n->menu_len; i++) {
       if (n->menu_labels[i]) ergo_release_val(EV_STR(n->menu_labels[i]));
       if (n->menu_handlers[i]) ergo_release_val(EV_FN(n->menu_handlers[i]));
+      if (n->menu_icons && n->menu_icons[i]) ergo_release_val(EV_STR(n->menu_icons[i]));
+      if (n->menu_shortcuts && n->menu_shortcuts[i]) ergo_release_val(EV_STR(n->menu_shortcuts[i]));
     }
     free(n->menu_labels);
     free(n->menu_handlers);
+    free(n->menu_icons);
+    free(n->menu_shortcuts);
+    free(n->menu_submenu);
+    free(n->menu_toggled);
     n->menu_labels = NULL;
     n->menu_handlers = NULL;
+    n->menu_icons = NULL;
+    n->menu_shortcuts = NULL;
+    n->menu_submenu = NULL;
+    n->menu_toggled = NULL;
     n->menu_len = 0;
     n->menu_cap = 0;
   }

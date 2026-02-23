@@ -909,7 +909,55 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         cogito_window_relayout(win);
       }
     }
-    // Slider active handling
+    // Slider active handling - ensure slider is activated when clicked
+    if (!cogito_slider_active) {
+      bool left_pressed = cogito_backend->is_mouse_button_pressed && cogito_backend->is_mouse_button_pressed(0);
+      if (left_pressed) {
+        // Check if we should activate a slider on press
+        CogitoNode* slider_hit = cogito_find_clickable(win, mx, my);
+        if (slider_hit && slider_hit->kind == COGITO_SLIDER && !slider_hit->disabled) {
+          cogito_slider_active = slider_hit;
+          cogito_pointer_capture = slider_hit;
+          slider_hit->slider.dragging = true;
+          if (slider_hit->slider.mode == COGITO_SLIDER_MODE_RANGE) {
+            // Determine which handle is closer to the click position
+            double span = slider_hit->slider.max - slider_hit->slider.min;
+            int rail_h = 16;
+            if (slider_hit->slider.size == COGITO_SLIDER_SIZE_S) rail_h = 24;
+            if (slider_hit->slider.size == COGITO_SLIDER_SIZE_M) rail_h = 40;
+            if (slider_hit->slider.size == COGITO_SLIDER_SIZE_L) rail_h = 56;
+            if (slider_hit->slider.size == COGITO_SLIDER_SIZE_XL) rail_h = 96;
+            int pad = rail_h / 2 + 7;
+            int x0 = slider_hit->x + pad;
+            int x1 = slider_hit->x + slider_hit->w - pad;
+            if (x1 < x0) x1 = x0;
+            double t0 = 0.0;
+            double t1 = 0.0;
+            if (span > 0.0) {
+              t0 = (slider_hit->slider.value - slider_hit->slider.min) / span;
+              t1 = (slider_hit->slider.value2 - slider_hit->slider.min) / span;
+            }
+            if (t0 < 0.0) t0 = 0.0;
+            if (t0 > 1.0) t0 = 1.0;
+            if (t1 < 0.0) t1 = 0.0;
+            if (t1 > 1.0) t1 = 1.0;
+            int k0 = x0 + (int)lround((double)(x1 - x0) * t0);
+            int k1 = x0 + (int)lround((double)(x1 - x0) * t1);
+            int d0 = abs(mx - k0);
+            int d1 = abs(mx - k1);
+            if (d1 < d0) {
+              slider_hit->slider.active_handle = 2;
+            } else if (d0 < d1) {
+              slider_hit->slider.active_handle = 1;
+            } else {
+              slider_hit->slider.active_handle = (mx >= (k0 + k1) / 2) ? 2 : 1;
+            }
+          } else {
+            slider_hit->slider.active_handle = 0;
+          }
+        }
+      }
+    }
     if (cogito_slider_active) {
       if (cogito_backend->is_mouse_button_down(0)) {
         CogitoNode* sld = cogito_slider_active;
@@ -1586,8 +1634,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           cogito_focused = NULL;
         }
         if (hit) {
-          // Trigger ripple for Primary-colored interactables
-          if (hit->kind == COGITO_BUTTON || hit->kind == COGITO_FAB || hit->kind == COGITO_ICONBTN || hit->kind == COGITO_FAB_MENU) {
+          // Trigger ripple for elements with Primary/Secondary/Tertiary backgrounds or Surface variant on button-like elements
+          if (cogito_node_should_ripple(hit)) {
             cogito_ripple_start(hit, mx, my);
           }
           if (hit->kind == COGITO_BUTTON || hit->kind == COGITO_ICONBTN) {
@@ -1641,43 +1689,46 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           } else if (hit->kind == COGITO_DROPDOWN) {
             cogito_menu_open_for(hit);
           } else if (hit->kind == COGITO_SLIDER) {
-            cogito_slider_active = hit;
-            cogito_pointer_capture = hit;
-            hit->slider.dragging = true;
-            if (hit->slider.mode == COGITO_SLIDER_MODE_RANGE) {
-              double span = hit->slider.max - hit->slider.min;
-              int rail_h = 16;
-              if (hit->slider.size == COGITO_SLIDER_SIZE_S) rail_h = 24;
-              if (hit->slider.size == COGITO_SLIDER_SIZE_M) rail_h = 40;
-              if (hit->slider.size == COGITO_SLIDER_SIZE_L) rail_h = 56;
-              if (hit->slider.size == COGITO_SLIDER_SIZE_XL) rail_h = 96;
-              int pad = rail_h / 2 + 7;
-              int x0 = hit->x + pad;
-              int x1 = hit->x + hit->w - pad;
-              if (x1 < x0) x1 = x0;
-              double t0 = 0.0;
-              double t1 = 0.0;
-              if (span > 0.0) {
-                t0 = (hit->slider.value - hit->slider.min) / span;
-                t1 = (hit->slider.value2 - hit->slider.min) / span;
-              }
-              if (t0 < 0.0) t0 = 0.0;
-              if (t0 > 1.0) t0 = 1.0;
-              if (t1 < 0.0) t1 = 0.0;
-              if (t1 > 1.0) t1 = 1.0;
-              int k0 = x0 + (int)lround((double)(x1 - x0) * t0);
-              int k1 = x0 + (int)lround((double)(x1 - x0) * t1);
-              int d0 = abs(mx - k0);
-              int d1 = abs(mx - k1);
-              if (d1 < d0) {
-                hit->slider.active_handle = 2;
-              } else if (d0 < d1) {
-                hit->slider.active_handle = 1;
+            // Skip if slider was already activated by press handler
+            if (cogito_slider_active != hit) {
+              cogito_slider_active = hit;
+              cogito_pointer_capture = hit;
+              hit->slider.dragging = true;
+              if (hit->slider.mode == COGITO_SLIDER_MODE_RANGE) {
+                double span = hit->slider.max - hit->slider.min;
+                int rail_h = 16;
+                if (hit->slider.size == COGITO_SLIDER_SIZE_S) rail_h = 24;
+                if (hit->slider.size == COGITO_SLIDER_SIZE_M) rail_h = 40;
+                if (hit->slider.size == COGITO_SLIDER_SIZE_L) rail_h = 56;
+                if (hit->slider.size == COGITO_SLIDER_SIZE_XL) rail_h = 96;
+                int pad = rail_h / 2 + 7;
+                int x0 = hit->x + pad;
+                int x1 = hit->x + hit->w - pad;
+                if (x1 < x0) x1 = x0;
+                double t0 = 0.0;
+                double t1 = 0.0;
+                if (span > 0.0) {
+                  t0 = (hit->slider.value - hit->slider.min) / span;
+                  t1 = (hit->slider.value2 - hit->slider.min) / span;
+                }
+                if (t0 < 0.0) t0 = 0.0;
+                if (t0 > 1.0) t0 = 1.0;
+                if (t1 < 0.0) t1 = 0.0;
+                if (t1 > 1.0) t1 = 1.0;
+                int k0 = x0 + (int)lround((double)(x1 - x0) * t0);
+                int k1 = x0 + (int)lround((double)(x1 - x0) * t1);
+                int d0 = abs(mx - k0);
+                int d1 = abs(mx - k1);
+                if (d1 < d0) {
+                  hit->slider.active_handle = 2;
+                } else if (d0 < d1) {
+                  hit->slider.active_handle = 1;
+                } else {
+                  hit->slider.active_handle = (mx >= (k0 + k1) / 2) ? 2 : 1;
+                }
               } else {
-                hit->slider.active_handle = (mx >= (k0 + k1) / 2) ? 2 : 1;
+                hit->slider.active_handle = 0;
               }
-            } else {
-              hit->slider.active_handle = 0;
             }
           } else if (hit->kind == COGITO_CAROUSEL_ITEM) {
             // Click on a carousel item: scroll to it and make it active

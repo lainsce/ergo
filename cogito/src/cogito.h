@@ -252,6 +252,8 @@ void cogito_split_button_add_menu(cogito_node *sb, const char *label,
                                   cogito_node_fn fn, void *user);
 void cogito_split_button_add_menu_section(cogito_node *sb, const char *label,
                                           cogito_node_fn fn, void *user);
+void cogito_split_button_set_size(cogito_node *sb, int size);
+void cogito_split_button_set_variant(cogito_node *sb, int variant);
 
 // Tree / layout
 void cogito_node_add(cogito_node *parent, cogito_node *child);
@@ -445,6 +447,11 @@ void cogito_button_set_menu_item_gap(cogito_node *button, int gap);
 int cogito_button_get_menu_item_gap(cogito_node *button);
 void cogito_button_set_menu_vibrant(cogito_node *button, bool vibrant);
 bool cogito_button_get_menu_vibrant(cogito_node *button);
+// Menu item property setters (act on the last-added menu item)
+void cogito_menu_set_icon(cogito_node *node, const char *icon);
+void cogito_menu_set_shortcut(cogito_node *node, const char *shortcut);
+void cogito_menu_set_submenu(cogito_node *node, bool submenu);
+void cogito_menu_set_toggled(cogito_node *node, bool toggled);
 void cogito_iconbtn_set_menu_divider(cogito_node *iconbtn, bool divider);
 bool cogito_iconbtn_get_menu_divider(cogito_node *iconbtn);
 void cogito_iconbtn_set_menu_item_gap(cogito_node *iconbtn, int gap);

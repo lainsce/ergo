@@ -36,8 +36,13 @@ case COGITO_BUTTON: {
       
       // Only apply circular override if NOT in a ButtonGroup (let buttongroup handle radius)
       if (!in_buttongroup) {
-        int circular = n->h / 2;
-        if (circular > radius) radius = circular;
+        // When pressed/active, use size-based pressed radius
+        if (active) {
+          radius = cogito_button_pressed_radius(n->button.size);
+        } else {
+          int circular = n->h / 2;
+          if (circular > radius) radius = circular;
+        }
       }
       
       if (s.has_text) text = s.text;

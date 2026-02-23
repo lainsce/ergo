@@ -76,6 +76,10 @@
 #undef cogito_list_on_select
 #undef cogito_load_sum_file
 #undef cogito_menu_button_new
+#undef cogito_menu_set_icon
+#undef cogito_menu_set_shortcut
+#undef cogito_menu_set_submenu
+#undef cogito_menu_set_toggled
 #undef cogito_node_add
 #undef cogito_node_build
 #undef cogito_node_free
@@ -151,6 +155,8 @@
 #undef cogito_split_button_add_menu
 #undef cogito_split_button_add_menu_section
 #undef cogito_split_button_new
+#undef cogito_split_button_set_size
+#undef cogito_split_button_set_variant
 #undef cogito_stepper_get_value
 #undef cogito_stepper_new
 #undef cogito_stepper_on_change
@@ -1153,6 +1159,18 @@ static void __cogito_split_button_add_menu_section(ErgoVal btnv, ErgoVal labelv,
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
 
+static void __cogito_split_button_set_size(ErgoVal btnv, ErgoVal sizev) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  int size = (int)ergo_as_int(sizev);
+  cogito_split_button_set_size(btn, size);
+}
+
+static void __cogito_split_button_set_variant(ErgoVal btnv, ErgoVal variantv) {
+  cogito_node* btn = cogito_node_from_val(btnv);
+  int variant = (int)ergo_as_int(variantv);
+  cogito_split_button_set_variant(btn, variant);
+}
+
 static ErgoVal __cogito_image(ErgoVal iconv) {
   ErgoStr* tmp = NULL;
   const char* icon = cogito_required_cstr(iconv, &tmp);
@@ -1801,6 +1819,39 @@ static void __cogito_iconbtn_add_menu_section(ErgoVal btnv, ErgoVal labelv, Ergo
   cogito_iconbtn_add_menu_section(btn, label, mh ? cogito_cb_menu : NULL, mh);
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
+
+// Menu item property setters (work on any node with menu items)
+// Use public API (cogito_menu_set_*) so these compile against the opaque cogito_node.
+static void __cogito_menu_set_icon(ErgoVal nodev, ErgoVal iconv) {
+  cogito_node* n = cogito_node_from_val(nodev);
+  if (!n) return;
+  ErgoStr* tmp = NULL;
+  const char* icon = cogito_required_cstr(iconv, &tmp);
+  cogito_menu_set_icon(n, icon);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
+static void __cogito_menu_set_shortcut(ErgoVal nodev, ErgoVal shortcutv) {
+  cogito_node* n = cogito_node_from_val(nodev);
+  if (!n) return;
+  ErgoStr* tmp = NULL;
+  const char* shortcut = cogito_required_cstr(shortcutv, &tmp);
+  cogito_menu_set_shortcut(n, shortcut);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
+static void __cogito_menu_set_submenu(ErgoVal nodev, ErgoVal submenuv) {
+  cogito_node* n = cogito_node_from_val(nodev);
+  if (!n) return;
+  cogito_menu_set_submenu(n, ergo_as_bool(submenuv));
+}
+
+static void __cogito_menu_set_toggled(ErgoVal nodev, ErgoVal toggledv) {
+  cogito_node* n = cogito_node_from_val(nodev);
+  if (!n) return;
+  cogito_menu_set_toggled(n, ergo_as_bool(toggledv));
+}
+
 // Icon button setters/getters
 static void __cogito_iconbtn_set_shape(ErgoVal btnv, ErgoVal shapev) {
   cogito_node* btn = cogito_node_from_val(btnv);
@@ -2972,9 +3023,15 @@ void __cogito_button_on_click(ErgoVal btn, ErgoVal handler);
 #define cogito_about_window_set_website __cogito_about_window_set_website
 #define cogito_about_window_set_issue_url __cogito_about_window_set_issue_url
 #define cogito_menu_button_new __cogito_menu_button
+#define cogito_menu_set_icon __cogito_menu_set_icon
+#define cogito_menu_set_shortcut __cogito_menu_set_shortcut
+#define cogito_menu_set_submenu __cogito_menu_set_submenu
+#define cogito_menu_set_toggled __cogito_menu_set_toggled
 #define cogito_split_button_new __cogito_split_button
 #define cogito_split_button_add_menu __cogito_split_button_add_menu
 #define cogito_split_button_add_menu_section __cogito_split_button_add_menu_section
+#define cogito_split_button_set_size __cogito_split_button_set_size
+#define cogito_split_button_set_variant __cogito_split_button_set_variant
 #define cogito_buttongroup_set_size __cogito_buttongroup_set_size
 #define cogito_buttongroup_get_size __cogito_buttongroup_get_size
 #define cogito_buttongroup_set_shape __cogito_buttongroup_set_shape

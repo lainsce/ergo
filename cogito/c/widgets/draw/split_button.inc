@@ -6,8 +6,8 @@ case COGITO_SPLIT_BUTTON: {
   CogitoColor text_color = s.has_text ? s.text : n->text_color;
   CogitoColor border_color = s.has_border ? s.border : n->border_color;
   int border_w = s.has_border_width ? s.border_width : 0;
-  if (n->button.outlined && border_w == 0) border_w = 1;
-  if (n->button.text_style) { bg = cogito_rgba(0,0,0,0); border_w = 0; }
+  if (n->split_btn.outlined && border_w == 0) border_w = 1;
+  if (n->split_btn.text_style) { bg = cogito_rgba(0,0,0,0); border_w = 0; }
 
   cogito_anim_apply(n, &s, &bg, &text_color, &border_color, NULL);
 
@@ -53,41 +53,86 @@ case COGITO_SPLIT_BUTTON: {
 
   int outer_radius = n->h / 2;
   if (outer_radius < 0) outer_radius = 0;
-  int main_inner_radius = 4;
-  if (main_inner_radius > outer_radius) main_inner_radius = outer_radius;
-  int menu_target_inner_radius = menu_active ? outer_radius : 4;
-  if (menu_target_inner_radius > outer_radius) menu_target_inner_radius = outer_radius;
+  
+  // When pressed, use size-based pressed radius
+  int pressed_radius = cogito_button_pressed_radius(n->split_btn.size);
+  int main_outer_radius = main_active ? pressed_radius : outer_radius;
+  
+  // Menu button acts like a latched button:
+  // - When latched (dropdown open): stays fully rounded, only pressed radius when actually pressed
+  // - When not latched: normal behavior, pressed radius when pressed
+  int menu_target_outer, menu_target_inner;
+  if (menu_active) {
+    // Latched state: fully rounded, use pressed radius only when being pressed
+    menu_target_outer = menu_active_press ? pressed_radius : outer_radius;
+    menu_target_inner = menu_target_outer;
+  } else if (menu_active_press) {
+    // Not latched but being pressed: use pressed radius for all corners
+    menu_target_outer = pressed_radius;
+    menu_target_inner = pressed_radius;
+  } else {
+    // Normal state: circular outer corners, 4px inner corners
+    menu_target_outer = outer_radius;
+    menu_target_inner = 4;
+  }
+  
+  // Animate the inner radius
   double now = 0.0;
   if (cogito_backend && cogito_backend->get_time) now = cogito_backend->get_time();
   if (!n->anim_layout_active) {
     n->anim_layout_active = true;
-    n->anim_h = n->anim_h_from = n->anim_h_target = menu_target_inner_radius;
+    n->anim_h = n->anim_h_from = n->anim_h_target = menu_target_inner;
+    n->anim_h_start = now - 1000; // Start in past to complete immediately
+  } else if (n->anim_h_target != menu_target_inner) {
+    n->anim_h_from = n->anim_h;
+    n->anim_h_target = menu_target_inner;
     n->anim_h_start = now;
   }
   int prev_anim_ms = n->anim_ms;
   int prev_anim_ease = n->anim_ease;
   if (n->anim_ms <= 0) n->anim_ms = 180;
   if (n->anim_ease <= 0) n->anim_ease = 4; // ease-in-out fallback
-  int menu_inner_radius = cogito_anim_int(n, menu_target_inner_radius,
+  int menu_inner_radius = cogito_anim_int(n, menu_target_inner,
                                           &n->anim_h, &n->anim_h_from, &n->anim_h_target,
                                           &n->anim_h_start, now);
   n->anim_ms = prev_anim_ms;
   n->anim_ease = prev_anim_ease;
+  
+  int menu_outer_radius = menu_target_outer;
+  if (menu_inner_radius > menu_outer_radius) menu_inner_radius = menu_outer_radius;
+  
+  int main_inner_radius = 4;
+  if (main_inner_radius > main_outer_radius) main_inner_radius = main_outer_radius;
 
   // Draw main button with circular outer corners and 4px inner corners
   cogito_draw_rect_radii_aa(n->x, n->y, main_w, n->h, main_bg,
-                            outer_radius, main_inner_radius, main_inner_radius, outer_radius);
+                            main_outer_radius, main_inner_radius, main_inner_radius, main_outer_radius);
+  
+  // Draw ripple effect for split buttons with Primary/Secondary/Tertiary/Surface backgrounds
+  if (cogito_ripple_update(n)) {
+    float r_radius, r_alpha;
+    cogito_ripple_get(n, &r_radius, &r_alpha);
+    if (r_radius > 0 && r_alpha > 0) {
+      CogitoColor ripple_color = text_color;
+      ripple_color.a = (uint8_t)(255 * r_alpha);
+      int cx = n->x + n->ripple_x;
+      int cy = n->y + n->ripple_y;
+      // Clip ripple to the overall button shape
+      cogito_draw_circle_clipped_node(n, &s, outer_radius, cx, cy, r_radius, ripple_color);
+    }
+  }
+  
   if (border_w > 0) {
     cogito_draw_rect_lines_radii_aa(n->x, n->y, main_w, n->h, border_color,
-                                    outer_radius, main_inner_radius, main_inner_radius, outer_radius, border_w);
+                                    main_outer_radius, main_inner_radius, main_inner_radius, main_outer_radius, border_w);
   }
 
   // Draw menu button with reversed corner radii; when menu is active make it fully circular.
   cogito_draw_rect_radii_aa(menu_x, n->y, menu_w, n->h, menu_bg,
-                            menu_inner_radius, outer_radius, outer_radius, menu_inner_radius);
+                            menu_inner_radius, menu_outer_radius, menu_outer_radius, menu_inner_radius);
   if (border_w > 0) {
     cogito_draw_rect_lines_radii_aa(menu_x, n->y, menu_w, n->h, border_color,
-                                    menu_inner_radius, outer_radius, outer_radius, menu_inner_radius, border_w);
+                                    menu_inner_radius, menu_outer_radius, menu_outer_radius, menu_inner_radius, border_w);
   }
 
   // Draw main button text

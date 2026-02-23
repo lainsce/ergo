@@ -571,6 +571,11 @@ typedef struct CogitoNode {
   size_t menu_cap;
   // Menu sections for intelligent dividers
   bool* menu_section_after;
+  // Menu item properties (parallel arrays, same length as menu_labels)
+  ErgoStr** menu_icons;      // Leading icon name per item (NULL = none)
+  ErgoStr** menu_shortcuts;  // Trailing shortcut text per item (NULL = none)
+  bool* menu_submenu;        // Whether item opens a submenu (trailing arrow)
+  bool* menu_toggled;        // Whether item is in toggled state
   ErgoStr** tab_labels;
   ErgoStr** tab_icons;
   ErgoStr** tab_ids;
@@ -895,13 +900,15 @@ typedef struct CogitoNode {
     struct { float ratio; bool dragging; int drag_offset;
     } view_dual;
     struct { int arrow_x; uint8_t size; // 0=XS..4=XL, same as button
+      bool outlined, text_style;
     } split_btn;
     struct { bool has_divider_before; bool has_divider_after;
     } menu_section;
     struct { bool vibrant;
     } toolbar;
     // ButtonGroup: size (0-4 for XS-XL), shape (0=round,1=square), connected (0=standard,1=connected)
-    struct { int size; int shape; int connected;
+    // pressed_child: index of child being pressed (-1 = none), for width expansion animation
+    struct { int size; int shape; int connected; int pressed_child;
     } buttongroup;
   };
 } CogitoNode;
@@ -1060,6 +1067,20 @@ static uint8_t cogito_iconbtn_clamp_size_int(int size) {
   if (size < COGITO_BUTTON_SIZE_XS) return (uint8_t)COGITO_BUTTON_SIZE_XS;
   if (size > COGITO_BUTTON_SIZE_XL) return (uint8_t)COGITO_BUTTON_SIZE_XL;
   return (uint8_t)size;
+}
+
+// Get pressed/active corner radius for buttons based on size
+// XS: 8dp, S: 8dp, M: 12dp, L: 16dp, XL: 16dp
+static int cogito_button_pressed_radius(int size) {
+  uint8_t clamped = cogito_button_clamp_size_int(size);
+  switch (clamped) {
+    case COGITO_BUTTON_SIZE_XS: return 8;
+    case COGITO_BUTTON_SIZE_S:  return 8;
+    case COGITO_BUTTON_SIZE_M:  return 12;
+    case COGITO_BUTTON_SIZE_L:  return 16;
+    case COGITO_BUTTON_SIZE_XL: return 16;
+    default: return 12;
+  }
 }
 
 static void cogito_button_size_metrics(int size, int kind, int* out_h, int* out_pad_x, int* out_icon, int* out_gap) {
@@ -1661,6 +1682,38 @@ static void cogito_anim_apply(CogitoNode* n, const CogitoStyle* s, CogitoColor* 
 // Ripple animation constants (optimized for low CPU)
 #define COGITO_RIPPLE_DURATION_MS 350
 #define COGITO_RIPPLE_FPS 30
+
+// Check if a node should have ripple effect based on its class name
+// Returns true if the node has Primary, Secondary, or Tertiary background,
+// or if it's a button-like element with Surface variant
+static bool cogito_node_should_ripple(const CogitoNode* n) {
+  if (!n) return false;
+  
+  // Check class name for color variants
+  if (n->class_name && n->class_name->data && n->class_name->data[0]) {
+    const char* cls = n->class_name->data;
+    // Primary, Secondary, Tertiary backgrounds should have ripple
+    if (strstr(cls, "primary") != NULL) return true;
+    if (strstr(cls, "secondary") != NULL) return true;
+    if (strstr(cls, "tertiary") != NULL) return true;
+    // Surface variant on button-like elements should have ripple
+    if (strstr(cls, "surface") != NULL) {
+      if (n->kind == COGITO_BUTTON || n->kind == COGITO_ICONBTN ||
+          n->kind == COGITO_FAB || n->kind == COGITO_FAB_MENU ||
+          n->kind == COGITO_CHIP || n->kind == COGITO_SPLIT_BUTTON) {
+        return true;
+      }
+    }
+  }
+  
+  // Check if node is in a ButtonGroup (selected items use Secondary color)
+  if (n->parent && n->parent->kind == COGITO_BUTTON_GROUP) {
+    return true;
+  }
+  
+  return false;
+}
+
 // Start a ripple animation at the given position (mouse-relative to widget)
 static void cogito_ripple_start(CogitoNode* n, int mx, int my) {
   if (!n) return;

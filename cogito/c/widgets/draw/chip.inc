@@ -24,6 +24,20 @@ case COGITO_CHIP: {
   if (state_layer.a > 0) {
     cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, state_layer, radius);
   }
+  
+  // Draw ripple effect for chips with Primary/Secondary/Tertiary/Surface backgrounds
+  if (cogito_ripple_update(n)) {
+    float r_radius, r_alpha;
+    cogito_ripple_get(n, &r_radius, &r_alpha);
+    if (r_radius > 0 && r_alpha > 0) {
+      CogitoColor ripple_color = text_color;
+      ripple_color.a = (uint8_t)(255 * r_alpha);
+      int cx = n->x + n->ripple_x;
+      int cy = n->y + n->ripple_y;
+      cogito_draw_circle_clipped_node(n, &s, radius, cx, cy, r_radius, ripple_color);
+    }
+  }
+  
   // Border (outline for unselected chips)
   if (border_w > 0) {
     cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border_color, radius, border_w);

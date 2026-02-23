@@ -316,6 +316,8 @@ static const char *cogito_font_bold_path_active = NULL;
 #define cogito_split_button_add_menu cogito_split_button_add_menu_ergo
 #define cogito_split_button_add_menu_section                                   \
   cogito_split_button_add_menu_section_ergo
+#define cogito_split_button_set_size cogito_split_button_set_size_ergo
+#define cogito_split_button_set_variant cogito_split_button_set_variant_ergo
 #define cogito_fab_menu_new cogito_fab_menu_new_ergo
 #define cogito_fab_menu_set_color cogito_fab_menu_set_color_ergo
 
@@ -616,6 +618,8 @@ static const char *cogito_font_bold_path_active = NULL;
 #undef cogito_split_button_new
 #undef cogito_split_button_add_menu
 #undef cogito_split_button_add_menu_section
+#undef cogito_split_button_set_size
+#undef cogito_split_button_set_variant
 #undef cogito_fab_menu_new
 #undef cogito_fab_menu_set_color
 
@@ -1572,6 +1576,16 @@ void cogito_split_button_add_menu_section(cogito_node *sb, const char *label,
   }
   if (lv.tag == EVT_STR)
     ergo_release_val(lv);
+}
+
+void cogito_split_button_set_size(cogito_node *sb, int size) {
+  if (!sb) return;
+  cogito_split_button_set_size_ergo(EV_OBJ(sb), EV_INT(size));
+}
+
+void cogito_split_button_set_variant(cogito_node *sb, int variant) {
+  if (!sb) return;
+  cogito_split_button_set_variant_ergo(EV_OBJ(sb), EV_INT(variant));
 }
 
 void cogito_node_add(cogito_node *parent, cogito_node *child) {
@@ -2702,6 +2716,38 @@ bool cogito_iconbtn_get_menu_vibrant(cogito_node *iconbtn) {
     return false;
   ErgoVal v = cogito_iconbtn_get_menu_vibrant_ergo(EV_OBJ(iconbtn));
   return ergo_as_bool(v);
+}
+
+void cogito_menu_set_icon(cogito_node *node, const char *icon) {
+  if (!node)
+    return;
+  ErgoVal iv = cogito_val_from_cstr(icon);
+  ErgoStr *s = (iv.tag == EVT_STR) ? (ErgoStr *)iv.as.p : NULL;
+  cogito_node_menu_set_icon((CogitoNode *)node, s);
+  if (iv.tag == EVT_STR)
+    ergo_release_val(iv);
+}
+
+void cogito_menu_set_shortcut(cogito_node *node, const char *shortcut) {
+  if (!node)
+    return;
+  ErgoVal sv = cogito_val_from_cstr(shortcut);
+  ErgoStr *s = (sv.tag == EVT_STR) ? (ErgoStr *)sv.as.p : NULL;
+  cogito_node_menu_set_shortcut((CogitoNode *)node, s);
+  if (sv.tag == EVT_STR)
+    ergo_release_val(sv);
+}
+
+void cogito_menu_set_submenu(cogito_node *node, bool submenu) {
+  if (!node)
+    return;
+  cogito_node_menu_set_submenu((CogitoNode *)node, submenu);
+}
+
+void cogito_menu_set_toggled(cogito_node *node, bool toggled) {
+  if (!node)
+    return;
+  cogito_node_menu_set_toggled((CogitoNode *)node, toggled);
 }
 
 void cogito_checkbox_on_change(cogito_node *cb, cogito_node_fn fn, void *user) {

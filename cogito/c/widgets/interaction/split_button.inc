@@ -37,7 +37,7 @@ static void cogito_split_button_set_variant(ErgoVal btnv, ErgoVal variantv) {
   CogitoNode* n = (CogitoNode*)btnv.as.p;
   // 0=filled (default), 1=outline, 2=text
   int v = (int)ergo_as_int(variantv);
-  n->button.outlined = (v == 1);
-  n->button.text_style = (v == 2);
+  n->split_btn.outlined = (v == 1);
+  n->split_btn.text_style = (v == 2);
   cogito_window_relayout(cogito_node_window(n));
 }

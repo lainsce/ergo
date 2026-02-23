@@ -99,13 +99,23 @@ static void cogito_node_drop(ErgoObj* o) {
     for (size_t i = 0; i < n->menu_len; i++) {
       if (n->menu_labels[i]) ergo_release_val(EV_STR(n->menu_labels[i]));
       if (n->menu_handlers[i]) ergo_release_val(EV_FN(n->menu_handlers[i]));
+      if (n->menu_icons && n->menu_icons[i]) ergo_release_val(EV_STR(n->menu_icons[i]));
+      if (n->menu_shortcuts && n->menu_shortcuts[i]) ergo_release_val(EV_STR(n->menu_shortcuts[i]));
     }
     free(n->menu_labels);
     free(n->menu_handlers);
     free(n->menu_section_after);
+    free(n->menu_icons);
+    free(n->menu_shortcuts);
+    free(n->menu_submenu);
+    free(n->menu_toggled);
     n->menu_labels = NULL;
     n->menu_handlers = NULL;
     n->menu_section_after = NULL;
+    n->menu_icons = NULL;
+    n->menu_shortcuts = NULL;
+    n->menu_submenu = NULL;
+    n->menu_toggled = NULL;
     n->menu_len = 0;
     n->menu_cap = 0;
   }
@@ -295,15 +305,52 @@ static void cogito_node_add_menu(CogitoNode* n, ErgoStr* label, ErgoFn* handler)
     n->menu_labels = (ErgoStr**)realloc(n->menu_labels, sizeof(ErgoStr*) * next);
     n->menu_handlers = (ErgoFn**)realloc(n->menu_handlers, sizeof(ErgoFn*) * next);
     n->menu_section_after = (bool*)realloc(n->menu_section_after, sizeof(bool) * next);
+    n->menu_icons = (ErgoStr**)realloc(n->menu_icons, sizeof(ErgoStr*) * next);
+    n->menu_shortcuts = (ErgoStr**)realloc(n->menu_shortcuts, sizeof(ErgoStr*) * next);
+    n->menu_submenu = (bool*)realloc(n->menu_submenu, sizeof(bool) * next);
+    n->menu_toggled = (bool*)realloc(n->menu_toggled, sizeof(bool) * next);
     n->menu_cap = next;
   }
   n->menu_labels[n->menu_len] = label;
   n->menu_handlers[n->menu_len] = handler;
-  // Default: no divider after each item (will be set explicitly via cogito_node_add_menu_section)
   n->menu_section_after[n->menu_len] = false;
+  n->menu_icons[n->menu_len] = NULL;
+  n->menu_shortcuts[n->menu_len] = NULL;
+  n->menu_submenu[n->menu_len] = false;
+  n->menu_toggled[n->menu_len] = false;
   if (label) ergo_retain_val(EV_STR(label));
   if (handler) ergo_retain_val(EV_FN(handler));
   n->menu_len++;
+}
+
+// Set leading icon on the last-added menu item
+static void cogito_node_menu_set_icon(CogitoNode* n, ErgoStr* icon) {
+  if (!n || n->menu_len == 0) return;
+  size_t idx = n->menu_len - 1;
+  if (n->menu_icons[idx]) ergo_release_val(EV_STR(n->menu_icons[idx]));
+  n->menu_icons[idx] = icon;
+  if (icon) ergo_retain_val(EV_STR(icon));
+}
+
+// Set trailing shortcut text on the last-added menu item
+static void cogito_node_menu_set_shortcut(CogitoNode* n, ErgoStr* shortcut) {
+  if (!n || n->menu_len == 0) return;
+  size_t idx = n->menu_len - 1;
+  if (n->menu_shortcuts[idx]) ergo_release_val(EV_STR(n->menu_shortcuts[idx]));
+  n->menu_shortcuts[idx] = shortcut;
+  if (shortcut) ergo_retain_val(EV_STR(shortcut));
+}
+
+// Mark the last-added menu item as a submenu (trailing arrow)
+static void cogito_node_menu_set_submenu(CogitoNode* n, bool submenu) {
+  if (!n || n->menu_len == 0) return;
+  n->menu_submenu[n->menu_len - 1] = submenu;
+}
+
+// Mark the last-added menu item as toggled
+static void cogito_node_menu_set_toggled(CogitoNode* n, bool toggled) {
+  if (!n || n->menu_len == 0) return;
+  n->menu_toggled[n->menu_len - 1] = toggled;
 }
 
 // Add a menu item with a section divider after it

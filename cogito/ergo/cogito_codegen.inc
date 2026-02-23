@@ -3891,6 +3891,66 @@
                         return true;
                     }
                     if (str_eq_c(fname,
+                    "__cogito_menu_set_icon")) {
+                        GenExpr node, icon;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &icon, err)) { gen_expr_free(&node); return false; }
+                        w_line(&cg->w, "cogito_menu_set_icon(%s, %s);", node.tmp, icon.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", icon.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_release_except(cg, &icon, icon.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_free(&icon);
+                        out->tmp = NULL;
+                        return true;
+                    }
+                    if (str_eq_c(fname,
+                    "__cogito_menu_set_shortcut")) {
+                        GenExpr node, shortcut;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &shortcut, err)) { gen_expr_free(&node); return false; }
+                        w_line(&cg->w, "cogito_menu_set_shortcut(%s, %s);", node.tmp, shortcut.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", shortcut.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_release_except(cg, &shortcut, shortcut.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_free(&shortcut);
+                        out->tmp = NULL;
+                        return true;
+                    }
+                    if (str_eq_c(fname,
+                    "__cogito_menu_set_submenu")) {
+                        GenExpr node, submenu;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &submenu, err)) { gen_expr_free(&node); return false; }
+                        w_line(&cg->w, "cogito_menu_set_submenu(%s, %s);", node.tmp, submenu.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", submenu.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_release_except(cg, &submenu, submenu.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_free(&submenu);
+                        out->tmp = NULL;
+                        return true;
+                    }
+                    if (str_eq_c(fname,
+                    "__cogito_menu_set_toggled")) {
+                        GenExpr node, toggled;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &node, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &toggled, err)) { gen_expr_free(&node); return false; }
+                        w_line(&cg->w, "cogito_menu_set_toggled(%s, %s);", node.tmp, toggled.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", node.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", toggled.tmp);
+                        gen_expr_release_except(cg, &node, node.tmp);
+                        gen_expr_release_except(cg, &toggled, toggled.tmp);
+                        gen_expr_free(&node);
+                        gen_expr_free(&toggled);
+                        out->tmp = NULL;
+                        return true;
+                    }
+                    if (str_eq_c(fname,
                     "__cogito_appbar_add_button")) {
                         GenExpr app, text, handler;
                         if (!gen_expr(cg, path, e->as.call.args[

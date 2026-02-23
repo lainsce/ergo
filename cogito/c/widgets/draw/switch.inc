@@ -96,11 +96,10 @@ case COGITO_SWITCH: {
       if (max_ky < cy) max_ky = cy;
       if (ky > max_ky) ky = max_ky;
 
-      // Stable corner radius (based on rest size so it doesn't shrink horizontally)
-      int knob_r = knob_h_rest / 2;
+      // Stable corner radius (based on knob width so it doesn't shrink horizontally)
+      int knob_r = knob_w / 2;
       if (knob_r < 1) knob_r = 1;
       if (knob_r > knob_h / 2) knob_r = knob_h / 2;
-      if (knob_r > knob_w / 2) knob_r = knob_w / 2;
       cogito_draw_rect(kx, ky, knob_w, knob_h, knob_col, knob_r);
 
       // Keep animation ticking while springs are active
@@ -108,7 +107,7 @@ case COGITO_SWITCH: {
           cogito_spring_active(&n->spring_h, (double)knob_h_target)) {
         double end_time = cogito_backend->get_time() + 0.6;
         if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
-  }
+    }
 
       if (n->text) {
         int th = cogito_text_height();

@@ -11,36 +11,65 @@ static void cogito_menu_open_for(CogitoNode* n) {
   }
   CogitoStyle* item_style = &cogito_theme.menu_item;
   int pad_x = item_style->has_padding_left ? item_style->padding_left
-              : (cogito_theme.menu.has_padding_left ? cogito_theme.menu.padding_left : 10);
+              : (cogito_theme.menu.has_padding_left ? cogito_theme.menu.padding_left : 12);
   int pad_y = item_style->has_padding_top ? item_style->padding_top
               : (cogito_theme.menu.has_padding_top ? cogito_theme.menu.padding_top : 6);
-  
+
   // Sections use gap by default; dividers are opt-in via menu_divider flag
   bool use_section = n->menu_section_after != NULL;
   bool use_divider = n->button.menu_divider;
-  
-   int item_h = font_size + pad_y * 2;
+
+  int item_h = font_size + pad_y * 2;
   int min_h = item_style->has_min_h ? item_style->min_h
               : (cogito_theme.menu.has_min_h ? cogito_theme.menu.min_h : 0);
   if (min_h > item_h) item_h = min_h;
-  // Minimum 44px item height for sectioned menus (accessibility)
+  // Minimum 48px item height for sectioned menus (accessibility)
   if (use_section && item_h < 48) item_h = 48;
-  
+
   int menu_pad_top = 8;
   int menu_pad_bottom = 8;
-  int item_gap = (n->button.menu_item_gap > 0) ? n->button.menu_item_gap : 
+  int item_gap = (n->button.menu_item_gap > 0) ? n->button.menu_item_gap :
                  (cogito_theme.menu.has_item_gap ? cogito_theme.menu.item_gap : 2);
-  int section_gap = 2; // Gap between sections
+  int section_gap = 2;
   int divider_h = use_divider ? 1 : 0;
-  int max_w = 0;
+
+  // Layout constants for icons and trailing content
+  int icon_size = 20;
+  int icon_text_gap = 8;
+  int arrow_size = 16;
+
+  // Detect if any item has leading icons or trailing content
+  bool has_any_icon = false;
+  int max_shortcut_w = 0;
+  bool has_any_trailing = false;
+  for (size_t i = 0; i < n->menu_len; i++) {
+    if (n->menu_icons && n->menu_icons[i]) has_any_icon = true;
+    if (n->menu_submenu && n->menu_submenu[i]) has_any_trailing = true;
+    if (n->menu_shortcuts && n->menu_shortcuts[i]) {
+      has_any_trailing = true;
+      int sw = cogito_text_width_size(n->menu_shortcuts[i]->data, font_size);
+      if (sw > max_shortcut_w) max_shortcut_w = sw;
+    }
+  }
+
+  // Calculate width: label column + optional icon column + optional trailing column
+  int max_label_w = 0;
   for (size_t i = 0; i < n->menu_len; i++) {
     const char* text = n->menu_labels[i] ? n->menu_labels[i]->data : "";
-    int w = cogito_text_width_size(text, font_size);
-    if (w > max_w) max_w = w;
+    int tw = cogito_text_width_size(text, font_size);
+    if (tw > max_label_w) max_label_w = tw;
   }
-  int w = max_w + pad_x * 2;
+  int w = pad_x + max_label_w + pad_x;
+  if (has_any_icon) {
+    w += icon_size + icon_text_gap; // icon column before label, replaces left pad_x
+  }
+  if (has_any_trailing) {
+    // Gap between label and trailing content + trailing content + right padding
+    int trailing_w = (max_shortcut_w > arrow_size) ? max_shortcut_w : arrow_size;
+    w += icon_text_gap + trailing_w;
+  }
   if (n->w > w) w = n->w;
-  
+
   // Minimum menu width for accessibility
   if (w < 112) w = 112;
   
