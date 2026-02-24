@@ -5,6 +5,10 @@ bring cogito
 
 def app = cogito.app()
 
+macro clicked_message() (( string )) {
+    @"$this button clicked."
+}
+
 fun build_page(title = string, blurb = string) (( cogito.VStack )) {
     let vstack = cogito.vstack()
     .set_vexpand(true)
@@ -39,21 +43,21 @@ fun build_button_page() (( cogito.VStack )) {
 
     let filled = cogito.button(@"Filled")
     .on_click((b = cogito.Button) => {
-        status.set_text(@"Filled button clicked.")
+        status.set_text(@"Filled" !clicked_message)
     })
     styles_row.add(filled)
 
     let outlined = cogito.button(@"Outlined")
     .set_class(@"outlined") 
     .on_click((b = cogito.Button) => {
-        status.set_text(@"Outlined button clicked.")
+        status.set_text(@"Outlined" !clicked_message)
     })
     styles_row.add(outlined)
 
     let text_btn = cogito.button(@"Text")
     .set_class(@"text")
     .on_click((b = cogito.Button) => {
-        status.set_text(@"Text button clicked.")
+        status.set_text(@"Text" !clicked_message)
     })
     styles_row.add(text_btn)
 
@@ -71,35 +75,35 @@ fun build_button_page() (( cogito.VStack )) {
     let xs_btn = cogito.button(@"XS")
     .set_size(0)
     .on_click((b = cogito.Button) => {
-        status.set_text(@"XS button clicked.")
+        status.set_text(@"XS" !clicked_message)
     })
     sizes_row.add(xs_btn)
 
     let s_btn = cogito.button(@"S")
     .set_size(1)
     .on_click((b = cogito.Button) => {
-        status.set_text(@"S button clicked.")
+        status.set_text(@"S" !clicked_message)
     })
     sizes_row.add(s_btn)
 
     let m_btn = cogito.button(@"M")
     .set_size(2)
     .on_click((b = cogito.Button) => {
-        status.set_text(@"M button clicked.")
+        status.set_text(@"M" !clicked_message)
     })
     sizes_row.add(m_btn)
 
     let l_btn = cogito.button(@"L")
     .set_size(3)
     .on_click((b = cogito.Button) => {
-        status.set_text(@"L button clicked.")
+        status.set_text(@"L" !clicked_message)
     })
     sizes_row.add(l_btn)
 
     let xl_btn = cogito.button(@"XL")
     .set_size(4)
     .on_click((b = cogito.Button) => {
-        status.set_text(@"XL button clicked.")
+        status.set_text(@"XL" !clicked_message)
     })
     sizes_row.add(xl_btn)
 
@@ -308,16 +312,52 @@ fun build_iconbtn_page() (( cogito.VStack )) {
 fun build_textfield_page() (( cogito.VStack )) {
     let vstack = build_page(@"TextField", @"TextField is a single-line editable input for concise text entry.")
 
-    let status = cogito.label(@"Current value: Text field")
+    let status = cogito.label(@"Current value: ")
     .set_class(@"body")
     vstack.add(status)
 
-    let tf = cogito.textfield(@"Text field")
+    let tf = cogito.textfield(@"Label text")
     .set_hexpand(true)
+    .set_hint(@"Supporting text")
     tf.on_change((field = cogito.TextField) => {
         status.set_text(@"Current value: $field.text()")
     })
     vstack.add(tf)
+
+    let filled = cogito.textfield(@"Filled state")
+    .set_hexpand(true)
+    filled.set_text(@"Input text")
+    vstack.add(filled)
+
+    let counter = cogito.textfield(@"With character counter")
+    .set_hexpand(true)
+    .set_hint(@"0/20")
+    counter.on_change((field = cogito.TextField) => {
+        let n = len(field.text())
+        let shown = if n > 20 { 20 } else { n }
+        field.set_hint(@"$shown/20")
+        status.set_text(@"Current value: $field.text()")
+    })
+    vstack.add(counter)
+
+    let disabled = cogito.textfield(@"Disabled")
+    .set_hexpand(true)
+    .set_hint(@"Supporting text")
+    .set_disabled(true)
+    disabled.set_text(@"Read-only value")
+    vstack.add(disabled)
+
+    let non_editable = cogito.textfield(@"Not editable")
+    .set_hexpand(true)
+    .set_hint(@"Supporting text")
+    .set_editable(false)
+    non_editable.set_text(@"Focusable layout, editing off")
+    vstack.add(non_editable)
+
+    let note = cogito.label(@"Tip: helper + counter can be combined in one hint using two lines.")
+    .set_class(@"caption")
+    .set_wrap(true)
+    vstack.add(note)
 
     return vstack
 }
@@ -1171,6 +1211,100 @@ fun build_image_page() (( cogito.VStack )) {
     return vstack
 }
 
+fun build_drawing_area_page() (( cogito.VStack )) {
+    let vstack = build_page(@"DrawingArea", @"DrawingArea captures press, drag, and release gestures. Use the pen toggle and eraser to switch tools.")
+
+    let status = cogito.label(@"Pointer: (0, 0)")
+    .set_class(@"body")
+    vstack.add(status)
+
+    let area_row = cogito.hstack()
+    .set_hexpand(true)
+    .set_gap(12)
+
+    area_row.add(cogito.label(@" ").set_hexpand(true))
+
+    let area = cogito.drawing_area()
+    .set_class(@"outlined")
+    .on_press((a = cogito.DrawingArea) => {
+        status.set_text(@"Press at ($a.get_x(), $a.get_y())")
+    })
+    .on_drag((a = cogito.DrawingArea) => {
+        status.set_text(@"Drag at ($a.get_x(), $a.get_y())")
+    })
+    .on_release((a = cogito.DrawingArea) => {
+        status.set_text(@"Release at ($a.get_x(), $a.get_y())")
+    })
+    area_row.add(area)
+
+    area_row.add(cogito.label(@" ").set_hexpand(true))
+    vstack.add(area_row)
+
+    let controls = cogito.hstack()
+    .set_hexpand(true)
+    .set_gap(12)
+
+    controls.add(cogito.label(@" ").set_hexpand(true))
+
+    let pen_btn = cogito.iconbtn(@"sf:pencil")
+    .set_toggle(true)
+    .set_checked(true)
+    .on_click((b = cogito.IconButton) => {
+        status.set_text(@"Tool: Pen")
+
+        b.set_checked(true)
+    })
+    controls.add(pen_btn)
+
+    let eraser_btn = cogito.iconbtn(@"sf:eraser")
+    .set_toggle(true)
+    .on_click((b = cogito.IconButton) => {
+        status.set_text(@"Tool: Eraser")
+
+        b.set_checked(true)
+        pen_btn.set_checked(false)
+    })
+    controls.add(eraser_btn)
+
+    controls.add(cogito.label(@" ").set_hexpand(true))
+    vstack.add(controls)
+
+    return vstack
+}
+
+fun build_shape_gallery_page() (( cogito.VStack )) {
+    let vstack = build_page(@"Shape Gallery", @"Burst, Flower, and Sunny presets using Primary, Secondary, and Tertiary styling.")
+
+    let row = cogito.hstack()
+    .set_hexpand(true)
+    .set_gap(18)
+
+    let burst_col = cogito.vstack()
+    .set_gap(8)
+    .add(cogito.shape(23)
+        .set_class(@"filled"))
+    .add(cogito.label(@"Burst").set_class(@"caption"))
+
+    let flower_col = cogito.vstack()
+    .set_gap(8)
+    .add(cogito.shape(27)
+        .set_class(@"tonal"))
+    .add(cogito.label(@"Flower").set_class(@"caption"))
+
+    let sunny_col = cogito.vstack()
+    .set_gap(8)
+    .add(cogito.shape(15)
+        .set_class(@"tertiary"))
+    .add(cogito.label(@"Sunny").set_class(@"caption"))
+
+    row.add(burst_col)
+    row.add(flower_col)
+    row.add(sunny_col)
+    vstack.add(row)
+
+    return vstack
+}
+
 fun build_active_indicator_page() (( cogito.VStack )) {
     let vstack = build_page(@"ActiveIndicator", @"ActiveIndicator is a compact spinner for signaling ongoing activity.")
 
@@ -1717,6 +1851,10 @@ fun view_id_from_index(idx = num) (( string )) {
         @"fabmenu"
     } elif idx == 47 {
         @"ensor"
+    } elif idx == 48 {
+        @"drawing_area"
+    } elif idx == 49 {
+        @"shape_gallery"
     } else {
         @"button"
     }
@@ -1819,6 +1957,10 @@ fun view_title_from_index(idx = num) (( string )) {
         @"FabMenu"
     } elif idx == 47 {
         @"Ensor"
+    } elif idx == 48 {
+        @"DrawingArea"
+    } elif idx == 49 {
+        @"Shape Gallery"
     } else {
         @"Button"
     }
@@ -1912,6 +2054,8 @@ fun build_ui(win = cogito.Window) (( -- )) {
     .add(@"side_sheet", (vs = cogito.ViewSwitcher) => build_side_sheet_page())
     .add(@"fabmenu", (vs = cogito.ViewSwitcher) => build_fabmenu_page())
     .add(@"ensor", (vs = cogito.ViewSwitcher) => build_ensor_page())
+    .add(@"drawing_area", (vs = cogito.ViewSwitcher) => build_drawing_area_page())
+    .add(@"shape_gallery", (vs = cogito.ViewSwitcher) => build_shape_gallery_page())
 
     let selected_idx = 0
     views.set_active(view_id_from_index(selected_idx))
@@ -1973,6 +2117,8 @@ fun build_ui(win = cogito.Window) (( -- )) {
     .add(cogito.label(@"SideSheet").set_padding(10,16,10,16))
     .add(cogito.label(@"FAB Menu").set_padding(10,16,10,16))
     .add(cogito.label(@"Ensor").set_padding(10,16,10,16))
+    .add(cogito.label(@"DrawingArea").set_padding(10,16,10,16))
+    .add(cogito.label(@"Shape Gallery").set_padding(10,16,10,16))
     .on_select((idx) => {
         views.set_active(view_id_from_index(idx))
         content_bar.set_title(view_title_from_index(idx))

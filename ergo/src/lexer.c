@@ -80,6 +80,7 @@ static const char *tok_name_default(TokKind kind) {
         case TOK_KW_cask: return "KW_cask";
         case TOK_KW_bring: return "KW_bring";
         case TOK_KW_fun: return "KW_fun";
+        case TOK_KW_macro: return "KW_macro";
         case TOK_KW_entry: return "KW_entry";
         case TOK_KW_class: return "KW_class";
         case TOK_KW_struct: return "KW_struct";
@@ -167,6 +168,7 @@ const char *tok_kind_desc(TokKind kind) {
         case TOK_KW_cask: return "'cask'";
         case TOK_KW_bring: return "'bring'";
         case TOK_KW_fun: return "'fun'";
+        case TOK_KW_macro: return "'macro'";
         case TOK_KW_entry: return "'entry'";
         case TOK_KW_class: return "'class'";
         case TOK_KW_struct: return "'struct'";
@@ -481,7 +483,7 @@ static bool flush_text_part(Lexer *lx, CharVec *buf, StrPartVec *parts, Diag *er
     }
     StrPart part;
     part.kind = STR_PART_TEXT;
-    part.text = arena_str(lx->arena, buf->data, buf->len);
+    part.as.text = arena_str(lx->arena, buf->data, buf->len);
     if (!strpartvec_push(parts, part, err, lx)) {
         return false;
     }
@@ -512,6 +514,69 @@ static bool append_hex_code(Lexer *lx, CharVec *buf, const char *hex, size_t hex
         }
     }
     return append_utf8(buf, code, err, lx);
+}
+
+static bool consume_interp_group(Lexer *lx, char open, char close, Diag *err, int line, int col) {
+    int depth = 1;
+    adv(lx, 1);
+    while (lx->i < lx->len && depth > 0) {
+        char c = peek(lx, 0);
+        if (c == '\n' || c == '\0') {
+            return set_error(lx, err, line, col, "unterminated interpolation expression");
+        }
+        if (c == '\\') {
+            adv(lx, 1);
+            if (lx->i < lx->len) {
+                adv(lx, 1);
+            }
+            continue;
+        }
+        if (c == open) {
+            depth++;
+            adv(lx, 1);
+            continue;
+        }
+        if (c == close) {
+            depth--;
+            adv(lx, 1);
+            continue;
+        }
+        adv(lx, 1);
+    }
+    if (depth != 0) {
+        return set_error(lx, err, line, col, "unterminated interpolation expression");
+    }
+    return true;
+}
+
+static bool consume_interp_suffix(Lexer *lx, Diag *err, int line, int col) {
+    while (lx->i < lx->len) {
+        char c = peek(lx, 0);
+        if (c == '.') {
+            if (!is_ident_start(peek(lx, 1))) {
+                break;
+            }
+            adv(lx, 1);
+            while (lx->i < lx->len && is_ident_mid(peek(lx, 0))) {
+                adv(lx, 1);
+            }
+            continue;
+        }
+        if (c == '(') {
+            if (!consume_interp_group(lx, '(', ')', err, line, col)) {
+                return false;
+            }
+            continue;
+        }
+        if (c == '[') {
+            if (!consume_interp_group(lx, '[', ']', err, line, col)) {
+                return false;
+            }
+            continue;
+        }
+        break;
+    }
+    return true;
 }
 
 bool lex_source(const char *path, const char *src, size_t len, Arena *arena, TokVec *out, Diag *err) {
@@ -860,16 +925,20 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
                         return false;
                     }
                     adv(&lx, 1);
-                    CharVec namebuf = {0};
+                    size_t expr_start = lx.i;
                     while (lx.i < lx.len && is_ident_mid(peek(&lx, 0))) {
-                        if (!charvec_push(&namebuf, peek(&lx, 0), err, &lx)) { return false; }
                         adv(&lx, 1);
                     }
+                    if (!consume_interp_suffix(&lx, err, start_line, start_col)) {
+                        strpartvec_free(&parts);
+                        charvec_free(&buf);
+                        return false;
+                    }
+                    size_t expr_end = lx.i;
                     StrPart part;
-                    part.kind = STR_PART_VAR;
-                    part.text = arena_str(lx.arena, namebuf.data, namebuf.len);
+                    part.kind = STR_PART_EXPR_RAW;
+                    part.as.text = arena_str(lx.arena, lx.src + expr_start, expr_end - expr_start);
                     if (!strpartvec_push(&parts, part, err, &lx)) { return false; }
-                    charvec_free(&namebuf);
                     continue;
                 }
                 if (!charvec_push(&buf, c, err, &lx)) { return false; }
@@ -891,7 +960,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
                     adv(&lx, 1);
                     StrPart part;
                     part.kind = STR_PART_TEXT;
-                    part.text = arena_str(lx.arena, buf_raw.data, buf_raw.len);
+                    part.as.text = arena_str(lx.arena, buf_raw.data, buf_raw.len);
                     StrPartVec parts = {0};
                     if (!strpartvec_push(&parts, part, err, &lx)) { return false; }
                     StrParts *sp = NULL;
@@ -1007,6 +1076,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
                 else if (memcmp(word.data, "const", 5) == 0) kw = TOK_KW_const;
                 else if (memcmp(word.data, "false", 5) == 0) kw = TOK_KW_false;
                 else if (memcmp(word.data, "match", 5) == 0) kw = TOK_KW_match;
+                else if (memcmp(word.data, "macro", 5) == 0) kw = TOK_KW_macro;
                 else if (memcmp(word.data, "break", 5) == 0) kw = TOK_KW_break;
                 break;
             case 6:

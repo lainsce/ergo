@@ -3,6 +3,13 @@ cask gui_hello
 bring stdr
 bring cogito
 
+macro fill_center() (( cogito.Button )) {
+    this.set_hexpand(true)
+    .set_vexpand(true)
+    .set_halign(1)
+    .set_valign(1)
+}
+
 fun on_btn(btn = cogito.Button) (( -- )) {
     btn.set_text(@"This Button Got Clicked!")
 }
@@ -20,10 +27,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
 
     let btn = cogito.button(@"Click")
     .on_click(on_btn)
-    .set_hexpand(true)
-    .set_vexpand(true)
-    .set_halign(1)
-    .set_valign(1)
+    .fill_center()
 
     vstack.add(btn)
     win.add(vstack)

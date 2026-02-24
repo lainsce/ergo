@@ -4,8 +4,12 @@ bring stdr
 
 -- Ergo Example: Array Operations
 
+macro at(i = num) (( any )) {
+    this[i]
+}
+
 fun first(arr = [string]) (( string )) {
-    arr[0]
+    arr !at 0
 }
 
 entry () (( -- )) {
@@ -21,8 +25,8 @@ entry () (( -- )) {
     writef(@"Length: {}\n", len)
 
     -- Access elements
-    writef(@"First element: {}\n", arr[0])
-    writef(@"Second element: {}\n", arr[1])
+    writef(@"First element: {}\n", arr !at 0)
+    writef(@"Second element: {}\n", arr !at 1)
 
     -- Modify elements
     arr[1] = @"blueberry"
@@ -40,6 +44,6 @@ entry () (( -- )) {
     -- Iterate over array
     write(@"Iterating over array:")
     for (let ?i = 0; i < len; i += 1) {
-        writef(@"  arr[{}] = {}\n", i, arr[i])
+        writef(@"  arr[{}] = {}\n", i, arr !at i)
     }
 }

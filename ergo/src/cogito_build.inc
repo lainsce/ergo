@@ -175,6 +175,9 @@ static bool program_find_cogito_appid_name(Program *prog, char *out, size_t out_
                 case DECL_FUN:
                     program_find_cogito_appid_stmt(d->as.fun.body, out, out_cap, &found);
                     break;
+                case DECL_MACRO:
+                    program_find_cogito_appid_stmt(d->as.macro.body, out, out_cap, &found);
+                    break;
                 case DECL_CONST:
                     program_find_cogito_appid_expr(d->as.const_decl.expr, out, out_cap, &found);
                     break;

@@ -67,6 +67,19 @@
 #undef cogito_iconbtn_new
 #undef cogito_image_new
 #undef cogito_image_set_icon
+#undef cogito_drawing_area_new
+#undef cogito_drawing_area_on_press
+#undef cogito_drawing_area_on_drag
+#undef cogito_drawing_area_on_release
+#undef cogito_drawing_area_get_x
+#undef cogito_drawing_area_get_y
+#undef cogito_drawing_area_get_pressed
+#undef cogito_shape_new
+#undef cogito_shape_set_preset
+#undef cogito_shape_get_preset
+#undef cogito_shape_set_vertex
+#undef cogito_shape_get_vertex_x
+#undef cogito_shape_get_vertex_y
 #undef cogito_label_new
 #undef cogito_label_set_align
 #undef cogito_label_set_ellipsis
@@ -907,6 +920,82 @@ static void __cogito_switchbar_on_change(ErgoVal sbv, ErgoVal handler) {
   }
   cogito_set_handler(h, &h->on_change, handler);
   cogito_switchbar_on_change(sb, cogito_cb_change, h);
+}
+// --- DrawingArea ---
+static ErgoVal __cogito_drawing_area(void) {
+  cogito_node* n = cogito_drawing_area_new();
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+static void __cogito_drawing_area_on_press(ErgoVal dav, ErgoVal handler) {
+  cogito_node* da = cogito_node_from_val(dav);
+  CogitoHandle* h = (CogitoHandle*)dav.as.p;
+  if (handler.tag != EVT_FN) {
+    cogito_set_handler(h, &h->on_click, handler);
+    cogito_drawing_area_on_press(da, NULL, NULL);
+    return;
+  }
+  cogito_set_handler(h, &h->on_click, handler);
+  cogito_drawing_area_on_press(da, cogito_cb_click, h);
+}
+static void __cogito_drawing_area_on_drag(ErgoVal dav, ErgoVal handler) {
+  cogito_node* da = cogito_node_from_val(dav);
+  CogitoHandle* h = (CogitoHandle*)dav.as.p;
+  if (handler.tag != EVT_FN) {
+    cogito_set_handler(h, &h->on_change, handler);
+    cogito_drawing_area_on_drag(da, NULL, NULL);
+    return;
+  }
+  cogito_set_handler(h, &h->on_change, handler);
+  cogito_drawing_area_on_drag(da, cogito_cb_change, h);
+}
+static void __cogito_drawing_area_on_release(ErgoVal dav, ErgoVal handler) {
+  cogito_node* da = cogito_node_from_val(dav);
+  CogitoHandle* h = (CogitoHandle*)dav.as.p;
+  if (handler.tag != EVT_FN) {
+    cogito_set_handler(h, &h->on_action, handler);
+    cogito_drawing_area_on_release(da, NULL, NULL);
+    return;
+  }
+  cogito_set_handler(h, &h->on_action, handler);
+  cogito_drawing_area_on_release(da, cogito_cb_action, h);
+}
+static ErgoVal __cogito_drawing_area_get_x(ErgoVal dav) {
+  cogito_node* da = cogito_node_from_val(dav);
+  return EV_INT(cogito_drawing_area_get_x(da));
+}
+static ErgoVal __cogito_drawing_area_get_y(ErgoVal dav) {
+  cogito_node* da = cogito_node_from_val(dav);
+  return EV_INT(cogito_drawing_area_get_y(da));
+}
+static ErgoVal __cogito_drawing_area_get_pressed(ErgoVal dav) {
+  cogito_node* da = cogito_node_from_val(dav);
+  return EV_BOOL(cogito_drawing_area_get_pressed(da));
+}
+// --- Shape ---
+static ErgoVal __cogito_shape(ErgoVal presetv) {
+  cogito_node* n = cogito_shape_new((int)ergo_as_int(presetv));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+static void __cogito_shape_set_preset(ErgoVal shapev, ErgoVal presetv) {
+  cogito_node* n = cogito_node_from_val(shapev);
+  cogito_shape_set_preset(n, (int)ergo_as_int(presetv));
+}
+static ErgoVal __cogito_shape_get_preset(ErgoVal shapev) {
+  cogito_node* n = cogito_node_from_val(shapev);
+  return EV_INT(cogito_shape_get_preset(n));
+}
+static void __cogito_shape_set_vertex(ErgoVal shapev, ErgoVal idxv, ErgoVal xv, ErgoVal yv) {
+  cogito_node* n = cogito_node_from_val(shapev);
+  cogito_shape_set_vertex(n, (int)ergo_as_int(idxv), (float)ergo_as_float(xv),
+                          (float)ergo_as_float(yv));
+}
+static ErgoVal __cogito_shape_get_vertex_x(ErgoVal shapev, ErgoVal idxv) {
+  cogito_node* n = cogito_node_from_val(shapev);
+  return EV_FLOAT((double)cogito_shape_get_vertex_x(n, (int)ergo_as_int(idxv)));
+}
+static ErgoVal __cogito_shape_get_vertex_y(ErgoVal shapev, ErgoVal idxv) {
+  cogito_node* n = cogito_node_from_val(shapev);
+  return EV_FLOAT((double)cogito_shape_get_vertex_y(n, (int)ergo_as_int(idxv)));
 }
 // --- ContentList ---
 static ErgoVal __cogito_content_list(void) {
@@ -3016,6 +3105,19 @@ void __cogito_button_on_click(ErgoVal btn, ErgoVal handler);
 #define cogito_switchbar_get_checked __cogito_switchbar_get_checked
 #define cogito_switchbar_set_checked __cogito_switchbar_set_checked
 #define cogito_switchbar_on_change __cogito_switchbar_on_change
+#define cogito_drawing_area_new __cogito_drawing_area
+#define cogito_drawing_area_on_press __cogito_drawing_area_on_press
+#define cogito_drawing_area_on_drag __cogito_drawing_area_on_drag
+#define cogito_drawing_area_on_release __cogito_drawing_area_on_release
+#define cogito_drawing_area_get_x __cogito_drawing_area_get_x
+#define cogito_drawing_area_get_y __cogito_drawing_area_get_y
+#define cogito_drawing_area_get_pressed __cogito_drawing_area_get_pressed
+#define cogito_shape_new __cogito_shape
+#define cogito_shape_set_preset __cogito_shape_set_preset
+#define cogito_shape_get_preset __cogito_shape_get_preset
+#define cogito_shape_set_vertex __cogito_shape_set_vertex
+#define cogito_shape_get_vertex_x __cogito_shape_get_vertex_x
+#define cogito_shape_get_vertex_y __cogito_shape_get_vertex_y
 #define cogito_content_list_new __cogito_content_list
 #define cogito_empty_page_new __cogito_empty_page
 #define cogito_empty_page_set_description __cogito_empty_page_set_description

@@ -692,6 +692,10 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
 
     #include "widgets/intrinsic/split_button.inc"
 
+    #include "widgets/intrinsic/drawing_area.inc"
+
+    #include "widgets/intrinsic/shape.inc"
+
     #include "widgets/intrinsic/treeview.inc"
 
     #include "widgets/intrinsic/colorpicker.inc"

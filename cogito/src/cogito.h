@@ -97,6 +97,8 @@ typedef enum {
   COGITO_NODE_ABOUT_WINDOW,
   COGITO_NODE_SPLIT_BUTTON,
   COGITO_NODE_FAB_MENU,
+  COGITO_NODE_DRAWING_AREA,
+  COGITO_NODE_SHAPE,
 } cogito_node_kind;
 
 // App / window lifecycle
@@ -213,6 +215,8 @@ cogito_node *cogito_appbar_new(const char *title, const char *subtitle);
 void cogito_appbar_set_title(cogito_node *appbar, const char *title);
 void cogito_appbar_set_subtitle(cogito_node *appbar, const char *subtitle);
 cogito_node *cogito_image_new(const char *icon);
+cogito_node *cogito_drawing_area_new(void);
+cogito_node *cogito_shape_new(int preset);
 
 // New widgets
 cogito_node *cogito_active_indicator_new(void);
@@ -406,6 +410,20 @@ void cogito_image_set_source(cogito_node *image, const char *source);
 void cogito_image_set_size(cogito_node *image, int w, int h);
 void cogito_image_set_radius(cogito_node *image, int radius);
 void cogito_image_set_alt_text(cogito_node *image, const char *alt_text);
+void cogito_drawing_area_on_press(cogito_node *area, cogito_node_fn fn,
+                                  void *user);
+void cogito_drawing_area_on_drag(cogito_node *area, cogito_node_fn fn,
+                                 void *user);
+void cogito_drawing_area_on_release(cogito_node *area, cogito_node_fn fn,
+                                    void *user);
+int cogito_drawing_area_get_x(cogito_node *area);
+int cogito_drawing_area_get_y(cogito_node *area);
+bool cogito_drawing_area_get_pressed(cogito_node *area);
+void cogito_shape_set_preset(cogito_node *shape, int preset);
+int cogito_shape_get_preset(cogito_node *shape);
+void cogito_shape_set_vertex(cogito_node *shape, int index, float x, float y);
+float cogito_shape_get_vertex_x(cogito_node *shape, int index);
+float cogito_shape_get_vertex_y(cogito_node *shape, int index);
 
 // Appbar helpers
 cogito_node *cogito_appbar_add_button(cogito_node *appbar, const char *icon,

@@ -21,7 +21,7 @@ It is intended as an implementation-facing reference, not a future design docume
 
 Current reserved words:
 
-`cask`, `bring`, `fun`, `entry`, `class`, `struct`, `enum`, `pub`, `lock`, `seal`, `def`, `let`, `const`, `if`, `elif`, `else`, `for`, `match`, `return`, `true`, `false`, `null`, `new`, `in`, `break`, `continue`
+`cask`, `bring`, `fun`, `macro`, `entry`, `class`, `struct`, `enum`, `pub`, `lock`, `seal`, `def`, `let`, `const`, `if`, `elif`, `else`, `for`, `match`, `return`, `true`, `false`, `null`, `new`, `in`, `break`, `continue`
 
 `cask` is an optional top-level declaration used to assert module identity.
 
@@ -53,7 +53,14 @@ Current reserved words:
    - No interpolation.
    - Escapes are not processed in this form.
 2. Interpolated string: `@"text $name"`
-   - Supports `$ident` interpolation.
+   - Supports interpolation expressions beginning with `$`.
+   - The interpolation parser accepts:
+     - `$ident`
+     - `$ident.member`
+     - `$ident(args...)`
+     - `$ident.member(args...)`
+     - `$ident[index]`
+     - and postfix combinations, e.g. `$obj.get_y()`, `$list.at(0).to_string()`
    - Supports escapes like `\n`, `\t`, `\r`, `\\`, `\"`, `\$`, and `\u{...}`.
 
 ## 4. Modules and Imports
@@ -101,10 +108,27 @@ cask mymod
 Allowed top-level declarations:
 
 - `fun`
+- `macro`
 - `entry`
 - nominal declarations: `class`, `struct`, `enum` (with optional `pub` / `lock` / `seal` prefixes)
 - `def` (module global)
 - `const` (module constants, general-purpose)
+
+Macro declaration form:
+
+```ergo
+macro plussy(arg = num) (( num )) {
+    this + arg
+}
+```
+
+Current macro behavior:
+
+- Macros are compile-time only and are removed during lowering.
+- A macro body must lower to a single expression (single expr statement or `return expr`).
+- Parameters are substituted by expression cloning (no runtime call overhead).
+- Expansion depth is capped to avoid runaway recursion.
+- `this` is reserved as the receiver binding inside macro bodies; macro parameters cannot be `this` / `?this`.
 
 ## 6. Types
 
@@ -268,6 +292,7 @@ Element type:
 - Member: `a.b`
 - Index: `a[i]`
 - Object construction: `new Class(...)`
+- Receiver macro call sugar: `x !plussy 2` (lowers to member call form `x.plussy(2)` for macro expansion)
 - Named-argument constructor form: `Class(field: value, ...)` (constructor shorthand)
 - Match: `match x: pat => expr, ...` or block-arm form
 - If-expression:

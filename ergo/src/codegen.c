@@ -1138,11 +1138,8 @@ static void fv_expr(Expr *e, StrVec *defined, StrVec *free_vars) {
             if (e->as.str_lit.parts) {
                 for (size_t i = 0; i < e->as.str_lit.parts->len; i++) {
                     StrPart *p = &e->as.str_lit.parts->parts[i];
-                    if (p->kind == STR_PART_VAR) {
-                        Str name = p->text;
-                        if (!strvec_contains(defined, name) && !strvec_contains(free_vars, name)) {
-                            VEC_PUSH(*free_vars, name);
-                        }
+                    if (p->kind == STR_PART_EXPR && p->as.expr) {
+                        fv_expr(p->as.expr, defined, free_vars);
                     }
                 }
             }
@@ -1432,12 +1429,20 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                 char *pt = codegen_new_tmp(cg);
                 if (!pt) { free(part_tmps); return cg_set_err(err, path, "out of memory"); }
                 if (p->kind == STR_PART_TEXT) {
-                    char *esc = c_escape(cg->arena, p->text);
+                    char *esc = c_escape(cg->arena, p->as.text);
                     w_line(&cg->w, "ErgoVal %s = EV_STR(stdr_str_lit(\"%s\"));", pt, esc ? esc : "");
+                } else if (p->kind == STR_PART_EXPR && p->as.expr) {
+                    GenExpr pe;
+                    if (!gen_expr(cg, path, p->as.expr, &pe, err)) {
+                        free(part_tmps);
+                        return false;
+                    }
+                    w_line(&cg->w, "ErgoVal %s = %s; ergo_retain_val(%s);", pt, pe.tmp, pt);
+                    gen_expr_release_except(cg, &pe, NULL);
+                    gen_expr_free(&pe);
                 } else {
-                    char *cname = codegen_cname_of(cg, p->text);
-                    if (!cname) { free(part_tmps); return cg_set_errf(err, path, e->line, e->col, "unknown local '%.*s'", (int)p->text.len, p->text.data); }
-                    w_line(&cg->w, "ErgoVal %s = %s; ergo_retain_val(%s);", pt, cname, pt);
+                    free(part_tmps);
+                    return cg_set_errf(err, path, e->line, e->col, "%.*s: invalid interpolation part", (int)path.len, path.data);
                 }
                 part_tmps[i] = pt;
             }

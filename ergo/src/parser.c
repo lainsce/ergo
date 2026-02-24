@@ -208,11 +208,80 @@ static MatchArm *parse_match_arm(Parser *p);
 static RetSpec parse_ret_spec(Parser *p);
 static FunDecl *parse_fun_decl(Parser *p);
 static Decl *parse_fun(Parser *p);
+static MacroDecl *parse_macro_decl(Parser *p);
+static Decl *parse_macro(Parser *p);
 static Decl *parse_entry(Parser *p);
 static Decl *parse_const_decl(Parser *p);
 static Decl *parse_def_decl(Parser *p);
 static Decl *parse_nominal(Parser *p);
 static Import *parse_import(Parser *p);
+
+static Expr *parse_interp_expr(Parser *p, Tok *owner, Str text) {
+    TokVec toks = {0};
+    Diag lex_err = {0};
+    if (!lex_source(p->path, text.data, text.len, p->arena, &toks, &lex_err)) {
+        parser_set_error(
+            p,
+            owner,
+            "invalid interpolation '$%.*s': %s",
+            (int)text.len,
+            text.data,
+            lex_err.message ? lex_err.message : "lex error"
+        );
+        free(toks.data);
+        return NULL;
+    }
+
+    Parser sub;
+    memset(&sub, 0, sizeof(sub));
+    sub.toks = toks.data;
+    sub.len = toks.len;
+    sub.path = p->path;
+    sub.arena = p->arena;
+    sub.err = NULL;
+    sub.ok = true;
+
+    Expr *e = parse_expr(&sub, 0);
+    if (!sub.ok || !e) {
+        parser_set_error(p, owner, "invalid interpolation '$%.*s'", (int)text.len, text.data);
+        free(toks.data);
+        return NULL;
+    }
+    while (peek(&sub, 0)->kind == TOK_SEMI) {
+        eat(&sub, TOK_SEMI);
+    }
+    if (peek(&sub, 0)->kind != TOK_EOF) {
+        parser_set_error(p, owner, "invalid interpolation '$%.*s'", (int)text.len, text.data);
+        free(toks.data);
+        return NULL;
+    }
+
+    free(toks.data);
+    return e;
+}
+
+static bool normalize_string_parts(Parser *p, Tok *tok) {
+    if (!tok || !tok->val.str) return true;
+    StrParts *parts = tok->val.str;
+    for (size_t i = 0; i < parts->len; i++) {
+        StrPart *part = &parts->parts[i];
+        if (part->kind == STR_PART_TEXT || part->kind == STR_PART_EXPR) {
+            continue;
+        }
+        if (part->kind == STR_PART_EXPR_RAW) {
+            Expr *e = parse_interp_expr(p, tok, part->as.text);
+            if (!p->ok || !e) {
+                return false;
+            }
+            part->kind = STR_PART_EXPR;
+            part->as.expr = e;
+            continue;
+        }
+        parser_set_error(p, tok, "invalid string interpolation part");
+        return false;
+    }
+    return true;
+}
 
 static TypeRef *new_type(Parser *p, TypeKind kind, Tok *t) {
     TypeRef *ty = (TypeRef *)ast_alloc(p->arena, sizeof(TypeRef));
@@ -447,6 +516,37 @@ static FunDecl *parse_fun_decl(Parser *p) {
     return fun;
 }
 
+static MacroDecl *parse_macro_decl(Parser *p) {
+    Tok *kw = eat(p, TOK_KW_macro);
+    if (!p->ok) return NULL;
+    Tok *name_tok = eat(p, TOK_IDENT);
+    if (!p->ok) return NULL;
+    eat(p, TOK_LPAR);
+    size_t params_len = 0;
+    Param **params = parse_params(p, &params_len);
+    for (size_t i = 0; i < params_len; i++) {
+        if (params[i] && params[i]->is_this) {
+            parser_set_error(p, name_tok, "macro params cannot use this/?this");
+            return NULL;
+        }
+    }
+    eat(p, TOK_RPAR);
+    RetSpec ret = parse_ret_spec(p);
+    Stmt *body = parse_block(p);
+    MacroDecl *macro = (MacroDecl *)ast_alloc(p->arena, sizeof(MacroDecl));
+    if (!macro) {
+        parser_set_oom(p);
+        return NULL;
+    }
+    macro->name = name_tok->val.ident;
+    macro->params = params;
+    macro->params_len = params_len;
+    macro->ret = ret;
+    macro->body = body;
+    (void)kw;
+    return macro;
+}
+
 static Decl *parse_fun(Parser *p) {
     Tok *kw = peek(p, 0);
     FunDecl *fun = parse_fun_decl(p);
@@ -454,6 +554,16 @@ static Decl *parse_fun(Parser *p) {
     Decl *decl = new_decl(p, DECL_FUN, kw);
     if (!decl) return NULL;
     decl->as.fun = *fun;
+    return decl;
+}
+
+static Decl *parse_macro(Parser *p) {
+    Tok *kw = peek(p, 0);
+    MacroDecl *macro = parse_macro_decl(p);
+    if (!p->ok) return NULL;
+    Decl *decl = new_decl(p, DECL_MACRO, kw);
+    if (!decl) return NULL;
+    decl->as.macro = *macro;
     return decl;
 }
 
@@ -908,6 +1018,44 @@ static Expr *parse_postfix(Parser *p) {
             x = mem;
             continue;
         }
+        if (at(p, TOK_BANG) && peek(p, 1)->kind == TOK_IDENT) {
+            Tok *t = eat(p, TOK_BANG);
+            Tok *name_tok = eat(p, TOK_IDENT);
+
+            PtrVec args = {0};
+            TokKind nk = peek(p, 0)->kind;
+            bool has_arg =
+                nk != TOK_SEMI &&
+                nk != TOK_EOF &&
+                nk != TOK_RBRACE &&
+                nk != TOK_RPAR &&
+                nk != TOK_RBRACK &&
+                nk != TOK_COMMA &&
+                nk != TOK_COLON;
+            if (has_arg) {
+                Expr *arg = parse_expr(p, 0);
+                if (!p->ok) return NULL;
+                ptrvec_push(p, &args, arg);
+                while (maybe(p, TOK_COMMA)) {
+                    Expr *next = parse_expr(p, 0);
+                    if (!p->ok) return NULL;
+                    ptrvec_push(p, &args, next);
+                }
+            }
+
+            Expr *mem = new_expr(p, EXPR_MEMBER, t);
+            if (!mem) return NULL;
+            mem->as.member.a = x;
+            mem->as.member.name = name_tok->val.ident;
+
+            Expr *call = new_expr(p, EXPR_CALL, t);
+            if (!call) return NULL;
+            call->as.call.fn = mem;
+            call->as.call.args = (Expr **)ptrvec_finalize(p, &args);
+            call->as.call.args_len = args.len;
+            x = call;
+            continue;
+        }
         break;
     }
     return x;
@@ -1055,6 +1203,7 @@ static Expr *parse_primary(Parser *p) {
     }
     if (t->kind == TOK_STR) {
         eat(p, TOK_STR);
+        if (!normalize_string_parts(p, t)) return NULL;
         Expr *e = new_expr(p, EXPR_STR, t);
         if (!e) return NULL;
         e->as.str_lit.parts = t->val.str;
@@ -1196,6 +1345,7 @@ static Pat *parse_pattern(Parser *p) {
     }
     if (t->kind == TOK_STR) {
         eat(p, TOK_STR);
+        if (!normalize_string_parts(p, t)) return NULL;
         Pat *pat = new_pat(p, PAT_STR, t);
         if (!pat) return NULL;
         pat->as.str = t->val.str;
@@ -1421,6 +1571,10 @@ Module *parse_cask(Tok *toks, size_t len, const char *path, Arena *arena, Diag *
             ptrvec_push(&p, &decls, decl);
         } else if (at(&p, TOK_KW_fun)) {
             Decl *decl = parse_fun(&p);
+            if (!p.ok) return NULL;
+            ptrvec_push(&p, &decls, decl);
+        } else if (at(&p, TOK_KW_macro)) {
+            Decl *decl = parse_macro(&p);
             if (!p.ok) return NULL;
             ptrvec_push(&p, &decls, decl);
         } else if (at(&p, TOK_KW_const)) {

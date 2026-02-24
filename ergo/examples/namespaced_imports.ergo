@@ -5,10 +5,14 @@ bring math
 
 -- Ergo Example: Namespaced Imports and Array Types
 
+macro add(value = num) (( num )) {
+    this + value
+}
+
 fun sum(arr = [num]) (( num )) {
     let ?total = 0
     for (let ?i = 0; i < len(arr); i += 1) {
-        total += arr[i]
+        total = total !add arr[i]
     }
     total
 }

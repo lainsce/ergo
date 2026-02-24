@@ -72,6 +72,8 @@ static const char* cogito_kind_name(CogitoKind kind) {
     case COGITO_VIEW_CHOOSER: return "view-chooser";
     case COGITO_ABOUT_WINDOW: return "about-window";
     case COGITO_SPLIT_BUTTON: return "split-button";
+    case COGITO_DRAWING_AREA: return "drawing-area";
+    case COGITO_SHAPE: return "shape";
     case COGITO_MENU_SECTION: return "menu-section";
     case COGITO_KIND_COUNT: return "unknown";
   }

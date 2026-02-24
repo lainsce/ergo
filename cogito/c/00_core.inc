@@ -268,6 +268,8 @@ typedef enum {
   COGITO_VIEW_CHOOSER,
   COGITO_ABOUT_WINDOW,
   COGITO_SPLIT_BUTTON,
+  COGITO_DRAWING_AREA,
+  COGITO_SHAPE,
   COGITO_MENU_SECTION,
   COGITO_SIDE_SHEET,
   COGITO_KIND_COUNT
@@ -721,6 +723,12 @@ typedef struct CogitoNode {
   float opacity_from;
   float opacity_target;
   double opacity_start;
+  // TextField floating-label animation channel (separate from shared layout springs)
+  float tf_label_anim_current;
+  float tf_label_anim_from;
+  float tf_label_anim_target;
+  double tf_label_anim_start;
+  bool tf_label_anim_inited;
   // --- Physics Spring Animators (Second-Order Spring Solver) ---
   // One spring per color channel (R,G,B,A) × 4 color properties = 16 springs
   CogitoSpring spring_bg_r,  spring_bg_g,  spring_bg_b,  spring_bg_a;
@@ -902,6 +910,18 @@ typedef struct CogitoNode {
     struct { int arrow_x; uint8_t size; // 0=XS..4=XL, same as button
       bool outlined, text_style;
     } split_btn;
+    struct {
+      bool pressed;
+      bool dragging;
+      int pointer_x;
+      int pointer_y;
+      int press_x;
+      int press_y;
+    } drawing_area;
+    struct {
+      int preset;
+      float vertices[16];
+    } shape;
     struct { bool has_divider_before; bool has_divider_after;
     } menu_section;
     struct { bool vibrant; bool vertical;
@@ -1065,6 +1085,44 @@ enum {
 enum {
   COGITO_PROGRESS_SHAPE_FLAT = 0,
   COGITO_PROGRESS_SHAPE_WAVY
+};
+enum {
+  COGITO_SHAPE_CIRCLE = 0,
+  COGITO_SHAPE_SQUARE,
+  COGITO_SHAPE_SLANTED,
+  COGITO_SHAPE_ARCH,
+  COGITO_SHAPE_SEMICIRCLE,
+  COGITO_SHAPE_OVAL,
+  COGITO_SHAPE_PILL,
+  COGITO_SHAPE_TRIANGLE,
+  COGITO_SHAPE_ARROW,
+  COGITO_SHAPE_FAN,
+  COGITO_SHAPE_DIAMOND,
+  COGITO_SHAPE_CLAMSHELL,
+  COGITO_SHAPE_PENTAGON,
+  COGITO_SHAPE_GEM,
+  COGITO_SHAPE_VERY_SUNNY,
+  COGITO_SHAPE_SUNNY,
+  COGITO_SHAPE_COOKIE_4,
+  COGITO_SHAPE_COOKIE_6,
+  COGITO_SHAPE_COOKIE_7,
+  COGITO_SHAPE_COOKIE_9,
+  COGITO_SHAPE_COOKIE_12,
+  COGITO_SHAPE_CLOVER_4,
+  COGITO_SHAPE_CLOVER_8,
+  COGITO_SHAPE_BURST,
+  COGITO_SHAPE_SOFT_BURST,
+  COGITO_SHAPE_BOOM,
+  COGITO_SHAPE_SOFT_BOOM,
+  COGITO_SHAPE_FLOWER,
+  COGITO_SHAPE_PUFFY,
+  COGITO_SHAPE_PUFFY_DIAMOND,
+  COGITO_SHAPE_GHOSTISH,
+  COGITO_SHAPE_PIXEL_CIRCLE,
+  COGITO_SHAPE_PIXEL_TRIANGLE,
+  COGITO_SHAPE_BUN,
+  COGITO_SHAPE_HEART,
+  COGITO_SHAPE_COUNT
 };
 enum {
   COGITO_SLIDER_MODE_NORMAL = 0,
@@ -1433,6 +1491,51 @@ static double cogito_backend_ease(double t, int ease) {
     }
     default: return t; // linear
   }
+}
+
+static double cogito_cubic_bezier_axis(double p1, double p2, double u) {
+  double omt = 1.0 - u;
+  return 3.0 * omt * omt * u * p1 +
+         3.0 * omt * u * u * p2 +
+         u * u * u;
+}
+
+static double cogito_cubic_bezier_axis_derivative(double p1, double p2, double u) {
+  double omt = 1.0 - u;
+  return 3.0 * omt * omt * p1 +
+         6.0 * omt * u * (p2 - p1) +
+         3.0 * u * u * (1.0 - p2);
+}
+
+// CSS cubic-bezier solver: given progress t on x-axis, returns y-axis progress.
+static double cogito_ease_cubic_bezier(double t,
+                                       double x1, double y1,
+                                       double x2, double y2) {
+  if (t <= 0.0) return 0.0;
+  if (t >= 1.0) return 1.0;
+
+  // Newton-Raphson on x(u) = t.
+  double u = t;
+  for (int i = 0; i < 6; i++) {
+    double x = cogito_cubic_bezier_axis(x1, x2, u) - t;
+    double dx = cogito_cubic_bezier_axis_derivative(x1, x2, u);
+    if (fabs(dx) < 1e-6) break;
+    u -= x / dx;
+    if (u < 0.0) { u = 0.0; break; }
+    if (u > 1.0) { u = 1.0; break; }
+  }
+
+  // Refine with bisection for stability.
+  double lo = 0.0;
+  double hi = 1.0;
+  for (int i = 0; i < 10; i++) {
+    double x = cogito_cubic_bezier_axis(x1, x2, u);
+    if (x < t) lo = u;
+    else hi = u;
+    u = 0.5 * (lo + hi);
+  }
+
+  return cogito_cubic_bezier_axis(y1, y2, u);
 }
 // ---- Physics-driven spring color animation ----
 // Advances 4 RGBA spring channels toward a target color using the Expressive profile.

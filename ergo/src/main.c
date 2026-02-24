@@ -200,8 +200,8 @@ static bool expr_string_literal_as_filename(Expr *e, char *out, size_t out_cap) 
     for (size_t i = 0; i < parts->len; i++) {
         StrPart *part = &parts->parts[i];
         if (part->kind != STR_PART_TEXT) return false;
-        for (size_t j = 0; j < part->text.len; j++) {
-            unsigned char c = (unsigned char)part->text.data[j];
+        for (size_t j = 0; j < part->as.text.len; j++) {
+            unsigned char c = (unsigned char)part->as.text.data[j];
             char mapped;
             if (isalnum(c) || c == '.' || c == '_' || c == '-') {
                 mapped = (char)c;

@@ -223,6 +223,10 @@ static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h) {
 
     #include "widgets/layout/split_button.inc"
 
+    #include "widgets/layout/drawing_area.inc"
+
+    #include "widgets/layout/shape.inc"
+
     case COGITO_TREEVIEW:
       cogito_layout_treeview(n, x, y);
       break;

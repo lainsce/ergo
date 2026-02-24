@@ -2,6 +2,10 @@ cask math
 
 -- Ergo Standard Library: math.ergo
 
+macro sq() (( num )) {
+  this * this
+}
+
 -- Math constants
 const PI = 3.141592653589793
 const TAU = 6.283185307179586
@@ -37,7 +41,7 @@ fun _wrap_angle(x = num) (( num )) {
 
 -- Internal: sine via Taylor series on small |x|.
 fun _sin_taylor(x = num) (( num )) {
-  let x2 = x * x
+  let x2 = x.sq()
   let ?term = x
   let ?sum = x
   for (let ?i = 0; i < 7; i += 1) {
@@ -49,7 +53,7 @@ fun _sin_taylor(x = num) (( num )) {
 
 -- Internal: cosine via Taylor series on small |x|.
 fun _cos_taylor(x = num) (( num )) {
-  let x2 = x * x
+  let x2 = x.sq()
   let ?term = 1.0
   let ?sum = 1.0
   for (let ?i = 0; i < 7; i += 1) {

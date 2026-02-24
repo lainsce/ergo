@@ -26,6 +26,8 @@ static void *arena_array(Arena *arena, size_t count, size_t size) {
 
 static Expr *lower_expr(Arena *arena, Expr *e, Diag *err);
 static Stmt *lower_stmt(Arena *arena, Stmt *s, Diag *err);
+static Str cask_name_for_path(Arena *arena, Str path);
+static Str normalize_import_name(Arena *arena, Str name);
 
 static Expr **lower_expr_list(Arena *arena, Expr **items, size_t len, Diag *err) {
     if (len == 0) {
@@ -44,6 +46,31 @@ static Expr **lower_expr_list(Arena *arena, Expr **items, size_t len, Diag *err)
     }
     return out;
 }
+
+typedef struct {
+    Str cask;
+    Str name;
+    MacroDecl *decl;
+} LowerMacro;
+
+typedef struct {
+    Str cask_name;
+    Str cask_path;
+    Str *imports;
+    size_t imports_len;
+    LowerMacro *macros;
+    size_t macros_len;
+    int macro_depth;
+} LowerCtx;
+
+typedef struct {
+    Str name;
+    Str path;
+    Str *imports;
+    size_t imports_len;
+} LowerModule;
+
+static LowerCtx *g_lower_ctx = NULL;
 
 static bool is_ident_name(Expr *e, const char *name) {
     if (!e || e->kind != EXPR_IDENT) {
@@ -88,9 +115,337 @@ static Decl *new_decl_like(Arena *arena, Decl *src, DeclKind kind, Diag *err) {
     return d;
 }
 
+typedef struct {
+    Str name;
+    Expr *expr;
+} MacroBind;
+
+static Expr *clone_expr_with_binds(Arena *arena, Expr *e, MacroBind *binds, size_t binds_len, Diag *err);
+static Stmt *clone_stmt_with_binds(Arena *arena, Stmt *s, MacroBind *binds, size_t binds_len, Diag *err);
+
+static Expr *find_bind_expr(MacroBind *binds, size_t binds_len, Str name) {
+    for (size_t i = 0; i < binds_len; i++) {
+        if (str_eq(binds[i].name, name)) return binds[i].expr;
+    }
+    return NULL;
+}
+
+static LowerMacro *find_macro_in_cask(LowerCtx *ctx, Str cask, Str name) {
+    if (!ctx) return NULL;
+    for (size_t i = 0; i < ctx->macros_len; i++) {
+        LowerMacro *m = &ctx->macros[i];
+        if (str_eq(m->cask, cask) && str_eq(m->name, name)) {
+            return m;
+        }
+    }
+    return NULL;
+}
+
+static LowerMacro *resolve_macro_for_call(LowerCtx *ctx, Str name) {
+    if (!ctx) return NULL;
+    LowerMacro *local = find_macro_in_cask(ctx, ctx->cask_name, name);
+    if (local) return local;
+    for (size_t i = 0; i < ctx->imports_len; i++) {
+        LowerMacro *m = find_macro_in_cask(ctx, ctx->imports[i], name);
+        if (m) return m;
+    }
+    return NULL;
+}
+
+static bool is_module_ident(LowerCtx *ctx, Expr *e) {
+    if (!ctx || !e || e->kind != EXPR_IDENT) return false;
+    if (str_eq(e->as.ident.name, ctx->cask_name)) return true;
+    for (size_t i = 0; i < ctx->imports_len; i++) {
+        if (str_eq(e->as.ident.name, ctx->imports[i])) return true;
+    }
+    return false;
+}
+
+static Expr *macro_body_expr(MacroDecl *md) {
+    if (!md || !md->body) return NULL;
+    Stmt *body = md->body;
+    if (body->kind == STMT_BLOCK) {
+        if (body->as.block_s.stmts_len != 1) return NULL;
+        body = body->as.block_s.stmts[0];
+    }
+    if (!body) return NULL;
+    if (body->kind == STMT_EXPR) return body->as.expr_s.expr;
+    if (body->kind == STMT_RETURN) return body->as.ret_s.expr;
+    return NULL;
+}
+
+static StrParts *clone_str_parts_with_binds(Arena *arena, StrParts *src, MacroBind *binds, size_t binds_len, Diag *err) {
+    if (!src) return NULL;
+    StrParts *out = (StrParts *)ast_alloc(arena, sizeof(StrParts));
+    if (!out) {
+        set_err(err, "out of memory");
+        return NULL;
+    }
+    out->len = src->len;
+    out->parts = src->len ? (StrPart *)arena_array(arena, src->len, sizeof(StrPart)) : NULL;
+    if (src->len && !out->parts) {
+        set_err(err, "out of memory");
+        return NULL;
+    }
+    for (size_t i = 0; i < src->len; i++) {
+        out->parts[i] = src->parts[i];
+        if (src->parts[i].kind == STR_PART_EXPR && src->parts[i].as.expr) {
+            out->parts[i].as.expr = clone_expr_with_binds(arena, src->parts[i].as.expr, binds, binds_len, err);
+        }
+    }
+    return out;
+}
+
+static Expr **clone_expr_list_with_binds(Arena *arena, Expr **items, size_t len, MacroBind *binds, size_t binds_len, Diag *err) {
+    if (len == 0) return NULL;
+    Expr **out = (Expr **)arena_array(arena, len, sizeof(Expr *));
+    if (!out) {
+        set_err(err, "out of memory");
+        return NULL;
+    }
+    for (size_t i = 0; i < len; i++) {
+        out[i] = clone_expr_with_binds(arena, items[i], binds, binds_len, err);
+    }
+    return out;
+}
+
+static Stmt **clone_stmt_list_with_binds(Arena *arena, Stmt **items, size_t len, MacroBind *binds, size_t binds_len, Diag *err) {
+    if (len == 0) return NULL;
+    Stmt **out = (Stmt **)arena_array(arena, len, sizeof(Stmt *));
+    if (!out) {
+        set_err(err, "out of memory");
+        return NULL;
+    }
+    for (size_t i = 0; i < len; i++) {
+        out[i] = clone_stmt_with_binds(arena, items[i], binds, binds_len, err);
+    }
+    return out;
+}
+
+static Expr *clone_expr_with_binds(Arena *arena, Expr *e, MacroBind *binds, size_t binds_len, Diag *err) {
+    if (!e) return NULL;
+    if (e->kind == EXPR_IDENT) {
+        Expr *bound = find_bind_expr(binds, binds_len, e->as.ident.name);
+        if (bound) return clone_expr_with_binds(arena, bound, NULL, 0, err);
+    }
+    Expr *out = new_expr_like(arena, e, e->kind, err);
+    if (!out) return NULL;
+    switch (e->kind) {
+        case EXPR_INT:
+        case EXPR_FLOAT:
+        case EXPR_IDENT:
+        case EXPR_NULL:
+        case EXPR_BOOL:
+            out->as = e->as;
+            return out;
+        case EXPR_STR:
+            out->as.str_lit.parts = clone_str_parts_with_binds(arena, e->as.str_lit.parts, binds, binds_len, err);
+            return out;
+        case EXPR_UNARY:
+            out->as.unary.op = e->as.unary.op;
+            out->as.unary.x = clone_expr_with_binds(arena, e->as.unary.x, binds, binds_len, err);
+            return out;
+        case EXPR_BINARY:
+            out->as.binary.op = e->as.binary.op;
+            out->as.binary.a = clone_expr_with_binds(arena, e->as.binary.a, binds, binds_len, err);
+            out->as.binary.b = clone_expr_with_binds(arena, e->as.binary.b, binds, binds_len, err);
+            return out;
+        case EXPR_ASSIGN:
+            out->as.assign.op = e->as.assign.op;
+            out->as.assign.target = clone_expr_with_binds(arena, e->as.assign.target, binds, binds_len, err);
+            out->as.assign.value = clone_expr_with_binds(arena, e->as.assign.value, binds, binds_len, err);
+            return out;
+        case EXPR_CALL:
+            out->as.call.fn = clone_expr_with_binds(arena, e->as.call.fn, binds, binds_len, err);
+            out->as.call.args_len = e->as.call.args_len;
+            out->as.call.args = clone_expr_list_with_binds(arena, e->as.call.args, e->as.call.args_len, binds, binds_len, err);
+            return out;
+        case EXPR_INDEX:
+            out->as.index.a = clone_expr_with_binds(arena, e->as.index.a, binds, binds_len, err);
+            out->as.index.i = clone_expr_with_binds(arena, e->as.index.i, binds, binds_len, err);
+            return out;
+        case EXPR_MEMBER:
+            out->as.member.a = clone_expr_with_binds(arena, e->as.member.a, binds, binds_len, err);
+            out->as.member.name = e->as.member.name;
+            return out;
+        case EXPR_PAREN:
+            out->as.paren.x = clone_expr_with_binds(arena, e->as.paren.x, binds, binds_len, err);
+            return out;
+        case EXPR_ARRAY:
+            out->as.array_lit.items_len = e->as.array_lit.items_len;
+            out->as.array_lit.items = clone_expr_list_with_binds(arena, e->as.array_lit.items, e->as.array_lit.items_len, binds, binds_len, err);
+            out->as.array_lit.annot = e->as.array_lit.annot;
+            return out;
+        case EXPR_TUPLE:
+            out->as.tuple_lit.items_len = e->as.tuple_lit.items_len;
+            out->as.tuple_lit.items = clone_expr_list_with_binds(arena, e->as.tuple_lit.items, e->as.tuple_lit.items_len, binds, binds_len, err);
+            return out;
+        case EXPR_MATCH: {
+            out->as.match_expr.scrut = clone_expr_with_binds(arena, e->as.match_expr.scrut, binds, binds_len, err);
+            out->as.match_expr.arms_len = e->as.match_expr.arms_len;
+            out->as.match_expr.arms = e->as.match_expr.arms_len ? (MatchArm **)arena_array(arena, e->as.match_expr.arms_len, sizeof(MatchArm *)) : NULL;
+            for (size_t i = 0; i < e->as.match_expr.arms_len; i++) {
+                MatchArm *src = e->as.match_expr.arms[i];
+                MatchArm *arm = (MatchArm *)ast_alloc(arena, sizeof(MatchArm));
+                if (!arm) {
+                    set_err(err, "out of memory");
+                    return NULL;
+                }
+                arm->pat = src->pat;
+                arm->expr = clone_expr_with_binds(arena, src->expr, binds, binds_len, err);
+                out->as.match_expr.arms[i] = arm;
+            }
+            return out;
+        }
+        case EXPR_LAMBDA:
+            out->as.lambda = e->as.lambda;
+            out->as.lambda.body = clone_expr_with_binds(arena, e->as.lambda.body, binds, binds_len, err);
+            return out;
+        case EXPR_BLOCK:
+            out->as.block_expr.block = clone_stmt_with_binds(arena, e->as.block_expr.block, binds, binds_len, err);
+            return out;
+        case EXPR_NEW:
+            out->as.new_expr = e->as.new_expr;
+            out->as.new_expr.args = clone_expr_list_with_binds(arena, e->as.new_expr.args, e->as.new_expr.args_len, binds, binds_len, err);
+            return out;
+        case EXPR_IF:
+            out->as.if_expr.arms_len = e->as.if_expr.arms_len;
+            out->as.if_expr.arms = e->as.if_expr.arms_len ? (ExprIfArm **)arena_array(arena, e->as.if_expr.arms_len, sizeof(ExprIfArm *)) : NULL;
+            for (size_t i = 0; i < e->as.if_expr.arms_len; i++) {
+                ExprIfArm *src = e->as.if_expr.arms[i];
+                ExprIfArm *arm = (ExprIfArm *)ast_alloc(arena, sizeof(ExprIfArm));
+                if (!arm) {
+                    set_err(err, "out of memory");
+                    return NULL;
+                }
+                arm->cond = src->cond ? clone_expr_with_binds(arena, src->cond, binds, binds_len, err) : NULL;
+                arm->value = clone_expr_with_binds(arena, src->value, binds, binds_len, err);
+                out->as.if_expr.arms[i] = arm;
+            }
+            return out;
+        case EXPR_TERNARY:
+            out->as.ternary.cond = clone_expr_with_binds(arena, e->as.ternary.cond, binds, binds_len, err);
+            out->as.ternary.then_expr = clone_expr_with_binds(arena, e->as.ternary.then_expr, binds, binds_len, err);
+            out->as.ternary.else_expr = clone_expr_with_binds(arena, e->as.ternary.else_expr, binds, binds_len, err);
+            return out;
+        case EXPR_MOVE:
+            out->as.move.x = clone_expr_with_binds(arena, e->as.move.x, binds, binds_len, err);
+            return out;
+        default:
+            out->as = e->as;
+            return out;
+    }
+}
+
+static Stmt *clone_stmt_with_binds(Arena *arena, Stmt *s, MacroBind *binds, size_t binds_len, Diag *err) {
+    if (!s) return NULL;
+    Stmt *out = new_stmt_like(arena, s, s->kind, err);
+    if (!out) return NULL;
+    switch (s->kind) {
+        case STMT_LET:
+            out->as.let_s = s->as.let_s;
+            out->as.let_s.expr = clone_expr_with_binds(arena, s->as.let_s.expr, binds, binds_len, err);
+            return out;
+        case STMT_CONST:
+            out->as.const_s = s->as.const_s;
+            out->as.const_s.expr = clone_expr_with_binds(arena, s->as.const_s.expr, binds, binds_len, err);
+            return out;
+        case STMT_IF: {
+            out->as.if_s.arms_len = s->as.if_s.arms_len;
+            out->as.if_s.arms = s->as.if_s.arms_len ? (IfArm **)arena_array(arena, s->as.if_s.arms_len, sizeof(IfArm *)) : NULL;
+            for (size_t i = 0; i < s->as.if_s.arms_len; i++) {
+                IfArm *src = s->as.if_s.arms[i];
+                IfArm *arm = (IfArm *)ast_alloc(arena, sizeof(IfArm));
+                if (!arm) {
+                    set_err(err, "out of memory");
+                    return NULL;
+                }
+                arm->cond = src->cond ? clone_expr_with_binds(arena, src->cond, binds, binds_len, err) : NULL;
+                arm->body = clone_stmt_with_binds(arena, src->body, binds, binds_len, err);
+                out->as.if_s.arms[i] = arm;
+            }
+            return out;
+        }
+        case STMT_FOR:
+            out->as.for_s.init = s->as.for_s.init ? clone_stmt_with_binds(arena, s->as.for_s.init, binds, binds_len, err) : NULL;
+            out->as.for_s.cond = s->as.for_s.cond ? clone_expr_with_binds(arena, s->as.for_s.cond, binds, binds_len, err) : NULL;
+            out->as.for_s.step = s->as.for_s.step ? clone_expr_with_binds(arena, s->as.for_s.step, binds, binds_len, err) : NULL;
+            out->as.for_s.body = clone_stmt_with_binds(arena, s->as.for_s.body, binds, binds_len, err);
+            return out;
+        case STMT_FOREACH:
+            out->as.foreach_s = s->as.foreach_s;
+            out->as.foreach_s.expr = clone_expr_with_binds(arena, s->as.foreach_s.expr, binds, binds_len, err);
+            out->as.foreach_s.body = clone_stmt_with_binds(arena, s->as.foreach_s.body, binds, binds_len, err);
+            return out;
+        case STMT_BREAK:
+        case STMT_CONTINUE:
+            out->as = s->as;
+            return out;
+        case STMT_RETURN:
+            out->as.ret_s.expr = s->as.ret_s.expr ? clone_expr_with_binds(arena, s->as.ret_s.expr, binds, binds_len, err) : NULL;
+            return out;
+        case STMT_EXPR:
+            out->as.expr_s.expr = clone_expr_with_binds(arena, s->as.expr_s.expr, binds, binds_len, err);
+            return out;
+        case STMT_BLOCK:
+            out->as.block_s.stmts_len = s->as.block_s.stmts_len;
+            out->as.block_s.stmts = clone_stmt_list_with_binds(arena, s->as.block_s.stmts, s->as.block_s.stmts_len, binds, binds_len, err);
+            return out;
+        default:
+            out->as = s->as;
+            return out;
+    }
+}
+
 static Expr *lower_expr(Arena *arena, Expr *e, Diag *err) {
     if (!e) {
         return NULL;
+    }
+
+    LowerCtx *lctx = g_lower_ctx;
+    if (lctx && e->kind == EXPR_CALL && e->as.call.fn && e->as.call.fn->kind == EXPR_MEMBER) {
+        Expr *recv = e->as.call.fn->as.member.a;
+        Str mname = e->as.call.fn->as.member.name;
+        if (!is_module_ident(lctx, recv)) {
+            LowerMacro *macro = resolve_macro_for_call(lctx, mname);
+            if (macro) {
+                if (lctx->macro_depth > 64) {
+                    set_err(err, "macro expansion exceeded max depth");
+                    return NULL;
+                }
+                if (e->as.call.args_len != macro->decl->params_len) {
+                    set_err(err, "macro call arity mismatch");
+                    return NULL;
+                }
+                Expr *body_expr = macro_body_expr(macro->decl);
+                if (!body_expr) {
+                    set_err(err, "macro body must contain a single expression");
+                    return NULL;
+                }
+
+                size_t binds_len = 1 + macro->decl->params_len;
+                MacroBind *binds = (MacroBind *)arena_array(arena, binds_len, sizeof(MacroBind));
+                if (!binds) {
+                    set_err(err, "out of memory");
+                    return NULL;
+                }
+                binds[0].name = str_from_c("this");
+                binds[0].expr = lower_expr(arena, recv, err);
+                for (size_t i = 0; i < macro->decl->params_len; i++) {
+                    binds[i + 1].name = macro->decl->params[i]->name;
+                    binds[i + 1].expr = lower_expr(arena, e->as.call.args[i], err);
+                }
+
+                Expr *expanded = clone_expr_with_binds(arena, body_expr, binds, binds_len, err);
+                if (!expanded) return NULL;
+
+                int saved_depth = lctx->macro_depth;
+                lctx->macro_depth = saved_depth + 1;
+                Expr *out = lower_expr(arena, expanded, err);
+                lctx->macro_depth = saved_depth;
+                return out;
+            }
+        }
     }
 
     // Lower #x to stdr.len(x)
@@ -549,6 +904,13 @@ static Decl *lower_decl(Arena *arena, Decl *d, Diag *err) {
             out->as.fun.body = body;
             return out;
         }
+        case DECL_MACRO: {
+            Decl *out = new_decl_like(arena, d, DECL_MACRO, err);
+            if (!out) return NULL;
+            out->as.macro = d->as.macro;
+            out->as.macro.body = wrap_block(arena, lower_stmt(arena, d->as.macro.body, err), err);
+            return out;
+        }
         case DECL_ENTRY: {
             Stmt *body = lower_stmt(arena, d->as.entry.body, err);
             body = wrap_block(arena, body, err);
@@ -607,18 +969,73 @@ static Decl *lower_decl(Arena *arena, Decl *d, Diag *err) {
 
 Program *lower_program(Program *prog, Arena *arena, Diag *err) {
     if (!prog) return NULL;
+
+    size_t mods_len = prog->mods_len;
+    LowerModule *mods = mods_len ? (LowerModule *)arena_array(arena, mods_len, sizeof(LowerModule)) : NULL;
+    if (mods_len && !mods) {
+        set_err(err, "out of memory");
+        return NULL;
+    }
+    for (size_t i = 0; i < mods_len; i++) {
+        Module *m = prog->mods[i];
+        Str mod_name = cask_name_for_path(arena, m->path);
+        if (m->has_declared_name) {
+            mod_name = m->declared_name;
+        }
+        mods[i].name = mod_name;
+        mods[i].path = m->path;
+        mods[i].imports_len = m->imports_len;
+        if (m->imports_len > 0) {
+            mods[i].imports = (Str *)arena_array(arena, m->imports_len, sizeof(Str));
+            if (!mods[i].imports) {
+                set_err(err, "out of memory");
+                return NULL;
+            }
+            for (size_t j = 0; j < m->imports_len; j++) {
+                mods[i].imports[j] = normalize_import_name(arena, m->imports[j]->name);
+            }
+        } else {
+            mods[i].imports = NULL;
+        }
+    }
+
+    size_t macro_count = 0;
+    for (size_t i = 0; i < mods_len; i++) {
+        Module *m = prog->mods[i];
+        for (size_t j = 0; j < m->decls_len; j++) {
+            if (m->decls[j]->kind == DECL_MACRO) macro_count++;
+        }
+    }
+    LowerMacro *macros = macro_count ? (LowerMacro *)arena_array(arena, macro_count, sizeof(LowerMacro)) : NULL;
+    if (macro_count && !macros) {
+        set_err(err, "out of memory");
+        return NULL;
+    }
+    size_t macro_i = 0;
+    for (size_t i = 0; i < mods_len; i++) {
+        Module *m = prog->mods[i];
+        for (size_t j = 0; j < m->decls_len; j++) {
+            Decl *d = m->decls[j];
+            if (d->kind != DECL_MACRO) continue;
+            macros[macro_i].cask = mods[i].name;
+            macros[macro_i].name = d->as.macro.name;
+            macros[macro_i].decl = &d->as.macro;
+            macro_i++;
+        }
+    }
+
     Program *out = (Program *)ast_alloc(arena, sizeof(Program));
     if (!out) {
         set_err(err, "out of memory");
         return NULL;
     }
-    out->mods_len = prog->mods_len;
-    out->mods = (Module **)arena_array(arena, prog->mods_len, sizeof(Module *));
-    if (!out->mods && prog->mods_len > 0) {
+    out->mods_len = mods_len;
+    out->mods = (Module **)arena_array(arena, mods_len, sizeof(Module *));
+    if (!out->mods && mods_len > 0) {
         set_err(err, "out of memory");
         return NULL;
     }
-    for (size_t i = 0; i < prog->mods_len; i++) {
+    for (size_t i = 0; i < mods_len; i++) {
         Module *m = prog->mods[i];
         Module *nm = (Module *)ast_alloc(arena, sizeof(Module));
         if (!nm) {
@@ -630,15 +1047,32 @@ Program *lower_program(Program *prog, Arena *arena, Diag *err) {
         nm->has_declared_name = m->has_declared_name;
         nm->imports = m->imports;
         nm->imports_len = m->imports_len;
-        nm->decls_len = m->decls_len;
         nm->decls = (Decl **)arena_array(arena, m->decls_len, sizeof(Decl *));
         if (!nm->decls && m->decls_len > 0) {
             set_err(err, "out of memory");
             return NULL;
         }
+        LowerCtx lctx;
+        memset(&lctx, 0, sizeof(lctx));
+        lctx.cask_name = mods[i].name;
+        lctx.cask_path = mods[i].path;
+        lctx.imports = mods[i].imports;
+        lctx.imports_len = mods[i].imports_len;
+        lctx.macros = macros;
+        lctx.macros_len = macro_count;
+        lctx.macro_depth = 0;
+        LowerCtx *saved_ctx = g_lower_ctx;
+        g_lower_ctx = &lctx;
+
+        size_t out_decl_len = 0;
         for (size_t j = 0; j < m->decls_len; j++) {
-            nm->decls[j] = lower_decl(arena, m->decls[j], err);
+            if (m->decls[j]->kind == DECL_MACRO) {
+                continue;
+            }
+            nm->decls[out_decl_len++] = lower_decl(arena, m->decls[j], err);
         }
+        g_lower_ctx = saved_ctx;
+        nm->decls_len = out_decl_len;
         out->mods[i] = nm;
     }
     return out;
@@ -1448,7 +1882,7 @@ static bool eval_const_expr(GlobalEnv *env, Expr *e, ConstVal *out, Diag *err) {
                 set_err(err, "const string cannot interpolate");
                 return false;
             }
-            total += parts->parts[i].text.len;
+            total += parts->parts[i].as.text.len;
         }
         Str s = arena_str_copy(env->arena, "", 0);
         if (total > 0) {
@@ -1459,8 +1893,8 @@ static bool eval_const_expr(GlobalEnv *env, Expr *e, ConstVal *out, Diag *err) {
             }
             size_t off = 0;
             for (size_t i = 0; i < parts->len; i++) {
-                memcpy(buf + off, parts->parts[i].text.data, parts->parts[i].text.len);
-                off += parts->parts[i].text.len;
+                memcpy(buf + off, parts->parts[i].as.text.data, parts->parts[i].as.text.len);
+                off += parts->parts[i].as.text.len;
             }
             buf[total] = '\0';
             s.data = buf;
@@ -2356,6 +2790,17 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
         case EXPR_NULL:
             return ty_null(env->arena);
         case EXPR_STR:
+            if (e->as.str_lit.parts) {
+                for (size_t i = 0; i < e->as.str_lit.parts->len; i++) {
+                    StrPart *part = &e->as.str_lit.parts->parts[i];
+                    if (part->kind == STR_PART_EXPR && part->as.expr) {
+                        tc_expr_inner(part->as.expr, ctx, loc, env, err);
+                    } else if (part->kind != STR_PART_TEXT) {
+                        set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: invalid interpolation part", (int)ctx->cask_path.len, ctx->cask_path.data);
+                        return NULL;
+                    }
+                }
+            }
             return ty_prim(env->arena, "string");
         case EXPR_TUPLE: {
             size_t n = e->as.tuple_lit.items_len;

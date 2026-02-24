@@ -4,8 +4,12 @@ bring stdr
 
 -- Ergo Example: String Features
 
+macro line() (( string )) {
+    @"$this\n"
+}
+
 fun string_features () (( -- )) {
-    write(@"-- string_features --\n")
+    write(@"-- string_features --".line())
 
     -- Simple string
     let greeting = @"Hello, Ergo!\n"
@@ -26,7 +30,7 @@ fun string_features () (( -- )) {
     -- Interpolation with expressions
     let a = 5
     let b = 7
-    writef(@"Sum: {}\n", a + b)
+    write(@"Sum: $stdr.str(a + b)\n")
 
     -- Mixing interpolation and raw text
     let lang = @"Ergo"

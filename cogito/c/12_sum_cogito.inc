@@ -702,6 +702,8 @@ static bool cogito_sum_selector_kind(const char* sel, CogitoKind* out_kind, bool
   if (strcmp(s, "view-chooser") == 0 || strcmp(s, "view_chooser") == 0 || strcmp(s, "viewchooser") == 0) { if (out_kind) *out_kind = COGITO_VIEW_CHOOSER; return true; }
   if (strcmp(s, "about-window") == 0 || strcmp(s, "about_window") == 0 || strcmp(s, "aboutwindow") == 0) { if (out_kind) *out_kind = COGITO_ABOUT_WINDOW; return true; }
   if (strcmp(s, "split-button") == 0 || strcmp(s, "split_button") == 0 || strcmp(s, "splitbutton") == 0) { if (out_kind) *out_kind = COGITO_SPLIT_BUTTON; return true; }
+  if (strcmp(s, "drawing-area") == 0 || strcmp(s, "drawing_area") == 0 || strcmp(s, "drawingarea") == 0) { if (out_kind) *out_kind = COGITO_DRAWING_AREA; return true; }
+  if (strcmp(s, "shape") == 0) { if (out_kind) *out_kind = COGITO_SHAPE; return true; }
   if (strcmp(s, "dropdown") == 0) { if (out_kind) *out_kind = COGITO_DROPDOWN; return true; }
   if (strcmp(s, "fab") == 0) { if (out_kind) *out_kind = COGITO_FAB; return true; }
   if (strcmp(s, "fab-menu") == 0 || strcmp(s, "fab_menu") == 0 || strcmp(s, "fabmenu") == 0) { if (out_kind) *out_kind = COGITO_FAB_MENU; return true; }

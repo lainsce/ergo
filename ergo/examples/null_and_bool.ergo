@@ -4,6 +4,10 @@ bring stdr
 
 -- Ergo Example: Null and Boolean Logic
 
+macro fallback(default_value = any) (( any )) {
+    this ?? default_value
+}
+
 fun null_and_bool_demo () (( -- )) {
     write(@"-- Null and Boolean Logic Demo --")
 
@@ -51,7 +55,7 @@ fun null_and_bool_demo () (( -- )) {
     writef(@"truthy_num -> {}\n", truthy_num)
 
     let ?maybe_name = null
-    let name = maybe_name ?? @"guest"
+    let name = maybe_name !fallback @"guest"
     writef(@"name -> {}\n", name)
 
     let nums = []: [num]

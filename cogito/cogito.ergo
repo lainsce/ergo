@@ -4,6 +4,10 @@ bring stdr
 
 -- Cogito GUI module (minimal, container-based)
 
+macro chain() (( any )) {
+    this
+}
+
 -- Internal intrinsics
 fun __cogito_about_window_set_description(aw = AboutWindow, desc = string) (( -- )) { }
 fun __cogito_about_window_set_icon(aw = AboutWindow, icon = string) (( -- )) { }
@@ -149,6 +153,19 @@ fun __cogito_image_set_radius(img = Image, radius = num) (( -- )) { }
 fun __cogito_image_set_size(img = Image, w = num, h = num) (( -- )) { }
 fun __cogito_image_set_source(img = Image, source = string) (( -- )) { }
 fun __cogito_image(icon = string) (( Image )) { }
+fun __cogito_drawing_area() (( DrawingArea )) { }
+fun __cogito_drawing_area_on_press(area = DrawingArea, handler = any) (( -- )) { }
+fun __cogito_drawing_area_on_drag(area = DrawingArea, handler = any) (( -- )) { }
+fun __cogito_drawing_area_on_release(area = DrawingArea, handler = any) (( -- )) { }
+fun __cogito_drawing_area_get_x(area = DrawingArea) (( num )) { }
+fun __cogito_drawing_area_get_y(area = DrawingArea) (( num )) { }
+fun __cogito_drawing_area_get_pressed(area = DrawingArea) (( bool )) { }
+fun __cogito_shape(preset = num) (( Shape )) { }
+fun __cogito_shape_set_preset(shape = Shape, preset = num) (( -- )) { }
+fun __cogito_shape_get_preset(shape = Shape) (( num )) { }
+fun __cogito_shape_set_vertex(shape = Shape, index = num, x = num, y = num) (( -- )) { }
+fun __cogito_shape_get_vertex_x(shape = Shape, index = num) (( num )) { }
+fun __cogito_shape_get_vertex_y(shape = Shape, index = num) (( num )) { }
 fun __cogito_label_set_align(label = Label, align = num) (( -- )) { }
 fun __cogito_label_set_class(label = Label, cls = string) (( -- )) { }
 fun __cogito_label_set_ellipsis(label = Label, on = bool) (( -- )) { }
@@ -307,15 +324,15 @@ class App {
     }
     fun set_appid(this, id = string) (( App )) {
         __cogito_app_set_appid(this, id)
-        return this
+        return this.chain()
     }
     fun set_app_name(this, name = string) (( App )) {
         __cogito_app_set_app_name(this, name)
-        return this
+        return this.chain()
     }
     fun set_accent_color(this, color = string, follow_system = bool) (( App )) {
         __cogito_app_set_accent_color(this, color, follow_system)
-        return this
+        return this.chain()
     }
     fun set_ensor_variant(this, variant = num) (( App )) {
         __cogito_app_set_ensor_variant(this, variant)
@@ -3518,6 +3535,14 @@ fun switchbar(text = string) (( SwitchBar )) {
     return __cogito_switchbar(text)
 }
 
+fun drawing_area() (( DrawingArea )) {
+    return __cogito_drawing_area()
+}
+
+fun shape(preset = num) (( Shape )) {
+    return __cogito_shape(preset)
+}
+
 fun content_list() (( ContentList )) {
     return __cogito_content_list()
 }
@@ -3624,6 +3649,82 @@ class SwitchBar {
         return this
     }
     fun set_id(this, id = string) (( SwitchBar )) {
+        __cogito_node_set_id(this, id)
+        return this
+    }
+}
+
+class DrawingArea {
+    fun on_press(this, handler = any) (( DrawingArea )) {
+        __cogito_drawing_area_on_press(this, handler)
+        return this
+    }
+    fun on_drag(this, handler = any) (( DrawingArea )) {
+        __cogito_drawing_area_on_drag(this, handler)
+        return this
+    }
+    fun on_release(this, handler = any) (( DrawingArea )) {
+        __cogito_drawing_area_on_release(this, handler)
+        return this
+    }
+    fun get_x(this) (( num )) {
+        return __cogito_drawing_area_get_x(this)
+    }
+    fun get_y(this) (( num )) {
+        return __cogito_drawing_area_get_y(this)
+    }
+    fun get_pressed(this) (( bool )) {
+        return __cogito_drawing_area_get_pressed(this)
+    }
+    fun set_margins(this, left = num, top = num, right = num, bottom = num) (( DrawingArea )) {
+        __cogito_container_set_margins(this, left, top, right, bottom)
+        return this
+    }
+    fun set_hexpand(this, expand = bool) (( DrawingArea )) {
+        __cogito_container_set_hexpand(this, expand)
+        return this
+    }
+    fun set_vexpand(this, expand = bool) (( DrawingArea )) {
+        __cogito_container_set_vexpand(this, expand)
+        return this
+    }
+    fun set_class(this, cls = string) (( DrawingArea )) {
+        __cogito_node_set_class(this, cls)
+        return this
+    }
+    fun set_id(this, id = string) (( DrawingArea )) {
+        __cogito_node_set_id(this, id)
+        return this
+    }
+}
+
+class Shape {
+    fun set_preset(this, preset = num) (( Shape )) {
+        __cogito_shape_set_preset(this, preset)
+        return this
+    }
+    fun get_preset(this) (( num )) {
+        return __cogito_shape_get_preset(this)
+    }
+    fun set_vertex(this, index = num, x = num, y = num) (( Shape )) {
+        __cogito_shape_set_vertex(this, index, x, y)
+        return this
+    }
+    fun get_vertex_x(this, index = num) (( num )) {
+        return __cogito_shape_get_vertex_x(this, index)
+    }
+    fun get_vertex_y(this, index = num) (( num )) {
+        return __cogito_shape_get_vertex_y(this, index)
+    }
+    fun set_margins(this, left = num, top = num, right = num, bottom = num) (( Shape )) {
+        __cogito_container_set_margins(this, left, top, right, bottom)
+        return this
+    }
+    fun set_class(this, cls = string) (( Shape )) {
+        __cogito_node_set_class(this, cls)
+        return this
+    }
+    fun set_id(this, id = string) (( Shape )) {
         __cogito_node_set_id(this, id)
         return this
     }

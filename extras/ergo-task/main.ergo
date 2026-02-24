@@ -3,6 +3,10 @@ cask main
 bring stdr
 bring cogito
 
+macro is_blank_char() (( bool )) {
+    this == @" " || this == @"\t" || this == @"\n" || this == @"\r"
+}
+
 def ?tasks = []: [string]
 def ?completed = []: [bool]
 def sheet_open_state = cogito.state(false)
@@ -17,7 +21,7 @@ fun trim_text(text = string) (( string )) {
     let ?start = 0
     for (; start < n; start += 1) {
         let ch = text[start]
-        if ch != @" " && ch != @"\t" && ch != @"\n" && ch != @"\r" {
+        if !(ch !is_blank_char) {
             break
         }
     }
@@ -28,7 +32,7 @@ fun trim_text(text = string) (( string )) {
     let ?end = n - 1
     for (; end >= start; end -= 1) {
         let ch = text[end]
-        if ch != @" " && ch != @"\t" && ch != @"\n" && ch != @"\r" {
+        if !(ch !is_blank_char) {
             break
         }
     }

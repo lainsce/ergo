@@ -4,6 +4,10 @@ cask hello
 
 bring stdr
 
+macro nl() (( string )) {
+    @"$this\n"
+}
+
 entry () (( -- )) {
-    write(@"Hello, Ergo World!\n")
+    write(@"Hello, Ergo World!".nl())
 }

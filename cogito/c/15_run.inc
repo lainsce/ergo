@@ -833,7 +833,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     bool left_down = cogito_backend->is_mouse_button_down(0);
     bool left_pressed = cogito_backend->is_mouse_button_pressed(0);
     bool click = left_pressed; // Left button
-    if (cogito_pointer_capture && cogito_backend->is_mouse_button_released(0)) {
+    if (cogito_pointer_capture && cogito_backend->is_mouse_button_released(0) &&
+        cogito_pointer_capture->kind != COGITO_DRAWING_AREA) {
       cogito_pointer_capture = NULL;
     }
 
@@ -1579,6 +1580,30 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         cogito_timepicker_active = NULL;
       }
     }
+    // Drawing area drag/release handling
+    if (cogito_pointer_capture && cogito_pointer_capture->kind == COGITO_DRAWING_AREA) {
+      CogitoNode* da = cogito_pointer_capture;
+      if (cogito_backend->is_mouse_button_down(0)) {
+        int px = mx - da->x;
+        int py = my - da->y;
+        if (px != da->drawing_area.pointer_x || py != da->drawing_area.pointer_y) {
+          da->drawing_area.pointer_x = px;
+          da->drawing_area.pointer_y = py;
+          da->drawing_area.dragging = true;
+          cogito_invoke_change(da);
+        }
+      } else {
+        da->drawing_area.pointer_x = mx - da->x;
+        da->drawing_area.pointer_y = my - da->y;
+        da->drawing_area.pressed = false;
+        da->drawing_area.dragging = false;
+        if (da->on_action) {
+          ErgoVal arg = EV_OBJ(da);
+          cogito_invoke(da->on_action, 1, &arg);
+        }
+        cogito_pointer_capture = NULL;
+      }
+    }
     // ViewDual drag handling
     if (cogito_pointer_capture && cogito_pointer_capture->kind == COGITO_VIEW_DUAL) {
       CogitoNode* vd = cogito_pointer_capture;
@@ -1619,8 +1644,13 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         int size = cogito_node_font_size(cogito_focused);
         const char* t = cogito_focused->text ? cogito_focused->text->data : "";
         if (cogito_focused->kind == COGITO_TEXTFIELD || cogito_focused->kind == COGITO_SEARCHFIELD) {
-          int sf_pad = cogito_focused->kind == COGITO_SEARCHFIELD ? (12 + 16 + 8) : pad;
-          int rel_x = mx - (cogito_focused->x + sf_pad);
+          int text_x = cogito_focused->x + 16;
+          if (cogito_focused->kind == COGITO_SEARCHFIELD) {
+            text_x = cogito_focused->x + (12 + 16 + 8);
+          } else if (cogito_focused->icon && cogito_focused->icon->data && cogito_focused->icon->data[0]) {
+            text_x = cogito_focused->x + (12 + 24 + 16);
+          }
+          int rel_x = mx - text_x;
           if (rel_x < 0) rel_x = 0;
           int idx = cogito_text_index_from_x(cogito_focused, t, size, rel_x);
           cogito_focused->text_input.sel_end = idx;
@@ -1969,8 +1999,13 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           int size = cogito_node_font_size(focus_hit);
           const char* t = focus_hit->text ? focus_hit->text->data : "";
           if (focus_hit->kind == COGITO_TEXTFIELD || focus_hit->kind == COGITO_SEARCHFIELD) {
-            int sf_pad = focus_hit->kind == COGITO_SEARCHFIELD ? (12 + 16 + 8) : pad;
-            int rel_x = mx - (focus_hit->x + sf_pad);
+            int text_x = focus_hit->x + 16;
+            if (focus_hit->kind == COGITO_SEARCHFIELD) {
+              text_x = focus_hit->x + (12 + 16 + 8);
+            } else if (focus_hit->icon && focus_hit->icon->data && focus_hit->icon->data[0]) {
+              text_x = focus_hit->x + (12 + 24 + 16);
+            }
+            int rel_x = mx - text_x;
             if (rel_x < 0) rel_x = 0;
             focus_hit->text_input.caret = cogito_text_index_from_x(focus_hit, t, size, rel_x);
             focus_hit->text_input.sel_start = focus_hit->text_input.caret;
@@ -2238,6 +2273,15 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
               cogito_side_sheet_active = hit;
               cogito_pointer_capture = hit;
             }
+          } else if (hit->kind == COGITO_DRAWING_AREA) {
+            hit->drawing_area.pressed = true;
+            hit->drawing_area.dragging = false;
+            hit->drawing_area.pointer_x = mx - hit->x;
+            hit->drawing_area.pointer_y = my - hit->y;
+            hit->drawing_area.press_x = hit->drawing_area.pointer_x;
+            hit->drawing_area.press_y = hit->drawing_area.pointer_y;
+            cogito_pointer_capture = hit;
+            cogito_invoke_click(hit);
           } else if (hit->kind == COGITO_FAB) {
             cogito_invoke_click(hit);
           } else if (hit->kind == COGITO_FAB_MENU) {

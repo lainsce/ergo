@@ -5,8 +5,12 @@ bring stdr
 -- Ergo Example: Optionals and Safe Operations
 -- Example: Optionals and Safe Division in Ergo
 
+macro is_present() (( bool )) {
+    this != null
+}
+
 fun describe_number(n = num) (( -- )) {
-    if n != null {
+    if n.is_present() {
         writef(@"number={}\n", n)
     } else {
         write(@"number=(none)\n")
@@ -19,7 +23,7 @@ fun safe_divide(a = num, b = num) (( -- )) {
     } else {
         null
     }
-    let output = if result != null {
+    let output = if result.is_present() {
         str(result)
     } else {
         @"(div by zero)"

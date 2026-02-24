@@ -3,6 +3,10 @@ cask main
 bring stdr
 bring cogito
 
+macro with_ext(ext = string) (( string )) {
+    @"$this$ext"
+}
+
 def editor = cogito.textview(@"")
 def bar = cogito.appbar(@"Untitled.txt", @"Ready")
 def ?title_text = @"Untitled.txt"
@@ -84,7 +88,6 @@ fun show_open_dialog() (( -- )) {
     }
     let path = str(picked)
     let text = stdr.read_text_file(path)
-    let shown = basename(path)
     if !is_txt_path(path) {
         set_status(@"Open failed: choose a .txt file")
     } elif is_null(text) {
@@ -94,7 +97,7 @@ fun show_open_dialog() (( -- )) {
         current_path = path
         is_dirty = false
         refresh_header()
-        set_status(@"Opened $shown")
+        set_status(@"Opened $basename(path)")
     }
 }
 
@@ -107,9 +110,8 @@ fun show_save_dialog() (( -- )) {
 
     let ?path = str(picked)
     if !is_txt_path(path) {
-        path = @"$path.txt"
+        path = path !with_ext @".txt"
     }
-    let shown = basename(path)
 
     let ok = stdr.write_text_file(path, editor.text())
     if !ok {
@@ -118,7 +120,7 @@ fun show_save_dialog() (( -- )) {
         current_path = path
         is_dirty = false
         refresh_header()
-        set_status(@"Saved $shown")
+        set_status(@"Saved $basename(path)")
     }
 }
 

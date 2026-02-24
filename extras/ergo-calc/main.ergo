@@ -3,6 +3,10 @@ cask main
 bring stdr
 bring cogito
 
+macro append_digit(d = num) (( num )) {
+    this * 10 + d
+}
+
 def display_expression = cogito.label(@"")
 def display_working = cogito.label(@"0")
 def ?current_value = 0.0
@@ -95,8 +99,7 @@ fun input_digit(d = num) (( -- )) {
         next = d
         reset_input = false
     } else {
-        next *= 10
-        next += d
+        next = next !append_digit d
     }
 
     current_value = next

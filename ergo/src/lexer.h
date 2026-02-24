@@ -9,6 +9,8 @@
 #include "str.h"
 #include "vec.h"
 
+typedef struct Expr Expr;
+
 typedef enum {
     TOK_INVALID = 0,
     TOK_EOF,
@@ -56,6 +58,7 @@ typedef enum {
     TOK_KW_cask,
     TOK_KW_bring,
     TOK_KW_fun,
+    TOK_KW_macro,
     TOK_KW_entry,
     TOK_KW_class,
     TOK_KW_struct,
@@ -86,12 +89,16 @@ const char *tok_kind_desc(TokKind kind);
 
 typedef enum {
     STR_PART_TEXT,
-    STR_PART_VAR
+    STR_PART_EXPR_RAW,
+    STR_PART_EXPR
 } StrPartKind;
 
 typedef struct {
     StrPartKind kind;
-    Str text;
+    union {
+        Str text;
+        Expr *expr;
+    } as;
 } StrPart;
 
 typedef struct {

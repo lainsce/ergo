@@ -152,6 +152,16 @@ static const char *cogito_font_bold_path_active = NULL;
 #define cogito_image_set_size cogito_image_set_size_ergo
 #define cogito_image_set_radius cogito_image_set_radius_ergo
 #define cogito_image_set_alt_text cogito_image_set_alt_text_ergo
+#define cogito_drawing_area_new cogito_drawing_area_new_ergo
+#define cogito_drawing_area_get_x cogito_drawing_area_get_x_ergo
+#define cogito_drawing_area_get_y cogito_drawing_area_get_y_ergo
+#define cogito_drawing_area_get_pressed cogito_drawing_area_get_pressed_ergo
+#define cogito_shape_new cogito_shape_new_ergo
+#define cogito_shape_set_preset cogito_shape_set_preset_ergo
+#define cogito_shape_get_preset cogito_shape_get_preset_ergo
+#define cogito_shape_set_vertex cogito_shape_set_vertex_ergo
+#define cogito_shape_get_vertex_x cogito_shape_get_vertex_x_ergo
+#define cogito_shape_get_vertex_y cogito_shape_get_vertex_y_ergo
 #define cogito_label_new cogito_label_new_ergo
 #define cogito_label_set_align cogito_label_set_align_ergo
 #define cogito_label_set_class cogito_label_set_class_ergo
@@ -463,6 +473,16 @@ static const char *cogito_font_bold_path_active = NULL;
 #undef cogito_image_set_size
 #undef cogito_image_set_radius
 #undef cogito_image_set_alt_text
+#undef cogito_drawing_area_new
+#undef cogito_drawing_area_get_x
+#undef cogito_drawing_area_get_y
+#undef cogito_drawing_area_get_pressed
+#undef cogito_shape_new
+#undef cogito_shape_set_preset
+#undef cogito_shape_get_preset
+#undef cogito_shape_set_vertex
+#undef cogito_shape_get_vertex_x
+#undef cogito_shape_get_vertex_y
 #undef cogito_label_new
 #undef cogito_label_set_align
 #undef cogito_label_set_class
@@ -997,6 +1017,10 @@ static CogitoKind cogito_kind_from_public(cogito_node_kind kind) {
     return COGITO_TOOLTIP;
   case COGITO_NODE_IMAGE:
     return COGITO_IMAGE;
+  case COGITO_NODE_DRAWING_AREA:
+    return COGITO_DRAWING_AREA;
+  case COGITO_NODE_SHAPE:
+    return COGITO_SHAPE;
   default:
     return COGITO_KIND_COUNT;
   }
@@ -1340,6 +1364,83 @@ cogito_node *cogito_image_new(const char *icon) {
   if (iv.tag == EVT_STR)
     ergo_release_val(iv);
   return cogito_from_val(v);
+}
+cogito_node *cogito_drawing_area_new(void) {
+  return cogito_from_val(cogito_drawing_area_new_ergo());
+}
+cogito_node *cogito_shape_new(int preset) {
+  return cogito_from_val(cogito_shape_new_ergo(EV_INT(preset)));
+}
+void cogito_shape_set_preset(cogito_node *shape, int preset) {
+  if (!shape)
+    return;
+  cogito_shape_set_preset_ergo(EV_OBJ(shape), EV_INT(preset));
+}
+int cogito_shape_get_preset(cogito_node *shape) {
+  if (!shape)
+    return 0;
+  ErgoVal v = cogito_shape_get_preset_ergo(EV_OBJ(shape));
+  return (int)ergo_as_int(v);
+}
+void cogito_shape_set_vertex(cogito_node *shape, int index, float x, float y) {
+  if (!shape)
+    return;
+  cogito_shape_set_vertex_ergo(EV_OBJ(shape), EV_INT(index), EV_FLOAT(x),
+                               EV_FLOAT(y));
+}
+float cogito_shape_get_vertex_x(cogito_node *shape, int index) {
+  if (!shape)
+    return 0.0f;
+  ErgoVal v = cogito_shape_get_vertex_x_ergo(EV_OBJ(shape), EV_INT(index));
+  return (float)ergo_as_float(v);
+}
+float cogito_shape_get_vertex_y(cogito_node *shape, int index) {
+  if (!shape)
+    return 0.0f;
+  ErgoVal v = cogito_shape_get_vertex_y_ergo(EV_OBJ(shape), EV_INT(index));
+  return (float)ergo_as_float(v);
+}
+int cogito_drawing_area_get_x(cogito_node *area) {
+  if (!area)
+    return 0;
+  ErgoVal v = cogito_drawing_area_get_x_ergo(EV_OBJ(area));
+  return (int)ergo_as_int(v);
+}
+int cogito_drawing_area_get_y(cogito_node *area) {
+  if (!area)
+    return 0;
+  ErgoVal v = cogito_drawing_area_get_y_ergo(EV_OBJ(area));
+  return (int)ergo_as_int(v);
+}
+bool cogito_drawing_area_get_pressed(cogito_node *area) {
+  if (!area)
+    return false;
+  ErgoVal v = cogito_drawing_area_get_pressed_ergo(EV_OBJ(area));
+  return ergo_as_bool(v);
+}
+void cogito_drawing_area_on_press(cogito_node *area, cogito_node_fn fn,
+                                  void *user) {
+  cogito_node_on_click(area, fn, user);
+}
+void cogito_drawing_area_on_drag(cogito_node *area, cogito_node_fn fn,
+                                 void *user) {
+  cogito_node_on_change(area, fn, user);
+}
+void cogito_drawing_area_on_release(cogito_node *area, cogito_node_fn fn,
+                                    void *user) {
+  if (!area)
+    return;
+  CogitoNode *n = (CogitoNode *)area;
+  if (!fn) {
+    cogito_set_fn(&n->on_action, NULL);
+    return;
+  }
+  CogitoCbNode *env = (CogitoCbNode *)calloc(1, sizeof(*env));
+  env->fn = fn;
+  env->user = user;
+  ErgoFn *wrap = cogito_make_fn(cogito_cb_node, env);
+  cogito_set_fn(&n->on_action, wrap);
+  ergo_release_val(EV_FN(wrap));
 }
 
 cogito_node *cogito_active_indicator_new(void) {

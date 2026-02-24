@@ -331,6 +331,7 @@ struct Stmt {
 
 typedef enum {
     DECL_FUN,
+    DECL_MACRO,
     DECL_ENTRY,
     DECL_CLASS,
     DECL_CONST,
@@ -346,6 +347,14 @@ typedef struct {
     RetSpec ret;
     Stmt *body;
 } FunDecl;
+
+typedef struct {
+    Str name;
+    Param **params;
+    size_t params_len;
+    RetSpec ret;
+    Stmt *body;
+} MacroDecl;
 
 typedef struct {
     RetSpec ret;
@@ -391,6 +400,7 @@ struct Decl {
     int col;
     union {
         FunDecl fun;
+        MacroDecl macro;
         EntryDecl entry;
         ClassDecl class_decl;
         ConstDecl const_decl;

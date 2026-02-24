@@ -1066,6 +1066,72 @@ static void cogito_draw_node(CogitoNode* n);
 
 #include "widgets/draw/toasts.inc"
 
+static int cogito_shape_intersections(const float* px, const float* py, int y, int* out_xs, int max_xs) {
+  if (!px || !py || !out_xs || max_xs <= 0) return 0;
+  int count = 0;
+  float fy = (float)y + 0.5f;
+  for (int i = 0; i < 8; i++) {
+    int j = (i + 1) & 7;
+    float y1 = py[i];
+    float y2 = py[j];
+    if ((fy >= y1 && fy < y2) || (fy >= y2 && fy < y1)) {
+      float t = (fy - y1) / (y2 - y1);
+      float x = px[i] + t * (px[j] - px[i]);
+      if (count < max_xs) out_xs[count++] = (int)lroundf(x);
+    }
+  }
+  for (int i = 0; i < count; i++) {
+    for (int j = i + 1; j < count; j++) {
+      if (out_xs[j] < out_xs[i]) {
+        int tmp = out_xs[i];
+        out_xs[i] = out_xs[j];
+        out_xs[j] = tmp;
+      }
+    }
+  }
+  return count;
+}
+
+static void cogito_draw_shape_polygon(const float* px, const float* py, CogitoColor fill, CogitoColor stroke, int stroke_w) {
+  if (!px || !py) return;
+  int min_y = INT_MAX;
+  int max_y = INT_MIN;
+  for (int i = 0; i < 8; i++) {
+    int iy = (int)floorf(py[i]);
+    if (iy < min_y) min_y = iy;
+    if (iy > max_y) max_y = iy;
+  }
+  if (min_y > max_y) return;
+  int xs[16];
+  for (int y = min_y; y <= max_y; y++) {
+    int n = cogito_shape_intersections(px, py, y, xs, 16);
+    for (int i = 0; i + 1 < n; i += 2) {
+      int x0 = xs[i];
+      int x1 = xs[i + 1];
+      if (x1 < x0) {
+        int t = x0;
+        x0 = x1;
+        x1 = t;
+      }
+      if (cogito_backend && cogito_backend->draw_rect && x1 >= x0) {
+        cogito_backend->draw_rect(x0, y, x1 - x0 + 1, 1, fill);
+      }
+    }
+  }
+  if (stroke_w > 0) {
+    for (int i = 0; i < 8; i++) {
+      int j = (i + 1) & 7;
+      cogito_draw_line((int)lroundf(px[i]), (int)lroundf(py[i]),
+                       (int)lroundf(px[j]), (int)lroundf(py[j]),
+                       stroke);
+      if (stroke_w > 1) {
+        cogito_draw_line((int)lroundf(px[i]) + 1, (int)lroundf(py[i]),
+                         (int)lroundf(px[j]) + 1, (int)lroundf(py[j]),
+                         stroke);
+      }
+    }
+  }
+}
 
 static void cogito_draw_node(CogitoNode* n) {
   if (!n) return;
@@ -1110,6 +1176,8 @@ static void cogito_draw_node(CogitoNode* n) {
     #include "widgets/draw/toolbar.inc"
     #include "widgets/draw/dialog_slot.inc"
     #include "widgets/draw/view_switcher.inc"
+    #include "widgets/draw/drawing_area.inc"
+    #include "widgets/draw/shape.inc"
 
 case COGITO_TOASTS:
       if (!cogito_toasts_force_draw) {

@@ -4,6 +4,10 @@ bring stdr
 
 -- Ergo Example: Short-Circuit Logic
 
+macro named(label = string) (( string )) {
+    @"$label=$this"
+}
+
 fun short_circuit_demo () (( -- )) {
     write(@"-- short_circuit_demo --")
 
@@ -12,28 +16,28 @@ fun short_circuit_demo () (( -- )) {
 
     -- OR short-circuit: rhs should be assigned only if lhs is false
     let result_or = lhs || (rhs = true)
-    writef(@"result_or={} rhs_after_or={}\n", result_or, rhs)
+    writef(@"{} {}\n", result_or.named(@"result_or"), rhs.named(@"rhs_after_or"))
 
     let lhs_two = true
     rhs = false
 
     -- OR short-circuit: rhs should NOT be assigned because lhs_two is true
     let result_or_two = lhs_two || (rhs = true)
-    writef(@"result_or_two={} rhs_after_or_two={}\n", result_or_two, rhs)
+    writef(@"{} {}\n", result_or_two.named(@"result_or_two"), rhs.named(@"rhs_after_or_two"))
 
     let a = false
     let ?b = true
 
     -- AND short-circuit: b should NOT be assigned because a is false
     let result_and = a && (b = false)
-    writef(@"result_and={} b_after_and={}\n", result_and, b)
+    writef(@"{} {}\n", result_and.named(@"result_and"), b.named(@"b_after_and"))
 
     let a_two = true
     b = true
 
     -- AND short-circuit: b should be assigned because a_two is true
     let result_and_two = a_two && (b = false)
-    writef(@"result_and_two={} b_after_and_two={}\n", result_and_two, b)
+    writef(@"{} {}\n", result_and_two.named(@"result_and_two"), b.named(@"b_after_and_two"))
 }
 
 entry () (( -- )) {
