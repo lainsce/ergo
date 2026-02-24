@@ -159,6 +159,11 @@ static const char *cogito_font_bold_path_active = NULL;
 #define cogito_shape_new cogito_shape_new_ergo
 #define cogito_shape_set_preset cogito_shape_set_preset_ergo
 #define cogito_shape_get_preset cogito_shape_get_preset_ergo
+#define cogito_shape_set_size cogito_shape_set_size_ergo
+#define cogito_shape_get_size cogito_shape_get_size_ergo
+#define cogito_shape_set_color cogito_shape_set_color_ergo
+#define cogito_shape_set_color_style cogito_shape_set_color_style_ergo
+#define cogito_shape_get_color_style cogito_shape_get_color_style_ergo
 #define cogito_shape_set_vertex cogito_shape_set_vertex_ergo
 #define cogito_shape_get_vertex_x cogito_shape_get_vertex_x_ergo
 #define cogito_shape_get_vertex_y cogito_shape_get_vertex_y_ergo
@@ -480,6 +485,11 @@ static const char *cogito_font_bold_path_active = NULL;
 #undef cogito_shape_new
 #undef cogito_shape_set_preset
 #undef cogito_shape_get_preset
+#undef cogito_shape_set_size
+#undef cogito_shape_get_size
+#undef cogito_shape_set_color
+#undef cogito_shape_set_color_style
+#undef cogito_shape_get_color_style
 #undef cogito_shape_set_vertex
 #undef cogito_shape_get_vertex_x
 #undef cogito_shape_get_vertex_y
@@ -1380,6 +1390,36 @@ int cogito_shape_get_preset(cogito_node *shape) {
   if (!shape)
     return 0;
   ErgoVal v = cogito_shape_get_preset_ergo(EV_OBJ(shape));
+  return (int)ergo_as_int(v);
+}
+void cogito_shape_set_size(cogito_node *shape, int size_dp) {
+  if (!shape)
+    return;
+  cogito_shape_set_size_ergo(EV_OBJ(shape), EV_INT(size_dp));
+}
+int cogito_shape_get_size(cogito_node *shape) {
+  if (!shape)
+    return 96;
+  ErgoVal v = cogito_shape_get_size_ergo(EV_OBJ(shape));
+  return (int)ergo_as_int(v);
+}
+void cogito_shape_set_color(cogito_node *shape, const char *color) {
+  if (!shape)
+    return;
+  ErgoVal cv = cogito_val_from_cstr(color);
+  cogito_shape_set_color_ergo(EV_OBJ(shape), cv);
+  if (cv.tag == EVT_STR)
+    ergo_release_val(cv);
+}
+void cogito_shape_set_color_style(cogito_node *shape, int style) {
+  if (!shape)
+    return;
+  cogito_shape_set_color_style_ergo(EV_OBJ(shape), EV_INT(style));
+}
+int cogito_shape_get_color_style(cogito_node *shape) {
+  if (!shape)
+    return 0;
+  ErgoVal v = cogito_shape_get_color_style_ergo(EV_OBJ(shape));
   return (int)ergo_as_int(v);
 }
 void cogito_shape_set_vertex(cogito_node *shape, int index, float x, float y) {

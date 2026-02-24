@@ -202,6 +202,81 @@
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_shape_set_size")) {
+                        GenExpr shape, sizev;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &shape, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &sizev, err)) { gen_expr_free(&shape); return false; }
+                        w_line(&cg->w, "cogito_shape_set_size(%s, %s);", shape.tmp, sizev.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", shape.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", sizev.tmp);
+                        gen_expr_release_except(cg, &shape, shape.tmp);
+                        gen_expr_release_except(cg, &sizev, sizev.tmp);
+                        gen_expr_free(&shape);
+                        gen_expr_free(&sizev);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_shape_get_size")) {
+                        GenExpr shape;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &shape, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_shape_get_size(%s);", t, shape.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", shape.tmp);
+                        gen_expr_release_except(cg, &shape, shape.tmp);
+                        gen_expr_free(&shape);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_shape_set_color")) {
+                        GenExpr shape, colorv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &shape, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &colorv, err)) { gen_expr_free(&shape); return false; }
+                        w_line(&cg->w, "cogito_shape_set_color(%s, %s);", shape.tmp, colorv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", shape.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", colorv.tmp);
+                        gen_expr_release_except(cg, &shape, shape.tmp);
+                        gen_expr_release_except(cg, &colorv, colorv.tmp);
+                        gen_expr_free(&shape);
+                        gen_expr_free(&colorv);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_shape_set_color_style")) {
+                        GenExpr shape, stylev;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &shape, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &stylev, err)) { gen_expr_free(&shape); return false; }
+                        w_line(&cg->w, "cogito_shape_set_color_style(%s, %s);", shape.tmp, stylev.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", shape.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", stylev.tmp);
+                        gen_expr_release_except(cg, &shape, shape.tmp);
+                        gen_expr_release_except(cg, &stylev, stylev.tmp);
+                        gen_expr_free(&shape);
+                        gen_expr_free(&stylev);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_shape_get_color_style")) {
+                        GenExpr shape;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &shape, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = cogito_shape_get_color_style(%s);", t, shape.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", shape.tmp);
+                        gen_expr_release_except(cg, &shape, shape.tmp);
+                        gen_expr_free(&shape);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_shape_set_vertex")) {
                         GenExpr shape, idx, x, y;
                         if (!gen_expr(cg, path, e->as.call.args[0], &shape, err)) return false;

@@ -77,6 +77,11 @@
 #undef cogito_shape_new
 #undef cogito_shape_set_preset
 #undef cogito_shape_get_preset
+#undef cogito_shape_set_size
+#undef cogito_shape_get_size
+#undef cogito_shape_set_color
+#undef cogito_shape_set_color_style
+#undef cogito_shape_get_color_style
 #undef cogito_shape_set_vertex
 #undef cogito_shape_get_vertex_x
 #undef cogito_shape_get_vertex_y
@@ -983,6 +988,33 @@ static void __cogito_shape_set_preset(ErgoVal shapev, ErgoVal presetv) {
 static ErgoVal __cogito_shape_get_preset(ErgoVal shapev) {
   cogito_node* n = cogito_node_from_val(shapev);
   return EV_INT(cogito_shape_get_preset(n));
+}
+static void __cogito_shape_set_size(ErgoVal shapev, ErgoVal sizev) {
+  cogito_node* n = cogito_node_from_val(shapev);
+  cogito_shape_set_size(n, (int)ergo_as_int(sizev));
+}
+static ErgoVal __cogito_shape_get_size(ErgoVal shapev) {
+  cogito_node* n = cogito_node_from_val(shapev);
+  return EV_INT(cogito_shape_get_size(n));
+}
+static void __cogito_shape_set_color(ErgoVal shapev, ErgoVal colorv) {
+  cogito_node* n = cogito_node_from_val(shapev);
+  if (colorv.tag == EVT_INT || colorv.tag == EVT_FLOAT) {
+    cogito_shape_set_color_style(n, (int)ergo_as_int(colorv));
+    return;
+  }
+  ErgoStr* tmp = NULL;
+  const char* text = cogito_required_cstr(colorv, &tmp);
+  cogito_shape_set_color(n, text);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+static void __cogito_shape_set_color_style(ErgoVal shapev, ErgoVal stylev) {
+  cogito_node* n = cogito_node_from_val(shapev);
+  cogito_shape_set_color_style(n, (int)ergo_as_int(stylev));
+}
+static ErgoVal __cogito_shape_get_color_style(ErgoVal shapev) {
+  cogito_node* n = cogito_node_from_val(shapev);
+  return EV_INT(cogito_shape_get_color_style(n));
 }
 static void __cogito_shape_set_vertex(ErgoVal shapev, ErgoVal idxv, ErgoVal xv, ErgoVal yv) {
   cogito_node* n = cogito_node_from_val(shapev);
@@ -3115,6 +3147,11 @@ void __cogito_button_on_click(ErgoVal btn, ErgoVal handler);
 #define cogito_shape_new __cogito_shape
 #define cogito_shape_set_preset __cogito_shape_set_preset
 #define cogito_shape_get_preset __cogito_shape_get_preset
+#define cogito_shape_set_size __cogito_shape_set_size
+#define cogito_shape_get_size __cogito_shape_get_size
+#define cogito_shape_set_color __cogito_shape_set_color
+#define cogito_shape_set_color_style __cogito_shape_set_color_style
+#define cogito_shape_get_color_style __cogito_shape_get_color_style
 #define cogito_shape_set_vertex __cogito_shape_set_vertex
 #define cogito_shape_get_vertex_x __cogito_shape_get_vertex_x
 #define cogito_shape_get_vertex_y __cogito_shape_get_vertex_y

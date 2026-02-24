@@ -1066,67 +1066,253 @@ static void cogito_draw_node(CogitoNode* n);
 
 #include "widgets/draw/toasts.inc"
 
-static int cogito_shape_intersections(const float* px, const float* py, int y, int* out_xs, int max_xs) {
-  if (!px || !py || !out_xs || max_xs <= 0) return 0;
+static int cogito_shape_intersections(const float* px, const float* py, int point_count, int y, float* out_xs, int max_xs) {
+  if (!px || !py || point_count < 3 || !out_xs || max_xs <= 0) return 0;
   int count = 0;
   float fy = (float)y + 0.5f;
-  for (int i = 0; i < 8; i++) {
-    int j = (i + 1) & 7;
+  for (int i = 0; i < point_count; i++) {
+    int j = (i + 1) % point_count;
     float y1 = py[i];
     float y2 = py[j];
     if ((fy >= y1 && fy < y2) || (fy >= y2 && fy < y1)) {
       float t = (fy - y1) / (y2 - y1);
       float x = px[i] + t * (px[j] - px[i]);
-      if (count < max_xs) out_xs[count++] = (int)lroundf(x);
+      if (count < max_xs) out_xs[count++] = x;
     }
   }
   for (int i = 0; i < count; i++) {
     for (int j = i + 1; j < count; j++) {
       if (out_xs[j] < out_xs[i]) {
-        int tmp = out_xs[i];
+        float tmp = out_xs[i];
         out_xs[i] = out_xs[j];
         out_xs[j] = tmp;
       }
     }
   }
-  return count;
+  // Collapse near-duplicate intersections (vertex-touch artifacts) so they do
+  // not create accidental 1px spans when paired.
+  const float dedup_eps = 1e-3f;
+  int uniq = 0;
+  for (int i = 0; i < count; i++) {
+    if (uniq == 0 || fabsf(out_xs[i] - out_xs[uniq - 1]) > dedup_eps) {
+      out_xs[uniq++] = out_xs[i];
+    }
+  }
+  // Keep an even number for interval pairing.
+  if (uniq & 1) uniq--;
+  return uniq;
 }
 
-static void cogito_draw_shape_polygon(const float* px, const float* py, CogitoColor fill, CogitoColor stroke, int stroke_w) {
+static bool cogito_shape_point_inside_evenodd(const float* px, const float* py, int point_count, float x, float y) {
+  bool inside = false;
+  for (int i = 0, j = point_count - 1; i < point_count; j = i++) {
+    float xi = px[i], yi = py[i];
+    float xj = px[j], yj = py[j];
+    bool crosses = ((yi > y) != (yj > y));
+    if (!crosses) continue;
+    float xint = (xj - xi) * (y - yi) / (yj - yi) + xi;
+    if (x < xint) inside = !inside;
+  }
+  return inside;
+}
+
+#define COGITO_SHAPE_MAX_POINTS COGITO_SHAPE_SVG_POLY_MAX
+
+static int cogito_shape_build_smooth_points(const float* px, const float* py, int point_count, float* out_x, float* out_y, int max_out, bool smooth_points) {
+  if (!px || !py || !out_x || !out_y || point_count < 3 || max_out < point_count) return 0;
+  if (point_count > COGITO_SHAPE_MAX_POINTS) point_count = COGITO_SHAPE_MAX_POINTS;
+  if (max_out > COGITO_SHAPE_MAX_POINTS) max_out = COGITO_SHAPE_MAX_POINTS;
+
+  float work_x[COGITO_SHAPE_MAX_POINTS];
+  float work_y[COGITO_SHAPE_MAX_POINTS];
+  int work_n = point_count;
+  for (int i = 0; i < work_n; i++) {
+    work_x[i] = px[i];
+    work_y[i] = py[i];
+  }
+
+  if (smooth_points) {
+    // Chaikin corner cutting for closed paths: smooths without spline overshoot.
+    while ((work_n * 2) <= max_out) {
+      float next_x[COGITO_SHAPE_MAX_POINTS];
+      float next_y[COGITO_SHAPE_MAX_POINTS];
+      int next_n = 0;
+      for (int i = 0; i < work_n; i++) {
+        int j = (i + 1) % work_n;
+        float x0 = work_x[i];
+        float y0 = work_y[i];
+        float x1 = work_x[j];
+        float y1 = work_y[j];
+        if (next_n + 1 >= COGITO_SHAPE_MAX_POINTS) break;
+        next_x[next_n] = 0.75f * x0 + 0.25f * x1;
+        next_y[next_n] = 0.75f * y0 + 0.25f * y1;
+        next_n++;
+        next_x[next_n] = 0.25f * x0 + 0.75f * x1;
+        next_y[next_n] = 0.25f * y0 + 0.75f * y1;
+        next_n++;
+      }
+      if (next_n < 3) break;
+      work_n = next_n;
+      for (int i = 0; i < work_n; i++) {
+        work_x[i] = next_x[i];
+        work_y[i] = next_y[i];
+      }
+    }
+  }
+
+  for (int i = 0; i < work_n; i++) {
+    out_x[i] = work_x[i];
+    out_y[i] = work_y[i];
+  }
+  if (smooth_points) {
+    const float k = 0.06f;
+    float tmp_x[COGITO_SHAPE_MAX_POINTS];
+    float tmp_y[COGITO_SHAPE_MAX_POINTS];
+    for (int i = 0; i < work_n; i++) {
+      int ip = (i - 1 + work_n) % work_n;
+      int in = (i + 1) % work_n;
+      float avg_x = (out_x[ip] + out_x[in]) * 0.5f;
+      float avg_y = (out_y[ip] + out_y[in]) * 0.5f;
+      tmp_x[i] = out_x[i] * (1.0f - k) + avg_x * k;
+      tmp_y[i] = out_y[i] * (1.0f - k) + avg_y * k;
+    }
+    for (int i = 0; i < work_n; i++) {
+      out_x[i] = tmp_x[i];
+      out_y[i] = tmp_y[i];
+    }
+  }
+  return work_n;
+}
+
+static void cogito_draw_shape_polygon(const float* px, const float* py, int in_point_count, CogitoColor fill, CogitoColor stroke, int stroke_w, bool smooth_points, bool antialias) {
   if (!px || !py) return;
+  int ctrl_count = in_point_count;
+  if (ctrl_count < 3) return;
+  if (ctrl_count > COGITO_SHAPE_MAX_POINTS) ctrl_count = COGITO_SHAPE_MAX_POINTS;
+  float smooth_x[COGITO_SHAPE_MAX_POINTS];
+  float smooth_y[COGITO_SHAPE_MAX_POINTS];
+  int point_count = cogito_shape_build_smooth_points(px, py, ctrl_count, smooth_x, smooth_y, COGITO_SHAPE_MAX_POINTS, smooth_points);
+  const float* draw_x = px;
+  const float* draw_y = py;
+  if (point_count >= 3) {
+    draw_x = smooth_x;
+    draw_y = smooth_y;
+  } else {
+    point_count = ctrl_count;
+  }
+
+  float min_xf = draw_x[0], max_xf = draw_x[0];
+  float min_yf = draw_y[0], max_yf = draw_y[0];
+  for (int i = 1; i < point_count; i++) {
+    if (draw_x[i] < min_xf) min_xf = draw_x[i];
+    if (draw_x[i] > max_xf) max_xf = draw_x[i];
+    if (draw_y[i] < min_yf) min_yf = draw_y[i];
+    if (draw_y[i] > max_yf) max_yf = draw_y[i];
+  }
+  float w = max_xf - min_xf;
+  float h = max_yf - min_yf;
+  float s = (w < h) ? w : h;
+  if (s < 1.0f) s = 1.0f;
+  float tol = 32.0f / s;
+  if (tol < 0.25f) tol = 0.25f;
+  if (tol > 1.0f) tol = 1.0f;
+
+  int min_x = (int)floorf(min_xf);
+  int max_x = (int)floorf(max_xf);
+
   int min_y = INT_MAX;
   int max_y = INT_MIN;
-  for (int i = 0; i < 8; i++) {
-    int iy = (int)floorf(py[i]);
+  for (int i = 0; i < point_count; i++) {
+    int iy = (int)floorf(draw_y[i]);
     if (iy < min_y) min_y = iy;
     if (iy > max_y) max_y = iy;
   }
   if (min_y > max_y) return;
-  int xs[16];
+  if (min_x > max_x) return;
+
+  if (antialias && !smooth_points) {
+    // For literal SVG-like shapes, supersampled even-odd fill avoids scanline
+    // intersection pairing artifacts at sharp spikes.
+    const float offs[4] = {0.125f, 0.375f, 0.625f, 0.875f};
+    const int samples = 16;
+    for (int y = min_y; y <= max_y; y++) {
+      for (int x = min_x; x <= max_x; x++) {
+        int hit = 0;
+        for (int oy = 0; oy < 4; oy++) {
+          for (int ox = 0; ox < 4; ox++) {
+            float sx = (float)x + offs[ox];
+            float sy = (float)y + offs[oy];
+            if (cogito_shape_point_inside_evenodd(draw_x, draw_y, point_count, sx, sy)) hit++;
+          }
+        }
+        if (hit <= 0) continue;
+        CogitoColor c = fill;
+        int a = (int)lroundf((float)fill.a * ((float)hit / (float)samples));
+        if (a <= 0) continue;
+        if (a > 255) a = 255;
+        c.a = (uint8_t)a;
+        cogito_backend->draw_rect(x, y, 1, 1, c);
+      }
+    }
+    goto shape_stroke;
+  }
+
+  float xs[64];
   for (int y = min_y; y <= max_y; y++) {
-    int n = cogito_shape_intersections(px, py, y, xs, 16);
+    int n = cogito_shape_intersections(draw_x, draw_y, point_count, y, xs, 64);
     for (int i = 0; i + 1 < n; i += 2) {
-      int x0 = xs[i];
-      int x1 = xs[i + 1];
+      float x0 = xs[i];
+      float x1 = xs[i + 1];
       if (x1 < x0) {
-        int t = x0;
+        float t = x0;
         x0 = x1;
         x1 = t;
       }
-      if (cogito_backend && cogito_backend->draw_rect && x1 >= x0) {
-        cogito_backend->draw_rect(x0, y, x1 - x0 + 1, 1, fill);
+      if (!cogito_backend || !cogito_backend->draw_rect || x1 <= x0) continue;
+      if (!antialias) {
+        int ix0 = (int)lroundf(x0);
+        int ix1 = (int)lroundf(x1);
+        if (ix1 >= ix0) {
+          cogito_backend->draw_rect(ix0, y, ix1 - ix0 + 1, 1, fill);
+        }
+        continue;
+      }
+      // Half-open interval fill [x0, x1): avoid right-edge overdraw that can
+      // manifest as occasional stray single pixels at sharp corners.
+      const float edge_eps = tol * 0.5f;
+      x0 += edge_eps;
+      x1 -= edge_eps;
+      if (x1 <= x0) continue;
+      int ix0 = (int)floorf(x0);
+      int ix1 = (int)floorf(x1 - edge_eps);
+      for (int x = ix0; x <= ix1; x++) {
+        float cover = fminf(x1, (float)x + 1.0f) - fmaxf(x0, (float)x);
+        if (cover <= 0.0f) continue;
+        if (cover > 1.0f) cover = 1.0f;
+        // Guard against tiny sliver coverage that can show up as full-pixel
+        // spurs on sharp corners depending on backend blending behavior.
+        float min_cover = tol;
+        if (min_cover > 1.0f) min_cover = 1.0f;
+        if (cover < min_cover) continue;
+        CogitoColor c = fill;
+        int a = (int)lroundf((float)fill.a * cover);
+        if (a <= 0) continue;
+        if (a > 255) a = 255;
+        c.a = (uint8_t)a;
+        cogito_backend->draw_rect(x, y, 1, 1, c);
       }
     }
   }
+shape_stroke:
   if (stroke_w > 0) {
-    for (int i = 0; i < 8; i++) {
-      int j = (i + 1) & 7;
-      cogito_draw_line((int)lroundf(px[i]), (int)lroundf(py[i]),
-                       (int)lroundf(px[j]), (int)lroundf(py[j]),
+    for (int i = 0; i < point_count; i++) {
+      int j = (i + 1) % point_count;
+      cogito_draw_line((int)lroundf(draw_x[i]), (int)lroundf(draw_y[i]),
+                       (int)lroundf(draw_x[j]), (int)lroundf(draw_y[j]),
                        stroke);
       if (stroke_w > 1) {
-        cogito_draw_line((int)lroundf(px[i]) + 1, (int)lroundf(py[i]),
-                         (int)lroundf(px[j]) + 1, (int)lroundf(py[j]),
+        cogito_draw_line((int)lroundf(draw_x[i]) + 1, (int)lroundf(draw_y[i]),
+                         (int)lroundf(draw_x[j]) + 1, (int)lroundf(draw_y[j]),
                          stroke);
       }
     }

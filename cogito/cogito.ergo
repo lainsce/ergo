@@ -163,6 +163,11 @@ fun __cogito_drawing_area_get_pressed(area = DrawingArea) (( bool )) { }
 fun __cogito_shape(preset = num) (( Shape )) { }
 fun __cogito_shape_set_preset(shape = Shape, preset = num) (( -- )) { }
 fun __cogito_shape_get_preset(shape = Shape) (( num )) { }
+fun __cogito_shape_set_size(shape = Shape, size = num) (( -- )) { }
+fun __cogito_shape_get_size(shape = Shape) (( num )) { }
+fun __cogito_shape_set_color(shape = Shape, color = any) (( -- )) { }
+fun __cogito_shape_set_color_style(shape = Shape, style = num) (( -- )) { }
+fun __cogito_shape_get_color_style(shape = Shape) (( num )) { }
 fun __cogito_shape_set_vertex(shape = Shape, index = num, x = num, y = num) (( -- )) { }
 fun __cogito_shape_get_vertex_x(shape = Shape, index = num) (( num )) { }
 fun __cogito_shape_get_vertex_y(shape = Shape, index = num) (( num )) { }
@@ -3705,6 +3710,24 @@ class Shape {
     }
     fun get_preset(this) (( num )) {
         return __cogito_shape_get_preset(this)
+    }
+    fun set_size(this, size = num) (( Shape )) {
+        __cogito_shape_set_size(this, size)
+        return this
+    }
+    fun get_size(this) (( num )) {
+        return __cogito_shape_get_size(this)
+    }
+    fun set_color(this, color = any) (( Shape )) {
+        __cogito_shape_set_color(this, color)
+        return this
+    }
+    fun set_color_style(this, style = num) (( Shape )) {
+        __cogito_shape_set_color_style(this, style)
+        return this
+    }
+    fun get_color_style(this) (( num )) {
+        return __cogito_shape_get_color_style(this)
     }
     fun set_vertex(this, index = num, x = num, y = num) (( Shape )) {
         __cogito_shape_set_vertex(this, index, x, y)

@@ -88,6 +88,12 @@ static void cogito_apply_theme(bool dark, CogitoColor accent);
 #define COGITO_NAV_RAIL_COLLAPSED_SECTION_GAP 36
 #define COGITO_NAV_RAIL_COLLAPSED_ITEM_STEP 96
 #define COGITO_NAV_RAIL_COLLAPSED_INDICATOR_WIDTH 64 // Cogito Expressive: 64dp pill indicator
+#ifndef COGITO_SHAPE_VERTEX_COUNT
+#define COGITO_SHAPE_VERTEX_COUNT 128 // Max vertices for custom shapes (e.g. from icon paths)
+#endif
+#ifndef COGITO_SHAPE_SVG_POLY_MAX
+#define COGITO_SHAPE_SVG_POLY_MAX 1024 // Max vertices for SVG polygon shapes (e.g. from icon paths)
+#endif
 #define COGITO_NAV_RAIL_COLLAPSED_INDICATOR_HEIGHT 32 // Cogito Expressive: 32dp indicator height
 #define COGITO_NAV_RAIL_COLLAPSED_INDICATOR_NO_LABEL_HEIGHT 56 // Icon-only mode: taller indicator to center icon
 #define COGITO_NAV_RAIL_COLLAPSED_ICON_Y_OFFSET 4 // Center icon in 32dp indicator
@@ -920,7 +926,11 @@ typedef struct CogitoNode {
     } drawing_area;
     struct {
       int preset;
-      float vertices[16];
+      int size_dp;
+      int color_style; // 0=custom, 1=primary, 2=secondary, 3=tertiary
+      float vertices[COGITO_SHAPE_VERTEX_COUNT * 2];
+      int svg_poly_count;
+      float svg_poly[COGITO_SHAPE_SVG_POLY_MAX * 2];
     } shape;
     struct { bool has_divider_before; bool has_divider_after;
     } menu_section;
