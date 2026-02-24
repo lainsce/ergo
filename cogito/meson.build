@@ -77,3 +77,9 @@ install_data(
   'cogito.ergo',
   install_dir : get_option('datadir') / 'ergo' / 'stdlib'
 )
+
+# Install Ergo-side C bindings shim used by `ergo run` codegen when `import cogito` is present.
+install_data(
+  'ergo/cogito_bindings.inc',
+  install_dir : get_option('datadir') / 'ergo' / 'cogito'
+)

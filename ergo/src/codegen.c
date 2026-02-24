@@ -3295,13 +3295,13 @@ static void codegen_free(Codegen *cg) {
 }
 
 static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
-    (void)uses_cogito;  // Parameter unused - Cogito integration handled at link time
     codegen_collect_lambdas(cg);
 
     const char *runtime_override = getenv("ERGO_RUNTIME");
     bool runtime_forced = runtime_override && runtime_override[0];
     const char *runtime_path = runtime_forced ? runtime_override : NULL;
     char *exe_runtime_path = NULL;  // heap-allocated, freed below
+    char *exe_cogito_bindings_path = NULL;  // heap-allocated, freed below
     if (!runtime_path) {
         const char *runtime_candidates[] = {
             "src/runtime.inc",
@@ -3358,12 +3358,94 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
         runtime_src = (const char *)ergo_runtime_embedded;
         runtime_len = (size_t)ergo_runtime_embedded_len;
     }
+
+    size_t cogito_bindings_len = 0;
+    const char *cogito_bindings_src = NULL;
+    if (uses_cogito) {
+        const char *bindings_override = getenv("ERGO_COGITO_BINDINGS");
+        bool bindings_forced = bindings_override && bindings_override[0];
+        const char *bindings_path = bindings_forced ? bindings_override : NULL;
+
+        if (!bindings_path) {
+            const char *bindings_candidates[] = {
+                "cogito/ergo/cogito_bindings.inc",
+                "../cogito/ergo/cogito_bindings.inc",
+                "../../cogito/ergo/cogito_bindings.inc",
+#if defined(__APPLE__)
+                "/opt/homebrew/share/ergo/cogito/cogito_bindings.inc",
+                "/usr/local/share/ergo/cogito/cogito_bindings.inc",
+#endif
+                "/usr/share/ergo/cogito/cogito_bindings.inc",
+            };
+            for (size_t i = 0; i < sizeof(bindings_candidates) / sizeof(bindings_candidates[0]); i++) {
+                if (path_is_file(bindings_candidates[i])) {
+                    bindings_path = bindings_candidates[i];
+                    break;
+                }
+            }
+
+            if (!bindings_path) {
+                char *exe_dir = ergo_exe_dir();
+                if (exe_dir) {
+                    const char *exe_rel[] = {
+                        "../share/ergo/cogito/cogito_bindings.inc",
+                        "../../share/ergo/cogito/cogito_bindings.inc",
+                        "../Resources/share/ergo/cogito/cogito_bindings.inc",
+                    };
+                    for (size_t i = 0; i < sizeof(exe_rel) / sizeof(exe_rel[0]); i++) {
+                        char *candidate = path_join(exe_dir, exe_rel[i]);
+                        if (candidate && path_is_file(candidate)) {
+                            exe_cogito_bindings_path = candidate;
+                            bindings_path = exe_cogito_bindings_path;
+                            break;
+                        }
+                        free(candidate);
+                    }
+                    free(exe_dir);
+                }
+            }
+        }
+
+        if (bindings_path && bindings_path[0]) {
+            char *bindings_src =
+                read_file_with_includes(bindings_path, "// @include", &tmp_arena, &cogito_bindings_len, NULL);
+            if (bindings_src) {
+                cogito_bindings_src = bindings_src;
+            } else if (bindings_forced) {
+                arena_free(&tmp_arena);
+                free(exe_runtime_path);
+                free(exe_cogito_bindings_path);
+                return cg_set_err(err, (Str){bindings_path, strlen(bindings_path)},
+                                  "failed to read cogito bindings file");
+            }
+        } else if (bindings_forced) {
+            arena_free(&tmp_arena);
+            free(exe_runtime_path);
+            free(exe_cogito_bindings_path);
+            return cg_set_err(err, (Str){bindings_override, strlen(bindings_override)},
+                              "ERGO_COGITO_BINDINGS points to a missing file");
+        }
+    }
+
     sb_append_n(&cg->out, runtime_src, runtime_len);
     if (runtime_len == 0 || runtime_src[runtime_len - 1] != '\n') {
         sb_append_char(&cg->out, '\n');
     }
+    if (uses_cogito) {
+        if (!cogito_bindings_src || cogito_bindings_len == 0) {
+            arena_free(&tmp_arena);
+            free(exe_runtime_path);
+            free(exe_cogito_bindings_path);
+            return cg_set_err(err, (Str){0}, "program imports cogito but cogito bindings file was not found");
+        }
+        sb_append_n(&cg->out, cogito_bindings_src, cogito_bindings_len);
+        if (cogito_bindings_src[cogito_bindings_len - 1] != '\n') {
+            sb_append_char(&cg->out, '\n');
+        }
+    }
     arena_free(&tmp_arena);
     free(exe_runtime_path);
+    free(exe_cogito_bindings_path);
     exe_runtime_path = NULL;
 
     w_line(&cg->w, "// ---- cask globals ----");

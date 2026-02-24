@@ -1,9 +1,43 @@
+static bool import_name_looks_cogito(Str name) {
+    if (str_eq_c(name, "cogito")) return true;
+    // Allow names like cogito.ergo or cogito.something in case import normalization differs.
+    if (name.len >= 6 && memcmp(name.data, "cogito", 6) == 0) {
+        if (name.len == 6) return true;
+        char next = name.data[6];
+        if (next == '.' || next == '/' || next == '\\') return true;
+    }
+    return false;
+}
+
+static bool module_path_looks_cogito(Str path) {
+    const char *p = path.data;
+    size_t len = path.len;
+    size_t start = 0;
+    for (size_t i = 0; i < len; i++) {
+        if (p[i] == '/' || p[i] == '\\') start = i + 1;
+    }
+    size_t n = len - start;
+    if (n >= 5 && memcmp(p + start + n - 5, ".ergo", 5) == 0) {
+        n -= 5;
+    }
+    return n == 6 && memcmp(p + start, "cogito", 6) == 0;
+}
+
 static bool program_uses_cogito(Program *prog) {
     if (!prog) return false;
     for (size_t i = 0; i < prog->mods_len; i++) {
         Module *m = prog->mods[i];
+        if (!m) continue;
+
+        if (m->has_declared_name && import_name_looks_cogito(m->declared_name)) {
+            return true;
+        }
+        if (module_path_looks_cogito(m->path)) {
+            return true;
+        }
+
         for (size_t j = 0; j < m->imports_len; j++) {
-            if (str_eq_c(m->imports[j]->name, "cogito")) {
+            if (m->imports[j] && import_name_looks_cogito(m->imports[j]->name)) {
                 return true;
             }
         }
