@@ -118,23 +118,10 @@ button
   background: @primary
   color: @on-primary
 
-button:hover
-  background: @inverse-primary
-
-button:active
-  background: @primary
-
 button.outlined
   background: transparent
   color: @primary
   border: 1 solid @outline
-
-button.outlined:hover
-  background: alpha(@primary, 12%)
-  border-color: @primary
-
-button.outlined:active
-  background: alpha(@primary, 20%)
 
 button.outlined:disabled
   color: alpha(@primary, 32%)
@@ -144,12 +131,6 @@ button.outlined:disabled
 button.text
   background: transparent
   color: @primary
-
-button.text:hover
-  background: alpha(@primary, 12%)
-
-button.text:active
-  background: alpha(@primary, 20%)
 
 @when reduced-motion
   button
@@ -184,14 +165,6 @@ fab
   color: @on-secondary
   elevation: 3
 
-fab:hover
-  background: @inverse-primary
-  elevation: 4
-
-fab:active
-  background: @primary
-  elevation: 3
-
 chip
   background: transparent
   color: @on-background
@@ -199,13 +172,6 @@ chip
   min-height: 32
   padding: 0 16
   border: 1 solid @outline
-
-chip:hover
-  background: alpha(@shadow, 5%)
-  border-color: @on-background
-
-chip:active
-  background: alpha(@shadow, 8%)
 
 chip:checked
   background: @primary-container
@@ -278,12 +244,6 @@ slider
   track-height: 4
   min-height: 48
   min-width: 360
-
-slider:hover
-  color: @inverse-primary
-
-slider:active
-  color: @primary
 
 stepper
   background: @surface-container-low
@@ -561,8 +521,9 @@ appbar.sidebar
 
 dialog
   background: @surface-container-high
-  border-radius: 26
-  min-width: 240
+  border-radius: 28
+  min-width: 280
+  max-width: 560
   min-height: 240
   padding: 24
   box-shadow: [
@@ -607,20 +568,8 @@ appbar .window-max:hover
 appbar .window-max:active
   background: @tertiary
 
-appbar .button:hover
-  background: alpha(@shadow, 8%)
-
-appbar .button:active
-  background: alpha(@shadow, 14%)
-
 appbar .iconbtn
   background: transparent
-
-appbar .iconbtn:hover
-  background: alpha(@shadow, 8%)
-
-appbar .iconbtn:active
-  background: alpha(@shadow, 14%)
 
 menu
   background: @on-secondary
@@ -698,17 +647,6 @@ buttongroup:selection
   background: @secondary-container
   color: @on-secondary-container
   border: 1 solid @secondary-container
-
-iconbtn:hover
-  background: alpha(@shadow, 8%)
-  color: @on-background
-
-iconbtn:active
-  background: alpha(@shadow, 14%)
-  color: @on-background
-
-appbar .iconbtn
-  background: alpha(@shadow, 5%)
 
 switch .track
   background: @surface-container-highest
@@ -870,4 +808,3 @@ switch:disabled knob
 iconbtn:disabled
   background: alpha(@on-background, 16%)
   color: alpha(@on-background, 32%)
-

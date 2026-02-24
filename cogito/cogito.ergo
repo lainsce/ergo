@@ -504,6 +504,10 @@ class Image {
         __cogito_image_set_radius(this, radius)
         return this
     }
+    fun set_alt_text(this, alt_text = string) (( Image )) {
+        __cogito_node_set_a11y_label(this, alt_text)
+        return this
+    }
     fun set_hexpand(this, expand = bool) (( Image )) {
         __cogito_container_set_hexpand(this, expand)
         return this

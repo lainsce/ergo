@@ -93,113 +93,47 @@ case COGITO_IMAGE: {
           }
         }
 
-        CogitoRect src_rect = {src_x, src_y, src_w, src_h};
-        CogitoRect dst_rect = {draw_x, draw_y, draw_w, draw_h};
         CogitoColor white = {255, 255, 255, 255};
-        
-        // Draw the texture
         if (cogito_backend && cogito_backend->draw_texture) {
-          cogito_backend->draw_texture(n->image.texture, src_rect, dst_rect, white);
-        }
-        
-        // Apply rounded corner masks if needed
-        if (radius > 0) {
-          // For mask color, prefer the explicitly set node bg, then theme bg,
-          // then fall back to white as a last resort so masks are visible.
-          CogitoColor mask_color;
-          if (n->bg_set) {
-            mask_color = n->bg;
-          } else if (s.has_bg) {
-            mask_color = s.bg;
+          if (radius <= 0) {
+            CogitoRect src_rect = {src_x, src_y, src_w, src_h};
+            CogitoRect dst_rect = {draw_x, draw_y, draw_w, draw_h};
+            cogito_backend->draw_texture(n->image.texture, src_rect, dst_rect, white);
           } else {
-            // Walk up the tree to find nearest parent with a background
-            CogitoColor fallback = {255, 255, 255, 255};
-            CogitoNode* p = n->parent;
-            while (p) {
-              if (p->bg_set) { fallback = p->bg; break; }
-              p = p->parent;
-            }
-            mask_color = fallback;
-          }
-          // Use small rectangles to mask corners with AA fringe pixels.
-          // AA coverage curve matches backend: powf(cov, 0.7f)
-          // For each scanline we compute the exact float inset, draw a solid
-          // mask for the integer portion, then a 1px AA pixel at the edge.
-          #define COGITO_IMG_AA_COV(c) ((c) <= 0.05f ? 0.0f : ((c) >= 1.0f ? 1.0f : powf((c), 0.7f)))
-          float r_f = (float)radius;
-          // Top-left corner
-          for (int dy = 0; dy < radius; dy++) {
-            float y_dist = r_f - ((float)dy + 0.5f);
-            float inside = r_f * r_f - y_dist * y_dist;
-            if (inside < 0.0f) inside = 0.0f;
-            float x_exact = r_f - sqrtf(inside);
-            int solid_w = (int)x_exact;
-            float frac = x_exact - (float)solid_w;
-            if (solid_w > 0) {
-              cogito_draw_rect(draw_x, draw_y + dy, solid_w, 1, mask_color, 0);
-            }
-            if (frac > 0.01f && draw_x + solid_w < draw_x + draw_w) {
-              float cov = COGITO_IMG_AA_COV(frac);
-              CogitoColor aa = mask_color;
-              aa.a = (uint8_t)(mask_color.a * cov + 0.5f);
-              if (aa.a > 0) cogito_draw_rect(draw_x + solid_w, draw_y + dy, 1, 1, aa, 0);
-            }
-          }
-          // Top-right corner
-          for (int dy = 0; dy < radius; dy++) {
-            float y_dist = r_f - ((float)dy + 0.5f);
-            float inside = r_f * r_f - y_dist * y_dist;
-            if (inside < 0.0f) inside = 0.0f;
-            float x_exact = r_f - sqrtf(inside);
-            int solid_w = (int)x_exact;
-            float frac = x_exact - (float)solid_w;
-            if (solid_w > 0) {
-              cogito_draw_rect(draw_x + draw_w - solid_w, draw_y + dy, solid_w, 1, mask_color, 0);
-            }
-            if (frac > 0.01f && solid_w < draw_w) {
-              float cov = COGITO_IMG_AA_COV(frac);
-              CogitoColor aa = mask_color;
-              aa.a = (uint8_t)(mask_color.a * cov + 0.5f);
-              if (aa.a > 0) cogito_draw_rect(draw_x + draw_w - solid_w - 1, draw_y + dy, 1, 1, aa, 0);
+            // Rounded clipping for textures: draw scanlines with per-row inset.
+            float r_f = (float)radius;
+            for (int row = 0; row < draw_h; row++) {
+              int inset = 0;
+              if (row < radius) {
+                float y_dist = r_f - ((float)row + 0.5f);
+                float inside = r_f * r_f - y_dist * y_dist;
+                if (inside < 0.0f) inside = 0.0f;
+                inset = (int)(r_f - sqrtf(inside));
+              } else if (row >= draw_h - radius) {
+                int br = draw_h - 1 - row;
+                float y_dist = r_f - ((float)br + 0.5f);
+                float inside = r_f * r_f - y_dist * y_dist;
+                if (inside < 0.0f) inside = 0.0f;
+                inset = (int)(r_f - sqrtf(inside));
+              }
+              int line_w = draw_w - inset * 2;
+              if (line_w <= 0) continue;
+
+              int src_y0 = src_y + (row * src_h) / draw_h;
+              int src_y1 = src_y + ((row + 1) * src_h) / draw_h;
+              int src_h_line = src_y1 - src_y0;
+              if (src_h_line < 1) src_h_line = 1;
+
+              int src_x0 = src_x + (inset * src_w) / draw_w;
+              int src_x1 = src_x + ((draw_w - inset) * src_w) / draw_w;
+              int src_w_line = src_x1 - src_x0;
+              if (src_w_line < 1) src_w_line = 1;
+
+              CogitoRect src_line = {src_x0, src_y0, src_w_line, src_h_line};
+              CogitoRect dst_line = {draw_x + inset, draw_y + row, line_w, 1};
+              cogito_backend->draw_texture(n->image.texture, src_line, dst_line, white);
             }
           }
-          // Bottom-left corner
-          for (int dy = 0; dy < radius; dy++) {
-            float y_dist = (float)(dy + 1) - 0.5f;
-            float inside = r_f * r_f - y_dist * y_dist;
-            if (inside < 0.0f) inside = 0.0f;
-            float x_exact = r_f - sqrtf(inside);
-            int solid_w = (int)x_exact;
-            float frac = x_exact - (float)solid_w;
-            if (solid_w > 0) {
-              cogito_draw_rect(draw_x, draw_y + draw_h - radius + dy, solid_w, 1, mask_color, 0);
-            }
-            if (frac > 0.01f && draw_x + solid_w < draw_x + draw_w) {
-              float cov = COGITO_IMG_AA_COV(frac);
-              CogitoColor aa = mask_color;
-              aa.a = (uint8_t)(mask_color.a * cov + 0.5f);
-              if (aa.a > 0) cogito_draw_rect(draw_x + solid_w, draw_y + draw_h - radius + dy, 1, 1, aa, 0);
-            }
-          }
-          // Bottom-right corner
-          for (int dy = 0; dy < radius; dy++) {
-            float y_dist = (float)(dy + 1) - 0.5f;
-            float inside = r_f * r_f - y_dist * y_dist;
-            if (inside < 0.0f) inside = 0.0f;
-            float x_exact = r_f - sqrtf(inside);
-            int solid_w = (int)x_exact;
-            float frac = x_exact - (float)solid_w;
-            if (solid_w > 0) {
-              cogito_draw_rect(draw_x + draw_w - solid_w, draw_y + draw_h - radius + dy, solid_w, 1, mask_color, 0);
-            }
-            if (frac > 0.01f && solid_w < draw_w) {
-              float cov = COGITO_IMG_AA_COV(frac);
-              CogitoColor aa = mask_color;
-              aa.a = (uint8_t)(mask_color.a * cov + 0.5f);
-              if (aa.a > 0) cogito_draw_rect(draw_x + draw_w - solid_w - 1, draw_y + draw_h - radius + dy, 1, 1, aa, 0);
-            }
-          }
-          #undef COGITO_IMG_AA_COV
         }
       } else if (n->icon && n->icon->data) {
         // Fallback to icon rendering if image failed to load

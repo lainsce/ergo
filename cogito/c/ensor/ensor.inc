@@ -16,8 +16,11 @@ typedef enum {
 typedef struct {
   bool dark;
   CogitoColor primary, on_primary, primary_container, on_primary_container;
+  CogitoColor primary_fixed, primary_fixed_dim, on_primary_fixed, on_primary_fixed_variant;
   CogitoColor secondary, on_secondary, secondary_container, on_secondary_container;
+  CogitoColor secondary_fixed, secondary_fixed_dim, on_secondary_fixed, on_secondary_fixed_variant;
   CogitoColor tertiary, on_tertiary, tertiary_container, on_tertiary_container;
+  CogitoColor tertiary_fixed, tertiary_fixed_dim, on_tertiary_fixed, on_tertiary_fixed_variant;
   CogitoColor error, on_error, error_container, on_error_container;
   CogitoColor background, on_background;
   CogitoColor surface, on_surface, surface_tint;

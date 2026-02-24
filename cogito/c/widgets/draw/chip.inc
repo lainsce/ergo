@@ -13,9 +13,9 @@ case COGITO_CHIP: {
   // Animate colors
   cogito_anim_apply(n, &s, &bg, &text_color, &border_color, NULL);
 
-  // State layer (hover = 8%, press = 12%)
-  CogitoColor state_layer = text_color;
-  if (active) state_layer.a = (uint8_t)(bg.a > 0 ? 30 : 0);
+  // State layer (hover = 8%, active/pressed = 12%)
+  CogitoColor state_layer = cogito_node_state_layer_seed(n);
+  if (active) state_layer.a = (uint8_t)(bg.a > 0 ? 31 : 0);
   else if (hover) state_layer.a = (uint8_t)(bg.a > 0 ? 20 : 0);
   else state_layer.a = 0;
 

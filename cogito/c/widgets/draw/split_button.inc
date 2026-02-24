@@ -40,14 +40,15 @@ case COGITO_SPLIT_BUTTON: {
   // State layer colors for each part
   CogitoColor main_bg = bg;
   CogitoColor menu_bg = bg;
+  CogitoColor state_seed = cogito_node_state_layer_seed(n);
   if (main_hover || main_active) {
-    CogitoColor layer = text_color;
-    layer.a = main_active ? 25 : 15;
+    CogitoColor layer = state_seed;
+    layer.a = main_active ? 31 : 20;
     main_bg = cogito_color_blend(main_bg, layer);
   }
   if (menu_hover || menu_active_press) {
-    CogitoColor layer = text_color;
-    layer.a = menu_active_press ? 25 : 15;
+    CogitoColor layer = state_seed;
+    layer.a = menu_active_press ? 31 : 20;
     menu_bg = cogito_color_blend(menu_bg, layer);
   }
 

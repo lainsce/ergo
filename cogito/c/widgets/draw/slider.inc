@@ -185,8 +185,8 @@ case COGITO_SLIDER: {
         state_x = k0;
       }
       if (hover || active) {
-        CogitoColor state_layer = active_track;
-        state_layer.a = active ? 28 : 18;
+        CogitoColor state_layer = cogito_node_state_layer_seed(n);
+        state_layer.a = active ? 31 : 20;
         const int state_pad = 6;
         int state_x0 = state_x - thumb_w_active / 2 - state_pad;
         int state_y0 = cy - thumb_h / 2 - state_pad;

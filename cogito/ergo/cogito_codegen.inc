@@ -3336,6 +3336,33 @@
                         return true;
                     }
                     if (str_eq_c(fname,
+                    "__cogito_image_set_alt_text")) {
+                        GenExpr img, alt;
+                        if (!gen_expr(cg, path, e->as.call.args[
+                            0
+                        ], &img, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[
+                            1
+                        ], &alt, err)) { gen_expr_free(&img); return false;
+                        }
+                        w_line(&cg->w,
+                        "cogito_image_set_alt_text(%s, %s);", img.tmp, alt.tmp);
+                        w_line(&cg->w,
+                        "ergo_release_val(%s);", img.tmp);
+                        w_line(&cg->w,
+                        "ergo_release_val(%s);", alt.tmp);
+                        gen_expr_release_except(cg, &img, img.tmp);
+                        gen_expr_release_except(cg, &alt, alt.tmp);
+                        gen_expr_free(&img);
+                        gen_expr_free(&alt);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w,
+                        "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname,
                     "__cogito_checkbox_set_checked")) {
                         GenExpr cb, checked;
                         if (!gen_expr(cg, path, e->as.call.args[

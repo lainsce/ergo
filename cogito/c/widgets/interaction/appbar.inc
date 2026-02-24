@@ -51,6 +51,8 @@ static ErgoVal cogito_appbar_add_button(ErgoVal appv, ErgoVal text, ErgoVal hand
   CogitoNode* ab = (CogitoNode*)appv.as.p;
   ErgoStr* ts = stdr_to_string(text);
   CogitoNode* btn = cogito_iconbtn_new_obj(ts);
+  // AppBar action icons default to iconic treatment.
+  btn->button.icon_color_style = 3;
   if (handler.tag == EVT_FN) {
     btn->on_click = (ErgoFn*)handler.as.p;
     ergo_retain_val(EV_FN(btn->on_click));

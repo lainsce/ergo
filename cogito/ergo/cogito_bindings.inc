@@ -1208,6 +1208,14 @@ static void __cogito_image_set_radius(ErgoVal imgv, ErgoVal rv) {
   cogito_image_set_radius(n, r);
 }
 
+static void __cogito_image_set_alt_text(ErgoVal imgv, ErgoVal altv) {
+  cogito_node* n = cogito_node_from_val(imgv);
+  ErgoStr* tmp = NULL;
+  const char* alt = cogito_optional_cstr(altv, &tmp);
+  if (alt) cogito_image_set_alt_text(n, alt);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
 static ErgoVal __cogito_appbar(ErgoVal titlev, ErgoVal subtitlev) {
   ErgoStr* ttmp = NULL;
   ErgoStr* stmp = NULL;
@@ -2935,6 +2943,7 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_image_set_icon __cogito_image_set_icon
 #define cogito_image_set_size __cogito_image_set_size
 #define cogito_image_set_radius __cogito_image_set_radius
+#define cogito_image_set_alt_text __cogito_image_set_alt_text
 #define cogito_checkbox_set_checked __cogito_checkbox_set_checked
 #define cogito_checkbox_get_checked __cogito_checkbox_get_checked
 #define cogito_switch_set_checked __cogito_switch_set_checked

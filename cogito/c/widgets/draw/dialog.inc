@@ -37,6 +37,8 @@ case COGITO_DIALOG: {
       int cx = 0, cy = 0, cw = 0, ch = 0;
       cogito_dialog_close_rect(n, &cx, &cy, &cw, &ch);
       int header_h = title_h > ch ? title_h : ch;
+      int section_pad_l = 24;
+      int section_pad_r = 24;
       CogitoColor title_color = s.has_text ? s.text : n->text_color;
 
       // Draw title in header row.
@@ -71,6 +73,31 @@ case COGITO_DIALOG: {
         cogito_draw_icon_fallback(n,
     "xmark", ix, iy, icon_size, icon_color);
   }
+      // Optional custom middle content: draw section dividers around it.
+      if (n->len >= 3) {
+        CogitoColor divider = s.has_border ? s.border : title_color;
+        if (divider.a > 96) divider.a = 96;
+        int x0 = n->x + section_pad_l;
+        int x1 = n->x + n->w - section_pad_r - 1;
+        if (x1 > x0) {
+          CogitoNode* first = n->children[0];
+          CogitoNode* second = n->children[1];
+          int first_end = first->y + first->h + first->margin_bottom;
+          int second_start = second->y + second->margin_top;
+          if (second_start >= first_end) {
+            int y1 = first_end + (second_start - first_end) / 2;
+            cogito_draw_line(x0, y1, x1, y1, divider);
+          }
+          CogitoNode* before_actions = n->children[n->len - 2];
+          CogitoNode* actions = n->children[n->len - 1];
+          int custom_end = before_actions->y + before_actions->h + before_actions->margin_bottom;
+          int actions_start = actions->y + actions->margin_top;
+          if (actions_start >= custom_end) {
+            int y2 = custom_end + (actions_start - custom_end) / 2;
+            cogito_draw_line(x0, y2, x1, y2, divider);
+          }
+        }
+      }
   // Draw children
       for (size_t i = 0; i < n->len; i++) {
         cogito_draw_node(n->children[i

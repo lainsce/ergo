@@ -65,8 +65,8 @@ case COGITO_FAB: {
 
   // State layer for hover/press
   if (hover || active) {
-    CogitoColor state_layer = text_color;
-    state_layer.a = active ? 25 : 15;
+    CogitoColor state_layer = cogito_node_state_layer_seed(n);
+    state_layer.a = active ? 31 : 20;
     cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, state_layer, radius);
   }
 

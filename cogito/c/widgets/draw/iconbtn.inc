@@ -9,10 +9,13 @@ case COGITO_ICONBTN: {
       
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
       bool has_custom_class = n->class_name && n->class_name->data && n->class_name->data[0];
+      bool iconic_class = n->class_name && n->class_name->data &&
+                          strstr(n->class_name->data, "iconic") != NULL;
+      bool is_iconic_variant = (n->button.icon_color_style == 3) || iconic_class;
       bool in_appbar = n->parent && n->parent->kind == COGITO_APPBAR;
       bool in_appbar_or_toolbar = n->parent && (n->parent->kind == COGITO_APPBAR || n->parent->kind == COGITO_TOOLBAR);
       
-      if (in_appbar_or_toolbar) {
+      if (in_appbar_or_toolbar && !is_iconic_variant) {
         int mx = 0, my = 0;
         if (cogito_backend && cogito_backend->get_mouse_position) {
           cogito_backend->get_mouse_position(&mx, &my);
@@ -32,7 +35,7 @@ case COGITO_ICONBTN: {
       int border_w = n->border_width;
       int radius = n->border_radius;
       if (s.has_bg) bg = s.bg;
-      if (in_appbar_or_toolbar) {
+      if (in_appbar_or_toolbar && !is_iconic_variant) {
         int mx = 0, my = 0;
         if (cogito_backend && cogito_backend->get_mouse_position) {
           cogito_backend->get_mouse_position(&mx, &my);
@@ -85,6 +88,19 @@ case COGITO_ICONBTN: {
       }
       if (s.has_text) icon_color = s.text;
       else if (cogito_has_selection_text) icon_color = cogito_selection_text;
+
+      // AppBar idle state: keep icons on primary for stronger affordance.
+      if (in_appbar) {
+        int mx = 0, my = 0;
+        if (cogito_backend && cogito_backend->get_mouse_position) {
+          cogito_backend->get_mouse_position(&mx, &my);
+        }
+        bool over = cogito_hit_rect(mx, my, n->x, n->y, n->w, n->h);
+        bool down = over && (cogito_backend && cogito_backend->is_mouse_button_down(0));
+        if (!hover && !active && !over && !down) {
+          icon_color = cogito_theme.iconbtn_filled.bg;
+        }
+      }
 
       // ButtonGroup color handling: only apply if no explicit class is set
       // Check if icon button has an explicit class (filled, tonal, outlined, iconic)
@@ -237,6 +253,16 @@ case COGITO_ICONBTN: {
           } else {
             cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border, radius, draw_border_w);
           }
+        }
+      }
+
+      if (active || hover) {
+        CogitoColor state = cogito_node_state_layer_seed(n);
+        state.a = active ? 31 : 20;
+        if (in_buttongroup) {
+          cogito_draw_rect_radii_aa(n->x, n->y, n->w, n->h, state, rtl, rtr, rbr, rbl);
+        } else {
+          cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, state, radius);
         }
       }
       

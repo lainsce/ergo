@@ -1164,7 +1164,7 @@ static int sum_system_ensor_scheme(void) {
   if (env) {
     if (strcmp(env, "vibrant") == 0) return 1;
     if (strcmp(env, "muted") == 0) return 2;
-    if (strcmp(env, "monochrome") == 0 || strcmp(env, "monochromatic") == 0) return 3;
+    if (strcmp(env, "monochrome") == 0) return 3;
     if (strcmp(env, "salad") == 0) return 4;
     if (strcmp(env, "default") == 0) return 0;
   }

@@ -1771,6 +1771,59 @@ static bool cogito_node_should_ripple(const CogitoNode* n) {
   return false;
 }
 
+static void cogito_theme_get_state_layer_palette(
+  CogitoColor* out_primary,
+  CogitoColor* out_secondary,
+  CogitoColor* out_secondary_container,
+  CogitoColor* out_tertiary,
+  CogitoColor* out_surface,
+  CogitoColor* out_on_surface,
+  CogitoColor* out_on_primary_container,
+  CogitoColor* out_on_secondary_container,
+  CogitoColor* out_on_tertiary_container,
+  CogitoColor* out_on_surface_variant
+);
+
+static CogitoColor cogito_node_state_layer_seed(const CogitoNode* n) {
+  CogitoColor primary = cogito_theme.iconbtn_filled.bg;
+  CogitoColor secondary = cogito_theme.iconbtn_tonal.bg;
+  CogitoColor tertiary = primary;
+  CogitoColor surface = cogito_theme.per_kind[COGITO_WINDOW].has_bg
+    ? cogito_theme.per_kind[COGITO_WINDOW].bg
+    : cogito_rgba(128, 128, 128, 255);
+  CogitoColor on_surface = cogito_theme.per_kind[COGITO_WINDOW].has_text
+    ? cogito_theme.per_kind[COGITO_WINDOW].text
+    : cogito_rgba(255, 255, 255, 255);
+  CogitoColor on_primary_container = on_surface;
+  CogitoColor on_secondary_container = on_surface;
+  CogitoColor on_tertiary_container = on_surface;
+  CogitoColor on_surface_variant = on_surface;
+  cogito_theme_get_state_layer_palette(&primary, &secondary, NULL, &tertiary, &surface, &on_surface,
+                                       &on_primary_container, &on_secondary_container,
+                                       &on_tertiary_container, &on_surface_variant);
+  const char* cls = (n && n->class_name && n->class_name->data) ? n->class_name->data : NULL;
+  bool primary_container = cls && (strstr(cls, "primary-container") || strstr(cls, "primary_container"));
+  bool secondary_container = cls && (strstr(cls, "secondary-container") || strstr(cls, "secondary_container"));
+  bool tertiary_container = cls && (strstr(cls, "tertiary-container") || strstr(cls, "tertiary_container"));
+  bool surface_variant = cls && (strstr(cls, "surface-variant") || strstr(cls, "surface_variant"));
+  bool iconic_class = cls && strstr(cls, "iconic") != NULL;
+  bool iconic_iconbtn = n && n->kind == COGITO_ICONBTN &&
+                        (n->button.icon_color_style == 3 || iconic_class);
+  if (n && n->kind == COGITO_ICONBTN && n->parent && n->parent->kind == COGITO_APPBAR) {
+    if (n->button.icon_color_style == 3 || iconic_class) return primary;
+  }
+  if (primary_container) return on_primary_container;
+  if (secondary_container) return on_secondary_container;
+  if (tertiary_container) return on_tertiary_container;
+  if (surface_variant) return on_surface_variant;
+  if (cls && strstr(cls, "primary") != NULL) return primary;
+  if (cls && strstr(cls, "secondary") != NULL) return secondary;
+  if (cls && strstr(cls, "tertiary") != NULL) return tertiary;
+  if (cls && strstr(cls, "surface") != NULL) return on_surface;
+  if (iconic_iconbtn) return on_surface;
+  return on_surface;
+}
+
 // Start a ripple animation at the given position (mouse-relative to widget)
 static void cogito_ripple_start(CogitoNode* n, int mx, int my) {
   if (!n) return;

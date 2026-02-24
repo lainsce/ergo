@@ -29,7 +29,8 @@ case COGITO_DIALOG:
         int title_w = (n->text && n->text->data && n->text->data[0]) ? cogito_text_width_size_node(n, n->text->data, title_size) : 0;
         int close_box = 24;
         int header_h = title_h > close_box ? title_h : close_box;
-        int header_gap = 12;
+        int header_gap = 16;
+        int section_gap = 24;
         int cw = 0;
         int ch = 0;
         for (size_t i = 0; i < n->len; i++) {
@@ -40,7 +41,7 @@ case COGITO_DIALOG:
           int th = ih + n->children[i]->margin_top + n->children[i]->margin_bottom;
           if (tw > cw) cw = tw;
           ch += th;
-          if (i + 1 < n->len) ch += n->gap;
+          if (i + 1 < n->len) ch += section_gap;
         }
         int min_header_total_w = 24 + title_w + 12 + close_box + 24;
         int min_header_cw = min_header_total_w - pad_l - pad_r;
@@ -48,8 +49,9 @@ case COGITO_DIALOG:
         if (cw < min_header_cw) cw = min_header_cw;
         w = pad_l + cw + pad_r;
         h = pad_t + header_h + header_gap + ch + pad_b;
-        if (w < 320) w = 320;
-        if (h < 200) h = 200;
+        if (w < 280) w = 280;
+        if (w > 560) w = 560;
+        if (h < 240) h = 240;
       }
       break;
     

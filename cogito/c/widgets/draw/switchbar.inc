@@ -1,15 +1,19 @@
 case COGITO_SWITCHBAR: {
-  bool hover = false, active = false;
-  cogito_node_hover_state(n, &hover, &active);
-  CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
-  
-  // When checked, use Primary Container colors; when not, use border with Outline color
-  CogitoColor bg = n->checked 
-    ? (s.has_selection ? s.selection : n->selection_color)
-    : (s.has_bg ? s.bg : n->bg);
-  CogitoColor text_color = n->checked
-    ? cogito_on_color(bg)
-    : (s.has_text ? s.text : n->text_color);
+	  bool hover = false, active = false;
+	  cogito_node_hover_state(n, &hover, &active);
+	  CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
+	  CogitoColor secondary_container = {0}, on_secondary_container = {0};
+	  cogito_theme_get_state_layer_palette(NULL, NULL, &secondary_container, NULL,
+	                                       NULL, NULL, NULL, &on_secondary_container,
+	                                       NULL, NULL);
+	  
+	  // When checked/activated, use Secondary Container + On Secondary Container.
+	  CogitoColor bg = n->checked 
+	    ? secondary_container
+	    : (s.has_bg ? s.bg : n->bg);
+	  CogitoColor text_color = n->checked
+	    ? on_secondary_container
+	    : (s.has_text ? s.text : n->text_color);
   CogitoColor border_color = s.has_border ? s.border : n->border_color;
   int radius = s.has_radius ? s.radius : 12;
   int border_w = n->checked ? 0 : 1;

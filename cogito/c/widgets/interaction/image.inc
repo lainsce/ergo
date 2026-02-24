@@ -58,3 +58,21 @@ static void cogito_image_set_radius(ErgoVal imgv, ErgoVal radius) {
   img->radius_set = true;
   cogito_window_relayout(cogito_node_window(img));
 }
+
+static void cogito_image_set_alt_text(ErgoVal imgv, ErgoVal alt_text) {
+  if (imgv.tag != EVT_OBJ) ergo_trap("cogito.image_set_alt_text expects image");
+  CogitoNode* img = (CogitoNode*)imgv.as.p;
+  if (img->a11y_label) {
+    ergo_release_val(EV_STR(img->a11y_label));
+    img->a11y_label = NULL;
+  }
+  if (alt_text.tag == EVT_STR) {
+    ErgoStr* ls = (ErgoStr*)alt_text.as.p;
+    if (ls) {
+      img->a11y_label = ls;
+      ergo_retain_val(EV_STR(ls));
+    }
+  } else if (alt_text.tag != EVT_NULL) {
+    img->a11y_label = stdr_to_string(alt_text);
+  }
+}

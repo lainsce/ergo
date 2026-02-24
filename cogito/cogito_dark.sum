@@ -107,23 +107,10 @@ button
   background: @primary
   color: @on-primary
 
-button:hover
-  background: @on-background
-
-button:active
-  background: @on-surface-variant
-
 button.outlined
   background: transparent
   color: @primary
   border: 1 solid @outline
-
-button.outlined:hover
-  background: alpha(@primary, 12%)
-  border-color: @primary
-
-button.outlined:active
-  background: alpha(@primary, 20%)
 
 button.outlined:disabled
   color: alpha(@on-background, 32%)
@@ -135,12 +122,6 @@ button.text
   background: transparent
   color: @primary
 
-button.text:hover
-  background: alpha(@primary, 12%)
-
-button.text:active
-  background: alpha(@primary, 20%)
-
 button.text:disabled
   color: alpha(@on-background, 32%)
   background: alpha(@on-background, 16%)
@@ -148,12 +129,6 @@ button.text:disabled
 fab
   background: @on-background
   color: @surface-variant
-
-fab:hover
-  background: @on-background
-
-fab:active
-  background: @on-surface-variant
 
 nav-rail
   background: @surface
@@ -198,12 +173,6 @@ datepicker:selection
 slider
   background: @surface-variant
   color: @primary
-
-slider:hover
-  color: @on-background
-
-slider:active
-  color: @on-surface-variant
 
 stepper
   background: @inverse-on-surface
@@ -295,12 +264,6 @@ radio:checked .check
 chip
   background: @surface-container-highest
   color: @on-background
-
-chip:hover
-  background: @surface-variant
-
-chip:active
-  background: @surface-variant
 
 chip:checked
   background: @surface-variant
@@ -407,6 +370,11 @@ scroller.sidebar
 
 dialog
   background: @surface-container-high
+  border-radius: 28
+  min-width: 280
+  max-width: 560
+  min-height: 240
+  padding: 24
 
 popover
   background: @inverse-on-surface
@@ -444,20 +412,8 @@ appbar .window-max:hover
 appbar .window-max:active
   background: @inverse-primary
 
-appbar .button:hover
-  background: @surface-container-highest
-
-appbar .button:active
-  background: @surface-variant
-
 appbar .iconbtn
   background: transparent
-
-appbar .iconbtn:hover
-  background: @surface-container-highest
-
-appbar .iconbtn:active
-  background: @surface-variant
 
 menu
   background: @inverse-on-surface
@@ -509,17 +465,6 @@ searchfield:active
 
 searchfield:selection
   background: @surface-container-highest
-
-iconbtn:hover
-  background: @surface-container-highest
-  color: @on-background
-
-iconbtn:active
-  background: @surface-variant
-  color: @on-background
-
-appbar .iconbtn
-  background: @inverse-on-surface
 
 switch .track
   background: @surface-container-highest

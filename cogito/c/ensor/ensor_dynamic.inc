@@ -81,6 +81,12 @@ static double cogito_dyn_foreground_tone(double bg, double ratio) {
   }
 }
 
+static double cogito_dyn_tone_of_rgb(CogitoColor color) {
+  double h = 0.0, c = 0.0, t = 0.0;
+  cogito_rgb_to_hct(color, &h, &c, &t);
+  return t;
+}
+
 // ---- ContrastCurve (from ContrastCurve.vala) ----
 static double cogito_lerp(double a, double b, double t) {
   return a + t * (b - a);
@@ -107,18 +113,18 @@ static double cogito_contrast_curve_get(CogitoContrastCurve c, double contrast) 
   }
 }
 
-// ---- Standard contrast curves per role ----
-// ContrastCurve(low, normal, medium, high) — interpolated by contrast_level
-static const CogitoContrastCurve CC_ACCENT      = { 3.0, 4.5, 7.0, 7.0 };
-static const CogitoContrastCurve CC_ON_ACCENT   = { 4.5, 7.0, 11.0, 21.0 };
-static const CogitoContrastCurve CC_CONTAINER   = { 1.0, 1.0, 3.0, 4.5 };
-static const CogitoContrastCurve CC_ON_CONT     = { 3.0, 4.5, 7.0, 11.0 };
-static const CogitoContrastCurve CC_ON_SURFACE  = { 4.5, 7.0, 11.0, 21.0 };
-static const CogitoContrastCurve CC_ON_SURF_VAR = { 3.0, 4.5, 7.0, 11.0 };
-static const CogitoContrastCurve CC_OUTLINE     = { 1.5, 3.0, 4.5, 7.0 };
-static const CogitoContrastCurve CC_OUTLINE_VAR = { 1.0, 1.0, 3.0, 4.5 };
-static const CogitoContrastCurve CC_INV_ON_SURF = { 4.5, 7.0, 11.0, 21.0 };
-static const CogitoContrastCurve CC_INV_PRIMARY = { 3.0, 4.5, 7.0, 7.0 };
+// Contrast curves from ColorSpec2025.getContrastCurve(defaultContrast).
+static CogitoContrastCurve cogito_dyn_curve(double default_contrast) {
+  if (default_contrast == 1.5) return (CogitoContrastCurve){ 1.5, 1.5, 3.0, 5.5 };
+  if (default_contrast == 3.0) return (CogitoContrastCurve){ 3.0, 3.0, 4.5, 7.0 };
+  if (default_contrast == 4.5) return (CogitoContrastCurve){ 4.5, 4.5, 7.0, 11.0 };
+  if (default_contrast == 6.0) return (CogitoContrastCurve){ 6.0, 6.0, 7.0, 11.0 };
+  if (default_contrast == 7.0) return (CogitoContrastCurve){ 7.0, 7.0, 11.0, 21.0 };
+  if (default_contrast == 9.0) return (CogitoContrastCurve){ 9.0, 9.0, 11.0, 21.0 };
+  if (default_contrast == 11.0) return (CogitoContrastCurve){ 11.0, 11.0, 21.0, 21.0 };
+  if (default_contrast == 21.0) return (CogitoContrastCurve){ 21.0, 21.0, 21.0, 21.0 };
+  return (CogitoContrastCurve){ default_contrast, default_contrast, 7.0, 21.0 };
+}
 
 // ---- Tone finders (faithful port of find_best_tone_for_chroma from Scheme.vala) ----
 static double cogito_dyn_find_best_tone(double hue, double chroma, double start, bool by_decreasing) {
@@ -297,13 +303,12 @@ static CogitoEnsorDyn cogito_dyn_make(double h, double c, double t, bool dark, d
     } break;
 
     default: { // COGITO_ENSOR_DEFAULT
-      s.primary   = (CogitoEnsorPal){ h, dark ? 26.0 : 40.0 };
-      double sh   = cogito_ensor_sanitize_deg(h - 14.0);
-      s.secondary = (CogitoEnsorPal){ sh, 16.0 };
+      s.primary   = (CogitoEnsorPal){ h, dark ? 26.0 : 32.0 };
+      s.secondary = (CogitoEnsorPal){ h, 16.0 };
       double th2  = DYN_ROT(h, dyn_def_tert_hues, dyn_def_tert_rots);
-      s.tertiary  = (CogitoEnsorPal){ th2, dark ? 28.0 : 48.0 };
-      s.neutral   = (CogitoEnsorPal){ h, 2.0 };
-      s.neutral_var = (CogitoEnsorPal){ h, 2.7 };
+      s.tertiary  = (CogitoEnsorPal){ th2, dark ? 28.0 : 32.0 };
+      s.neutral   = (CogitoEnsorPal){ h, 5.0 };
+      s.neutral_var = (CogitoEnsorPal){ h, 5.0 * 1.7 };
     } break;
   }
 
@@ -460,9 +465,9 @@ static double cogito_dyn_snap_bg(double tone) {
 }
 
 // ---- Resolve contrast against a background ----
-// If current ratio is insufficient, use foreground_tone.
-static double cogito_dyn_ensure_contrast(double self_tone, double bg_tone, double ratio) {
-  if (cogito_dyn_ratio_of_tones(bg_tone, self_tone) >= ratio) return self_tone;
+// Mirrors DynamicColor behavior for increasing/decreasing contrast.
+static double cogito_dyn_ensure_contrast(double self_tone, double bg_tone, double ratio, double contrast_level) {
+  if (cogito_dyn_ratio_of_tones(bg_tone, self_tone) >= ratio && contrast_level >= 0.0) return self_tone;
   return cogito_dyn_foreground_tone(bg_tone, ratio);
 }
 
@@ -677,30 +682,30 @@ static CogitoEnsorRoleTones cogito_dyn_resolve_accent(
     double bg_tone, bool dark,
     double container_ratio, double accent_ratio,
     double on_accent_ratio, double on_container_ratio,
-    bool on_accent_forced_white)
+    bool on_accent_forced_white, double contrast_level)
 {
   CogitoEnsorRoleTones r;
 
   // --- Container: snap for is_background, contrast if ratio > 1 ---
   r.container = cogito_dyn_snap_bg(container_init);
   if (container_ratio > 1.0)
-    r.container = cogito_dyn_ensure_contrast(r.container, bg_tone, container_ratio);
+    r.container = cogito_dyn_ensure_contrast(r.container, bg_tone, container_ratio, contrast_level);
 
   // --- Accent: TDP(container, accent, 5, RELATIVE_LIGHTER, FARTHER) ---
   double acc = cogito_dyn_tdp_accent(accent_init, container_init, 5.0, dark);
-  acc = cogito_dyn_ensure_contrast(acc, bg_tone, accent_ratio);
+  acc = cogito_dyn_ensure_contrast(acc, bg_tone, accent_ratio, contrast_level);
   acc = cogito_dyn_snap_bg(acc);
   r.accent = acc;
 
   // --- on_accent: contrast against accent ---
   double on_acc = on_accent_init;
-  on_acc = cogito_dyn_ensure_contrast(on_acc, r.accent, on_accent_ratio);
+  on_acc = cogito_dyn_ensure_contrast(on_acc, r.accent, on_accent_ratio, contrast_level);
   on_acc = cogito_dyn_finalize_light_on(on_acc, dark, on_accent_forced_white);
   r.on_accent = on_acc;
 
   // --- on_container: contrast against container ---
   double on_cont = on_container_init;
-  on_cont = cogito_dyn_ensure_contrast(on_cont, r.container, on_container_ratio);
+  on_cont = cogito_dyn_ensure_contrast(on_cont, r.container, on_container_ratio, contrast_level);
   r.on_container = on_cont;
 
   return r;
@@ -713,24 +718,24 @@ static CogitoEnsorRoleTones cogito_dyn_resolve_accent_content(
     double bg_tone, bool dark,
     double container_ratio, double accent_ratio,
     double on_accent_ratio, double on_container_ratio,
-    bool on_accent_forced_white)
+    bool on_accent_forced_white, double contrast_level)
 {
   CogitoEnsorRoleTones r;
 
   // Container: snap, contrast if ratio > 1
   r.container = cogito_dyn_snap_bg(container_init);
   if (container_ratio > 1.0)
-    r.container = cogito_dyn_ensure_contrast(r.container, bg_tone, container_ratio);
+    r.container = cogito_dyn_ensure_contrast(r.container, bg_tone, container_ratio, contrast_level);
 
   // Accent with TDP
   double acc = cogito_dyn_tdp_accent(accent_init, container_init, 5.0, dark);
-  acc = cogito_dyn_ensure_contrast(acc, bg_tone, accent_ratio);
+  acc = cogito_dyn_ensure_contrast(acc, bg_tone, accent_ratio, contrast_level);
   acc = cogito_dyn_snap_bg(acc);
   r.accent = acc;
 
   // on_accent
   double on_acc = on_accent_init;
-  on_acc = cogito_dyn_ensure_contrast(on_acc, r.accent, on_accent_ratio);
+  on_acc = cogito_dyn_ensure_contrast(on_acc, r.accent, on_accent_ratio, contrast_level);
   on_acc = cogito_dyn_finalize_light_on(on_acc, dark, on_accent_forced_white);
   r.on_accent = on_acc;
 
@@ -742,9 +747,9 @@ static CogitoEnsorRoleTones cogito_dyn_resolve_accent_content(
 
 // ---- Main build function ----
 
-static CogitoEnsorScheme cogito_ensor_build_dynamic_scheme(
+static CogitoEnsorScheme cogito_ensor_build_dynamic_scheme_impl(
     bool dark, double h, double c, double t,
-    CogitoEnsorVariant variant, double contrast_level)
+    CogitoEnsorVariant variant, double contrast_level, bool include_fixed_roles)
 {
   CogitoEnsorScheme out;
   memset(&out, 0, sizeof(out));
@@ -753,17 +758,18 @@ static CogitoEnsorScheme cogito_ensor_build_dynamic_scheme(
   CogitoEnsorDyn s = cogito_dyn_make(h, c, t, dark, contrast_level, variant);
   double cl = s.contrast_level;
 
-  // Evaluate contrast curves once
-  double r_container  = cogito_contrast_curve_get(CC_CONTAINER, cl);
-  double r_accent     = cogito_contrast_curve_get(CC_ACCENT, cl);
-  double r_on_accent  = cogito_contrast_curve_get(CC_ON_ACCENT, cl);
-  double r_on_cont    = cogito_contrast_curve_get(CC_ON_CONT, cl);
-  double r_on_surface = cogito_contrast_curve_get(CC_ON_SURFACE, cl);
-  double r_on_sv      = cogito_contrast_curve_get(CC_ON_SURF_VAR, cl);
-  double r_outline    = cogito_contrast_curve_get(CC_OUTLINE, cl);
-  double r_outline_v  = cogito_contrast_curve_get(CC_OUTLINE_VAR, cl);
-  double r_inv_on_s   = cogito_contrast_curve_get(CC_INV_ON_SURF, cl);
-  double r_inv_pri    = cogito_contrast_curve_get(CC_INV_PRIMARY, cl);
+  // Evaluate role contrast curves (desktop tracks ColorSpec2025 PHONE behavior).
+  double r_container   = (cl > 0.0) ? cogito_contrast_curve_get(cogito_dyn_curve(1.5), cl) : 1.0;
+  double r_accent      = cogito_contrast_curve_get(cogito_dyn_curve(4.5), cl);
+  double r_on_accent   = cogito_contrast_curve_get(cogito_dyn_curve(6.0), cl);
+  double r_on_cont     = cogito_contrast_curve_get(cogito_dyn_curve(6.0), cl);
+  double r_on_err_cont = cogito_contrast_curve_get(cogito_dyn_curve(4.5), cl);
+  double r_on_surface  = cogito_contrast_curve_get(cogito_dyn_curve(dark ? 11.0 : 9.0), cl);
+  double r_on_sv       = cogito_contrast_curve_get(cogito_dyn_curve(dark ? 6.0 : 4.5), cl);
+  double r_outline     = cogito_contrast_curve_get(cogito_dyn_curve(3.0), cl);
+  double r_outline_v   = cogito_contrast_curve_get(cogito_dyn_curve(1.5), cl);
+  double r_inv_on_s    = cogito_contrast_curve_get(cogito_dyn_curve(7.0), cl);
+  double r_inv_pri     = cogito_contrast_curve_get(cogito_dyn_curve(6.0), cl);
 
   // Background tone for contrast enforcement (DESKTOP):
   // accent roles use surface_bright (dark) / surface_dim (light)
@@ -780,10 +786,10 @@ static CogitoEnsorScheme cogito_ensor_build_dynamic_scheme(
     CogitoEnsorRoleTones rt;
     if (s.variant == COGITO_ENSOR_CONTENT) {
       rt = cogito_dyn_resolve_accent_content(p_init, pc_init, op_init,
-        bg_tone, dark, r_container, r_accent, r_on_accent, r_on_cont, true);
+        bg_tone, dark, r_container, r_accent, r_on_accent, r_on_cont, true, cl);
     } else {
       rt = cogito_dyn_resolve_accent(p_init, pc_init, op_init, opc_init,
-        bg_tone, dark, r_container, r_accent, r_on_accent, r_on_cont, true);
+        bg_tone, dark, r_container, r_accent, r_on_accent, r_on_cont, true, cl);
     }
 
     out.primary              = cogito_dyn_pal_color(s.primary, rt.accent, 1.0);
@@ -802,10 +808,10 @@ static CogitoEnsorScheme cogito_ensor_build_dynamic_scheme(
     CogitoEnsorRoleTones rt;
     if (s.variant == COGITO_ENSOR_CONTENT) {
       rt = cogito_dyn_resolve_accent_content(se_init, sc_init, os_init,
-        bg_tone, dark, r_container, r_accent, r_on_accent, r_on_cont, true);
+        bg_tone, dark, r_container, r_accent, r_on_accent, r_on_cont, true, cl);
     } else {
       rt = cogito_dyn_resolve_accent(se_init, sc_init, os_init, osc_init,
-        bg_tone, dark, r_container, r_accent, r_on_accent, r_on_cont, true);
+        bg_tone, dark, r_container, r_accent, r_on_accent, r_on_cont, true, cl);
     }
 
     out.secondary              = cogito_dyn_pal_color(s.secondary, rt.accent, 1.0);
@@ -824,10 +830,10 @@ static CogitoEnsorScheme cogito_ensor_build_dynamic_scheme(
     CogitoEnsorRoleTones rt;
     if (s.variant == COGITO_ENSOR_CONTENT) {
       rt = cogito_dyn_resolve_accent_content(te_init, tc_init, ot_init,
-        bg_tone, dark, r_container, r_accent, r_on_accent, r_on_cont, true);
+        bg_tone, dark, r_container, r_accent, r_on_accent, r_on_cont, true, cl);
     } else {
       rt = cogito_dyn_resolve_accent(te_init, tc_init, ot_init, otc_init,
-        bg_tone, dark, r_container, r_accent, r_on_accent, r_on_cont, true);
+        bg_tone, dark, r_container, r_accent, r_on_accent, r_on_cont, true, cl);
     }
 
     out.tertiary              = cogito_dyn_pal_color(s.tertiary, rt.accent, 1.0);
@@ -845,20 +851,20 @@ static CogitoEnsorScheme cogito_ensor_build_dynamic_scheme(
     // error_container: snap + contrast if ratio > 1
     double ec_tone = cogito_dyn_snap_bg(ec_init);
     if (r_container > 1.0)
-      ec_tone = cogito_dyn_ensure_contrast(ec_tone, bg_tone, r_container);
+      ec_tone = cogito_dyn_ensure_contrast(ec_tone, bg_tone, r_container, cl);
 
     // error: TDP(error_container, error, 5, RELATIVE_LIGHTER, FARTHER)
     double er_tone = cogito_dyn_tdp_accent(er_init, ec_init, 5.0, dark);
-    er_tone = cogito_dyn_ensure_contrast(er_tone, bg_tone, r_accent);
+    er_tone = cogito_dyn_ensure_contrast(er_tone, bg_tone, r_accent, cl);
     er_tone = cogito_dyn_snap_bg(er_tone);
 
     // on_error: contrast against error
     double oe_tone = oe_init;
-    oe_tone = cogito_dyn_ensure_contrast(oe_tone, er_tone, r_on_accent);
+    oe_tone = cogito_dyn_ensure_contrast(oe_tone, er_tone, r_on_accent, cl);
     oe_tone = cogito_dyn_finalize_light_on(oe_tone, dark, true);
 
     // on_error_container: foreground_tone against error_container
-    double oec_tone = cogito_dyn_foreground_tone(ec_tone, r_on_cont);
+    double oec_tone = cogito_dyn_foreground_tone(ec_tone, r_on_err_cont);
 
     out.error              = cogito_dyn_pal_color(s.error, er_tone, 1.0);
     out.error_container    = cogito_dyn_pal_color(s.error, ec_tone, 1.0);
@@ -899,7 +905,7 @@ static CogitoEnsorScheme cogito_ensor_build_dynamic_scheme(
     } else {
       init_tone = bg_tone;
     }
-    double ons_tone = cogito_dyn_ensure_contrast(init_tone, bg_tone, r_on_surface);
+    double ons_tone = cogito_dyn_ensure_contrast(init_tone, bg_tone, r_on_surface, cl);
     out.on_surface = cogito_dyn_pal_color(s.neutral, ons_tone, neut_cm);
     out.on_background = out.on_surface;
   }
@@ -907,21 +913,21 @@ static CogitoEnsorScheme cogito_ensor_build_dynamic_scheme(
   // ---- on_surface_variant ----
   {
     double neut_cm = cogito_dyn_neut_cmult(&s);
-    double osv_tone = cogito_dyn_ensure_contrast(bg_tone, bg_tone, r_on_sv);
+    double osv_tone = cogito_dyn_ensure_contrast(bg_tone, bg_tone, r_on_sv, cl);
     out.on_surface_variant = cogito_dyn_pal_color(s.neutral, osv_tone, neut_cm);
   }
 
   // ---- outline ----
   {
     double neut_cm = cogito_dyn_neut_cmult(&s);
-    double out_tone = cogito_dyn_ensure_contrast(bg_tone, bg_tone, r_outline);
+    double out_tone = cogito_dyn_ensure_contrast(bg_tone, bg_tone, r_outline, cl);
     out.outline = cogito_dyn_pal_color(s.neutral, out_tone, neut_cm);
   }
 
   // ---- outline_variant ----
   {
     double neut_cm = cogito_dyn_neut_cmult(&s);
-    double outv_tone = cogito_dyn_ensure_contrast(bg_tone, bg_tone, r_outline_v);
+    double outv_tone = cogito_dyn_ensure_contrast(bg_tone, bg_tone, r_outline_v, cl);
     out.outline_variant = cogito_dyn_pal_color(s.neutral, outv_tone, neut_cm);
   }
 
@@ -934,7 +940,7 @@ static CogitoEnsorScheme cogito_ensor_build_dynamic_scheme(
   // ---- inverse_on_surface ----
   {
     double inv_bg = dark ? 98.0 : 4.0;
-    double inv_ons = cogito_dyn_ensure_contrast(inv_bg, inv_bg, r_inv_on_s);
+    double inv_ons = cogito_dyn_ensure_contrast(inv_bg, inv_bg, r_inv_on_s, cl);
     inv_ons = cogito_dyn_finalize_light_on(inv_ons, dark, true);
     out.inverse_on_surface = cogito_dyn_pal_color(s.neutral, inv_ons, 1.0);
   }
@@ -943,8 +949,41 @@ static CogitoEnsorScheme cogito_ensor_build_dynamic_scheme(
   {
     double inv_bg = dark ? 98.0 : 4.0;
     double ip_init = cogito_dyn_tmax_c(s.primary.hue, s.primary.chroma, 0, 100);
-    double ip_tone = cogito_dyn_ensure_contrast(ip_init, inv_bg, r_inv_pri);
+    double ip_tone = cogito_dyn_ensure_contrast(ip_init, inv_bg, r_inv_pri, cl);
     out.inverse_primary = cogito_dyn_pal_color(s.primary, ip_tone, 1.0);
+  }
+
+  // ---- Fixed accent roles (primary/secondary/tertiary) ----
+  if (include_fixed_roles) {
+    CogitoEnsorScheme light_base = cogito_ensor_build_dynamic_scheme_impl(
+        false, h, c, t, variant, 0.0, false);
+
+    double r_on_fixed = cogito_contrast_curve_get(cogito_dyn_curve(7.0), cl);
+    double r_on_fixed_variant = cogito_contrast_curve_get(cogito_dyn_curve(4.5), cl);
+
+    double pf_tone = cogito_dyn_tone_of_rgb(light_base.primary_container);
+    out.primary_fixed = cogito_dyn_pal_color(s.primary, pf_tone, 1.0);
+    out.primary_fixed_dim = cogito_dyn_pal_color(s.primary, pf_tone, 1.0);
+    out.on_primary_fixed = cogito_dyn_pal_color(
+        s.primary, cogito_dyn_ensure_contrast(pf_tone, pf_tone, r_on_fixed, cl), 1.0);
+    out.on_primary_fixed_variant = cogito_dyn_pal_color(
+        s.primary, cogito_dyn_ensure_contrast(pf_tone, pf_tone, r_on_fixed_variant, cl), 1.0);
+
+    double sf_tone = cogito_dyn_tone_of_rgb(light_base.secondary_container);
+    out.secondary_fixed = cogito_dyn_pal_color(s.secondary, sf_tone, 1.0);
+    out.secondary_fixed_dim = cogito_dyn_pal_color(s.secondary, sf_tone, 1.0);
+    out.on_secondary_fixed = cogito_dyn_pal_color(
+        s.secondary, cogito_dyn_ensure_contrast(sf_tone, sf_tone, r_on_fixed, cl), 1.0);
+    out.on_secondary_fixed_variant = cogito_dyn_pal_color(
+        s.secondary, cogito_dyn_ensure_contrast(sf_tone, sf_tone, r_on_fixed_variant, cl), 1.0);
+
+    double tf_tone = cogito_dyn_tone_of_rgb(light_base.tertiary_container);
+    out.tertiary_fixed = cogito_dyn_pal_color(s.tertiary, tf_tone, 1.0);
+    out.tertiary_fixed_dim = cogito_dyn_pal_color(s.tertiary, tf_tone, 1.0);
+    out.on_tertiary_fixed = cogito_dyn_pal_color(
+        s.tertiary, cogito_dyn_ensure_contrast(tf_tone, tf_tone, r_on_fixed, cl), 1.0);
+    out.on_tertiary_fixed_variant = cogito_dyn_pal_color(
+        s.tertiary, cogito_dyn_ensure_contrast(tf_tone, tf_tone, r_on_fixed_variant, cl), 1.0);
   }
 
   // ---- surface_tint = primary color (same as primary) ----
@@ -955,4 +994,11 @@ static CogitoEnsorScheme cogito_ensor_build_dynamic_scheme(
   out.scrim  = cogito_hct_to_rgb(s.neutral.hue, 0.0, 0.0);
 
   return out;
+}
+
+static CogitoEnsorScheme cogito_ensor_build_dynamic_scheme(
+    bool dark, double h, double c, double t,
+    CogitoEnsorVariant variant, double contrast_level)
+{
+  return cogito_ensor_build_dynamic_scheme_impl(dark, h, c, t, variant, contrast_level, true);
 }

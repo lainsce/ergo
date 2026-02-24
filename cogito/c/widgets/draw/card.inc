@@ -22,8 +22,8 @@ case COGITO_CARD: {
 
   // State layer for interactive cards (on_action set): hover 8%, press 12%
   if (n->on_action) {
-    CogitoColor state = text_color;
-    if (active)     state.a = 30;
+    CogitoColor state = cogito_node_state_layer_seed(n);
+    if (active)     state.a = 31;
     else if (hover) state.a = 20;
     else            state.a = 0;
     if (state.a > 0) {

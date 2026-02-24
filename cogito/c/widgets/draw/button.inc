@@ -157,10 +157,10 @@ case COGITO_BUTTON: {
           cogito_draw_rect_node(n, &s, n->x, n->y, n->w, n->h, bg, radius);
         }
         
-        // Cogito: State layer — 8% on hover, 12% on press (draws over animated bg)
+        // State layer: hover=8%, active/pressed=12%.
         if (active || hover) {
-          CogitoColor state = text;
-          state.a = active ? 30 : 20;
+          CogitoColor state = cogito_node_state_layer_seed(n);
+          state.a = active ? 31 : 20;
           if (in_buttongroup) {
             cogito_draw_rect_radii_aa(n->x, n->y, n->w, n->h, state, rtl, rtr, rbr, rbl);
           } else {

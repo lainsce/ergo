@@ -151,6 +151,7 @@ static const char *cogito_font_bold_path_active = NULL;
 #define cogito_image_set_source cogito_image_set_source_ergo
 #define cogito_image_set_size cogito_image_set_size_ergo
 #define cogito_image_set_radius cogito_image_set_radius_ergo
+#define cogito_image_set_alt_text cogito_image_set_alt_text_ergo
 #define cogito_label_new cogito_label_new_ergo
 #define cogito_label_set_align cogito_label_set_align_ergo
 #define cogito_label_set_class cogito_label_set_class_ergo
@@ -461,6 +462,7 @@ static const char *cogito_font_bold_path_active = NULL;
 #undef cogito_image_set_source
 #undef cogito_image_set_size
 #undef cogito_image_set_radius
+#undef cogito_image_set_alt_text
 #undef cogito_label_new
 #undef cogito_label_set_align
 #undef cogito_label_set_class
@@ -2368,6 +2370,15 @@ void cogito_image_set_radius(cogito_node *image, int radius) {
   if (!image)
     return;
   cogito_image_set_radius_ergo(EV_OBJ(image), EV_INT(radius));
+}
+
+void cogito_image_set_alt_text(cogito_node *image, const char *alt_text) {
+  if (!image)
+    return;
+  ErgoVal av = cogito_val_from_cstr(alt_text);
+  cogito_image_set_alt_text_ergo(EV_OBJ(image), av);
+  if (av.tag == EVT_STR)
+    ergo_release_val(av);
 }
 
 cogito_node *cogito_appbar_add_button(cogito_node *appbar, const char *icon,
