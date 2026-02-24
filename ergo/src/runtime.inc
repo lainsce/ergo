@@ -15,7 +15,7 @@
 #endif
 
 // Cogito GUI headers for bindings
-#include "../../cogito/src/cogito.h"
+#include <cogito.h>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -760,4 +760,4 @@ static ErgoVal ergo_call(ErgoVal fval, int argc, ErgoVal* argv) {
 }
 
 // ---- Cogito GUI (shared library bindings) ----
-// @include "../../cogito/ergo/cogito_bindings.inc"
+// @include "cogito_bindings.inc"

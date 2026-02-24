@@ -273,7 +273,7 @@ static Module *load_file(const char *path,
             free(p);
             continue;
         }
-        // Cogito module resolution (lives in cogito/ergo/)
+        // Cogito module resolution (ergo-local copy)
 #include "cogito_resolve.inc"
         char *name = str_to_c(imp->name);
         if (!name) {

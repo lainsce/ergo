@@ -18,7 +18,7 @@ ergo_c_sources = files(
   'src/diag.c',
 )
 
-ergo_c_includes = include_directories('src', '../cogito/ergo')
+ergo_c_includes = include_directories('src')
 
 ergo_exe = executable(
   'ergo',

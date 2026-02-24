@@ -160,7 +160,7 @@ static bool prepare_macos_app_bundle(const char *exe_path, const char *bundle_id
 
 static bool expr_string_literal_as_filename(Expr *e, char *out, size_t out_cap);
 
-// Cogito build integration (lives in cogito/ergo/)
+// Cogito build integration (ergo-local copy)
 #include "cogito_build.inc"
 
 static bool sanitize_filename_component(const char *src, size_t src_len, char *out, size_t out_cap) {
@@ -260,13 +260,14 @@ static void print_usage(FILE *out) {
     fprintf(out, "\n");
     fprintf(out, "Cogito GUI Framework:\n");
     fprintf(out, "  To build GUI applications with Cogito:\n");
-    fprintf(out, "    1. Build Cogito: cd cogito && meson setup build && ninja -C build\n");
+    fprintf(out, "    1. Install or build Cogito (libcogito + cogito.ergo)\n");
     fprintf(out, "    2. Add 'bring cogito;' to your init.ergo\n");
     fprintf(out, "    3. Ensure raylib is installed (brew install raylib on macOS)\n");
     fprintf(out, "\n");
     fprintf(out, "  Cogito Environment Variables:\n");
     fprintf(out, "    ERGO_COGITO_CFLAGS   Additional C flags for Cogito compilation\n");
     fprintf(out, "    ERGO_COGITO_FLAGS    Additional linker flags for Cogito\n");
+    fprintf(out, "    ERGO_COGITO_STDLIB   Directory or file path for cogito.ergo module resolution\n");
     fprintf(out, "    ERGO_RAYLIB_CFLAGS   C flags for raylib (auto-detected on macOS/Linux)\n");
     fprintf(out, "    ERGO_RAYLIB_FLAGS    Linker flags for raylib (auto-detected on macOS/Linux)\n");
 }
