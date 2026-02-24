@@ -80,7 +80,7 @@ case COGITO_SEARCHFIELD: {
     int tw    = cogito_text_width_size_n_node(n, txt, caret, size);
     int car_x = text_x + tw;
     if (car_x > text_x + text_avail) car_x = text_x + text_avail;
-    double tm = cogito_backend ? cogito_backend->get_time() : 0.0;
+    double tm = cogito_now();
     if ((int)(tm * 2.0) % 2 == 0) {
       cogito_draw_line(car_x, text_y, car_x, text_y + text_h, text_color);
     }

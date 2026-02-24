@@ -37,6 +37,7 @@ static SDL_Renderer *sdl3_active_renderer(void);
 static SDL_Renderer *sdl3_create_renderer_for_window(SDL_Window *window);
 static void sdl3_get_mouse_position_in_window(CogitoWindow *window, int *x,
                                               int *y);
+static void sdl3_free_geometry_buffers(void);
 
 // ============================================================================
 // Cursor
@@ -119,8 +120,66 @@ static bool ttf_initialized = false;
 static SDL_GPUDevice *global_gpu_device = NULL;
 static SDL_Renderer *g_current_renderer = NULL;
 static struct CogitoSDL3Window *g_current_window = NULL;
+static SDL_Renderer *g_draw_color_renderer = NULL;
+static uint32_t g_draw_color_packed = 0;
+static bool g_draw_color_valid = false;
 static CogitoWindowRegistry window_registry = {0};
 static CogitoDebugFlags debug_flags = {0};
+
+static inline void sdl3_set_draw_color_cached(uint8_t r, uint8_t g, uint8_t b,
+                                              uint8_t a) {
+  if (!g_current_renderer)
+    return;
+  uint32_t packed = ((uint32_t)r << 24) | ((uint32_t)g << 16) |
+                    ((uint32_t)b << 8) | (uint32_t)a;
+  if (g_draw_color_valid && g_draw_color_renderer == g_current_renderer &&
+      g_draw_color_packed == packed) {
+    return;
+  }
+  SDL_SetRenderDrawColor(g_current_renderer, r, g, b, a);
+  g_draw_color_renderer = g_current_renderer;
+  g_draw_color_packed = packed;
+  g_draw_color_valid = true;
+}
+
+#define SDL3_RECT_BATCH_MAX 1024
+static SDL_FRect g_rect_batch[SDL3_RECT_BATCH_MAX];
+static int g_rect_batch_count = 0;
+static SDL_Renderer *g_rect_batch_renderer = NULL;
+static CogitoColor g_rect_batch_color = {0, 0, 0, 0};
+
+static inline void sdl3_rect_batch_flush(void) {
+  if (!g_rect_batch_renderer || g_rect_batch_count <= 0)
+    return;
+  sdl3_set_draw_color_cached(g_rect_batch_color.r, g_rect_batch_color.g,
+                             g_rect_batch_color.b, g_rect_batch_color.a);
+  SDL_RenderFillRects(g_rect_batch_renderer, g_rect_batch, g_rect_batch_count);
+  g_rect_batch_count = 0;
+}
+
+static inline void sdl3_rect_batch_reset(void) {
+  g_rect_batch_count = 0;
+  g_rect_batch_renderer = NULL;
+}
+
+static inline void sdl3_rect_batch_push(SDL_Renderer *renderer, int x, int y,
+                                        int w, int h, CogitoColor color) {
+  if (!renderer || w <= 0 || h <= 0 || color.a == 0)
+    return;
+  if (g_rect_batch_count > 0 &&
+      (g_rect_batch_renderer != renderer || g_rect_batch_color.r != color.r ||
+       g_rect_batch_color.g != color.g || g_rect_batch_color.b != color.b ||
+       g_rect_batch_color.a != color.a ||
+       g_rect_batch_count >= SDL3_RECT_BATCH_MAX)) {
+    sdl3_rect_batch_flush();
+  }
+  if (g_rect_batch_count == 0) {
+    g_rect_batch_renderer = renderer;
+    g_rect_batch_color = color;
+  }
+  g_rect_batch[g_rect_batch_count++] =
+      (SDL_FRect){(float)x, (float)y, (float)w, (float)h};
+}
 
 // Scissor stack for nested clipping support
 #define MAX_SCISSOR_STACK 16
@@ -145,29 +204,32 @@ static double start_time = 0.0;
 // ============================================================================
 
 #define COGITO_TEXT_CACHE_SIZE 512
-#define COGITO_TEXT_CACHE_MAX_LEN 64
+#define COGITO_TEXT_CACHE_MAX_LEN 128
 #define COGITO_TEXT_CACHE_EVICT_AGE                                            \
-  1 // Frame Bus Method: evict anything not used in last frame
+  24 // Keep entries warm across short bursts while still aging out quickly
+#define COGITO_TEXT_CACHE_MAX_BYTES (16u * 1024u * 1024u)
 #define COGITO_FRAME_BUDGET_MS                                                 \
   12 // Target frame time in ms (leaves 4ms buffer for 60fps)
 
 typedef struct CogitoTextCacheKey {
   char text[COGITO_TEXT_CACHE_MAX_LEN];
   TTF_Font *font;
-  uint32_t color_packed; // Packed RGBA color
 } CogitoTextCacheKey;
 
 typedef struct CogitoTextCacheEntry {
   CogitoTextCacheKey key;
+  uint32_t hash;
   SDL_Texture *texture;
   int width;
   int height;
+  size_t size_bytes;
   uint64_t last_used;
   bool valid;
 } CogitoTextCacheEntry;
 
 static CogitoTextCacheEntry g_text_cache[COGITO_TEXT_CACHE_SIZE];
 static uint64_t g_text_cache_frame = 0;
+static size_t g_text_cache_bytes = 0;
 
 static uint32_t cogito_text_cache_hash(const CogitoTextCacheKey *key) {
   uint32_t h = 5381;
@@ -175,24 +237,66 @@ static uint32_t cogito_text_cache_hash(const CogitoTextCacheKey *key) {
     h = ((h << 5) + h) ^ (uint8_t)*p;
   }
   h ^= (uint32_t)(uintptr_t)key->font;
-  h ^= key->color_packed;
   return h;
 }
 
 static bool cogito_text_cache_key_eq(const CogitoTextCacheKey *a,
                                      const CogitoTextCacheKey *b) {
-  return a->font == b->font && a->color_packed == b->color_packed &&
-         strcmp(a->text, b->text) == 0;
+  return a->font == b->font && strcmp(a->text, b->text) == 0;
+}
+
+static void cogito_text_cache_drop_entry(CogitoTextCacheEntry *e) {
+  if (!e)
+    return;
+  if (e->texture) {
+    SDL_DestroyTexture(e->texture);
+    e->texture = NULL;
+  }
+  if (e->size_bytes > 0) {
+    if (e->size_bytes <= g_text_cache_bytes) {
+      g_text_cache_bytes -= e->size_bytes;
+    } else {
+      g_text_cache_bytes = 0;
+    }
+  }
+  e->width = 0;
+  e->height = 0;
+  e->hash = 0;
+  e->size_bytes = 0;
+  e->valid = false;
+}
+
+static void cogito_text_cache_trim(size_t max_bytes,
+                                   CogitoTextCacheEntry *keep_entry) {
+  while (g_text_cache_bytes > max_bytes) {
+    uint64_t oldest = UINT64_MAX;
+    int oldest_idx = -1;
+    for (int i = 0; i < COGITO_TEXT_CACHE_SIZE; i++) {
+      CogitoTextCacheEntry *e = &g_text_cache[i];
+      if (!e->valid || !e->texture || e == keep_entry)
+        continue;
+      if (e->last_used < oldest) {
+        oldest = e->last_used;
+        oldest_idx = i;
+      }
+    }
+    if (oldest_idx < 0)
+      break;
+    cogito_text_cache_drop_entry(&g_text_cache[oldest_idx]);
+  }
 }
 
 static CogitoTextCacheEntry *
-cogito_text_cache_lookup(TTF_Font *font, const char *text, SDL_Color color) {
+cogito_text_cache_lookup(TTF_Font *font, const char *text, size_t text_len) {
   CogitoTextCacheKey key = {0};
-  strncpy(key.text, text, COGITO_TEXT_CACHE_MAX_LEN - 1);
-  key.text[COGITO_TEXT_CACHE_MAX_LEN - 1] = '\0';
+  if (text_len >= (size_t)COGITO_TEXT_CACHE_MAX_LEN) {
+    text_len = (size_t)COGITO_TEXT_CACHE_MAX_LEN - 1;
+  }
+  if (text_len > 0) {
+    memcpy(key.text, text, text_len);
+  }
+  key.text[text_len] = '\0';
   key.font = font;
-  key.color_packed = ((uint32_t)color.r << 24) | ((uint32_t)color.g << 16) |
-                     ((uint32_t)color.b << 8) | (uint32_t)color.a;
 
   uint32_t hash = cogito_text_cache_hash(&key);
   int idx = hash % COGITO_TEXT_CACHE_SIZE;
@@ -205,10 +309,11 @@ cogito_text_cache_lookup(TTF_Font *font, const char *text, SDL_Color color) {
     if (!e->valid) {
       // Empty slot - will be filled by insert
       e->key = key;
+      e->hash = hash;
       return e;
     }
 
-    if (cogito_text_cache_key_eq(&e->key, &key)) {
+    if (e->hash == hash && cogito_text_cache_key_eq(&e->key, &key)) {
       // Cache hit
       e->last_used = g_text_cache_frame;
       return e;
@@ -226,23 +331,17 @@ cogito_text_cache_lookup(TTF_Font *font, const char *text, SDL_Color color) {
   }
 
   CogitoTextCacheEntry *e = &g_text_cache[oldest_idx];
-  if (e->texture) {
-    SDL_DestroyTexture(e->texture);
-    e->texture = NULL;
-  }
+  cogito_text_cache_drop_entry(e);
   e->key = key;
-  e->valid = false;
+  e->hash = hash;
   return e;
 }
 
 static void cogito_text_cache_clear(void) {
   for (int i = 0; i < COGITO_TEXT_CACHE_SIZE; i++) {
-    if (g_text_cache[i].texture) {
-      SDL_DestroyTexture(g_text_cache[i].texture);
-      g_text_cache[i].texture = NULL;
-    }
-    g_text_cache[i].valid = false;
+    cogito_text_cache_drop_entry(&g_text_cache[i]);
   }
+  g_text_cache_bytes = 0;
 }
 
 static void cogito_text_cache_frame_start(void) {
@@ -254,11 +353,10 @@ static void cogito_text_cache_frame_start(void) {
       CogitoTextCacheEntry *e = &g_text_cache[i];
       if (e->valid && e->texture &&
           (g_text_cache_frame - e->last_used) > COGITO_TEXT_CACHE_EVICT_AGE) {
-        SDL_DestroyTexture(e->texture);
-        e->texture = NULL;
-        e->valid = false;
+        cogito_text_cache_drop_entry(e);
       }
     }
+    cogito_text_cache_trim(COGITO_TEXT_CACHE_MAX_BYTES, NULL);
   }
 }
 
@@ -399,6 +497,14 @@ static void sdl3_shutdown(void) {
 
   // Clear text texture cache
   cogito_text_cache_clear();
+  sdl3_free_geometry_buffers();
+
+  for (int i = 0; i < COGITO_CURSOR_COUNT; i++) {
+    if (sdl3_cursors[i]) {
+      SDL_DestroyCursor(sdl3_cursors[i]);
+      sdl3_cursors[i] = NULL;
+    }
+  }
 
   if (global_gpu_device) {
     SDL_DestroyGPUDevice(global_gpu_device);
@@ -757,6 +863,9 @@ static void sdl3_begin_frame(CogitoWindow *window) {
 
   g_current_renderer = win->renderer;
   g_current_window = win;
+  g_draw_color_valid = false;
+  g_draw_color_renderer = win->renderer;
+  sdl3_rect_batch_reset();
   g_render_state.window_width = w;
   g_render_state.window_height = h;
   SDL_SetRenderClipRect(g_current_renderer, NULL);
@@ -769,6 +878,7 @@ static void sdl3_present(CogitoWindow *window) {
   CogitoSDL3Window *win = (CogitoSDL3Window *)window;
   if (!win || !win->renderer)
     return;
+  sdl3_rect_batch_flush();
   // Use autoreleasepool wrapper on macOS to prevent RAM balloon during window
   // drag performWindowDragWithEvent: runs a modal event loop that stops normal
   // autorelease pool drain
@@ -788,6 +898,9 @@ static void sdl3_present(CogitoWindow *window) {
   }
 
   g_current_renderer = NULL;
+  sdl3_rect_batch_reset();
+  g_draw_color_valid = false;
+  g_draw_color_renderer = NULL;
   if (g_current_window == win) {
     g_current_window = NULL;
   }
@@ -796,8 +909,8 @@ static void sdl3_present(CogitoWindow *window) {
 static void sdl3_clear(CogitoColor color) {
   if (!g_current_renderer)
     return;
-  SDL_SetRenderDrawColor(g_current_renderer, color.r, color.g, color.b,
-                         color.a);
+  sdl3_rect_batch_flush();
+  sdl3_set_draw_color_cached(color.r, color.g, color.b, color.a);
   SDL_RenderClear(g_current_renderer);
 }
 
@@ -1145,16 +1258,14 @@ static SDL_Renderer *sdl3_active_renderer(void) {
 static void sdl3_draw_rect(int x, int y, int w, int h, CogitoColor color) {
   if (!g_current_renderer || w <= 0 || h <= 0)
     return;
-  SDL_SetRenderDrawColor(g_current_renderer, color.r, color.g, color.b,
-                         color.a);
-  SDL_FRect rect = {(float)x, (float)y, (float)w, (float)h};
-  SDL_RenderFillRect(g_current_renderer, &rect);
+  sdl3_rect_batch_push(g_current_renderer, x, y, w, h, color);
 }
 
 static void sdl3_draw_point_alpha(int x, int y, CogitoColor color,
                                   float coverage) {
   if (!g_current_renderer || color.a == 0)
     return;
+  sdl3_rect_batch_flush();
   if (coverage <= 0.0f)
     return;
   if (coverage > 1.0f)
@@ -1162,7 +1273,7 @@ static void sdl3_draw_point_alpha(int x, int y, CogitoColor color,
   uint8_t a = (uint8_t)lroundf((float)color.a * coverage);
   if (a == 0)
     return;
-  SDL_SetRenderDrawColor(g_current_renderer, color.r, color.g, color.b, a);
+  sdl3_set_draw_color_cached(color.r, color.g, color.b, a);
   SDL_RenderPoint(g_current_renderer, (float)x, (float)y);
 }
 
@@ -1170,6 +1281,7 @@ static void sdl3_draw_hspan_aa(int y, float left, float right,
                                CogitoColor color) {
   if (!g_current_renderer || color.a == 0)
     return;
+  sdl3_rect_batch_flush();
   if (right < left)
     return;
   int full_l = (int)ceilf(left);
@@ -1179,8 +1291,7 @@ static void sdl3_draw_hspan_aa(int y, float left, float right,
     return;
   }
 
-  SDL_SetRenderDrawColor(g_current_renderer, color.r, color.g, color.b,
-                         color.a);
+  sdl3_set_draw_color_cached(color.r, color.g, color.b, color.a);
   SDL_RenderLine(g_current_renderer, (float)full_l, (float)y, (float)full_r,
                  (float)y);
 }
@@ -1226,6 +1337,15 @@ static int sdl3_round_segments_for_radius(float radius) {
   return segments;
 }
 
+static int sdl3_circle_segments_for_radius(float radius) {
+  int segments = (int)ceilf(radius * 1.2f);
+  if (segments < 12)
+    segments = 12;
+  if (segments > 128)
+    segments = 128;
+  return segments;
+}
+
 static float sdl3_clampf(float x, float a, float b) {
   return (x < a) ? a : ((x > b) ? b : x);
 }
@@ -1264,6 +1384,24 @@ static bool cogito_ensure_cap(void **ptr, int *cap, int needed,
   *ptr = new_ptr;
   *cap = new_cap;
   return true;
+}
+
+static void sdl3_free_geometry_buffers(void) {
+  free(g_rounded_rect_pts);
+  g_rounded_rect_pts = NULL;
+  g_rounded_rect_pts_cap = 0;
+
+  free(g_rounded_rect_pts2);
+  g_rounded_rect_pts2 = NULL;
+  g_rounded_rect_pts2_cap = 0;
+
+  free(g_rounded_rect_verts);
+  g_rounded_rect_verts = NULL;
+  g_rounded_rect_verts_cap = 0;
+
+  free(g_rounded_rect_indices);
+  g_rounded_rect_indices = NULL;
+  g_rounded_rect_indices_cap = 0;
 }
 
 static int sdl3_build_rounded_rect_perimeter(float x, float y, float w, float h,
@@ -1376,6 +1514,123 @@ static bool sdl3_draw_filled_rounded_rect_fan(int x, int y, int w, int h,
                                vert_count, g_rounded_rect_indices, index_count);
   // No free() calls - buffers are reused
   return ok;
+}
+
+static bool sdl3_draw_filled_circle_fan(int x, int y, float radius,
+                                        int segments, CogitoColor color) {
+  if (!g_current_renderer || radius <= 0.0f)
+    return false;
+  if (segments < 3)
+    segments = 3;
+
+  const int ring_pts = segments + 1;
+  const int vert_count = 1 + ring_pts;
+  const int index_count = segments * 3;
+  if (!cogito_ensure_cap((void **)&g_rounded_rect_verts, &g_rounded_rect_verts_cap,
+                         vert_count, sizeof(SDL_Vertex)) ||
+      !cogito_ensure_cap((void **)&g_rounded_rect_indices,
+                         &g_rounded_rect_indices_cap,
+                         index_count, sizeof(int))) {
+    return false;
+  }
+
+  SDL_FColor c = sdl3_fcolor(color);
+  g_rounded_rect_verts[0] = (SDL_Vertex){
+      .position = {(float)x, (float)y}, .color = c, .tex_coord = {0.0f, 0.0f}};
+
+  float ux = 1.0f;
+  float uy = 0.0f;
+  float da = (float)(2.0 * M_PI) / (float)segments;
+  float cda = cosf(da);
+  float sda = sinf(da);
+  for (int i = 0; i < segments; i++) {
+    g_rounded_rect_verts[1 + i] =
+        (SDL_Vertex){.position = {(float)x + ux * radius, (float)y + uy * radius},
+                     .color = c,
+                     .tex_coord = {0.0f, 0.0f}};
+    float nux = ux * cda - uy * sda;
+    float nuy = ux * sda + uy * cda;
+    ux = nux;
+    uy = nuy;
+  }
+  g_rounded_rect_verts[1 + segments] = g_rounded_rect_verts[1];
+
+  int ii = 0;
+  for (int i = 0; i < segments; i++) {
+    g_rounded_rect_indices[ii++] = 0;
+    g_rounded_rect_indices[ii++] = 1 + i;
+    g_rounded_rect_indices[ii++] = 1 + i + 1;
+  }
+
+  return SDL_RenderGeometry(g_current_renderer, NULL, g_rounded_rect_verts,
+                            vert_count, g_rounded_rect_indices, index_count);
+}
+
+static bool sdl3_draw_circle_ring(int x, int y, float radius, float thickness,
+                                  int segments, CogitoColor color) {
+  if (!g_current_renderer || radius <= 0.0f || thickness <= 0.0f)
+    return false;
+  if (segments < 3)
+    segments = 3;
+
+  float r_outer = radius;
+  float r_inner = radius - thickness;
+  if (r_inner <= 0.0f) {
+    return sdl3_draw_filled_circle_fan(x, y, r_outer, segments, color);
+  }
+
+  const int ring_pts = segments + 1;
+  const int vert_count = ring_pts * 2;
+  const int index_count = segments * 6;
+  if (!cogito_ensure_cap((void **)&g_rounded_rect_verts, &g_rounded_rect_verts_cap,
+                         vert_count, sizeof(SDL_Vertex)) ||
+      !cogito_ensure_cap((void **)&g_rounded_rect_indices,
+                         &g_rounded_rect_indices_cap,
+                         index_count, sizeof(int))) {
+    return false;
+  }
+
+  SDL_FColor c = sdl3_fcolor(color);
+  float ux = 1.0f;
+  float uy = 0.0f;
+  float da = (float)(2.0 * M_PI) / (float)segments;
+  float cda = cosf(da);
+  float sda = sinf(da);
+
+  for (int i = 0; i < segments; i++) {
+    g_rounded_rect_verts[i] =
+        (SDL_Vertex){.position = {(float)x + ux * r_outer, (float)y + uy * r_outer},
+                     .color = c,
+                     .tex_coord = {0.0f, 0.0f}};
+    g_rounded_rect_verts[ring_pts + i] =
+        (SDL_Vertex){.position = {(float)x + ux * r_inner, (float)y + uy * r_inner},
+                     .color = c,
+                     .tex_coord = {0.0f, 0.0f}};
+    float nux = ux * cda - uy * sda;
+    float nuy = ux * sda + uy * cda;
+    ux = nux;
+    uy = nuy;
+  }
+
+  g_rounded_rect_verts[segments] = g_rounded_rect_verts[0];
+  g_rounded_rect_verts[ring_pts + segments] = g_rounded_rect_verts[ring_pts];
+
+  int ii = 0;
+  for (int i = 0; i < segments; i++) {
+    int o0 = i;
+    int o1 = i + 1;
+    int i0 = ring_pts + i;
+    int i1 = ring_pts + i + 1;
+    g_rounded_rect_indices[ii++] = o0;
+    g_rounded_rect_indices[ii++] = o1;
+    g_rounded_rect_indices[ii++] = i1;
+    g_rounded_rect_indices[ii++] = o0;
+    g_rounded_rect_indices[ii++] = i1;
+    g_rounded_rect_indices[ii++] = i0;
+  }
+
+  return SDL_RenderGeometry(g_current_renderer, NULL, g_rounded_rect_verts,
+                            vert_count, g_rounded_rect_indices, index_count);
 }
 
 static bool sdl3_draw_rounded_rect_outline(int x, int y, int w, int h,
@@ -1511,6 +1766,7 @@ static bool sdl3_draw_rounded_rect_outline(int x, int y, int w, int h,
 
 static void sdl3_draw_rect_rounded(int x, int y, int w, int h,
                                    CogitoColor color, float roundness) {
+  sdl3_rect_batch_flush();
   if (!g_current_renderer || w <= 0 || h <= 0)
     return;
   int min_dim = w < h ? w : h;
@@ -1536,17 +1792,18 @@ static void sdl3_draw_rect_rounded(int x, int y, int w, int h,
 
 static void sdl3_draw_line(int x1, int y1, int x2, int y2, CogitoColor color,
                            int thickness) {
+  sdl3_rect_batch_flush();
   if (!g_current_renderer)
     return;
   if (thickness < 1)
     thickness = 1;
-  SDL_SetRenderDrawColor(g_current_renderer, color.r, color.g, color.b,
-                         color.a);
+  sdl3_set_draw_color_cached(color.r, color.g, color.b, color.a);
   if (thickness == 1) {
     SDL_RenderLine(g_current_renderer, (float)x1, (float)y1, (float)x2,
                    (float)y2);
     return;
   }
+
   float dx = (float)(x2 - x1);
   float dy = (float)(y2 - y1);
   float len = sqrtf(dx * dx + dy * dy);
@@ -1566,21 +1823,29 @@ static void sdl3_draw_line(int x1, int y1, int x2, int y2, CogitoColor color,
 
 static void sdl3_draw_rect_lines(int x, int y, int w, int h, CogitoColor color,
                                  int thickness) {
+  sdl3_rect_batch_flush();
   if (!g_current_renderer || w <= 0 || h <= 0 || thickness <= 0)
     return;
-  for (int t = 0; t < thickness; t++) {
-    int ox = x + t;
-    int oy = y + t;
-    int ow = w - 2 * t;
-    int oh = h - 2 * t;
-    if (ow <= 0 || oh <= 0)
-      break;
-    int right = ox + ow - 1;
-    int bottom = oy + oh - 1;
-    sdl3_draw_line(ox, oy, right, oy, color, 1);
-    sdl3_draw_line(right, oy, right, bottom, color, 1);
-    sdl3_draw_line(right, bottom, ox, bottom, color, 1);
-    sdl3_draw_line(ox, bottom, ox, oy, color, 1);
+  if (thickness * 2 >= w || thickness * 2 >= h) {
+    sdl3_draw_rect(x, y, w, h, color);
+    return;
+  }
+
+  sdl3_set_draw_color_cached(color.r, color.g, color.b, color.a);
+  SDL_FRect top = {(float)x, (float)y, (float)w, (float)thickness};
+  SDL_FRect bottom = {(float)x, (float)(y + h - thickness), (float)w,
+                      (float)thickness};
+  SDL_RenderFillRect(g_current_renderer, &top);
+  SDL_RenderFillRect(g_current_renderer, &bottom);
+
+  int inner_h = h - thickness * 2;
+  if (inner_h > 0) {
+    SDL_FRect left = {(float)x, (float)(y + thickness), (float)thickness,
+                      (float)inner_h};
+    SDL_FRect right = {(float)(x + w - thickness), (float)(y + thickness),
+                       (float)thickness, (float)inner_h};
+    SDL_RenderFillRect(g_current_renderer, &left);
+    SDL_RenderFillRect(g_current_renderer, &right);
   }
 }
 
@@ -1626,6 +1891,7 @@ static void sdl3_draw_circle_outline_aa(int cx, int cy, float radius,
 static void sdl3_draw_rect_rounded_lines(int x, int y, int w, int h,
                                          CogitoColor color, float roundness,
                                          int thickness) {
+  sdl3_rect_batch_flush();
   if (!g_current_renderer || w <= 0 || h <= 0 || thickness <= 0)
     return;
   int min_dim = w < h ? w : h;
@@ -1642,11 +1908,18 @@ static void sdl3_draw_rect_rounded_lines(int x, int y, int w, int h,
 }
 
 static void sdl3_draw_circle(int x, int y, float radius, CogitoColor color) {
+  sdl3_rect_batch_flush();
   if (!g_current_renderer || radius <= 0.0f)
     return;
   float r = radius;
   if (r < 0.5f)
     r = 0.5f;
+  if (r >= 2.0f) {
+    int segments = sdl3_circle_segments_for_radius(r);
+    if (sdl3_draw_filled_circle_fan(x, y, r, segments, color)) {
+      return;
+    }
+  }
   int y0 = (int)floorf((float)y - r - 1.0f);
   int y1 = (int)ceilf((float)y + r + 1.0f);
   for (int py = y0; py <= y1; py++) {
@@ -1666,10 +1939,18 @@ static void sdl3_draw_circle(int x, int y, float radius, CogitoColor color) {
 
 static void sdl3_draw_circle_lines(int x, int y, float radius,
                                    CogitoColor color, int thickness) {
+  sdl3_rect_batch_flush();
   if (!g_current_renderer || radius <= 0.0f)
     return;
   if (thickness < 1)
     thickness = 1;
+  if (thickness > 1 && radius >= 6.0f) {
+    int segments = sdl3_circle_segments_for_radius(radius);
+    if (sdl3_draw_circle_ring(x, y, radius, (float)thickness, segments,
+                              color)) {
+      return;
+    }
+  }
   int base_r = (int)lroundf(radius);
   for (int t = 0; t < thickness; t++) {
     int rr = base_r - t;
@@ -1959,23 +2240,30 @@ static void sdl3_draw_text(CogitoFont *font, const char *text, int x, int y,
   CogitoSDL3Font *f = (CogitoSDL3Font *)font;
   if (!g_current_renderer || !f || !f->ttf_font || !text || !text[0])
     return;
+  sdl3_rect_batch_flush();
   (void)size;
 
-  SDL_Color sdl_color = {color.r, color.g, color.b, color.a};
+  size_t text_len = strnlen(text, COGITO_TEXT_CACHE_MAX_LEN);
+  bool cacheable = text_len < COGITO_TEXT_CACHE_MAX_LEN;
+  CogitoTextCacheEntry *entry = NULL;
 
-  // Look up in cache
-  CogitoTextCacheEntry *entry =
-      cogito_text_cache_lookup(f->ttf_font, text, sdl_color);
-
-  if (entry->valid && entry->texture) {
-    // Cache hit - use existing texture
-    SDL_FRect dst = {(float)x, (float)y, (float)entry->width,
-                     (float)entry->height};
-    SDL_RenderTexture(g_current_renderer, entry->texture, NULL, &dst);
-    return;
+  if (cacheable) {
+    // Look up in cache
+    entry = cogito_text_cache_lookup(f->ttf_font, text, text_len);
+    if (entry->valid && entry->texture) {
+      // Cache hit - use existing texture
+      SDL_FRect dst = {(float)x, (float)y, (float)entry->width,
+                       (float)entry->height};
+      SDL_SetTextureColorMod(entry->texture, color.r, color.g, color.b);
+      SDL_SetTextureAlphaMod(entry->texture, color.a);
+      SDL_RenderTexture(g_current_renderer, entry->texture, NULL, &dst);
+      return;
+    }
   }
 
-  // Cache miss - render new texture
+  // Cache miss - render a white glyph texture; tint at draw time to avoid
+  // duplicating cache entries per color.
+  SDL_Color sdl_color = {255, 255, 255, 255};
   SDL_Surface *surface =
       TTF_RenderText_Blended(f->ttf_font, text, 0, sdl_color);
   if (!surface)
@@ -1989,18 +2277,31 @@ static void sdl3_draw_text(CogitoFont *font, const char *text, int x, int y,
   SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
   SDL_SetTextureScaleMode(tex, SDL_SCALEMODE_LINEAR);
 
-  // Store in cache
-  entry->texture = tex;
-  entry->width = surface->w;
-  entry->height = surface->h;
-  entry->valid = true;
-  entry->last_used = g_text_cache_frame;
-
   SDL_FRect dst = {(float)x, (float)y, (float)surface->w, (float)surface->h};
+  SDL_SetTextureColorMod(tex, color.r, color.g, color.b);
+  SDL_SetTextureAlphaMod(tex, color.a);
   SDL_RenderTexture(g_current_renderer, tex, NULL, &dst);
 
+  if (cacheable && entry) {
+    // Store in cache
+    if (entry->texture || entry->size_bytes > 0) {
+      cogito_text_cache_drop_entry(entry);
+    }
+    entry->texture = tex;
+    entry->width = surface->w;
+    entry->height = surface->h;
+    entry->size_bytes =
+        (size_t)surface->w * (size_t)surface->h * sizeof(uint32_t);
+    entry->valid = true;
+    entry->last_used = g_text_cache_frame;
+    g_text_cache_bytes += entry->size_bytes;
+    cogito_text_cache_trim(COGITO_TEXT_CACHE_MAX_BYTES, entry);
+  } else {
+    // Don't retain extremely long transient text in the cache.
+    SDL_DestroyTexture(tex);
+  }
+
   SDL_DestroySurface(surface);
-  // Note: texture is now owned by cache, don't destroy it here
 }
 
 // ============================================================================
@@ -2111,9 +2412,9 @@ static void sdl3_draw_texture(CogitoTexture *tex, CogitoRect src,
   CogitoSDL3Texture *t = (CogitoSDL3Texture *)tex;
   if (!renderer || !t || !t->sdl_texture || dst.w <= 0 || dst.h <= 0)
     return;
+  sdl3_rect_batch_flush();
   SDL_SetTextureColorMod(t->sdl_texture, tint.r, tint.g, tint.b);
   SDL_SetTextureAlphaMod(t->sdl_texture, tint.a);
-  SDL_SetTextureBlendMode(t->sdl_texture, SDL_BLENDMODE_BLEND);
   SDL_FRect d = {(float)dst.x, (float)dst.y, (float)dst.w, (float)dst.h};
   if (src.w > 0 && src.h > 0) {
     SDL_FRect s = {(float)src.x, (float)src.y, (float)src.w, (float)src.h};
@@ -2130,9 +2431,9 @@ static void sdl3_draw_texture_pro(CogitoTexture *tex, CogitoRect src,
   CogitoSDL3Texture *t = (CogitoSDL3Texture *)tex;
   if (!renderer || !t || !t->sdl_texture || dst.w <= 0 || dst.h <= 0)
     return;
+  sdl3_rect_batch_flush();
   SDL_SetTextureColorMod(t->sdl_texture, tint.r, tint.g, tint.b);
   SDL_SetTextureAlphaMod(t->sdl_texture, tint.a);
-  SDL_SetTextureBlendMode(t->sdl_texture, SDL_BLENDMODE_BLEND);
   SDL_FRect d = {(float)dst.x, (float)dst.y, (float)dst.w, (float)dst.h};
   SDL_FPoint c = {origin.x, origin.y};
   if (src.w > 0 && src.h > 0) {
@@ -2152,6 +2453,7 @@ static void sdl3_draw_texture_pro(CogitoTexture *tex, CogitoRect src,
 static void sdl3_begin_scissor(int x, int y, int w, int h) {
   if (!g_current_renderer)
     return;
+  sdl3_rect_batch_flush();
 
   // Save current scissor to stack for nested clipping
   SDL_Rect current_clip;
@@ -2173,6 +2475,7 @@ static void sdl3_begin_scissor(int x, int y, int w, int h) {
 static void sdl3_end_scissor(void) {
   if (!g_current_renderer)
     return;
+  sdl3_rect_batch_flush();
 
   // Pop previous scissor from stack
   if (scissor_stack_count > 0) {
@@ -2192,6 +2495,7 @@ static void sdl3_end_scissor(void) {
 static void sdl3_set_blend_mode(int mode) {
   if (!g_current_renderer)
     return;
+  sdl3_rect_batch_flush();
   SDL_BlendMode bm = SDL_BLENDMODE_BLEND;
   if (mode == 0)
     bm = SDL_BLENDMODE_NONE;

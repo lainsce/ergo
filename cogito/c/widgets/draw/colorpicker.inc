@@ -12,12 +12,7 @@ case COGITO_COLORPICKER: {
 
       int mx = 0, my = 0;
       bool down = false;
-      if (cogito_backend && cogito_backend->get_mouse_position) {
-        cogito_backend->get_mouse_position(&mx, &my);
-      }
-      if (cogito_backend && cogito_backend->is_mouse_button_down) {
-        down = cogito_backend->is_mouse_button_down(0);
-      }
+      (void)cogito_pointer_query(&mx, &my, &down, NULL);
 
       CogitoColor text_col = s.has_text ? s.text : n->text_color;
       CogitoColor accent = s.has_selection ? s.selection : n->selection_color;
@@ -143,8 +138,7 @@ case COGITO_COLORPICKER: {
           int cx = hx + pad + tw;
           int max_x = hx + hw - pad;
           if (cx > max_x) cx = max_x;
-          double time = 0.0;
-          if (cogito_backend && cogito_backend->get_time) time = cogito_backend->get_time();
+          double time = cogito_now();
           if ((int)(time * 2.0) % 2 == 0) cogito_draw_line(cx, ty, cx, ty + th, text_col);
         }
 
@@ -169,4 +163,3 @@ case COGITO_COLORPICKER: {
       }
       break;
     }
-

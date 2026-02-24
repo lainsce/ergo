@@ -17,7 +17,8 @@ case COGITO_AVATAR: {
     // Try to load and draw image
     if (!n->image.loaded) {
       CogitoTexture* tex = NULL;
-      if (cogito_image_load_file_texture(n->icon->data, &tex, &n->image.w, &n->image.h, &n->image.avg_lum)) {
+      if (cogito_image_load_file_texture(n->icon->data, n->w, n->h,
+                                         &tex, &n->image.w, &n->image.h, &n->image.avg_lum)) {
         n->image.texture = tex;
       }
       n->image.loaded = true;

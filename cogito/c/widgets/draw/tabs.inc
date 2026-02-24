@@ -94,7 +94,7 @@ case COGITO_TABS: {
 
         if (cogito_spring_active(&n->spring_x, (double)indicator_target_x) ||
             cogito_spring_active(&n->spring_w, (double)indicator_target_w)) {
-          double end_time = cogito_backend->get_time() + 0.6;
+          double end_time = cogito_now() + 0.6;
           if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
     }
   }

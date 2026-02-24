@@ -2,10 +2,7 @@ case COGITO_ACTIVE_INDICATOR: {
   CogitoStyle s = cogito_theme_resolve_node(n);
   CogitoColor color = s.has_text ? s.text : n->text_color;
 
-  double now = 0.0;
-  if (cogito_backend && cogito_backend->get_time) {
-    now = cogito_backend->get_time();
-  }
+  double now = cogito_now();
   if (n->indicator.last_time == 0.0) n->indicator.last_time = now;
   // Rotate at ~1.5 revolutions per second (forward direction)
   double dt = now - n->indicator.last_time;

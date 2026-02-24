@@ -15,10 +15,7 @@ case COGITO_PROGRESS: {
       bool circular = n->progress.circular;
       bool wavy = (n->progress.shape == COGITO_PROGRESS_SHAPE_WAVY);
 
-      double now = 0.0;
-      if (cogito_backend && cogito_backend->get_time) {
-        now = cogito_backend->get_time();
-      }
+      double now = cogito_now();
 
       if (circular) {
         int min_side = n->w < n->h ? n->w : n->h;

@@ -22,9 +22,7 @@ static void cogito_draw_tooltip(CogitoNode* win, CogitoNode* target) {
   int h = th + pad_y * 2;
 
   int mx = 0, my = 0;
-  if (cogito_backend && cogito_backend->get_mouse_position) {
-    cogito_backend->get_mouse_position(&mx, &my);
-  }
+  (void)cogito_pointer_query(&mx, &my, NULL, NULL);
   int x = mx + 12;
   int y = my + 16;
   if (x < 4) x = 4;

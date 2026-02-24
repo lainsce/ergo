@@ -125,10 +125,10 @@ static void cogito_apply_theme(bool dark, CogitoColor accent);
 // Physics Spring Tokens — stiffness (k) and damping ratio (z)
 // Expressive: overshoot allowed, feels alive (buttons, sliders, FAB)
 #define COGITO_SPRING_K_EXPRESSIVE   750.0
-#define COGITO_SPRING_Z_EXPRESSIVE   0.65
+#define COGITO_SPRING_Z_EXPRESSIVE   0.5
 // Functional: critically/over-damped, no overshoot (toolbars, layout, opacity)
 #define COGITO_SPRING_K_FUNCTIONAL   1400.0
-#define COGITO_SPRING_Z_FUNCTIONAL   0.9
+#define COGITO_SPRING_Z_FUNCTIONAL   1.0
 // Second-Order Spring state (one instance per animated scalar/channel)
 typedef struct {
   double x; // current value
@@ -1018,7 +1018,24 @@ static bool cogito_sum_default_loaded = false;
 static char* cogito_user_sum = NULL;
 static int cogito_style_version = 0;
 static CogitoNode* cogito_focused = NULL;
+static bool cogito_focus_visible = false;
 static CogitoNode* cogito_focus_before_overlay = NULL;
+static bool cogito_focus_before_overlay_visible = false;
+static double cogito_frame_now = 0.0;
+static bool cogito_frame_now_valid = false;
+
+static inline double cogito_now(void) {
+  if (cogito_frame_now_valid) return cogito_frame_now;
+  if (cogito_backend && cogito_backend->get_time) return cogito_backend->get_time();
+  return 0.0;
+}
+
+static inline double cogito_refresh_now(void) {
+  if (cogito_backend && cogito_backend->get_time) cogito_frame_now = cogito_backend->get_time();
+  else cogito_frame_now = 0.0;
+  cogito_frame_now_valid = true;
+  return cogito_frame_now;
+}
 // Draw-context: forced text color for selected children (propagates down render tree)
 static CogitoColor cogito_selection_text = {
   0
@@ -1069,6 +1086,7 @@ static bool cogito_overlay_contains_node(const CogitoNode* root, const CogitoNod
 static void cogito_overlay_focus_snapshot(void) {
   if (!cogito_focused || cogito_focused->disabled) return;
   cogito_focus_before_overlay = cogito_focused;
+  cogito_focus_before_overlay_visible = cogito_focus_visible;
 }
 
 static void cogito_overlay_focus_restore(CogitoNode* root) {
@@ -1077,8 +1095,12 @@ static void cogito_overlay_focus_restore(CogitoNode* root) {
       !cogito_focus_before_overlay->disabled &&
       cogito_overlay_contains_node(root, cogito_focus_before_overlay)) {
     cogito_focused = cogito_focus_before_overlay;
+    cogito_focus_visible = cogito_focus_before_overlay_visible;
+  } else {
+    cogito_focus_visible = false;
   }
   cogito_focus_before_overlay = NULL;
+  cogito_focus_before_overlay_visible = false;
 }
 enum {
   COGITO_LABEL_CLASS_NONE = 0,
@@ -1276,6 +1298,44 @@ static bool cogito_main_pointer_valid = false;
 static bool cogito_main_pointer_routed = false;
 static bool cogito_main_pointer_down = false;
 static bool cogito_main_pointer_pressed = false;
+
+static inline bool cogito_pointer_query(int* out_x, int* out_y,
+                                        bool* out_down, bool* out_pressed) {
+  if (out_x) *out_x = 0;
+  if (out_y) *out_y = 0;
+  if (out_down) *out_down = false;
+  if (out_pressed) *out_pressed = false;
+  if (!cogito_backend) return false;
+
+  int mx = 0;
+  int my = 0;
+  bool down = false;
+  bool pressed = false;
+
+  if (cogito_main_pointer_valid) {
+    if (!cogito_main_pointer_routed) return false;
+    mx = cogito_main_pointer_x;
+    my = cogito_main_pointer_y;
+    down = cogito_main_pointer_down;
+    pressed = cogito_main_pointer_pressed;
+  } else if (cogito_active_backend_window && cogito_backend->get_mouse_position_in_window) {
+    cogito_backend->get_mouse_position_in_window(cogito_active_backend_window, &mx, &my);
+    down = cogito_backend->is_mouse_button_down && cogito_backend->is_mouse_button_down(0);
+    pressed = cogito_backend->is_mouse_button_pressed && cogito_backend->is_mouse_button_pressed(0);
+  } else if (cogito_backend->get_mouse_position) {
+    cogito_backend->get_mouse_position(&mx, &my);
+    down = cogito_backend->is_mouse_button_down && cogito_backend->is_mouse_button_down(0);
+    pressed = cogito_backend->is_mouse_button_pressed && cogito_backend->is_mouse_button_pressed(0);
+  } else {
+    return false;
+  }
+
+  if (out_x) *out_x = mx;
+  if (out_y) *out_y = my;
+  if (out_down) *out_down = down;
+  if (out_pressed) *out_pressed = pressed;
+  return true;
+}
 #define COGITO_INSPECTOR_MAX_NODES 2048
 static CogitoNode* cogito_inspector_nodes[COGITO_INSPECTOR_MAX_NODES
 ];
@@ -1747,7 +1807,7 @@ static void cogito_anim_apply(CogitoNode* n, const CogitoStyle* s, CogitoColor* 
   if (!n || !s) return;
   if (s->has_transition_ms) n->anim_ms = s->transition_ms;
   if (s->has_transition_ease) n->anim_ease = s->transition_ease;
-  double now = cogito_backend->get_time();
+  double now = cogito_now();
   double dt = cogito_spring_dt; // frame-rate-independent delta-time
 
   if (cogito_prefers_reduced_motion) {
@@ -1856,7 +1916,7 @@ static void cogito_anim_apply(CogitoNode* n, const CogitoStyle* s, CogitoColor* 
       }
     }
     if (cogito_spring_active(&n->spring_font_weight, (double)wght_target)) {
-      double end_time = cogito_backend->get_time() + 0.6;
+      double end_time = now + 0.6;
       if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
     }
   }
@@ -1954,7 +2014,7 @@ static void cogito_ripple_start(CogitoNode* n, int mx, int my) {
   if (!n) return;
   if (cogito_prefers_reduced_motion) return;
   n->ripple_active = true;
-  n->ripple_start = cogito_backend->get_time();
+  n->ripple_start = cogito_now();
   n->ripple_x = mx - n->x;
   n->ripple_y = my - n->y;
   // Pre-calculate max radius to cover entire widget from any click point
@@ -1984,7 +2044,7 @@ static bool cogito_ripple_update(CogitoNode* n) {
     n->ripple_progress = 1.0f;
     return false;
   }
-  double now = cogito_backend->get_time();
+  double now = cogito_now();
   double elapsed_ms = (now - n->ripple_start) * 1000.0;
   if (elapsed_ms >= COGITO_RIPPLE_DURATION_MS) {
     n->ripple_active = false;

@@ -6,7 +6,8 @@ case COGITO_IMAGE:
         if (cogito_backend && cogito_backend->texture_create) {
           CogitoTexture* tex = NULL;
           int tw = 0, th = 0;
-          if (cogito_image_load_file_texture(n->icon->data, &tex, &tw, &th, &n->image.avg_lum)) {
+          if (cogito_image_load_file_texture(n->icon->data, n->w, n->h,
+                                             &tex, &tw, &th, &n->image.avg_lum)) {
             n->image.texture = tex;
             n->image.w = tw;
             n->image.h = th;

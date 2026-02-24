@@ -83,7 +83,10 @@ static void cogito_node_set_disabled(ErgoVal nodev, ErgoVal onv) {
   if (nodev.tag != EVT_OBJ) ergo_trap("cogito.node_set_disabled expects object");
   CogitoNode* n = (CogitoNode*)nodev.as.p;
   n->disabled = ergo_as_bool(onv);
-  if (n == cogito_focused && n->disabled) cogito_focused = NULL;
+  if (n == cogito_focused && n->disabled) {
+    cogito_focused = NULL;
+    cogito_focus_visible = false;
+  }
   cogito_window_relayout(cogito_node_window(n));
 }
 
@@ -98,7 +101,10 @@ static void cogito_node_set_editable(ErgoVal nodev, ErgoVal onv) {
   bool on = ergo_as_bool(onv);
   n->editable = on;
   if (!on && cogito_node_supports_editable(n)) {
-    if (n == cogito_focused) cogito_focused = NULL;
+    if (n == cogito_focused) {
+      cogito_focused = NULL;
+      cogito_focus_visible = false;
+    }
     n->text_input.selecting = false;
     n->text_input.sel_end = n->text_input.sel_start;
   }

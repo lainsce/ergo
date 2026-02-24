@@ -105,7 +105,7 @@ case COGITO_SWITCH: {
       // Keep animation ticking while springs are active
       if (cogito_spring_active(&n->spring_x, (double)center_target) ||
           cogito_spring_active(&n->spring_h, (double)knob_h_target)) {
-        double end_time = cogito_backend->get_time() + 0.6;
+        double end_time = cogito_now() + 0.6;
         if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
     }
 

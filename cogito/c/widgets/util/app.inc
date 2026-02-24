@@ -85,8 +85,8 @@ static void cogito_app_update_theme(ErgoVal appv) {
 static void cogito_update_system_theme(ErgoVal appv) {
   CogitoApp* app = (CogitoApp*)appv.as.p;
   if (!app) return;
-  if (cogito_backend && cogito_backend->get_time) {
-    double now = cogito_backend->get_time();
+  {
+    double now = cogito_now();
     if (app->system_theme_next_check > 0.0 && now < app->system_theme_next_check) {
       return;
     }

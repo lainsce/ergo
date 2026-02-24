@@ -19,8 +19,8 @@ static void cogito_image_set_icon(ErgoVal imgv, ErgoVal icon) {
   ErgoStr* is = stdr_to_string(icon);
   
   // Free existing texture if any
-  if (img->image.texture && cogito_backend && cogito_backend->texture_destroy) {
-    cogito_backend->texture_destroy(img->image.texture);
+  if (img->image.texture) {
+    cogito_image_cache_release_texture(img->image.texture);
     img->image.texture = NULL;
   }
   

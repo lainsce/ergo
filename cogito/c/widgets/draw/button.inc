@@ -13,10 +13,12 @@ case COGITO_BUTTON: {
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
       if (n->parent && n->parent->kind == COGITO_APPBAR) {
         // Use cached pointer position instead of querying backend
-        int mx = cogito_main_pointer_x;
-        int my = cogito_main_pointer_y;
-        bool over = cogito_hit_rect(mx, my, n->x, n->y, n->w, n->h);
-        bool down = over && (cogito_backend && cogito_backend->is_mouse_button_down(0));
+        int mx = 0;
+        int my = 0;
+        bool down_state = false;
+        bool have_mouse = cogito_pointer_query(&mx, &my, &down_state, NULL);
+        bool over = have_mouse && cogito_hit_rect(mx, my, n->x, n->y, n->w, n->h);
+        bool down = over && down_state;
         if (down) {
           cogito_style_merge_into(&s, &cogito_theme.appbar_child_button_active, &s);
         } else if (over) {

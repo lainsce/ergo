@@ -24,7 +24,8 @@ case COGITO_IMAGE: {
       if (n->icon && n->icon->data && n->icon->data[0] && !n->image.loaded) {
         CogitoTexture* tex = NULL;
         int tw = 0, th = 0;
-        if (cogito_image_load_file_texture(n->icon->data, &tex, &tw, &th, &n->image.avg_lum)) {
+        if (cogito_image_load_file_texture(n->icon->data, n->w, n->h,
+                                           &tex, &tw, &th, &n->image.avg_lum)) {
           n->image.texture = tex;
           n->image.w = tw;
           n->image.h = th;
@@ -100,38 +101,55 @@ case COGITO_IMAGE: {
             CogitoRect dst_rect = {draw_x, draw_y, draw_w, draw_h};
             cogito_backend->draw_texture(n->image.texture, src_rect, dst_rect, white);
           } else {
-            // Rounded clipping for textures: draw scanlines with per-row inset.
+            // Rounded clipping for textures:
+            // batch contiguous rows with the same inset to reduce draw calls.
             float r_f = (float)radius;
-            for (int row = 0; row < draw_h; row++) {
-              int inset = 0;
-              if (row < radius) {
-                float y_dist = r_f - ((float)row + 0.5f);
-                float inside = r_f * r_f - y_dist * y_dist;
-                if (inside < 0.0f) inside = 0.0f;
-                inset = (int)(r_f - sqrtf(inside));
-              } else if (row >= draw_h - radius) {
-                int br = draw_h - 1 - row;
-                float y_dist = r_f - ((float)br + 0.5f);
-                float inside = r_f * r_f - y_dist * y_dist;
-                if (inside < 0.0f) inside = 0.0f;
-                inset = (int)(r_f - sqrtf(inside));
+            int seg_start = 0;
+            int seg_inset = -1;
+            for (int row = 0; row <= draw_h; row++) {
+              int inset = -1;
+              if (row < draw_h) {
+                inset = 0;
+                if (row < radius) {
+                  float y_dist = r_f - ((float)row + 0.5f);
+                  float inside = r_f * r_f - y_dist * y_dist;
+                  if (inside < 0.0f) inside = 0.0f;
+                  inset = (int)(r_f - sqrtf(inside));
+                } else if (row >= draw_h - radius) {
+                  int br = draw_h - 1 - row;
+                  float y_dist = r_f - ((float)br + 0.5f);
+                  float inside = r_f * r_f - y_dist * y_dist;
+                  if (inside < 0.0f) inside = 0.0f;
+                  inset = (int)(r_f - sqrtf(inside));
+                }
               }
-              int line_w = draw_w - inset * 2;
-              if (line_w <= 0) continue;
+              if (row == 0) {
+                seg_inset = inset;
+                continue;
+              }
+              if (row < draw_h && inset == seg_inset) continue;
 
-              int src_y0 = src_y + (row * src_h) / draw_h;
-              int src_y1 = src_y + ((row + 1) * src_h) / draw_h;
-              int src_h_line = src_y1 - src_y0;
-              if (src_h_line < 1) src_h_line = 1;
+              int seg_end = row;
+              int seg_h = seg_end - seg_start;
+              int line_w = draw_w - seg_inset * 2;
+              if (seg_h > 0 && line_w > 0) {
+                int src_y0 = src_y + (seg_start * src_h) / draw_h;
+                int src_y1 = src_y + (seg_end * src_h) / draw_h;
+                int src_h_seg = src_y1 - src_y0;
+                if (src_h_seg < 1) src_h_seg = 1;
 
-              int src_x0 = src_x + (inset * src_w) / draw_w;
-              int src_x1 = src_x + ((draw_w - inset) * src_w) / draw_w;
-              int src_w_line = src_x1 - src_x0;
-              if (src_w_line < 1) src_w_line = 1;
+                int src_x0 = src_x + (seg_inset * src_w) / draw_w;
+                int src_x1 = src_x + ((draw_w - seg_inset) * src_w) / draw_w;
+                int src_w_seg = src_x1 - src_x0;
+                if (src_w_seg < 1) src_w_seg = 1;
 
-              CogitoRect src_line = {src_x0, src_y0, src_w_line, src_h_line};
-              CogitoRect dst_line = {draw_x + inset, draw_y + row, line_w, 1};
-              cogito_backend->draw_texture(n->image.texture, src_line, dst_line, white);
+                CogitoRect src_seg = {src_x0, src_y0, src_w_seg, src_h_seg};
+                CogitoRect dst_seg = {draw_x + seg_inset, draw_y + seg_start, line_w, seg_h};
+                cogito_backend->draw_texture(n->image.texture, src_seg, dst_seg, white);
+              }
+
+              seg_start = row;
+              seg_inset = inset;
             }
           }
         }

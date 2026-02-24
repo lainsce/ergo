@@ -67,47 +67,154 @@ static bool cogito_image_resolve_path(const char* path, char* resolved, size_t r
 
 // --- Image texture cache: deduplicate loads of the same file path ---
 typedef struct {
+  bool used;
   char* path;
   CogitoTexture* texture;
   int w, h;
   float avg_lum;
+  int refcount;
+  uint64_t last_used;
+  size_t size_bytes;
 } CogitoImageCacheEntry;
 
 #define COGITO_IMAGE_CACHE_MAX 64
+#define COGITO_IMAGE_CACHE_MAX_BYTES (96u * 1024u * 1024u)
+#define COGITO_IMAGE_CACHE_EVICT_AGE 180u
 static CogitoImageCacheEntry cogito_image_cache[COGITO_IMAGE_CACHE_MAX];
-static int cogito_image_cache_count = 0;
+static uint64_t cogito_image_cache_frame = 0;
+static size_t cogito_image_cache_bytes = 0;
+
+static size_t cogito_image_cache_estimate_bytes(int w, int h) {
+  if (w <= 0 || h <= 0) return 0;
+  return (size_t)w * (size_t)h * 4u;
+}
+
+static void cogito_image_cache_drop_entry(int idx) {
+  if (idx < 0 || idx >= COGITO_IMAGE_CACHE_MAX) return;
+  CogitoImageCacheEntry* e = &cogito_image_cache[idx];
+  if (!e->used) return;
+  if (e->texture && cogito_backend && cogito_backend->texture_destroy) {
+    cogito_backend->texture_destroy(e->texture);
+  }
+  if (e->size_bytes <= cogito_image_cache_bytes) cogito_image_cache_bytes -= e->size_bytes;
+  else cogito_image_cache_bytes = 0;
+  free(e->path);
+  memset(e, 0, sizeof(*e));
+}
+
+static int cogito_image_cache_oldest_unref_idx(int skip_idx) {
+  uint64_t oldest = UINT64_MAX;
+  int oldest_idx = -1;
+  for (int i = 0; i < COGITO_IMAGE_CACHE_MAX; i++) {
+    CogitoImageCacheEntry* e = &cogito_image_cache[i];
+    if (!e->used || i == skip_idx || e->refcount > 0) continue;
+    if (e->last_used < oldest) {
+      oldest = e->last_used;
+      oldest_idx = i;
+    }
+  }
+  return oldest_idx;
+}
+
+static void cogito_image_cache_trim(size_t max_bytes, int keep_idx) {
+  while (cogito_image_cache_bytes > max_bytes) {
+    int victim = cogito_image_cache_oldest_unref_idx(keep_idx);
+    if (victim < 0) break;
+    cogito_image_cache_drop_entry(victim);
+  }
+}
+
+static int cogito_image_cache_alloc_slot(void) {
+  for (int i = 0; i < COGITO_IMAGE_CACHE_MAX; i++) {
+    if (!cogito_image_cache[i].used) return i;
+  }
+  int victim = cogito_image_cache_oldest_unref_idx(-1);
+  if (victim >= 0) {
+    cogito_image_cache_drop_entry(victim);
+    return victim;
+  }
+  return -1;
+}
 
 static CogitoImageCacheEntry* cogito_image_cache_find(const char* resolved) {
-  for (int i = 0; i < cogito_image_cache_count; i++) {
-    if (cogito_image_cache[i].path && strcmp(cogito_image_cache[i].path, resolved) == 0) {
-      return &cogito_image_cache[i];
-    }
+  for (int i = 0; i < COGITO_IMAGE_CACHE_MAX; i++) {
+    CogitoImageCacheEntry* e = &cogito_image_cache[i];
+    if (!e->used || !e->path) continue;
+    if (strcmp(e->path, resolved) != 0) continue;
+    e->last_used = cogito_image_cache_frame;
+    return e;
   }
   return NULL;
 }
 
-static void cogito_image_cache_add(const char* resolved, CogitoTexture* tex, int w, int h, float avg_lum) {
-  if (cogito_image_cache_count >= COGITO_IMAGE_CACHE_MAX) return;
-  CogitoImageCacheEntry* e = &cogito_image_cache[cogito_image_cache_count++];
+static bool cogito_image_cache_add(const char* resolved, CogitoTexture* tex, int w, int h, float avg_lum) {
+  if (!resolved || !resolved[0] || !tex) return false;
+  int slot = cogito_image_cache_alloc_slot();
+  if (slot < 0) return false;
+  CogitoImageCacheEntry* e = &cogito_image_cache[slot];
+  e->used = true;
   e->path = strdup(resolved);
+  if (!e->path) {
+    memset(e, 0, sizeof(*e));
+    return false;
+  }
   e->texture = tex;
   e->w = w;
   e->h = h;
   e->avg_lum = avg_lum;
+  e->refcount = 1;
+  e->last_used = cogito_image_cache_frame;
+  e->size_bytes = cogito_image_cache_estimate_bytes(w, h);
+  cogito_image_cache_bytes += e->size_bytes;
+  cogito_image_cache_trim(COGITO_IMAGE_CACHE_MAX_BYTES, slot);
+  return true;
 }
 
-__attribute__((unused))
 static void cogito_image_cache_clear(void) {
-  for (int i = 0; i < cogito_image_cache_count; i++) {
-    free(cogito_image_cache[i].path);
-    cogito_image_cache[i].path = NULL;
-    // Textures are owned by the backend; nodes still reference them.
-    // Only call this at shutdown when all nodes are gone.
+  for (int i = 0; i < COGITO_IMAGE_CACHE_MAX; i++) {
+    cogito_image_cache_drop_entry(i);
   }
-  cogito_image_cache_count = 0;
+  cogito_image_cache_bytes = 0;
 }
 
-static bool cogito_image_load_file_texture(const char* path, CogitoTexture** out, int* out_w, int* out_h, float* out_avg_lum) {
+static void cogito_image_cache_frame_start(void) {
+  cogito_image_cache_frame++;
+  if (cogito_image_cache_frame % 13u != 0u) return;
+  for (int i = 0; i < COGITO_IMAGE_CACHE_MAX; i++) {
+    CogitoImageCacheEntry* e = &cogito_image_cache[i];
+    if (!e->used || e->refcount > 0) continue;
+    if ((cogito_image_cache_frame - e->last_used) > COGITO_IMAGE_CACHE_EVICT_AGE) {
+      cogito_image_cache_drop_entry(i);
+    }
+  }
+  cogito_image_cache_trim(COGITO_IMAGE_CACHE_MAX_BYTES, -1);
+}
+
+static void cogito_image_cache_release_texture(CogitoTexture* tex) {
+  if (!tex) return;
+  for (int i = 0; i < COGITO_IMAGE_CACHE_MAX; i++) {
+    CogitoImageCacheEntry* e = &cogito_image_cache[i];
+    if (!e->used || e->texture != tex) continue;
+    if (e->refcount > 0) e->refcount--;
+    e->last_used = cogito_image_cache_frame;
+    cogito_image_cache_trim(COGITO_IMAGE_CACHE_MAX_BYTES, -1);
+    return;
+  }
+  if (cogito_backend && cogito_backend->texture_destroy) {
+    cogito_backend->texture_destroy(tex);
+  }
+}
+
+static int cogito_image_bucket_dim(int v) {
+  if (v <= 0) return 0;
+  int b = 64;
+  while (b < v && b < 4096) b <<= 1;
+  return b;
+}
+
+static bool cogito_image_load_file_texture(const char* path, int target_w, int target_h,
+                                           CogitoTexture** out, int* out_w, int* out_h,
+                                           float* out_avg_lum) {
   if (!path || !path[0] || !cogito_backend || !cogito_backend->texture_create) return false;
 
   // Resolve the path
@@ -116,9 +223,19 @@ static bool cogito_image_load_file_texture(const char* path, CogitoTexture** out
     return false;
   }
 
+  int bucket_w = cogito_image_bucket_dim(target_w);
+  int bucket_h = cogito_image_bucket_dim(target_h);
+  char cache_key[PATH_MAX + 64];
+  if (bucket_w > 0 || bucket_h > 0) {
+    snprintf(cache_key, sizeof(cache_key), "%s#%d:%d", resolved_path, bucket_w, bucket_h);
+  } else {
+    snprintf(cache_key, sizeof(cache_key), "%s#orig", resolved_path);
+  }
+
   // Check cache first
-  CogitoImageCacheEntry* cached = cogito_image_cache_find(resolved_path);
+  CogitoImageCacheEntry* cached = cogito_image_cache_find(cache_key);
   if (cached && cached->texture) {
+    cached->refcount++;
     if (out) *out = cached->texture;
     if (out_w) *out_w = cached->w;
     if (out_h) *out_h = cached->h;
@@ -135,13 +252,21 @@ static bool cogito_image_load_file_texture(const char* path, CogitoTexture** out
     if (rgba) SDL_DestroySurface(rgba);
     return false;
   }
-  // Cap texture dimensions — no point uploading > 2048px per side when the
-  // display is smaller. Halve repeatedly until within budget. This turns a
-  // 4096×4096 (64 MB) texture into 2048×2048 (16 MB).
+  // Cap texture dimensions using a target-aware budget:
+  // decode at about 2x the requested display size to preserve quality while
+  // avoiding giant transient allocations.
   #define COGITO_IMAGE_MAX_DIM 2048
-  if (rgba->w > COGITO_IMAGE_MAX_DIM || rgba->h > COGITO_IMAGE_MAX_DIM) {
+  #define COGITO_IMAGE_MIN_DIM 64
+  int target_max_dim = COGITO_IMAGE_MAX_DIM;
+  int requested_max = (target_w > target_h) ? target_w : target_h;
+  if (requested_max > 0) {
+    target_max_dim = requested_max * 2;
+    if (target_max_dim < COGITO_IMAGE_MIN_DIM) target_max_dim = COGITO_IMAGE_MIN_DIM;
+    if (target_max_dim > COGITO_IMAGE_MAX_DIM) target_max_dim = COGITO_IMAGE_MAX_DIM;
+  }
+  if (rgba->w > target_max_dim || rgba->h > target_max_dim) {
     int dw = rgba->w, dh = rgba->h;
-    while (dw > COGITO_IMAGE_MAX_DIM || dh > COGITO_IMAGE_MAX_DIM) {
+    while (dw > target_max_dim || dh > target_max_dim) {
       dw /= 2; dh /= 2;
     }
     if (dw < 1) dw = 1;
@@ -202,8 +327,8 @@ static bool cogito_image_load_file_texture(const char* path, CogitoTexture** out
   malloc_zone_pressure_relief(NULL, 0);
 #endif
 
-  // Add to cache
-  cogito_image_cache_add(resolved_path, tex, w, h, avg_lum);
+  // Add to cache (if a slot is available); otherwise return uncached texture.
+  (void)cogito_image_cache_add(cache_key, tex, w, h, avg_lum);
 
   if (out) *out = tex;
   if (out_w) *out_w = w;

@@ -19,14 +19,42 @@ case COGITO_BUTTON_GROUP: {
       if (count == 0) return;
       
       // Calculate intrinsic sizes for all children
-      int* intrinsic_w = (int*)calloc(count, sizeof(int));
-      int* intrinsic_h = (int*)calloc(count, sizeof(int));
-      int* assigned_w = (int*)calloc(count, sizeof(int));
-      if (!intrinsic_w || !intrinsic_h || !assigned_w) {
-        free(intrinsic_w);
-        free(intrinsic_h);
-        free(assigned_w);
-        return;
+      int intrinsic_w_stack[64];
+      int intrinsic_h_stack[64];
+      int assigned_w_stack[64];
+      bool expand_stack[64];
+      double width_mult_stack[64];
+      int* intrinsic_w = NULL;
+      int* intrinsic_h = NULL;
+      int* assigned_w = NULL;
+      bool* expand = NULL;
+      double* width_mult = NULL;
+      void* heap_block = NULL;
+      if (count <= 64) {
+        intrinsic_w = intrinsic_w_stack;
+        intrinsic_h = intrinsic_h_stack;
+        assigned_w = assigned_w_stack;
+        expand = expand_stack;
+        width_mult = width_mult_stack;
+      } else {
+        size_t iw_bytes = sizeof(int) * count;
+        size_t ih_bytes = sizeof(int) * count;
+        size_t aw_bytes = sizeof(int) * count;
+        size_t ex_bytes = sizeof(bool) * count;
+        size_t wm_bytes = sizeof(double) * count;
+        size_t total_bytes = iw_bytes + ih_bytes + aw_bytes + ex_bytes + wm_bytes;
+        heap_block = calloc(1, total_bytes);
+        if (!heap_block) return;
+        char* p = (char*)heap_block;
+        intrinsic_w = (int*)p;
+        p += iw_bytes;
+        intrinsic_h = (int*)p;
+        p += ih_bytes;
+        assigned_w = (int*)p;
+        p += aw_bytes;
+        expand = (bool*)p;
+        p += ex_bytes;
+        width_mult = (double*)p;
       }
       
       int total_margins = 0;
@@ -57,14 +85,10 @@ case COGITO_BUTTON_GROUP: {
       if (avail_content_w < 0) avail_content_w = 0;
       
       // Distribute widths - buttons can expand if they have hexpand set
-      bool* expand = (bool*)calloc(count, sizeof(bool));
-      if (expand) {
-        for (size_t i = 0; i < count; i++) {
-          expand[i] = n->children[i]->hexpand;
-        }
-        cogito_distribute_axis_sizes(count, intrinsic_w, expand, avail_content_w, assigned_w);
-        free(expand);
+      for (size_t i = 0; i < count; i++) {
+        expand[i] = n->children[i]->hexpand;
       }
+      cogito_distribute_axis_sizes(count, intrinsic_w, expand, avail_content_w, assigned_w);
       
       // ---- Press animation: expand pressed button by 15%, shrink adjacent ----
       // NOTE: Uses child's spring_w for width multiplier (1.0-1.15). This is a semantic
@@ -72,23 +96,19 @@ case COGITO_BUTTON_GROUP: {
       // If a Button/IconButton is used in multiple animated contexts, consider a dedicated field.
       // IMPORTANT: Spring is ticked during draw phase (see buttongroup draw), not here.
       // Layout just reads the current spring value.
-      
+
       // Read current spring values for width multipliers
-      double* width_mult = (double*)calloc(count, sizeof(double));
-      if (width_mult) {
-        for (size_t i = 0; i < count; i++) {
-          CogitoNode* c = n->children[i];
-          // Use current spring value (ticked during draw phase)
-          width_mult[i] = c->spring_w.inited ? c->spring_w.x : 1.0;
-        }
-        
-        // Apply width multipliers
-        for (size_t i = 0; i < count; i++) {
-          assigned_w[i] = (int)(assigned_w[i] * width_mult[i] + 0.5);
-        }
-        free(width_mult);
+      for (size_t i = 0; i < count; i++) {
+        CogitoNode* c = n->children[i];
+        // Use current spring value (ticked during draw phase)
+        width_mult[i] = c->spring_w.inited ? c->spring_w.x : 1.0;
       }
-      
+
+      // Apply width multipliers
+      for (size_t i = 0; i < count; i++) {
+        assigned_w[i] = (int)(assigned_w[i] * width_mult[i] + 0.5);
+      }
+
       // Layout children horizontally
       int cx = x + n->padding_left;
       for (size_t i = 0; i < count; i++) {
@@ -114,8 +134,6 @@ case COGITO_BUTTON_GROUP: {
         if (i < count - 1) cx += actual_gap;
       }
       
-      free(intrinsic_w);
-      free(intrinsic_h);
-      free(assigned_w);
+      if (heap_block) free(heap_block);
       break;
     }

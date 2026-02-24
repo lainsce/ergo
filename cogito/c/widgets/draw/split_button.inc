@@ -26,10 +26,9 @@ case COGITO_SPLIT_BUTTON: {
 
   // Per-part hover/active detection
   int mx = 0, my = 0;
-  bool have_mouse = (cogito_backend && cogito_backend->get_mouse_position);
-  if (have_mouse) cogito_backend->get_mouse_position(&mx, &my);
+  bool btn_down = false;
+  bool have_mouse = cogito_pointer_query(&mx, &my, &btn_down, NULL);
   bool over_whole = have_mouse && cogito_hit_rect(mx, my, n->x, n->y, n->w, n->h) && !n->disabled;
-  bool btn_down = have_mouse && cogito_backend->is_mouse_button_down && cogito_backend->is_mouse_button_down(0);
   bool over_main = over_whole && mx < menu_x;
   bool over_menu = over_whole && mx >= menu_x;
   bool main_hover = over_main && !btn_down;
@@ -78,8 +77,7 @@ case COGITO_SPLIT_BUTTON: {
   }
   
   // Animate the inner radius
-  double now = 0.0;
-  if (cogito_backend && cogito_backend->get_time) now = cogito_backend->get_time();
+  double now = cogito_now();
   if (!n->anim_layout_active) {
     n->anim_layout_active = true;
     n->anim_h = n->anim_h_from = n->anim_h_target = menu_target_inner;

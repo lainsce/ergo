@@ -6,11 +6,8 @@ case COGITO_BUTTON_GROUP: {
       int pressed_idx = -1;
       int mx = 0, my = 0;
       bool btn_down = false;
-      if (cogito_backend && cogito_backend->get_mouse_position) {
-        cogito_backend->get_mouse_position(&mx, &my);
-        btn_down = cogito_backend->is_mouse_button_down && cogito_backend->is_mouse_button_down(0);
-      }
-      if (btn_down && !n->disabled) {
+      bool have_mouse = cogito_pointer_query(&mx, &my, &btn_down, NULL);
+      if (have_mouse && btn_down && !n->disabled) {
         for (size_t i = 0; i < n->len; i++) {
           CogitoNode* c = n->children[i];
           if (!c->disabled && cogito_hit_rect(mx, my, c->x, c->y, c->w, c->h)) {
@@ -62,7 +59,7 @@ case COGITO_BUTTON_GROUP: {
       
       // If animation is active, extend animation time and trigger relayout
       if (any_anim_active) {
-        double end_time = cogito_backend->get_time() + 0.6;
+        double end_time = cogito_now() + 0.6;
         if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
         // Trigger relayout for next frame
         cogito_window_relayout(cogito_node_window(n));

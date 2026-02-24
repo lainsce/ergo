@@ -35,16 +35,36 @@ case COGITO_DIALOG: {
 
       size_t count = n->len;
       if (count == 0) break;
-      int* intrinsic_w = (int*)calloc(count, sizeof(int));
-      int* intrinsic_h = (int*)calloc(count, sizeof(int));
-      int* assigned_h = (int*)calloc(count, sizeof(int));
-      bool* expand = (bool*)calloc(count, sizeof(bool));
-      if (!intrinsic_w || !intrinsic_h || !assigned_h || !expand) {
-        free(intrinsic_w);
-        free(intrinsic_h);
-        free(assigned_h);
-        free(expand);
-        break;
+      int intrinsic_w_stack[64];
+      int intrinsic_h_stack[64];
+      int assigned_h_stack[64];
+      bool expand_stack[64];
+      int* intrinsic_w = NULL;
+      int* intrinsic_h = NULL;
+      int* assigned_h = NULL;
+      bool* expand = NULL;
+      void* heap_block = NULL;
+      if (count <= 64) {
+        intrinsic_w = intrinsic_w_stack;
+        intrinsic_h = intrinsic_h_stack;
+        assigned_h = assigned_h_stack;
+        expand = expand_stack;
+      } else {
+        size_t iw_bytes = sizeof(int) * count;
+        size_t ih_bytes = sizeof(int) * count;
+        size_t ah_bytes = sizeof(int) * count;
+        size_t ex_bytes = sizeof(bool) * count;
+        size_t total_bytes = iw_bytes + ih_bytes + ah_bytes + ex_bytes;
+        heap_block = calloc(1, total_bytes);
+        if (!heap_block) break;
+        char* p = (char*)heap_block;
+        intrinsic_w = (int*)p;
+        p += iw_bytes;
+        intrinsic_h = (int*)p;
+        p += ih_bytes;
+        assigned_h = (int*)p;
+        p += ah_bytes;
+        expand = (bool*)p;
       }
 
       int total_margins = 0;
@@ -100,10 +120,7 @@ case COGITO_DIALOG: {
         if (i + 1 < count) child_y += section_gap;
       }
 
-      free(intrinsic_w);
-      free(intrinsic_h);
-      free(assigned_h);
-      free(expand);
+      if (heap_block) free(heap_block);
       break;
     }
     

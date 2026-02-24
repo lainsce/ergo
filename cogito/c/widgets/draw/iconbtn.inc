@@ -14,14 +14,18 @@ case COGITO_ICONBTN: {
       bool is_iconic_variant = (n->button.icon_color_style == 3) || iconic_class;
       bool in_appbar = n->parent && n->parent->kind == COGITO_APPBAR;
       bool in_appbar_or_toolbar = n->parent && (n->parent->kind == COGITO_APPBAR || n->parent->kind == COGITO_TOOLBAR);
+      int mx = 0;
+      int my = 0;
+      bool down_state = false;
+      bool have_mouse = false;
+      bool over = false;
+      if (in_appbar_or_toolbar) {
+        have_mouse = cogito_pointer_query(&mx, &my, &down_state, NULL);
+        over = have_mouse && cogito_hit_rect(mx, my, n->x, n->y, n->w, n->h);
+      }
       
       if (in_appbar_or_toolbar && !is_iconic_variant) {
-        int mx = 0, my = 0;
-        if (cogito_backend && cogito_backend->get_mouse_position) {
-          cogito_backend->get_mouse_position(&mx, &my);
-        }
-        bool over = cogito_hit_rect(mx, my, n->x, n->y, n->w, n->h);
-        bool down = over && (cogito_backend && cogito_backend->is_mouse_button_down(0));
+        bool down = over && down_state;
         if (down) {
           cogito_style_merge_into(&s, &cogito_theme.appbar_child_iconbtn_active, &s);
         } else if (over) {
@@ -36,12 +40,7 @@ case COGITO_ICONBTN: {
       int radius = n->border_radius;
       if (s.has_bg) bg = s.bg;
       if (in_appbar_or_toolbar && !is_iconic_variant) {
-        int mx = 0, my = 0;
-        if (cogito_backend && cogito_backend->get_mouse_position) {
-          cogito_backend->get_mouse_position(&mx, &my);
-        }
-        bool over = cogito_hit_rect(mx, my, n->x, n->y, n->w, n->h);
-        bool down = over && (cogito_backend && cogito_backend->is_mouse_button_down(0));
+        bool down = over && down_state;
         if (over || down) {
           CogitoStyle overlay = down ? cogito_theme.appbar_child_iconbtn_active : cogito_theme.appbar_child_iconbtn_hover;
           if (overlay.has_bg) {
@@ -91,12 +90,7 @@ case COGITO_ICONBTN: {
 
       // AppBar idle state: keep icons on primary for stronger affordance.
       if (in_appbar) {
-        int mx = 0, my = 0;
-        if (cogito_backend && cogito_backend->get_mouse_position) {
-          cogito_backend->get_mouse_position(&mx, &my);
-        }
-        bool over = cogito_hit_rect(mx, my, n->x, n->y, n->w, n->h);
-        bool down = over && (cogito_backend && cogito_backend->is_mouse_button_down(0));
+        bool down = over && down_state;
         if (!hover && !active && !over && !down) {
           icon_color = cogito_theme.iconbtn_filled.bg;
         }

@@ -58,8 +58,8 @@ static void cogito_node_drop(ErgoObj* o) {
     n->icon = NULL;
   }
   if ((n->kind == COGITO_IMAGE || n->kind == COGITO_AVATAR) &&
-      n->image.texture && cogito_backend && cogito_backend->texture_destroy) {
-    cogito_backend->texture_destroy(n->image.texture);
+      n->image.texture) {
+    cogito_image_cache_release_texture(n->image.texture);
     n->image.texture = NULL;
   }
   if (n->on_click) {

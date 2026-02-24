@@ -183,9 +183,7 @@ static void cogito_draw_menu(void) {
     }
   }
   int mx = 0, my = 0;
-  if (cogito_backend && cogito_backend->get_mouse_position) {
-    cogito_backend->get_mouse_position(&mx, &my);
-  }
+  (void)cogito_pointer_query(&mx, &my, NULL, NULL);
   int hover = cogito_menu_hit(&cogito_menu, mx, my);
   if (hover < 0 && cogito_menu_kbd_index >= 0 && cogito_menu.owner &&
       (size_t)cogito_menu_kbd_index < cogito_menu.owner->menu_len) {

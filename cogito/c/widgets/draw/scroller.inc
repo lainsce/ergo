@@ -40,7 +40,7 @@ case COGITO_SCROLLER: {
         n->scroller.bar_hovered = cursor_over_sb;
         int sb_w = n->scroller.bar_hovered ? COGITO_SCROLLBAR_WIDTH_WIDE : COGITO_SCROLLBAR_WIDTH_NARROW;
         int sb_h = sb_w;
-        double now = cogito_backend ? cogito_backend->get_time() : 0.0;
+        double now = cogito_now();
         bool bar_alpha_changed = false;
         if (cursor_over_scroller) {
           if (cursor_over_sb) {

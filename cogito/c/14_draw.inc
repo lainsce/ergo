@@ -18,6 +18,12 @@ static float cogito_roundness_for(int w, int h, int radius) {
 
 static void cogito_draw_rect(int x, int y, int w, int h, CogitoColor bg, int radius) {
   if (w <= 0 || h <= 0) return;
+  if (cogito_draw_clip_active &&
+      !cogito_rect_visible(x, y, w, h,
+                           cogito_draw_clip_x, cogito_draw_clip_y,
+                           cogito_draw_clip_w, cogito_draw_clip_h)) {
+    return;
+  }
   if (cogito_backend && cogito_backend->draw_rect_rounded) {
     float roundness = cogito_roundness_for(w, h, radius);
     if (roundness > 0.0f) {
@@ -30,6 +36,12 @@ static void cogito_draw_rect(int x, int y, int w, int h, CogitoColor bg, int rad
 
 static void cogito_draw_rect_lines(int x, int y, int w, int h, CogitoColor border, int radius, int thickness) {
   if (w <= 0 || h <= 0 || thickness <= 0) return;
+  if (cogito_draw_clip_active &&
+      !cogito_rect_visible(x, y, w, h,
+                           cogito_draw_clip_x, cogito_draw_clip_y,
+                           cogito_draw_clip_w, cogito_draw_clip_h)) {
+    return;
+  }
   if (cogito_backend && cogito_backend->draw_rect_rounded_lines) {
     float roundness = cogito_roundness_for(w, h, radius);
     if (roundness > 0.0f) {
@@ -64,6 +76,12 @@ static bool cogito_corner_radii_uniform(int tl, int tr, int br, int bl) {
 
 static void cogito_draw_rect_plain(int x, int y, int w, int h, CogitoColor color) {
   if (w <= 0 || h <= 0) return;
+  if (cogito_draw_clip_active &&
+      !cogito_rect_visible(x, y, w, h,
+                           cogito_draw_clip_x, cogito_draw_clip_y,
+                           cogito_draw_clip_w, cogito_draw_clip_h)) {
+    return;
+  }
   if (cogito_backend && cogito_backend->draw_rect) {
     cogito_backend->draw_rect(x, y, w, h, color);
   }
@@ -440,6 +458,17 @@ static void cogito_draw_shadow_node_box(const CogitoNode* n, const CogitoStyle* 
 }
 
 static void cogito_draw_line(int x1, int y1, int x2, int y2, CogitoColor color) {
+  if (cogito_draw_clip_active) {
+    int min_x = (x1 < x2) ? x1 : x2;
+    int min_y = (y1 < y2) ? y1 : y2;
+    int max_x = (x1 > x2) ? x1 : x2;
+    int max_y = (y1 > y2) ? y1 : y2;
+    if (!cogito_rect_visible(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1,
+                             cogito_draw_clip_x, cogito_draw_clip_y,
+                             cogito_draw_clip_w, cogito_draw_clip_h)) {
+      return;
+    }
+  }
   if (cogito_backend && cogito_backend->draw_line) {
     cogito_backend->draw_line(x1, y1, x2, y2, color,
     1);
@@ -976,6 +1005,12 @@ static void cogito_draw_icon_fallback(CogitoNode* n, const char* icon, int x, in
       }
       CogitoRect dst = {dx, dy, dw, dh
       };
+      if (cogito_draw_clip_active &&
+          !cogito_rect_visible(dst.x, dst.y, dst.w, dst.h,
+                               cogito_draw_clip_x, cogito_draw_clip_y,
+                               cogito_draw_clip_w, cogito_draw_clip_h)) {
+        return;
+      }
       cogito_backend->draw_texture(tex, src, dst, color);
       return;
     }

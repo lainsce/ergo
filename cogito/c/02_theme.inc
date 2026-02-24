@@ -465,8 +465,7 @@ static void cogito_node_hover_state(CogitoNode* n, bool* out_hover, bool* out_ac
   *out_active = false;
   if (!n) return;
   if (n->disabled) return;
-  double now = 0.0;
-  if (cogito_backend && cogito_backend->get_time) now = cogito_backend->get_time();
+  double now = cogito_now();
   double latch_seconds = (double)COGITO_ACTIVE_LATCH_MS / 1000.0;
   if (cogito_pointer_capture) {
     if (cogito_pointer_capture != n) return;
@@ -478,33 +477,9 @@ static void cogito_node_hover_state(CogitoNode* n, bool* out_hover, bool* out_ac
     return;
   }
   int mx = 0, my = 0;
-  bool have_mouse = false;
   bool button_down = false;
   bool button_pressed = false;
-  if (cogito_backend) {
-    // Fast path: use cached per-frame pointer state (avoids walking parent chain
-    // via cogito_backend_window_for_node for every widget during draw).
-    if (cogito_main_pointer_valid) {
-      if (!cogito_main_pointer_routed) {
-        return;
-      }
-      mx = cogito_main_pointer_x;
-      my = cogito_main_pointer_y;
-      have_mouse = true;
-      button_down = cogito_main_pointer_down;
-      button_pressed = cogito_main_pointer_pressed;
-    } else if (cogito_active_backend_window && cogito_backend->get_mouse_position_in_window) {
-      cogito_backend->get_mouse_position_in_window(cogito_active_backend_window, &mx, &my);
-      have_mouse = true;
-      button_down = cogito_backend->is_mouse_button_down && cogito_backend->is_mouse_button_down(0);
-      button_pressed = cogito_backend->is_mouse_button_pressed && cogito_backend->is_mouse_button_pressed(0);
-    } else if (cogito_backend->get_mouse_position) {
-      cogito_backend->get_mouse_position(&mx, &my);
-      have_mouse = true;
-      button_down = cogito_backend->is_mouse_button_down && cogito_backend->is_mouse_button_down(0);
-      button_pressed = cogito_backend->is_mouse_button_pressed && cogito_backend->is_mouse_button_pressed(0);
-    }
-  }
+  bool have_mouse = cogito_pointer_query(&mx, &my, &button_down, &button_pressed);
   if (!have_mouse) return;
   bool hover = cogito_hit_rect(mx, my, n->x, n->y, n->w, n->h);
   bool down = hover && button_down;
@@ -522,7 +497,7 @@ static CogitoStyle cogito_theme_resolve_node_state(const CogitoNode* n, bool hov
   CogitoStyle s = cogito_theme_resolve_node(n);
   bool checked = false;
   bool disabled = cogito_node_disabled(n);
-  bool focused = (!disabled && n && n == cogito_focused);
+  bool focused = (!disabled && n && n == cogito_focused && cogito_focus_visible);
   if (n && (n->kind == COGITO_CHECKBOX || n->kind == COGITO_SWITCH)) checked = n->checked;
   else if (n && n->kind == COGITO_CHIP) checked = n->chip.selected;
   // Apply iconbtn color style base BEFORE per_kind hover/active so color style wins

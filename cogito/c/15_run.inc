@@ -689,6 +689,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     255);
     cogito_backend->begin_frame(window);
     cogito_icon_cache_frame_start(); // Initialize icon cache frame counter
+    cogito_image_cache_frame_start();
     cogito_backend->clear(win_bg);
     cogito_draw_node(win);
     cogito_backend->end_frame(window);
@@ -720,6 +721,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
 #endif
     // Poll events (true if any event was processed; used to decide if we need to redraw)
     bool had_events = cogito_backend->poll_events();
+    cogito_refresh_now();
+    cogito_relayout_defer_begin();
 #if defined(__APPLE__)
     if (macos_app_name_pending) {
       macos_app_name_pending = !cogito_macos_apply_app_name(app_name);
@@ -836,8 +839,9 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     float wheel = cogito_backend->get_mouse_wheel_move();
     bool left_down = cogito_backend->is_mouse_button_down(0);
     bool left_pressed = cogito_backend->is_mouse_button_pressed(0);
+    bool left_released = cogito_backend->is_mouse_button_released(0);
     bool click = left_pressed; // Left button
-    if (cogito_pointer_capture && cogito_backend->is_mouse_button_released(0) &&
+    if (cogito_pointer_capture && left_released &&
         cogito_pointer_capture->kind != COGITO_DRAWING_AREA) {
       cogito_pointer_capture = NULL;
     }
@@ -964,7 +968,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
 
     if (!inspector_native_drag && inspector_drag_pending) {
-      if (cogito_backend->is_mouse_button_down(0)) {
+      if (left_down) {
         if (inspector_mouse_known) {
           int dx = inspector_gx - inspector_drag_start_gx;
           int dy = inspector_gy - inspector_drag_start_gy;
@@ -978,7 +982,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       }
     }
     if (!inspector_native_drag && inspector_drag_active) {
-      if (cogito_backend->is_mouse_button_down(0)) {
+      if (left_down) {
         if (inspector_mouse_known) {
           int dx = inspector_gx - inspector_drag_start_gx;
           int dy = inspector_gy - inspector_drag_start_gy;
@@ -1001,7 +1005,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     // Drag handling (non-macOS)
 #if !defined(__APPLE__)
     if (cogito_drag_pending) {
-      if (cogito_backend->is_mouse_button_down(0)) {
+      if (left_down) {
         int dx = mx - (int)cogito_drag_pending_mouse.x;
         int dy = my - (int)cogito_drag_pending_mouse.y;
         if (abs(dx) > 2 || abs(dy) > 2) {
@@ -1018,10 +1022,10 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       }
     }
     if (cogito_drag_active) {
-      if (cogito_backend->is_mouse_button_down(0)) {
+      if (left_down) {
         float delta_x = (float)mx - cogito_drag_start_mouse.x;
         float delta_y = (float)my - cogito_drag_start_mouse.y;
-        double now = cogito_backend->get_time();
+        double now = cogito_now();
         if (now - cogito_drag_last_move > 0.016) {
           int new_x = (int)(cogito_drag_start_win.x + delta_x);
           int new_y = (int)(cogito_drag_start_win.y + delta_y);
@@ -1040,7 +1044,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         CogitoNode* pop_hit = cogito_find_clickable(win->popover, mx, my);
         if (pop_hit && pop_hit->kind == COGITO_DATEPICKER && pop_hit->datepicker.popover_panel) {
           if (cogito_datepicker_wheel(pop_hit, mx, my, wheel)) {
-            cogito_window_relayout(win);
+            cogito_relayout_subtree(pop_hit);
             wheel = 0.0f;
           }
         }
@@ -1059,7 +1063,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
                                                  !scroller->scroller.vert);
           if (horiz) scroller->scroller.scroll_x -= delta;
           else scroller->scroller.scroll_y -= delta;
-          cogito_window_relayout(win);
+          cogito_relayout_subtree(scroller);
         } else {
           // Check if mouse is over a carousel — scroll it horizontally
           CogitoNode* carousel = cogito_find_carousel(root, mx, my);
@@ -1106,7 +1110,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             carousel->carousel.anim_from = carousel->carousel.scroll_xf;
             carousel->carousel.anim_to = (double)snap_sx;
             if (carousel->carousel.anim_from != carousel->carousel.anim_to) {
-              carousel->carousel.anim_start = cogito_backend->get_time();
+              carousel->carousel.anim_start = cogito_now();
               if (!carousel->carousel.animating) cogito_carousel_animating_count++;
               carousel->carousel.animating = true;
             } else {
@@ -1152,6 +1156,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         cogito_a11y_emit_event("focus", next, "keyboard");
       }
       cogito_focused = next;
+      cogito_focus_visible = (next != NULL);
     }
     if (cogito_focused && !cogito_focus_is_text_editing(cogito_focused) && !cogito_focused->disabled) {
       bool relayout = false;
@@ -1271,7 +1276,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
     // Slider active handling - ensure slider is activated when clicked
     if (!cogito_slider_active) {
-      bool left_pressed = cogito_backend->is_mouse_button_pressed && cogito_backend->is_mouse_button_pressed(0);
       if (left_pressed) {
         // Check if we should activate a slider on press
         CogitoNode* slider_hit = cogito_find_clickable(win, mx, my);
@@ -1319,7 +1323,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       }
     }
     if (cogito_slider_active) {
-      if (cogito_backend->is_mouse_button_down(0)) {
+      if (left_down) {
         CogitoNode* sld = cogito_slider_active;
         int rail_h = 16;
         if (sld->slider.size == COGITO_SLIDER_SIZE_S) rail_h = 24;
@@ -1367,7 +1371,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
     // Carousel active handling (drag-to-scroll with velocity tracking)
     if (cogito_carousel_active) {
-      if (cogito_backend->is_mouse_button_down(0)) {
+      if (left_down) {
         CogitoNode* cr = cogito_carousel_active;
         int dx = mx - cr->carousel.drag_start_x;
         double new_xf = (double)cr->carousel.drag_start_scroll - (double)dx;
@@ -1379,7 +1383,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         if (new_xf > (double)max_scroll) new_xf = (double)max_scroll;
         
         // Track velocity: compare with last sample
-        double now = cogito_backend->get_time();
+        double now = cogito_now();
         double dt = now - cr->carousel.drag_last_time;
         if (dt > 0.001) {
           double dxf = new_xf - cr->carousel.drag_last_xf;
@@ -1445,7 +1449,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         cr->carousel.anim_from = cr->carousel.scroll_xf;
         cr->carousel.anim_to = (double)snap_sx;
         if (cr->carousel.anim_from != cr->carousel.anim_to) {
-          cr->carousel.anim_start = cogito_backend->get_time();
+          cr->carousel.anim_start = cogito_now();
           if (!cr->carousel.animating) cogito_carousel_animating_count++;
           cr->carousel.animating = true;
         } else {
@@ -1467,7 +1471,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
     // Bottom sheet active handling
     if (cogito_bottom_sheet_active) {
-      if (cogito_backend->is_mouse_button_down(0)) {
+      if (left_down) {
         CogitoNode* bs = cogito_bottom_sheet_active;
         CogitoNode* host = bs->parent;
         if (host) {
@@ -1510,7 +1514,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
     // Side sheet active handling
      if (cogito_side_sheet_active) {
-       if (cogito_backend->is_mouse_button_down(0)) {
+       if (left_down) {
          CogitoNode* ss = cogito_side_sheet_active;
          CogitoNode* host = ss->parent;
          if (host) {
@@ -1554,7 +1558,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
     // Color picker active handling
     if (cogito_colorpicker_active) {
-      if (cogito_backend->is_mouse_button_down(0)) {
+      if (left_down) {
         CogitoNode* cp = cogito_colorpicker_active;
         int chan = cogito_colorpicker_channel;
         if (chan >= 0) {
@@ -1573,7 +1577,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
     // Time picker dial drag handling
     if (cogito_timepicker_active) {
-      if (cogito_backend->is_mouse_button_down(0)) {
+      if (left_down) {
         if (cogito_timepicker_drag_update(cogito_timepicker_active, mx, my)) {
           cogito_window_relayout(win);
         }
@@ -1587,7 +1591,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     // Drawing area drag/release handling
     if (cogito_pointer_capture && cogito_pointer_capture->kind == COGITO_DRAWING_AREA) {
       CogitoNode* da = cogito_pointer_capture;
-      bool left_down_da = cogito_backend->is_mouse_button_down(0);
+      bool left_down_da = left_down;
       bool stroke_active = da->drawing_area.pressed || da->drawing_area.dragging;
       if (left_down_da && da->drawing_area.pressed) {
         int px = mx - da->x;
@@ -1615,7 +1619,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     // ViewDual drag handling
     if (cogito_pointer_capture && cogito_pointer_capture->kind == COGITO_VIEW_DUAL) {
       CogitoNode* vd = cogito_pointer_capture;
-      if (cogito_backend->is_mouse_button_down(0)) {
+      if (left_down) {
         int handle_w = 4;
         const int min_item_w = 218;
         if (vd->w > 0) {
@@ -1647,7 +1651,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
     // Text selection handling
     if (cogito_focused && !cogito_focused->disabled && (focused_text_editable || focused_color_hex_edit)) {
-      if (cogito_backend->is_mouse_button_down(0) && cogito_focused->text_input.selecting) {
+      if (left_down && cogito_focused->text_input.selecting) {
         int pad = 8;
         int size = cogito_node_font_size(cogito_focused);
         const char* t = cogito_focused->text ? cogito_focused->text->data : "";
@@ -1682,7 +1686,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           }
         }
       }
-      if (cogito_backend->is_mouse_button_released(0)) {
+      if (left_released) {
         cogito_focused->text_input.selecting = false;
       }
     }
@@ -1699,7 +1703,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         if (new_scroll > cogito_scrollbar_drag_max) new_scroll = cogito_scrollbar_drag_max;
         if (cogito_scrollbar_drag_vert) sc->scroller.scroll_y = new_scroll;
         else sc->scroller.scroll_x = new_scroll;
-        cogito_window_relayout(win);
+        cogito_relayout_subtree(sc);
         cogito_queue_draw(win);
       }
     } else if (left_pressed && route_main_pointer) {
@@ -1740,7 +1744,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
               sc->scroller.scroll_y = cogito_scroller_track_to_scroll(my, vty, vth, vuh, max_s);
               if (sc->scroller.scroll_y < 0) sc->scroller.scroll_y = 0;
               if (sc->scroller.scroll_y > max_s) sc->scroller.scroll_y = max_s;
-              cogito_window_relayout(win);
+              cogito_relayout_subtree(sc);
               cogito_queue_draw(win);
               click = false;
             }
@@ -1753,7 +1757,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
               sc->scroller.scroll_x = cogito_scroller_track_to_scroll(mx, htx, htw, huw, max_s);
               if (sc->scroller.scroll_x < 0) sc->scroller.scroll_x = 0;
               if (sc->scroller.scroll_x > max_s) sc->scroller.scroll_x = max_s;
-              cogito_window_relayout(win);
+              cogito_relayout_subtree(sc);
               cogito_queue_draw(win);
               click = false;
             }
@@ -2003,6 +2007,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           }
           if (focus_hit != cogito_focused) cogito_a11y_emit_event("focus", focus_hit, "pointer");
           cogito_focused = focus_hit;
+          cogito_focus_visible = true;
           int pad = 8;
           int size = cogito_node_font_size(focus_hit);
           const char* t = focus_hit->text ? focus_hit->text->data : "";
@@ -2044,11 +2049,13 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           }
           if (hit != cogito_focused) cogito_a11y_emit_event("focus", hit, "pointer");
           cogito_focused = hit;
+          cogito_focus_visible = false;
         } else {
           if (cogito_focused && cogito_focused->kind == COGITO_COLORPICKER) {
             cogito_focused->colorpicker.hex_editing = false;
           }
           cogito_focused = NULL;
+          cogito_focus_visible = false;
         }
         if (hit) {
           // Trigger ripple for elements with Primary/Secondary/Tertiary backgrounds or Surface variant on button-like elements
@@ -2174,7 +2181,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
                 carousel->carousel.anim_from = carousel->carousel.scroll_xf;
                 carousel->carousel.anim_to = (double)snap_sx;
                 if (carousel->carousel.anim_from != carousel->carousel.anim_to) {
-                  carousel->carousel.anim_start = cogito_backend->get_time();
+                  carousel->carousel.anim_start = cogito_now();
                   if (!carousel->carousel.animating) cogito_carousel_animating_count++;
                   carousel->carousel.animating = true;
                 }
@@ -2190,7 +2197,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             hit->carousel.drag_start_x = mx;
             hit->carousel.drag_start_scroll = (int)hit->carousel.scroll_xf;
             hit->carousel.velocity = 0.0f;
-            hit->carousel.drag_last_time = cogito_backend->get_time();
+            hit->carousel.drag_last_time = cogito_now();
             hit->carousel.drag_last_xf = hit->carousel.scroll_xf;
             // Set cursor to grab
             if (cogito_backend && cogito_backend->set_cursor) {
@@ -2405,6 +2412,13 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         }
       }
     }
+    // Flush any coalesced relayout requests from this event turn once.
+    CogitoNode* deferred_relayout = cogito_relayout_defer_take();
+    if (deferred_relayout) {
+      cogito_window_relayout_now(deferred_relayout);
+    }
+    cogito_relayout_defer_end();
+
     // --- Carousel animation tick ---
     // Only traverse the tree when at least one carousel is animating.
     if (cogito_carousel_animating_count > 0) {
@@ -2415,7 +2429,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       _stk[_sp++
       ] = win;
       bool _carousel_did_relayout = false;
-      double _now = cogito_backend->get_time();
+      double _now = cogito_now();
       while (_sp > 0) {
         CogitoNode* _cn = _stk[--_sp
         ];
@@ -2456,7 +2470,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     // Do not redraw during window drag — we only move the window; no present() needed, so we wait for events and avoid CPU spike.
     bool window_being_dragged = cogito_drag_active || cogito_drag_pending 
         || inspector_drag_active || inspector_drag_pending;
-    double now = cogito_backend->get_time();
+    double now = cogito_refresh_now();
     bool anim_running = now < cogito_anim_end_time;
     bool need_redraw = !window_being_dragged && (cogito_draw_pending(win) || anim_running
         || (cogito_carousel_animating_count > 0));
@@ -2499,13 +2513,32 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
 
     if (need_redraw) {
-      double __frame_start = (cogito_backend && cogito_backend->get_time)
-          ? cogito_backend->get_time()
-          : 0.0;
+      double __frame_start = now;
+      int damage_x = 0, damage_y = 0, damage_w = 0, damage_h = 0;
+      bool use_damage_clip = false;
+      if (cogito_draw_pending(win) && cogito_draw_pending_damage(win, &damage_x, &damage_y, &damage_w, &damage_h)) {
+        if (damage_x < 0) {
+          damage_w += damage_x;
+          damage_x = 0;
+        }
+        if (damage_y < 0) {
+          damage_h += damage_y;
+          damage_y = 0;
+        }
+        if (damage_x + damage_w > win->w) damage_w = win->w - damage_x;
+        if (damage_y + damage_h > win->h) damage_h = win->h - damage_y;
+        use_damage_clip = damage_w > 0 && damage_h > 0;
+      }
+
       // Rendering
     cogito_backend->begin_frame(window);
+    if (use_damage_clip && cogito_backend->begin_scissor) {
+      cogito_backend->begin_scissor(damage_x, damage_y, damage_w, damage_h);
+    }
+    cogito_draw_set_clip(use_damage_clip, damage_x, damage_y, damage_w, damage_h);
     cogito_spring_dt_update(); // Update per-frame dt for all spring integrations
     cogito_icon_cache_frame_start(); // Evict old icon textures
+    cogito_image_cache_frame_start();
 
     CogitoColor win_bg = win->bg_set ? win->bg : cogito_rgba(245,
       245,
@@ -2541,6 +2574,10 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         }
       }
     
+    if (use_damage_clip && cogito_backend->end_scissor) {
+      cogito_backend->end_scissor();
+    }
+    cogito_draw_set_clip(false, 0, 0, 0, 0);
     cogito_backend->end_frame(window);
     cogito_backend->present(window);
     cogito_draw_clear_pending(win);
@@ -2626,9 +2663,16 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
 
       // Cap continuous redraw loops to ~60 FPS to avoid saturating CPU.
       if (cogito_backend && cogito_backend->get_time && cogito_backend->sleep) {
-        double __frame_end = cogito_backend->get_time();
+        double __frame_end = cogito_refresh_now();
         double __elapsed = __frame_end - __frame_start;
-        const double __target = 1.0 / 60.0;
+        double __target = 1.0 / 60.0;
+        if (!anim_running && cogito_carousel_animating_count <= 0) {
+          // Static redraws (without active animation) can run slower.
+          __target = had_events ? (1.0 / 50.0) : (1.0 / 36.0);
+        }
+        if (left_down || cogito_pointer_capture) {
+          __target = 1.0 / 60.0;
+        }
         if (__elapsed < __target) {
           uint32_t __sleep_ms = (uint32_t)((__target - __elapsed) * 1000.0);
           if (__sleep_ms > 0) cogito_backend->sleep(__sleep_ms);
@@ -2646,6 +2690,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       }; // 1-8ms sleep to avoid busy spin while keeping timer latency reasonable
       nanosleep(&ts, NULL);
     }
+    cogito_relayout_defer_end();
 #if defined(__APPLE__)
     cogito_autorelease_pop();
 #endif
@@ -2655,6 +2700,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   cogito_font_cache_clear();
   cogito_ft_library_done();
   cogito_icon_cache_clear();
+  cogito_image_cache_clear();
   cogito_hit_test_cleanup();
   if (cogito_font_ready && cogito_font_from_env && cogito_font) {
     cogito_backend->font_unload(cogito_font);

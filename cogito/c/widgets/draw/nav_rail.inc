@@ -2,9 +2,7 @@ case COGITO_NAV_RAIL: {
   CogitoStyle s = cogito_theme_resolve_node(n);
   int rail_w = n->w > 0 ? n->w : COGITO_NAV_RAIL_COLLAPSED_WIDTH;
   int mx = 0, my = 0;
-  if (cogito_backend && cogito_backend->get_mouse_position) {
-    cogito_backend->get_mouse_position(&mx, &my);
-  }
+  (void)cogito_pointer_query(&mx, &my, NULL, NULL);
   // Draw background
   CogitoColor bg = s.has_bg ? s.bg : n->bg;
   cogito_draw_rect(n->x, n->y, rail_w, n->h, bg,

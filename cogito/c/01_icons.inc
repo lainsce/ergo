@@ -25,18 +25,111 @@ typedef struct {
   CogitoTexture* tex;
   int w;
   int h;
+  size_t size_bytes;
   bool used;
   uint32_t last_used;  // Frame counter for LRU eviction
 } CogitoIconCacheEntry;
 
 #define COGITO_ICON_CACHE_SIZE 512
-#define COGITO_ICON_CACHE_EVICT_AGE 1  // Frame Bus Method: evict anything not used in last frame
+#define COGITO_ICON_CACHE_EVICT_AGE 90  // Keep icons hot across view transitions
+#define COGITO_ICON_CACHE_MAX_BYTES (32u * 1024u * 1024u)
 
 static CogitoIconCacheEntry cogito_icon_cache[COGITO_ICON_CACHE_SIZE];
 static int cogito_icon_cache_len = 0;
 static uint32_t cogito_icon_cache_frame = 0;
+static size_t cogito_icon_cache_bytes = 0;
 static char cogito_icon_theme_name[64] = {0};
 static bool cogito_icon_theme_init = false;
+
+static size_t cogito_icon_texture_bytes(int w, int h) {
+  if (w <= 0 || h <= 0) return 0;
+  return (size_t)w * (size_t)h * 4u;
+}
+
+static void cogito_icon_cache_release_entry(CogitoIconCacheEntry* e) {
+  if (!e) return;
+  if (e->tex && cogito_backend && cogito_backend->texture_destroy) {
+    cogito_backend->texture_destroy(e->tex);
+  }
+  e->tex = NULL;
+  if (e->size_bytes > 0) {
+    if (e->size_bytes <= cogito_icon_cache_bytes) cogito_icon_cache_bytes -= e->size_bytes;
+    else cogito_icon_cache_bytes = 0;
+  }
+  e->size_bytes = 0;
+  e->w = 0;
+  e->h = 0;
+  e->used = false;
+}
+
+static void cogito_icon_cache_compact(void) {
+  int write_idx = 0;
+  for (int i = 0; i < cogito_icon_cache_len; i++) {
+    if (cogito_icon_cache[i].used) {
+      if (i != write_idx) {
+        cogito_icon_cache[write_idx] = cogito_icon_cache[i];
+        memset(&cogito_icon_cache[i], 0, sizeof(cogito_icon_cache[i]));
+      }
+      write_idx++;
+    } else {
+      memset(&cogito_icon_cache[i], 0, sizeof(cogito_icon_cache[i]));
+    }
+  }
+  cogito_icon_cache_len = write_idx;
+}
+
+static void cogito_icon_cache_trim(size_t max_bytes, const CogitoIconCacheEntry* keep) {
+  bool removed_any = false;
+  while (cogito_icon_cache_bytes > max_bytes) {
+    uint32_t oldest = (uint32_t)0xFFFFFFFFu;
+    int oldest_idx = -1;
+    for (int i = 0; i < cogito_icon_cache_len; i++) {
+      CogitoIconCacheEntry* e = &cogito_icon_cache[i];
+      if (!e->used || !e->tex || e == keep) continue;
+      if (e->last_used < oldest) {
+        oldest = e->last_used;
+        oldest_idx = i;
+      }
+    }
+    if (oldest_idx < 0) break;
+    cogito_icon_cache_release_entry(&cogito_icon_cache[oldest_idx]);
+    removed_any = true;
+  }
+  if (removed_any) cogito_icon_cache_compact();
+}
+
+static void cogito_icon_cache_store(const char* name, const char* theme, int size,
+                                    CogitoTexture* tex, int w, int h) {
+  if (!name || !theme || !tex) return;
+  cogito_icon_cache_compact();
+  CogitoIconCacheEntry* e = NULL;
+  if (cogito_icon_cache_len < COGITO_ICON_CACHE_SIZE) {
+    e = &cogito_icon_cache[cogito_icon_cache_len++];
+  } else {
+    uint32_t oldest = (uint32_t)0xFFFFFFFFu;
+    int oldest_idx = 0;
+    for (int i = 0; i < cogito_icon_cache_len; i++) {
+      if (cogito_icon_cache[i].last_used < oldest) {
+        oldest = cogito_icon_cache[i].last_used;
+        oldest_idx = i;
+      }
+    }
+    e = &cogito_icon_cache[oldest_idx];
+    cogito_icon_cache_release_entry(e);
+  }
+  memset(e, 0, sizeof(*e));
+  strncpy(e->name, name, sizeof(e->name) - 1);
+  strncpy(e->theme, theme, sizeof(e->theme) - 1);
+  e->size = size;
+  e->tex = tex;
+  e->w = w;
+  e->h = h;
+  e->size_bytes = cogito_icon_texture_bytes(w, h);
+  e->used = true;
+  e->last_used = cogito_icon_cache_frame;
+  cogito_icon_cache_bytes += e->size_bytes;
+  cogito_icon_cache_trim(COGITO_ICON_CACHE_MAX_BYTES, e);
+}
 
 // Periodic eviction: call this once per frame to evict old icon textures
 static void cogito_icon_cache_frame_start(void) {
@@ -48,26 +141,11 @@ static void cogito_icon_cache_frame_start(void) {
       CogitoIconCacheEntry* e = &cogito_icon_cache[i];
       if (e->used && e->tex && 
           (cogito_icon_cache_frame - e->last_used) > COGITO_ICON_CACHE_EVICT_AGE) {
-        if (cogito_backend && cogito_backend->texture_destroy) {
-          cogito_backend->texture_destroy(e->tex);
-        }
-        e->tex = NULL;
-        e->used = false;
+        cogito_icon_cache_release_entry(e);
       }
     }
-    // Compact the cache: move valid entries to the front
-    int write_idx = 0;
-    for (int i = 0; i < cogito_icon_cache_len; i++) {
-      if (cogito_icon_cache[i].used) {
-        if (i != write_idx) {
-          cogito_icon_cache[write_idx] = cogito_icon_cache[i];
-          cogito_icon_cache[i].used = false;
-          cogito_icon_cache[i].tex = NULL;
-        }
-        write_idx++;
-      }
-    }
-    cogito_icon_cache_len = write_idx;
+    cogito_icon_cache_trim(COGITO_ICON_CACHE_MAX_BYTES, NULL);
+    cogito_icon_cache_compact();
   }
 }
 
@@ -652,18 +730,7 @@ static bool cogito_icon_load_texture_one(const char* name, const char* theme, in
     int tw = 0;
     int th = 0;
     if (cogito_sf_symbol_load(name + 3, cache_size, &tex, &tw, &th)) {
-      if (cogito_icon_cache_len < COGITO_ICON_CACHE_SIZE) {
-        CogitoIconCacheEntry* e = &cogito_icon_cache[cogito_icon_cache_len++];
-        memset(e, 0, sizeof(*e));
-        strncpy(e->name, name, sizeof(e->name) - 1);
-        strncpy(e->theme, cache_theme, sizeof(e->theme) - 1);
-        e->size = cache_size;
-        e->tex = tex;
-        e->w = tw;
-        e->h = th;
-        e->used = true;
-        e->last_used = cogito_icon_cache_frame;
-      }
+      cogito_icon_cache_store(name, cache_theme, cache_size, tex, tw, th);
       if (out) *out = tex;
       if (out_w) *out_w = tw;
       if (out_h) *out_h = th;
@@ -680,18 +747,7 @@ static bool cogito_icon_load_texture_one(const char* name, const char* theme, in
   int th = 0;
   (void)is_svg;
   if (!cogito_icon_load_file_texture(path, &tex, &tw, &th)) return false;
-  if (cogito_icon_cache_len < COGITO_ICON_CACHE_SIZE) {
-    CogitoIconCacheEntry* e = &cogito_icon_cache[cogito_icon_cache_len++];
-    memset(e, 0, sizeof(*e));
-    strncpy(e->name, name, sizeof(e->name) - 1);
-    strncpy(e->theme, cache_theme, sizeof(e->theme) - 1);
-    e->size = cache_size;
-    e->tex = tex;
-    e->w = tw;
-    e->h = th;
-    e->used = true;
-    e->last_used = cogito_icon_cache_frame;
-  }
+  cogito_icon_cache_store(name, cache_theme, cache_size, tex, tw, th);
   if (out) *out = tex;
   if (out_w) *out_w = tw;
   if (out_h) *out_h = th;
@@ -711,13 +767,11 @@ static bool cogito_icon_load_texture(const char* name, int size, CogitoTexture**
 
 void cogito_icon_cache_clear(void) {
   for (int i = 0; i < cogito_icon_cache_len; i++) {
-    CogitoIconCacheEntry* e = &cogito_icon_cache[i];
-    if (e->tex && cogito_backend && cogito_backend->texture_destroy) {
-      cogito_backend->texture_destroy(e->tex);
-      e->tex = NULL;
-    }
+    cogito_icon_cache_release_entry(&cogito_icon_cache[i]);
+    memset(&cogito_icon_cache[i], 0, sizeof(cogito_icon_cache[i]));
   }
   cogito_icon_cache_len = 0;
+  cogito_icon_cache_bytes = 0;
   // Clear theme cache
   for (int i = 0; i < COGITO_ICON_THEME_CACHE_MAX; i++) {
     cogito_icon_theme_cache_valid[i] = false;

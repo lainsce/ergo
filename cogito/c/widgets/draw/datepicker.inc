@@ -16,12 +16,7 @@ case COGITO_DATEPICKER: {
 
   int mx = 0, my = 0;
   bool down = false;
-  if (cogito_backend && cogito_backend->get_mouse_position) {
-    cogito_backend->get_mouse_position(&mx, &my);
-  }
-  if (cogito_backend && cogito_backend->is_mouse_button_down) {
-    down = cogito_backend->is_mouse_button_down(0);
-  }
+  (void)cogito_pointer_query(&mx, &my, &down, NULL);
 
   if (n->datepicker.popover_panel) {
     CogitoDatePickerPanelLayout ly;

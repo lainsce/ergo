@@ -159,8 +159,24 @@ static void cogito_layout_carousel(CogitoNode* n, int x, int y) {
   // IMPORTANT: We need to ensure the 3 visible items always sum to 7 ratio units
   // Items outside the visible range get tertiary ratio
   
-  int* item_ratios = (int*)calloc(count, sizeof(int));
-  if (!item_ratios) return;
+  int item_ratios_stack[64];
+  int item_widths_stack[64];
+  int* item_ratios = NULL;
+  int* item_widths = NULL;
+  void* heap_block = NULL;
+  if (count <= 64) {
+    item_ratios = item_ratios_stack;
+    item_widths = item_widths_stack;
+  } else {
+    size_t ratio_bytes = sizeof(int) * count;
+    size_t width_bytes = sizeof(int) * count;
+    heap_block = calloc(1, ratio_bytes + width_bytes);
+    if (!heap_block) return;
+    char* p = (char*)heap_block;
+    item_ratios = (int*)p;
+    p += ratio_bytes;
+    item_widths = (int*)p;
+  }
   
   // Calculate the total ratio sum for proper scaling
   // The viewport should show exactly 3 items with ratios [1,2,4] or [4,2,1] or [2,4,1]
@@ -194,12 +210,6 @@ static void cogito_layout_carousel(CogitoNode* n, int x, int y) {
   // so that the visible portion (7 units) fills the viewport
   
   // Calculate pixel widths
-  int* item_widths = (int*)calloc(count, sizeof(int));
-  if (!item_widths) {
-    free(item_ratios);
-    return;
-  }
-  
   // Scale factor: 7 ratio units = available_for_items pixels
   double scale = (double)available_for_items / (double)total_ratio;
   
@@ -270,6 +280,5 @@ static void cogito_layout_carousel(CogitoNode* n, int x, int y) {
     cx += cw + item_gap;  // Add gap after each item
   }
   
-  free(item_ratios);
-  free(item_widths);
+  if (heap_block) free(heap_block);
 }

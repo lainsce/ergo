@@ -9,7 +9,6 @@ static void cogito_app_set_ensor_variant(ErgoVal app, ErgoVal variant) {
   cogito_theme_ensor_variant = v;
   CogitoColor accent = cogito_app_effective_accent(app);
   cogito_apply_theme(cogito_theme_dark, accent);
-  cogito_rebuild_active_window();
 }
 
 static void cogito_sum_append(char* dst, size_t dst_cap, size_t* dst_off, const char* fmt, ...) {

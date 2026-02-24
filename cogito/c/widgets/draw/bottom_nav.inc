@@ -26,6 +26,9 @@ case COGITO_BOTTOM_NAV: {
   if (item_w < 1) item_w = 1;
   int icon_size = 24;
   int label_size = 12;
+  int mx = 0;
+  int my = 0;
+  bool have_mouse = cogito_pointer_query(&mx, &my, NULL, NULL);
 
   for (size_t i = 0; i < n->bottom_nav.len; i++) {
     bool selected = (int)i == n->bottom_nav.selected;
@@ -34,11 +37,7 @@ case COGITO_BOTTOM_NAV: {
     int item_x = n->x + (int)i * item_w;
 
     // Check if mouse is over this item
-    int mx = 0, my = 0;
-    if (cogito_backend && cogito_backend->get_mouse_position) {
-      cogito_backend->get_mouse_position(&mx, &my);
-    }
-    if (cogito_hit_rect(mx, my, item_x, n->y, item_w, n->h)) {
+    if (have_mouse && cogito_hit_rect(mx, my, item_x, n->y, item_w, n->h)) {
       hover = true;
     }
 

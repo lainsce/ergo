@@ -75,7 +75,7 @@ case COGITO_TEXTFIELD: {
         CogitoColor ph = text;
         ph.a = 140;
         float label_target = float_placeholder ? 1.0f : 0.0f;
-        double now = cogito_backend ? cogito_backend->get_time() : 0.0;
+        double now = cogito_now();
         const double dur_s = 0.300; // 300ms
         if (!n->tf_label_anim_inited) {
           n->tf_label_anim_inited = true;

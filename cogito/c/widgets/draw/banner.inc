@@ -59,9 +59,7 @@ case COGITO_BANNER: {
 
     // Hover effect on action
     int mx = 0, my = 0;
-    if (cogito_backend && cogito_backend->get_mouse_position) {
-      cogito_backend->get_mouse_position(&mx, &my);
-    }
+    (void)cogito_pointer_query(&mx, &my, NULL, NULL);
     if (cogito_hit_rect(mx, my, n->action_button_x, n->action_button_y,
                         n->action_button_w, n->action_button_h)) {
       CogitoColor hov = action_color;

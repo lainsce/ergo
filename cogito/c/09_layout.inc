@@ -1,7 +1,9 @@
 #include "widgets/util/draw_queue.inc"
 
 static void cogito_layout_node(CogitoNode* n, int x, int y, int w, int h);
+static void cogito_window_relayout_now(CogitoNode* win);
 static void cogito_window_relayout(CogitoNode* win);
+static void cogito_relayout_subtree(CogitoNode* n);
 static void cogito_dialog_close_rect(CogitoNode* n, int* out_x, int* out_y, int* out_w, int* out_h);
 
 static void cogito_distribute_axis_sizes(size_t count, const int* min_sizes, const bool* expand_flags, int available, int* out_sizes) {

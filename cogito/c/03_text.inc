@@ -345,6 +345,8 @@ static CogitoFont* cogito_font_tabular_for(CogitoFont* f, int size) {
   return f;
 }
 
+static void cogito_text_measure_cache_clear(void);
+
 static void cogito_font_cache_clear(void) {
   for (size_t i = 0; i < sizeof(cogito_font_cache) / sizeof(cogito_font_cache[0]); i++) {
     if (cogito_font_cache[i].ready) {
@@ -382,6 +384,7 @@ static void cogito_font_cache_clear(void) {
       cogito_font_tabular_cache[i].size = 0;
     }
   }
+  cogito_text_measure_cache_clear();
 }
 
 static int cogito_text_width(const char* s) {
@@ -454,6 +457,78 @@ static bool cogito_is_ascii_digit_char(char c) {
   return c >= '0' && c <= '9';
 }
 
+#define COGITO_TEXT_MEASURE_CACHE_SIZE 1024
+#define COGITO_TEXT_MEASURE_KEY_MAX 96
+typedef struct {
+  bool valid;
+  uint32_t hash;
+  CogitoFont* font;
+  int size;
+  int spacing_q64;
+  uint8_t mode; // 0: normal, 1: tabular
+  uint8_t len;
+  char text[COGITO_TEXT_MEASURE_KEY_MAX];
+  int width;
+} CogitoTextMeasureCacheEntry;
+
+static CogitoTextMeasureCacheEntry cogito_text_measure_cache[COGITO_TEXT_MEASURE_CACHE_SIZE];
+
+static void cogito_text_measure_cache_clear(void) {
+  memset(cogito_text_measure_cache, 0, sizeof(cogito_text_measure_cache));
+}
+
+static uint32_t cogito_text_measure_hash(CogitoFont* f, const char* s, int len,
+                                         int size, int spacing_q64, uint8_t mode) {
+  uint32_t h = 2166136261u;
+  h ^= (uint32_t)(uintptr_t)f; h *= 16777619u;
+  h ^= (uint32_t)size; h *= 16777619u;
+  h ^= (uint32_t)(spacing_q64 + 32768); h *= 16777619u;
+  h ^= (uint32_t)mode; h *= 16777619u;
+  h ^= (uint32_t)len; h *= 16777619u;
+  for (int i = 0; i < len; i++) {
+    h ^= (uint8_t)s[i];
+    h *= 16777619u;
+  }
+  return h;
+}
+
+static bool cogito_text_measure_cache_lookup(CogitoFont* f, const char* s, int size,
+                                             float spacing, uint8_t mode, int* out_w) {
+  if (!s || !out_w) return false;
+  int len = (int)strnlen(s, COGITO_TEXT_MEASURE_KEY_MAX);
+  if (len <= 0 || len >= COGITO_TEXT_MEASURE_KEY_MAX) return false;
+  int spacing_q64 = (int)lroundf(spacing * 64.0f);
+  uint32_t h = cogito_text_measure_hash(f, s, len, size, spacing_q64, mode);
+  CogitoTextMeasureCacheEntry* e = &cogito_text_measure_cache[h % COGITO_TEXT_MEASURE_CACHE_SIZE];
+  if (!e->valid || e->hash != h || e->font != f || e->size != size ||
+      e->spacing_q64 != spacing_q64 || e->mode != mode || e->len != (uint8_t)len ||
+      memcmp(e->text, s, (size_t)len) != 0) {
+    return false;
+  }
+  *out_w = e->width;
+  return true;
+}
+
+static void cogito_text_measure_cache_store(CogitoFont* f, const char* s, int size,
+                                            float spacing, uint8_t mode, int width) {
+  if (!s) return;
+  int len = (int)strnlen(s, COGITO_TEXT_MEASURE_KEY_MAX);
+  if (len <= 0 || len >= COGITO_TEXT_MEASURE_KEY_MAX) return;
+  int spacing_q64 = (int)lroundf(spacing * 64.0f);
+  uint32_t h = cogito_text_measure_hash(f, s, len, size, spacing_q64, mode);
+  CogitoTextMeasureCacheEntry* e = &cogito_text_measure_cache[h % COGITO_TEXT_MEASURE_CACHE_SIZE];
+  e->valid = true;
+  e->hash = h;
+  e->font = f;
+  e->size = size;
+  e->spacing_q64 = spacing_q64;
+  e->mode = mode;
+  e->len = (uint8_t)len;
+  memcpy(e->text, s, (size_t)len);
+  e->text[len] = '\0';
+  e->width = width;
+}
+
 static int cogito_text_width_size_span_font(CogitoFont* f, const char* s, int len, int size) {
   if (!s || len <= 0) return 0;
   char stack_buf[1024];
@@ -488,6 +563,11 @@ static int cogito_text_width_size_font_spaced(CogitoFont* f, const char* s, int 
   if (size <= 0) size = cogito_font_size();
   f = cogito_font_resolve_size(f, size);
 
+  int cached_w = 0;
+  if (cogito_text_measure_cache_lookup(f, s, size, spacing, 0, &cached_w)) {
+    return cached_w;
+  }
+
   int base;
   if (!cogito_backend_ready || !cogito_font_ready || !f) {
     int len = 0;
@@ -508,6 +588,7 @@ static int cogito_text_width_size_font_spaced(CogitoFont* f, const char* s, int 
     }
   }
 
+  cogito_text_measure_cache_store(f, s, size, spacing, 0, base);
   return base;
 }
 
@@ -515,6 +596,11 @@ static int cogito_text_width_size_font_spaced_tabular(CogitoFont* f, const char*
   if (!s) return 0;
   if (size <= 0) size = cogito_font_size();
   f = cogito_font_resolve_size(f, size);
+
+  int cached_w = 0;
+  if (cogito_text_measure_cache_lookup(f, s, size, spacing, 1, &cached_w)) {
+    return cached_w;
+  }
 
   int total = 0;
   int digit_adv = cogito_tabular_digit_width(f, size);
@@ -547,6 +633,7 @@ static int cogito_text_width_size_font_spaced_tabular(CogitoFont* f, const char*
     }
   }
 
+  cogito_text_measure_cache_store(f, s, size, spacing, 1, total);
   return total;
 }
 

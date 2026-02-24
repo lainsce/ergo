@@ -29,8 +29,7 @@ static CogitoTimer* cogito_timers = NULL;
 static uint64_t cogito_timer_next_id = 1;
 
 static double cogito_timer_now(void) {
-  if (cogito_backend && cogito_backend->get_time) return cogito_backend->get_time();
-  return 0.0;
+  return cogito_now();
 }
 
 static double cogito_timer_interval_seconds(uint32_t delay_ms, bool repeat) {

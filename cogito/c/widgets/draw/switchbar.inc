@@ -91,7 +91,7 @@ case COGITO_SWITCHBAR: {
 
     if (cogito_spring_active(&n->spring_x, (double)center_t) ||
         cogito_spring_active(&n->spring_h, (double)knob_h_r)) {
-      double et = cogito_backend->get_time() + 0.6;
+      double et = cogito_now() + 0.6;
       if (et > cogito_anim_end_time) cogito_anim_end_time = et;
     }
   }

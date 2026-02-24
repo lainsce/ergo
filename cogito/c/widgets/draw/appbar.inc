@@ -37,13 +37,8 @@ case COGITO_APPBAR: {
 	      int btn = n->appbar.btn_size;
 	      int by = n->appbar.btn_y;
 	      int mx = 0, my = 0;
-      if (cogito_backend && cogito_backend->get_mouse_position) {
-        cogito_backend->get_mouse_position(&mx, &my);
-  }
       bool down = false;
-      if (cogito_backend && cogito_backend->is_mouse_button_down) {
-        down = cogito_backend->is_mouse_button_down(0); // Left button
-  }
+      (void)cogito_pointer_query(&mx, &my, &down, NULL);
       CogitoTrafficLightsState lights = {
     0
   };

@@ -8,19 +8,42 @@ static void cogito_layout_grid(CogitoNode* n, int x, int y) {
   if (cell_w < 0) cell_w = 0;
   size_t count = n->len;
   if (count == 0) return;
-  int *rows = (int*)calloc(count, sizeof(int));
-  int *cols_out = (int*)calloc(count, sizeof(int));
-  int *span_x = (int*)calloc(count, sizeof(int));
-  int *span_y = (int*)calloc(count, sizeof(int));
-  if (!rows || !cols_out || !span_x || !span_y) {
-    free(rows); free(cols_out); free(span_x); free(span_y);
-    return;
+  int rows_stack[64];
+  int cols_out_stack[64];
+  int span_x_stack[64];
+  int span_y_stack[64];
+  int* rows = NULL;
+  int* cols_out = NULL;
+  int* span_x = NULL;
+  int* span_y = NULL;
+  void* slot_heap = NULL;
+  if (count <= 64) {
+    rows = rows_stack;
+    cols_out = cols_out_stack;
+    span_x = span_x_stack;
+    span_y = span_y_stack;
+  } else {
+    size_t rows_bytes = sizeof(int) * count;
+    size_t cols_bytes = sizeof(int) * count;
+    size_t sx_bytes = sizeof(int) * count;
+    size_t sy_bytes = sizeof(int) * count;
+    size_t total_bytes = rows_bytes + cols_bytes + sx_bytes + sy_bytes;
+    slot_heap = calloc(1, total_bytes);
+    if (!slot_heap) return;
+    char* p = (char*)slot_heap;
+    rows = (int*)p;
+    p += rows_bytes;
+    cols_out = (int*)p;
+    p += cols_bytes;
+    span_x = (int*)p;
+    p += sx_bytes;
+    span_y = (int*)p;
   }
   int row_cap = 4;
   int row_count = 0;
   bool *occ = (bool*)calloc((size_t)row_cap * (size_t)cols, sizeof(bool));
   if (!occ) {
-    free(rows); free(cols_out); free(span_x); free(span_y);
+    if (slot_heap) free(slot_heap);
     return;
   }
   for (size_t i = 0; i < count; i++) {
@@ -72,7 +95,8 @@ static void cogito_layout_grid(CogitoNode* n, int x, int y) {
   int *row_heights = (int*)calloc((size_t)row_count, sizeof(int));
   bool *row_expand = (bool*)calloc((size_t)row_count, sizeof(bool));
   if (!row_heights || !row_expand) {
-    free(rows); free(cols_out); free(span_x); free(span_y); free(occ);
+    if (slot_heap) free(slot_heap);
+    free(occ);
     free(row_heights);
     free(row_expand);
     return;
@@ -114,7 +138,10 @@ static void cogito_layout_grid(CogitoNode* n, int x, int y) {
   }
   int *row_y = (int*)calloc((size_t)row_count, sizeof(int));
   if (!row_y) {
-    free(rows); free(cols_out); free(span_x); free(span_y); free(occ); free(row_heights); free(row_expand);
+    if (slot_heap) free(slot_heap);
+    free(occ);
+    free(row_heights);
+    free(row_expand);
     return;
   }
   int cy = y + n->padding_top;
@@ -145,10 +172,7 @@ static void cogito_layout_grid(CogitoNode* n, int x, int y) {
     if (ch < 0) ch = 0;
     cogito_layout_node(c, cell_x + c->margin_left, cell_y + c->margin_top, cw, ch);
   }
-  free(rows);
-  free(cols_out);
-  free(span_x);
-  free(span_y);
+  if (slot_heap) free(slot_heap);
   free(occ);
   free(row_heights);
   free(row_y);

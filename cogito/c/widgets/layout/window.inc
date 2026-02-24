@@ -387,10 +387,40 @@ int max_w = win->padding_left;
   if (out_h) *out_h = dh;
 }
 
-static void cogito_window_relayout(CogitoNode* win) {
-  if (!win) return;
+static void cogito_window_relayout_now(CogitoNode* win) {
+  if (!win || win->kind != COGITO_WINDOW) return;
   cogito_layout_begin();
   cogito_layout_window(win);
   cogito_a11y_sync_tree(win);
   if (cogito_layout_changed()) cogito_queue_draw(win);
+}
+
+static void cogito_relayout_subtree(CogitoNode* n) {
+  if (!n) return;
+  if (n->kind == COGITO_WINDOW) {
+    cogito_window_relayout(n);
+    return;
+  }
+  CogitoNode* win = cogito_node_window(n);
+  if (!win) return;
+  cogito_layout_begin();
+  cogito_layout_node(n, n->x, n->y, n->w, n->h);
+  cogito_a11y_sync_tree(win);
+  if (cogito_layout_changed()) {
+    int pad = 4;
+    cogito_queue_draw_rect(win, n->x - pad, n->y - pad, n->w + pad * 2, n->h + pad * 2);
+  }
+}
+
+static void cogito_window_relayout(CogitoNode* win) {
+  if (!win) return;
+  if (win->kind != COGITO_WINDOW) {
+    win = cogito_node_window(win);
+    if (!win) return;
+  }
+  if (cogito_relayout_deferred) {
+    cogito_relayout_defer_request(win);
+    return;
+  }
+  cogito_window_relayout_now(win);
 }

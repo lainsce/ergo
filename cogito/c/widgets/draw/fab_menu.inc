@@ -70,9 +70,7 @@ case COGITO_FAB_MENU: {
 
     // Get mouse position for item hover highlight
     int mx = 0, my = 0;
-    if (cogito_backend && cogito_backend->get_mouse_position) {
-      cogito_backend->get_mouse_position(&mx, &my);
-    }
+    (void)cogito_pointer_query(&mx, &my, NULL, NULL);
 
     // Draw items from top (index n-1) to bottom (index 0) so closer items
     // are rendered on top when they overlap.
