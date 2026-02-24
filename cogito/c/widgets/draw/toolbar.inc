@@ -6,15 +6,10 @@ case COGITO_TOOLBAR: {
       cogito_node_hover_state(n, &hover, &active);
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
       
-      // Get tertiary container color for vibrant mode
+      // Get tertiary container color for vibrant mode from Ensor scheme
       CogitoColor tertiary_container = {0};
       if (vibrant) {
-        double h = 0.0, c = 0.0, t = 0.0;
-        cogito_rgb_to_hct(cogito_theme_accent, &h, &c, &t);
-        double tert_h = fmod(h + 60.0, 360.0);
-        if (tert_h < 0.0) tert_h += 360.0;
-        double tert_c = 24.0;
-        tertiary_container = cogito_hct_to_rgb(tert_h, tert_c, cogito_theme_dark ? 30.0 : 90.0);
+        cogito_theme_get_tertiary(NULL, NULL, &tertiary_container, NULL);
       }
       
       if (s.has_bg) { n->bg = s.bg; n->bg_set = true; }

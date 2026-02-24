@@ -10,6 +10,7 @@ case COGITO_TOOLBAR: {
       const char* cls = (n->class_name && n->class_name->data) ? n->class_name->data : NULL;
       bool floating = cls && strstr(cls, "floating") != NULL;
       bool compact = floating && cls && strstr(cls, "compact") != NULL;
+      bool vertical = n->toolbar.vertical;
 
       // Find FAB child if any
       CogitoNode* fab_child = NULL;
@@ -28,6 +29,28 @@ case COGITO_TOOLBAR: {
       int gap = floating ? floating_gap : docked_gap;
       if (compact) gap = floating_compact_gap;
       int side = compact ? compact_side_pad : (floating ? floating_pad : outer_pad);
+
+      // Vertical toolbar: width based on widest item, height based on sum of heights
+      if (vertical) {
+        int max_item_w = 0;
+        int sum_item_h = 0;
+        for (int i = 0; i < slots; i++) {
+          CogitoNode* c = n->children[i];
+          if (!c) continue;
+          int cw = 0;
+          int ch = 0;
+          cogito_intrinsic_size(c, &cw, &ch);
+          if (cw < 1) cw = 1;
+          if (ch < 1) ch = 1;
+          if (cw > max_item_w) max_item_w = cw;
+          sum_item_h += ch;
+        }
+        if (max_item_w < 48) max_item_w = 48;
+        w = side * 2 + max_item_w;
+        int total_gap = (slots > 1) ? gap * (slots - 1) : 0;
+        h = side * 2 + sum_item_h + total_gap;
+        break;
+      }
 
       int max_item_w = 0;
       int sum_item_w = 0;

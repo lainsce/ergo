@@ -1591,6 +1591,16 @@ static ErgoVal __cogito_toolbar_get_vibrant(ErgoVal toolbarv) {
   return EV_BOOL(cogito_toolbar_get_vibrant(toolbar));
 }
 
+static void __cogito_toolbar_set_vertical(ErgoVal toolbarv, ErgoVal verticalv) {
+  cogito_node* toolbar = cogito_node_from_val(toolbarv);
+  cogito_toolbar_set_vertical(toolbar, ergo_as_bool(verticalv));
+}
+
+static ErgoVal __cogito_toolbar_get_vertical(ErgoVal toolbarv) {
+  cogito_node* toolbar = cogito_node_from_val(toolbarv);
+  return EV_BOOL(cogito_toolbar_get_vertical(toolbar));
+}
+
 static ErgoVal __cogito_vstack(void) {
   return cogito_wrap_node(cogito_node_new(COGITO_NODE_VSTACK), COGITO_HANDLE_NODE);
 }

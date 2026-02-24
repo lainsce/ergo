@@ -205,6 +205,8 @@ cogito_node *cogito_toast_new(const char *text);
 cogito_node *cogito_toolbar_new(void);
 void cogito_toolbar_set_vibrant(cogito_node *toolbar, bool vibrant);
 bool cogito_toolbar_get_vibrant(cogito_node *toolbar);
+void cogito_toolbar_set_vertical(cogito_node *toolbar, bool vertical);
+bool cogito_toolbar_get_vertical(cogito_node *toolbar);
 cogito_node *cogito_dialog_new(const char *title);
 cogito_node *cogito_dialog_slot_new(void);
 cogito_node *cogito_appbar_new(const char *title, const char *subtitle);

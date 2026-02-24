@@ -10,8 +10,9 @@ case COGITO_ICONBTN: {
       CogitoStyle s = cogito_theme_resolve_node_state(n, hover, active);
       bool has_custom_class = n->class_name && n->class_name->data && n->class_name->data[0];
       bool in_appbar = n->parent && n->parent->kind == COGITO_APPBAR;
+      bool in_appbar_or_toolbar = n->parent && (n->parent->kind == COGITO_APPBAR || n->parent->kind == COGITO_TOOLBAR);
       
-      if (n->parent && n->parent->kind == COGITO_APPBAR) {
+      if (in_appbar_or_toolbar) {
         int mx = 0, my = 0;
         if (cogito_backend && cogito_backend->get_mouse_position) {
           cogito_backend->get_mouse_position(&mx, &my);
@@ -31,7 +32,7 @@ case COGITO_ICONBTN: {
       int border_w = n->border_width;
       int radius = n->border_radius;
       if (s.has_bg) bg = s.bg;
-      if (n->parent && n->parent->kind == COGITO_APPBAR) {
+      if (in_appbar_or_toolbar) {
         int mx = 0, my = 0;
         if (cogito_backend && cogito_backend->get_mouse_position) {
           cogito_backend->get_mouse_position(&mx, &my);

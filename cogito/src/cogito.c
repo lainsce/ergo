@@ -264,6 +264,8 @@ static const char *cogito_font_bold_path_active = NULL;
 #define cogito_toolbar_new cogito_toolbar_new_ergo
 #define cogito_toolbar_set_vibrant cogito_toolbar_set_vibrant_ergo
 #define cogito_toolbar_get_vibrant cogito_toolbar_get_vibrant_ergo
+#define cogito_toolbar_set_vertical cogito_toolbar_set_vertical_ergo
+#define cogito_toolbar_get_vertical cogito_toolbar_get_vertical_ergo
 #define cogito_treeview_new cogito_treeview_new_ergo
 #define cogito_view_switcher_new cogito_view_switcher_new_ergo
 #define cogito_view_switcher_set_active cogito_view_switcher_set_active_ergo
@@ -569,6 +571,8 @@ static const char *cogito_font_bold_path_active = NULL;
 #undef cogito_toolbar_new
 #undef cogito_toolbar_set_vibrant
 #undef cogito_toolbar_get_vibrant
+#undef cogito_toolbar_set_vertical
+#undef cogito_toolbar_get_vertical
 #undef cogito_treeview_new
 #undef cogito_view_switcher_new
 #undef cogito_view_switcher_set_active
@@ -1292,6 +1296,19 @@ bool cogito_toolbar_get_vibrant(cogito_node *toolbar) {
   if (!toolbar)
     return false;
   ErgoVal v = cogito_toolbar_get_vibrant_ergo(EV_OBJ(toolbar));
+  return ergo_as_bool(v);
+}
+
+void cogito_toolbar_set_vertical(cogito_node *toolbar, bool vertical) {
+  if (!toolbar)
+    return;
+  cogito_toolbar_set_vertical_ergo(EV_OBJ(toolbar), EV_BOOL(vertical));
+}
+
+bool cogito_toolbar_get_vertical(cogito_node *toolbar) {
+  if (!toolbar)
+    return false;
+  ErgoVal v = cogito_toolbar_get_vertical_ergo(EV_OBJ(toolbar));
   return ergo_as_bool(v);
 }
 

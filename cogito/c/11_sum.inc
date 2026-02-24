@@ -1243,4 +1243,7 @@ static int sum_system_spacing(void) {
 }
 
 #include "ensor/ensor.inc"
+// Forward declaration for tertiary color caching (defined in theme_colors.inc)
+static void cogito_cache_tertiary_colors(CogitoEnsorScheme* scheme);
 #include "widgets/util/sum_dynamic.inc"
+#include "widgets/util/theme_colors.inc"

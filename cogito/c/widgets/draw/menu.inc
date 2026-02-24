@@ -1,19 +1,6 @@
-// Helper function to get tertiary colors for vibrant menus
+// Helper function to get tertiary colors for vibrant menus from Ensor scheme
 static void cogito_menu_theme_tertiary(CogitoColor* out_color, CogitoColor* out_container, CogitoColor* on_container, CogitoColor* on_color) {
-  if (!out_color && !out_container && !on_container && !on_color) return;
-  double h = 0.0, c = 0.0, t = 0.0;
-  cogito_rgb_to_hct(cogito_theme_accent, &h, &c, &t);
-  double tert_h = fmod(h + 60.0, 360.0);
-  if (tert_h < 0.0) tert_h += 360.0;
-  double tert_c = 24.0;
-  CogitoColor tertiary = cogito_hct_to_rgb(tert_h, tert_c, cogito_theme_dark ? 80.0 : 40.0);
-  CogitoColor tertiary_container = cogito_hct_to_rgb(tert_h, tert_c, cogito_theme_dark ? 30.0 : 90.0);
-  CogitoColor on_tertiary_container = cogito_hct_to_rgb(tert_h, tert_c, cogito_theme_dark ? 90.0 : 30.0);
-  CogitoColor on_tertiary = cogito_theme_dark ? cogito_hct_to_rgb(tert_h, tert_c, 20.0) : cogito_rgba(255, 255, 255, 255);
-  if (out_color) *out_color = tertiary;
-  if (out_container) *out_container = tertiary_container;
-  if (on_container) *on_container = on_tertiary_container;
-  if (on_color) *on_color = on_tertiary;
+  cogito_theme_get_tertiary(out_color, on_color, out_container, on_container);
 }
 // Helper to count sections and find which section an item belongs to
 static int cogito_menu_count_sections(CogitoNode* owner, int* section_of_item) {

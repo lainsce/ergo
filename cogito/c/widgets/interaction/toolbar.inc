@@ -19,3 +19,18 @@ ErgoVal cogito_toolbar_get_vibrant(ErgoVal toolbarv) {
   if (toolbar->kind != COGITO_TOOLBAR) ergo_trap("cogito.toolbar_get_vibrant expects toolbar");
   return EV_BOOL(toolbar->toolbar.vibrant);
 }
+
+void cogito_toolbar_set_vertical(ErgoVal toolbarv, ErgoVal verticalv) {
+  if (toolbarv.tag != EVT_OBJ) ergo_trap("cogito.toolbar_set_vertical expects toolbar");
+  CogitoNode* toolbar = (CogitoNode*)toolbarv.as.p;
+  if (toolbar->kind != COGITO_TOOLBAR) ergo_trap("cogito.toolbar_set_vertical expects toolbar");
+  toolbar->toolbar.vertical = ergo_as_bool(verticalv);
+  cogito_window_relayout(cogito_node_window(toolbar));
+}
+
+ErgoVal cogito_toolbar_get_vertical(ErgoVal toolbarv) {
+  if (toolbarv.tag != EVT_OBJ) ergo_trap("cogito.toolbar_get_vertical expects toolbar");
+  CogitoNode* toolbar = (CogitoNode*)toolbarv.as.p;
+  if (toolbar->kind != COGITO_TOOLBAR) ergo_trap("cogito.toolbar_get_vertical expects toolbar");
+  return EV_BOOL(toolbar->toolbar.vertical);
+}

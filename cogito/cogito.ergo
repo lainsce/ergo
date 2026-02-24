@@ -275,6 +275,8 @@ fun __cogito_toasts() (( Toasts )) { }
 fun __cogito_toolbar() (( Toolbar )) { }
 fun __cogito_toolbar_set_vibrant(toolbar = Toolbar, vibrant = bool) (( -- )) { }
 fun __cogito_toolbar_get_vibrant(toolbar = Toolbar) (( bool )) { }
+fun __cogito_toolbar_set_vertical(toolbar = Toolbar, vertical = bool) (( -- )) { }
+fun __cogito_toolbar_get_vertical(toolbar = Toolbar) (( bool )) { }
 fun __cogito_treeview() (( TreeView )) { }
 fun __cogito_view_chooser_bind(vc = ViewChooser, vs = ViewSwitcher) (( -- )) { }
 fun __cogito_view_chooser_set_items(vc = ViewChooser, items = [string]) (( -- )) { }
@@ -2972,6 +2974,13 @@ class Toolbar {
     }
     fun vibrant(this) (( bool )) {
         return __cogito_toolbar_get_vibrant(this)
+    }
+    fun set_vertical(this, vertical = bool) (( Toolbar )) {
+        __cogito_toolbar_set_vertical(this, vertical)
+        return this
+    }
+    fun vertical(this) (( bool )) {
+        return __cogito_toolbar_get_vertical(this)
     }
 }
 

@@ -51,7 +51,7 @@ case COGITO_TIMEPICKER: {
     int display_hour = cogito_timepicker_hour12_from_24(n->timepicker.hour);
 
     CogitoColor tertiary = {0}, tertiary_container = {0};
-    cogito_timepicker_theme_tertiary(&tertiary, &tertiary_container, NULL);
+    cogito_theme_get_tertiary(&tertiary, NULL, &tertiary_container, NULL);
     CogitoColor box_bg = cogito_theme_dark
       ? cogito_mix(bg, cogito_rgba(255, 255, 255, 255), 0.10f)
       : cogito_mix(bg, cogito_rgba(0, 0, 0, 255), 0.06f);

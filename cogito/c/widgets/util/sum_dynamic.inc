@@ -37,6 +37,9 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   // Build scheme using Ensor dynamic scheme
   CogitoEnsorScheme scheme = cogito_ensor_build_dynamic_scheme(dark, h, c, t, cogito_theme_ensor_variant, cogito_theme_contrast);
 
+  // Cache tertiary colors for widgets to use (SUM path)
+  cogito_cache_tertiary_colors(&scheme);
+
   // Hex buffer per color
   char p[8], op[8], pc[8], opc[8];
   char sec[8], osec[8], secc[8], osecc[8];
@@ -311,11 +314,11 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "chip:hover\n  background: %s\n  border-color: %s\n", scl, ons);
   cogito_sum_append(out, cap, &off,
-  "chip\n  background: transparent\n  color: %s\n  border-radius: 100\n  min-height: 32\n  padding: 0 16\n  border: 1 solid %s\n  transition: 150 standard\n", ons, outl);
+  "chip\n  background: transparent\n  color: %s\n  border-radius: 8\n  min-height: 32\n  padding: 0 16\n  border: 1 solid %s\n  transition: 150 standard\n", ons, outlv);
   cogito_sum_append(out, cap, &off,
-  "content_list label\n  padding: 0 16\n  min-height: 80\n  background: transparent\n");
+  "content_list label\n  background: transparent\n");
   cogito_sum_append(out, cap, &off,
-  "content_list\n  background: %s\n  color: %s\n  border-radius: 12\n", surfvar, ons);
+  "content_list\n  background: %s\n  color: %s\n  padding: 0 16\n  min-height: 80\n", surfvar, ons);
   cogito_sum_append(out, cap, &off,
   "content_list=first\n  border-radius: 12 12 8 8\n");
   cogito_sum_append(out, cap, &off,
@@ -472,6 +475,8 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   "searchfield:selection\n  background: %s\n", p);
   cogito_sum_append(out, cap, &off,
   "searchfield\n  background: %s\n  color: %s\n  border-radius: 999\n  min-height: 56\n  min-width: 240\n  padding: 6 16\n  transition: 180 standard\n", sch, ons);
+  cogito_sum_append(out, cap, &off,
+  "colorpicker\n  background: %s\n  color: %s\n  border-radius: 12\n  transition: 180 standard\n", sch, ons);
   cogito_sum_append(out, cap, &off,
   "buttongroup:disabled\n  background: %s29\n  color: %s52\n", ons, ons);
   cogito_sum_append(out, cap, &off,

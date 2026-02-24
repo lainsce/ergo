@@ -7,7 +7,8 @@ enum {
   COGITO_TOOLBAR_FLOATING_COMPACT_SIDE_PADDING = 8,
   COGITO_TOOLBAR_OUTER_PADDING = 16,
   COGITO_TOOLBAR_FLOATING_MARGIN = 16,
-  COGITO_TOOLBAR_FLOATING_MIN_SLOT_WIDTH = 88
+  COGITO_TOOLBAR_FLOATING_MIN_SLOT_WIDTH = 88,
+  COGITO_TOOLBAR_VERTICAL_RIGHT_MARGIN = 24
 };
 
 static bool cogito_toolbar_has_class(const CogitoNode* toolbar, const char* token) {
@@ -22,6 +23,11 @@ static bool cogito_toolbar_is_floating(const CogitoNode* toolbar) {
 
 static bool cogito_toolbar_is_compact(const CogitoNode* toolbar) {
   return cogito_toolbar_has_class(toolbar, "compact");
+}
+
+static bool cogito_toolbar_is_vertical(const CogitoNode* toolbar) {
+  if (!toolbar || toolbar->kind != COGITO_TOOLBAR) return false;
+  return toolbar->toolbar.vertical;
 }
 
 static int cogito_toolbar_reserved_height(const CogitoNode* toolbar, int toolbar_h) {
@@ -161,13 +167,24 @@ static void cogito_layout_window(CogitoNode* win) {
     cy += appbar_h;
   }
   if (toolbar) {
+    bool toolbar_vertical = cogito_toolbar_is_vertical(toolbar);
     cogito_intrinsic_size(toolbar, NULL, &toolbar_h);
     toolbar_floating = cogito_toolbar_is_floating(toolbar);
     toolbar_reserved_h = cogito_toolbar_reserved_height(toolbar, toolbar_h);
     int tx = 0;
     int tw = win->w;
     int ty = win->h - toolbar_h;
-    if (toolbar_floating) {
+    if (toolbar_vertical) {
+      // Vertical toolbar: position 24px from right, full height minus appbar
+      int toolbar_w = 0;
+      cogito_intrinsic_size(toolbar, &toolbar_w, NULL);
+      if (toolbar_w < 1) toolbar_w = 56;  // Default width for vertical toolbar
+      tx = win->w - toolbar_w - COGITO_TOOLBAR_VERTICAL_RIGHT_MARGIN;
+      ty = appbar ? appbar_h : 0;
+      tw = toolbar_w;
+      toolbar_h = win->h - ty;
+      if (toolbar_h < 0) toolbar_h = 0;
+    } else if (toolbar_floating) {
       tw = cogito_toolbar_floating_width(toolbar, win->w);
       tx = (win->w - tw) / 2;
       int min_x = COGITO_TOOLBAR_FLOATING_MARGIN;
@@ -201,14 +218,22 @@ static void cogito_layout_window(CogitoNode* win) {
   }
   int appbar_gap = appbar ? 6 : 0;
   int toolbar_gap = toolbar ? (toolbar_floating ? 0 : 6) : 0;
+  bool toolbar_vertical = toolbar ? cogito_toolbar_is_vertical(toolbar) : false;
+  int toolbar_w = 0;
+  if (toolbar && toolbar_vertical) {
+    cogito_intrinsic_size(toolbar, &toolbar_w, NULL);
+    if (toolbar_w < 1) toolbar_w = 56;
+    toolbar_w += COGITO_TOOLBAR_VERTICAL_RIGHT_MARGIN;
+  }
 
   // Calculate available space for expanding widgets
   int avail_w = win->w - win->padding_left - win->padding_right;
   int avail_h = win->h - win->padding_top - win->padding_bottom;
   if (appbar) avail_h -= appbar_h + appbar_gap;
-  if (toolbar) avail_h -= toolbar_reserved_h + toolbar_gap;
+  if (toolbar && !toolbar_vertical) avail_h -= toolbar_reserved_h + toolbar_gap;
   if (bottom_nav) avail_h -= bottom_nav_h;
   if (nav_rail) avail_w -= nav_rail_w;
+  if (toolbar_vertical) avail_w -= toolbar_w;
   if (avail_w < 0) avail_w = 0;
   if (avail_h < 0) avail_h = 0;
   int content_x = win->padding_left + (nav_rail ? nav_rail_w : 0);
@@ -291,6 +316,7 @@ int max_w = win->padding_left;
   int appbar_h = 0;
   int toolbar_h = 0;
   int toolbar_reserved_h = 0;
+  int toolbar_vertical_w = 0;
   int sidebar_w = 0;
   // Check if there's a sidebar side sheet and get its width
   if (win->side_sheet_open && win->side_sheet_node && 
@@ -310,7 +336,15 @@ int max_w = win->padding_left;
     CogitoNode* c = win->children[i];
     if (c->kind == COGITO_TOOLBAR) {
       cogito_intrinsic_size(c, NULL, &toolbar_h);
-      toolbar_reserved_h = cogito_toolbar_reserved_height(c, toolbar_h);
+      bool toolbar_vertical = cogito_toolbar_is_vertical(c);
+      if (toolbar_vertical) {
+        int tv_w = 0;
+        cogito_intrinsic_size(c, &tv_w, NULL);
+        if (tv_w < 1) tv_w = 56;
+        toolbar_vertical_w = tv_w + COGITO_TOOLBAR_VERTICAL_RIGHT_MARGIN;
+      } else {
+        toolbar_reserved_h = cogito_toolbar_reserved_height(c, toolbar_h);
+      }
       int row_w = win->padding_left + win->w;
       if (row_w > max_w) max_w = row_w;
       break;
@@ -342,7 +376,7 @@ int max_w = win->padding_left;
     if (row_w > max_w) max_w = row_w;
     cy += ch_total;
   }
-  int dw = max_w + win->padding_right + sidebar_w;
+  int dw = max_w + win->padding_right + sidebar_w + toolbar_vertical_w;
   // Calculate minimum height needed for intrinsic content
   int min_h = cy + win->padding_bottom;
   // If there's an expanding child, use max of minimum height and current window height

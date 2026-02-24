@@ -966,6 +966,23 @@ fun build_toolbar_page() (( cogito.VStack )) {
     compact_wrap.add(compact)
     vstack.add(compact_wrap)
 
+    let vibrant_wrap = cogito.hstack()
+    .set_hexpand(true)
+    .set_gap(8)
+
+    let vibrant = cogito.toolbar()
+    .set_vibrant(true)
+    .set_vertical(true)
+    .set_class(@"floating_compact")
+    .add(cogito.iconbtn(@"sf:checkmark.square").set_class(@"iconic"))
+    .add(cogito.iconbtn(@"sf:paintbrush").set_class(@"iconic"))
+    .add(cogito.iconbtn(@"sf:mic").set_class(@"iconic"))
+    .add(cogito.iconbtn(@"sf:photo").set_class(@"iconic"))
+    .add(cogito.menu_button(@"sf:ellipsis").set_class(@"tertiary"))
+
+    vibrant_wrap.add(vibrant)
+    vstack.add(vibrant_wrap)
+
     return vstack
 }
 

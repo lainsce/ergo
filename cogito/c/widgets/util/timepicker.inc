@@ -64,20 +64,7 @@ static void cogito_timepicker_format_display(int hour24, int minute, bool includ
   }
 }
 
-static void cogito_timepicker_theme_tertiary(CogitoColor* out_color, CogitoColor* out_container, CogitoColor* out_on_color) {
-  if (!out_color && !out_container && !out_on_color) return;
-  double h = 0.0, c = 0.0, t = 0.0;
-  cogito_rgb_to_hct(cogito_theme_accent, &h, &c, &t);
-  double tert_h = fmod(h + 60.0, 360.0);
-  if (tert_h < 0.0) tert_h += 360.0;
-  double tert_c = 24.0;
-  CogitoColor tertiary = cogito_hct_to_rgb(tert_h, tert_c, cogito_theme_dark ? 80.0 : 40.0);
-  CogitoColor tertiary_container = cogito_hct_to_rgb(tert_h, tert_c, cogito_theme_dark ? 30.0 : 90.0);
-  if (out_color) *out_color = tertiary;
-  if (out_container) *out_container = tertiary_container;
-  if (out_on_color) *out_on_color = cogito_on_color(tertiary);
-}
-
+// Get tertiary colors from Ensor scheme
 static CogitoStyle cogito_timepicker_iconbtn_style(bool hover, bool active) {
   CogitoStyle s = cogito_theme_resolve(COGITO_ICONBTN);
   if (active) {

@@ -1,6 +1,7 @@
 case COGITO_TOOLBAR: {
       bool floating = cogito_toolbar_is_floating(n);
       bool compact = floating && cogito_toolbar_is_compact(n);
+      bool vertical = n->toolbar.vertical;
       int gap = floating ? COGITO_TOOLBAR_FLOATING_GAP : COGITO_TOOLBAR_DOCKED_GAP;
       if (compact) gap = COGITO_TOOLBAR_FLOATING_COMPACT_GAP;
       int slots = COGITO_TOOLBAR_MAX_SLOTS;
@@ -42,6 +43,73 @@ case COGITO_TOOLBAR: {
       if (content_h < 0) content_h = 0;
       int content_x = n->x + pad_l;
       int content_y = n->y + pad_t;
+
+      // Vertical toolbar: stack items from top to bottom
+      if (vertical) {
+        int item_count = 0;
+        int widths[COGITO_TOOLBAR_MAX_SLOTS];
+        int heights[COGITO_TOOLBAR_MAX_SLOTS];
+        int total_h = 0;
+        
+        for (size_t i = 0; i < n->len && item_count < COGITO_TOOLBAR_MAX_SLOTS; i++) {
+          CogitoNode* c = n->children[i];
+          int cw = 0;
+          int ch = 0;
+          if (c) cogito_intrinsic_size(c, &cw, &ch);
+          if (cw < 1) cw = 1;
+          if (ch < 1) ch = 1;
+          if (cw > content_w) cw = content_w;
+          if (ch > content_h) ch = content_h;
+          widths[item_count] = cw;
+          heights[item_count] = ch;
+          total_h += ch;
+          item_count++;
+        }
+
+        if (item_count > 0) {
+          int gap_used = gap;
+          if (item_count > 1) {
+            int gap_total = gap_used * (item_count - 1);
+            int required = total_h + gap_total;
+            if (required > content_h) {
+              int fit_gap = (content_h - total_h) / (item_count - 1);
+              if (fit_gap < 0) fit_gap = 0;
+              gap_used = fit_gap;
+              gap_total = gap_used * (item_count - 1);
+              required = total_h + gap_total;
+            }
+            int start_y = content_y + (content_h - required) / 2;
+            if (start_y < content_y) start_y = content_y;
+            int cy = start_y;
+            for (int i = 0; i < item_count; i++) {
+              CogitoNode* c = n->children[i];
+              if (!c) continue;
+              int cw = widths[i];
+              int ch = heights[i];
+              int cx = content_x + (content_w - cw) / 2;
+              cogito_layout_node(c, cx, cy, cw, ch);
+              cy += ch;
+              if (i + 1 < item_count) cy += gap_used;
+            }
+          } else {
+            CogitoNode* c = n->children[0];
+            if (c) {
+              int cw = widths[0];
+              int ch = heights[0];
+              int cx = content_x + (content_w - cw) / 2;
+              int cy = content_y + (content_h - ch) / 2;
+              cogito_layout_node(c, cx, cy, cw, ch);
+            }
+          }
+        }
+        // Hide any children beyond max slots
+        for (size_t i = (size_t)item_count; i < n->len; i++) {
+          CogitoNode* c = n->children[i];
+          if (!c) continue;
+          cogito_layout_node(c, n->x, n->y, 0, 0);
+        }
+        break;
+      }
 
       // For floating toolbars with FAB: FAB goes to the right with 16px gap
       if (floating && fab_child) {

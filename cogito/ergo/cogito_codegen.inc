@@ -523,6 +523,46 @@
                         return true;
                     }
                     if (str_eq_c(fname,
+                    "__cogito_toolbar_set_vertical")) {
+                        GenExpr toolbar, vertical;
+                        if (!gen_expr(cg, path, e->as.call.args[
+                            0
+                        ], &toolbar, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[
+                            1
+                        ], &vertical, err)) { gen_expr_free(&toolbar); return false;
+                        }
+                        w_line(&cg->w,
+                        "cogito_toolbar_set_vertical(%s, %s);", toolbar.tmp, vertical.tmp);
+                        w_line(&cg->w,
+                        "ergo_release_val(%s);", toolbar.tmp);
+                        w_line(&cg->w,
+                        "ergo_release_val(%s);", vertical.tmp);
+                        gen_expr_release_except(cg, &toolbar, toolbar.tmp);
+                        gen_expr_release_except(cg, &vertical, vertical.tmp);
+                        gen_expr_free(&toolbar);
+                        gen_expr_free(&vertical);
+                        out->tmp = NULL;
+                        return true;
+                    }
+                    if (str_eq_c(fname,
+                    "__cogito_toolbar_get_vertical")) {
+                        GenExpr toolbar;
+                        if (!gen_expr(cg, path, e->as.call.args[
+                            0
+                        ], &toolbar, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w,
+                        "ErgoVal %s = EV_BOOL(cogito_toolbar_get_vertical(%s));", t, toolbar.tmp);
+                        w_line(&cg->w,
+                        "ergo_release_val(%s);", toolbar.tmp);
+                        gen_expr_release_except(cg, &toolbar, toolbar.tmp);
+                        gen_expr_free(&toolbar);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname,
                     "__cogito_vstack")) {
                         char *t = codegen_new_tmp(cg);
                         w_line(&cg->w,

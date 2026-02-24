@@ -904,7 +904,7 @@ typedef struct CogitoNode {
     } split_btn;
     struct { bool has_divider_before; bool has_divider_after;
     } menu_section;
-    struct { bool vibrant;
+    struct { bool vibrant; bool vertical;
     } toolbar;
     // ButtonGroup: size (0-4 for XS-XL), shape (0=round,1=square), connected (0=standard,1=connected)
     // pressed_child: index of child being pressed (-1 = none), for width expansion animation
