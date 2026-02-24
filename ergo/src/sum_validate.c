@@ -70,7 +70,7 @@ static const char *known_types[] = {
     "iconbtn", "image", "label", "list", "menu", "nav-rail", "popover", "progress",
     "scroller", "searchfield", "buttongroup", "slider", "stepper", "switch", "tabs",
     "textfield", "textview", "toast", "toasts", "toolbar", "tooltip", "treeview", "viewswitcher",
-    "bottom_nav", "dialog-slot", "dialog_slot", "bottom-toolbar", "bottom_toolbar"
+    "bottom_nav", "dialog-slot", "dialog_slot"
 };
 
 static const char *known_states[] = {

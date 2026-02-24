@@ -14,12 +14,12 @@ case COGITO_FAB_MENU: {
       int col = n->align % 3;
       if (col < 0 || col > 2) col = 2;  // FAB Menu defaults to right lane.
       if (col == 0) {
-        n->x = win->x + 18 + n->margin_left;
+        n->x = win->x + 16 + n->margin_left;
       } else if (col == 1) {
         n->x = win->x + (win->w - n->w) / 2 + n->margin_left - n->margin_right;
       } else {
         n->x = win->x + win->w - 16 - n->w - n->margin_right;
       }
-      n->y = win->y + win->h - 18 - n->h - n->margin_bottom;
+      n->y = win->y + win->h - 16 - n->h - n->margin_bottom;
       break;
     }

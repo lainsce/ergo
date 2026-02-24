@@ -182,22 +182,14 @@ button.toolbar_format_active
 fab
   background: @outline
   color: @on-secondary
-  border-radius: 100
-  min-width: 56
-  min-height: 56
+  elevation: 3
 
 fab:hover
   background: @inverse-primary
+  elevation: 4
 
 fab:active
   background: @primary
-
-fab.toolbar_plus
-  background: @error-container
-  color: @on-surface-variant
-  border-radius: 20
-  min-width: 56
-  min-height: 56
   elevation: 3
 
 chip
@@ -356,18 +348,14 @@ toolbar.floating_compact
   elevation: 1
   padding: 8
 
+toolbar.floating_compact
+  border-radius: 999
+  elevation: 1
+  padding: 8
+
 iconbtn
   background: alpha(@shadow, 5%)
   color: @on-background
-
-iconbtn.toolbar_float_icon
-  background: @surface-container-low
-  color: @on-background
-
-iconbtn.toolbar_plus
-  background: @error-container
-  color: @on-surface-variant
-  elevation: 3
 
 label
   color: @on-background

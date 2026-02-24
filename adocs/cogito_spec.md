@@ -118,7 +118,7 @@ Widget factory functions:
 - `cogito_treeview_new()` - tree view.
 - `cogito_toasts_new()` - toast container.
 - `cogito_toast_new(text)` - toast notification.
-- `cogito_bottom_toolbar_new()` - bottom toolbar.
+- `cogito_toolbar_new()` - toolbar.
 - `cogito_dialog_new(title)` - dialog.
 - `cogito_dialog_slot_new()` - dialog slot.
 - `cogito_appbar_new(title, subtitle)` - app bar.
@@ -151,7 +151,7 @@ Current public kinds include:
 - Text/content: `label`, `image`, `tooltip`.
 - Button/container: `buttongroup`
 - Actions/inputs: `button`, `iconbtn`, `fab`, `checkbox`, `switch`, `chip`, `textfield`, `textview`, `searchfield`, `dropdown`, `slider`, `stepper`.
-- Navigation/surfaces: `tabs`, `view_switcher`, `appbar`, `bottom_toolbar`, `nav_rail`, `bottom_nav`, `dialog`, `dialog_slot`, `toast`, `toasts`, `treeview`, `progress`, `datepicker`, `colorpicker`.
+- Navigation/surfaces: `tabs`, `view_switcher`, `appbar`, `toolbar`, `nav_rail`, `bottom_nav`, `dialog`, `dialog_slot`, `toast`, `toasts`, `treeview`, `progress`, `datepicker`, `colorpicker`.
 - Display/surfaces: `divider`, `card`, `avatar`, `badge`, `banner`, `bottom_sheet`, `side_sheet`, `carousel`, `carousel_item`.
 - Time/pickers: `timepicker`.
 - Indicators: `active_indicator`, `switchbar`.

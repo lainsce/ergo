@@ -144,7 +144,7 @@ static void cogito_container_remove_child(CogitoNode* parent, CogitoNode* child)
 #include "widgets/interaction/textview.inc"
 #include "widgets/interaction/toast.inc"
 #include "widgets/interaction/toasts.inc"
-#include "widgets/interaction/bottom_toolbar.inc"
+#include "widgets/interaction/toolbar.inc"
 #include "widgets/interaction/treeview.inc"
 #include "widgets/interaction/tooltip.inc"
 #include "widgets/interaction/view_switcher.inc"

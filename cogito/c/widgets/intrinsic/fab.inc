@@ -20,10 +20,12 @@ case COGITO_FAB: {
     int font_size = cogito_node_font_size(n);
     int label_w = cogito_text_width_size_node(n, label, font_size);
     w = ext_lpad + ext_icon + ext_gap + label_w + ext_rpad;
+    // Extended FAB has minimum width of 80px
+    if (w < 80) w = 80;
     h = ext_h;
   } else {
-    // Standard circular FAB: S=42, M=56 (default), L=96
-    int dim = (n->fab.size == 0) ? 42 : (n->fab.size == 2) ? 96 : 56;
+    // Standard circular FAB: S=56 (default), M=80, L=96
+    int dim = (n->fab.size == 0) ? 56 : (n->fab.size == 2) ? 96 : 80;
     w = dim;
     h = dim;
   }

@@ -728,7 +728,7 @@ static bool cogito_sum_selector_kind(const char* sel, CogitoKind* out_kind, bool
   if (strcmp(s, "textview") == 0) { if (out_kind) *out_kind = COGITO_TEXTVIEW; return true; }
   if (strcmp(s, "toast") == 0) { if (out_kind) *out_kind = COGITO_TOAST; return true; }
   if (strcmp(s, "toasts") == 0) { if (out_kind) *out_kind = COGITO_TOASTS; return true; }
-  if (strcmp(s, "toolbar") == 0 || strcmp(s, "bottom-toolbar") == 0 || strcmp(s, "bottom_toolbar") == 0) {
+  if (strcmp(s, "toolbar") == 0) {
     if (out_kind) *out_kind = COGITO_TOOLBAR;
     return true;
   }

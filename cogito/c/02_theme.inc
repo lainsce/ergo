@@ -527,30 +527,51 @@ static CogitoStyle cogito_theme_resolve_node_state(const CogitoNode* n, bool hov
   else if (n && n->kind == COGITO_CHIP) checked = n->chip.selected;
   // Apply iconbtn color style base BEFORE per_kind hover/active so color style wins
   bool iconbtn_has_custom_class = false;
+  bool iconbtn_class_is_filled = false;
+  bool iconbtn_class_is_tonal = false;
+  bool iconbtn_class_is_outlined = false;
+  bool iconbtn_class_is_iconic = false;
   if (n->class_name && n->class_name->data && n->class_name->data[
     0
   ]) {
-    // Check if the class is not one of the built-in icon button styles
+    // Check if the class is one of the built-in icon button styles
     const char* class_name = n->class_name->data;
-    iconbtn_has_custom_class = strcmp(class_name,
-    "outlined") != 0 && 
-                               strcmp(class_name,
-    "filled") != 0 && 
-                               strcmp(class_name,
-    "tonal") != 0 && 
-                               strcmp(class_name,
-    "iconic") != 0;
+    iconbtn_class_is_filled = strcmp(class_name, "filled") == 0;
+    iconbtn_class_is_tonal = strcmp(class_name, "tonal") == 0;
+    iconbtn_class_is_outlined = strcmp(class_name, "outlined") == 0;
+    iconbtn_class_is_iconic = strcmp(class_name, "iconic") == 0;
+    iconbtn_has_custom_class = !iconbtn_class_is_filled && !iconbtn_class_is_tonal && 
+                               !iconbtn_class_is_outlined && !iconbtn_class_is_iconic;
   }
   if (n->kind == COGITO_ICONBTN && !iconbtn_has_custom_class) {
-    // If outlined is explicitly set, use outlined style regardless of icon_color_style
-    if (n->button.outlined) {
+    // Determine style: class name takes precedence over icon_color_style
+    // If outlined property is set, always use outlined style
+    if (n->button.outlined || iconbtn_class_is_outlined) {
       s = cogito_style_merge(&s, &cogito_theme.iconbtn_outlined);
       if (!disabled) {
         if (active) s = cogito_style_merge(&s, &cogito_theme.iconbtn_outlined_active);
         else if (hover) s = cogito_style_merge(&s, &cogito_theme.iconbtn_outlined_hover);
       }
+    } else if (iconbtn_class_is_filled) {
+      s = cogito_style_merge(&s, &cogito_theme.iconbtn_filled);
+      if (!disabled) {
+        if (active) s = cogito_style_merge(&s, &cogito_theme.iconbtn_filled_active);
+        else if (hover) s = cogito_style_merge(&s, &cogito_theme.iconbtn_filled_hover);
+      }
+    } else if (iconbtn_class_is_tonal) {
+      s = cogito_style_merge(&s, &cogito_theme.iconbtn_tonal);
+      if (!disabled) {
+        if (active) s = cogito_style_merge(&s, &cogito_theme.iconbtn_tonal_active);
+        else if (hover) s = cogito_style_merge(&s, &cogito_theme.iconbtn_tonal_hover);
+      }
+    } else if (iconbtn_class_is_iconic) {
+      s = cogito_style_merge(&s, &cogito_theme.iconbtn_iconic);
+      if (!disabled) {
+        if (active) s = cogito_style_merge(&s, &cogito_theme.iconbtn_iconic_active);
+        else if (hover) s = cogito_style_merge(&s, &cogito_theme.iconbtn_iconic_hover);
+      }
     } else {
-      // Use icon color style if not outlined
+      // No class specified, use icon_color_style
       int cs = n->button.icon_color_style;
       if (cs == 0) {
         s = cogito_style_merge(&s, &cogito_theme.iconbtn_filled);

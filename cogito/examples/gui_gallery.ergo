@@ -784,7 +784,8 @@ fun build_fab_page() (( cogito.VStack )) {
     vstack.add(status)
 
     let row = cogito.hstack()
-    .set_gap(12)
+    .set_hexpand(true)
+    .set_vexpand(true)
     vstack.add(row)
 
     let fab1 = cogito.fab(@"plus")
@@ -910,54 +911,36 @@ fun build_bottom_nav_page() (( cogito.VStack )) {
     return vstack
 }
 
-fun build_bottom_toolbar_page() (( cogito.VStack )) {
-    let vstack = build_page(@"BottomToolbar", @"Bottom toolbars support six slot-based actions; docked and floating variants share the same slot model.")
+fun build_toolbar_page() (( cogito.VStack )) {
+    let vstack = build_page(@"Toolbar", @"Toolbars support six slot-based actions; docked and floating variants share the same slot model.")
 
     let dock_label = cogito.label(@"Docked")
     .set_class(@"body")
     vstack.add(dock_label)
 
-    let docked = cogito.bottom_toolbar()
+    let docked = cogito.toolbar()
     .set_hexpand(true)
-    .add(cogito.iconbtn(@"archivebox"))
-    .add(cogito.iconbtn(@"trash"))
-    .add(cogito.iconbtn(@"photo"))
-    .add(cogito.iconbtn(@"clock"))
-    .add(cogito.iconbtn(@"star"))
-    .add(cogito.iconbtn(@"ellipsis"))
+    .add(cogito.iconbtn(@"archivebox").set_class(@"iconic"))
+    .add(cogito.iconbtn(@"trash").set_class(@"iconic"))
+    .add(cogito.iconbtn(@"photo").set_class(@"iconic"))
+    .add(cogito.iconbtn(@"clock").set_class(@"iconic"))
+    .add(cogito.iconbtn(@"star").set_class(@"iconic"))
+    .add(cogito.menu_button(@"ellipsis"))
     vstack.add(docked)
 
     let float_label = cogito.label(@"Floating")
     .set_class(@"body")
     vstack.add(float_label)
 
-    let floating = cogito.bottom_toolbar()
+    let floating = cogito.toolbar()
     .set_class(@"floating")
     .set_hexpand(true)
-
-    let bold = cogito.iconbtn(@"sf:textformat.bold")
-    .set_class(@"toolbar_float_icon")
-    floating.add(bold)
-
-    let italic = cogito.iconbtn(@"sf:textformat.italic")
-    .set_class(@"toolbar_float_icon")
-    floating.add(italic)
-
-    let underline = cogito.iconbtn(@"sf:textformat.underline")
-    .set_class(@"toolbar_float_icon")
-    floating.add(underline)
-
-    let accent = cogito.iconbtn(@"sf:textformat")
-    .set_class(@"toolbar_float_icon")
-    floating.add(accent)
-
-    let palette = cogito.iconbtn(@"sf:paintbrush")
-    .set_class(@"toolbar_float_icon")
-    floating.add(palette)
-
-    let menu = cogito.iconbtn(@"sf:ellipsis")
-    .set_class(@"toolbar_float_icon")
-    floating.add(menu)
+    .add(cogito.iconbtn(@"sf:textformat.bold").set_class(@"iconic"))
+    .add(cogito.iconbtn(@"sf:textformat.italic").set_class(@"iconic"))
+    .add(cogito.iconbtn(@"sf:textformat.underline").set_class(@"iconic"))
+    .add(cogito.iconbtn(@"sf:textformat").set_class(@"iconic"))
+    .add(cogito.iconbtn(@"sf:paintbrush").set_class(@"iconic"))
+    .add(cogito.menu_button(@"sf:ellipsis"))
     vstack.add(floating)
 
     let compact_label = cogito.label(@"Floating Compact")
@@ -968,19 +951,19 @@ fun build_bottom_toolbar_page() (( cogito.VStack )) {
     .set_hexpand(true)
     .set_gap(8)
 
-    let compact = cogito.bottom_toolbar()
+    let compact = cogito.toolbar()
     .set_class(@"floating_compact")
-    .add(cogito.iconbtn(@"sf:checkmark.square"))
-    .add(cogito.iconbtn(@"sf:paintbrush"))
-    .add(cogito.iconbtn(@"sf:mic"))
-    .add(cogito.iconbtn(@"sf:photo"))
-    compact_wrap.add(compact)
+    .add(cogito.iconbtn(@"sf:checkmark.square").set_class(@"iconic"))
+    .add(cogito.iconbtn(@"sf:paintbrush").set_class(@"iconic"))
+    .add(cogito.iconbtn(@"sf:mic").set_class(@"iconic"))
+    .add(cogito.iconbtn(@"sf:photo").set_class(@"iconic"))
 
     let add_btn = cogito.fab(@"plus")
     .set_class(@"toolbar_plus")
     .set_valign(1)
-    compact_wrap.add(add_btn)
 
+    compact.add(add_btn)
+    compact_wrap.add(compact)
     vstack.add(compact_wrap)
 
     return vstack
@@ -1668,7 +1651,7 @@ fun view_id_from_index(idx = num) (( string )) {
     } elif idx == 22 {
         @"bottom_nav"
     } elif idx == 23 {
-        @"bottom_toolbar"
+        @"toolbar"
     } elif idx == 24 {
         @"dialog"
     } elif idx == 25 {
@@ -1770,7 +1753,7 @@ fun view_title_from_index(idx = num) (( string )) {
     } elif idx == 22 {
         @"BottomNav"
     } elif idx == 23 {
-        @"BottomToolbar"
+        @"Toolbar"
     } elif idx == 24 {
         @"Dialog"
     } elif idx == 25 {
@@ -1887,7 +1870,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
     .add(@"carousel", (vs = cogito.ViewSwitcher) => build_carousel_page())
     .add(@"nav_rail", (vs = cogito.ViewSwitcher) => build_nav_rail_page())
     .add(@"bottom_nav", (vs = cogito.ViewSwitcher) => build_bottom_nav_page())
-    .add(@"bottom_toolbar", (vs = cogito.ViewSwitcher) => build_bottom_toolbar_page())
+    .add(@"toolbar", (vs = cogito.ViewSwitcher) => build_toolbar_page())
     .add(@"dialog", (vs = cogito.ViewSwitcher) => build_dialog_page())
     .add(@"toast", (vs = cogito.ViewSwitcher) => build_toast_page())
     .add(@"treeview", (vs = cogito.ViewSwitcher) => build_treeview_page())
@@ -1948,7 +1931,7 @@ fun build_ui(win = cogito.Window) (( -- )) {
     .add(cogito.label(@"Carousel").set_padding(10,16,10,16))
     .add(cogito.label(@"Nav Rail").set_padding(10,16,10,16))
     .add(cogito.label(@"BottomNav").set_padding(10,16,10,16))
-    .add(cogito.label(@"BottomToolbar").set_padding(10,16,10,16))
+    .add(cogito.label(@"Toolbar").set_padding(10,16,10,16))
     .add(cogito.label(@"Dialog").set_padding(10,16,10,16))
     .add(cogito.label(@"Toast").set_padding(10,16,10,16))
     .add(cogito.label(@"TreeView").set_padding(10,16,10,16))

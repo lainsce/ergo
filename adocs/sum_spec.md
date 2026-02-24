@@ -194,8 +194,6 @@ Aliases currently accepted include:
 - `bottom_nav`
 - `dialog-slot`
 - `dialog_slot`
-- `bottom-toolbar`
-- `bottom_toolbar`
 
 Unknown selectors are ignored.
 

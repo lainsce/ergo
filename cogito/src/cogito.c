@@ -261,7 +261,7 @@ static const char *cogito_font_bold_path_active = NULL;
 #define cogito_toast_set_action cogito_toast_set_action_ergo
 #define cogito_toast_set_text cogito_toast_set_text_ergo
 #define cogito_toasts_new cogito_toasts_new_ergo
-#define cogito_toolbar_new cogito_bottom_toolbar_new_ergo
+#define cogito_toolbar_new cogito_toolbar_new_ergo
 #define cogito_toolbar_set_vibrant cogito_toolbar_set_vibrant_ergo
 #define cogito_toolbar_get_vibrant cogito_toolbar_get_vibrant_ergo
 #define cogito_treeview_new cogito_treeview_new_ergo
@@ -977,7 +977,7 @@ static CogitoKind cogito_kind_from_public(cogito_node_kind kind) {
     return COGITO_TOASTS;
   case COGITO_NODE_TOAST:
     return COGITO_TOAST;
-  case COGITO_NODE_BOTTOM_TOOLBAR:
+  case COGITO_NODE_TOOLBAR:
     return COGITO_TOOLBAR;
   case COGITO_NODE_CAROUSEL:
     return COGITO_CAROUSEL;
@@ -1278,8 +1278,8 @@ cogito_node *cogito_toast_new(const char *text) {
     ergo_release_val(tv);
   return cogito_from_val(v);
 }
-cogito_node *cogito_bottom_toolbar_new(void) {
-  return cogito_from_val(cogito_bottom_toolbar_new_ergo());
+cogito_node *cogito_toolbar_new(void) {
+  return cogito_from_val(cogito_toolbar_new_ergo());
 }
 
 void cogito_toolbar_set_vibrant(cogito_node *toolbar, bool vibrant) {

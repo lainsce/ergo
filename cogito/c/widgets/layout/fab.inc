@@ -6,6 +6,9 @@ case COGITO_FAB: {
       if (fh > 0) n->h = fh;
       if (!p || n->w <= 0 || n->h <= 0) break;
 
+      // Skip layout if parent is Toolbar - Toolbar handles FAB positioning
+      if (p->kind == COGITO_TOOLBAR) break;
+
       if (p->kind == COGITO_NAV_RAIL) {
         int rail_w = p->w > 0 ? p->w : COGITO_NAV_RAIL_COLLAPSED_WIDTH;
         int top_offset = p->nav_rail.expanded
@@ -35,39 +38,80 @@ case COGITO_FAB: {
         break;
       }
       if (p->kind == COGITO_BOTTOM_NAV) {
-        n->x = p->x + p->w - 18 - n->w - n->margin_right;
+        n->x = p->x + p->w - 16 - n->w - n->margin_right;
         n->y = p->y + (p->h - n->h) / 2 + n->margin_top - n->margin_bottom;
         break;
       }
 
-      // Position FAB relative to its parent container, floating at the bottom.
-      CogitoNode* ctr = p;
-      if (!ctr || ctr->w <= 0 || ctr->h <= 0) {
-        ctr = cogito_node_window(n);
-      }
-      if (!ctr) break;
+      // Position FAB relative to its window, floating at the bottom.
+      CogitoNode* win = cogito_node_window(n);
+      if (!win) break;
 
-      // Check for a sibling floating FAB already laid out in this container.
-      // If found, this becomes the secondary (S-size) FAB to its left.
-      CogitoNode* primary = cogito_find_other_floating_fab(ctr, n);
-      if (primary && primary->y > 0) {
-        // Force S size (42x42) for the secondary FAB
-        n->w = 42;
-        n->h = 42;
-        n->y = ctr->y + ctr->h - 18 - n->h - n->margin_bottom;
-        n->x = primary->x - 8 - n->w;
+      // Count FAB siblings and find this FAB's index among them
+      int fab_count = 0;
+      int fab_index = -1;
+      CogitoNode* fabs[2] = {NULL, NULL};
+      for (size_t i = 0; i < p->len && fab_count < 2; i++) {
+        CogitoNode* sibling = p->children[i];
+        if (sibling && sibling->kind == COGITO_FAB) {
+          if (sibling == n) fab_index = fab_count;
+          fabs[fab_count] = sibling;
+          fab_count++;
+        }
+      }
+
+      // Single FAB: use original positioning logic
+      if (fab_count <= 1) {
+        int col = n->align % 3;
+        if (col < 0 || col > 2) col = 2;  // FAB defaults to right lane.
+        if (col == 0) {
+          n->x = win->x + n->w + n->margin_left;
+        } else if (col == 1) {
+          n->x = win->x + (win->w - n->w) / 2 + n->margin_left - n->margin_right;
+        } else {
+          n->x = win->x + win->w - 16 - n->w - n->margin_right;
+        }
+        n->y = win->y + win->h - 16 - n->h - n->margin_bottom;
         break;
       }
 
-      int col = n->align % 3;
-      if (col < 0 || col > 2) col = 2;  // FAB defaults to right lane.
-      if (col == 0) {
-        n->x = ctr->x + 18 + n->margin_left;
-      } else if (col == 1) {
-        n->x = ctr->x + (ctr->w - n->w) / 2 + n->margin_left - n->margin_right;
+      // Two FABs: position them side by side at bottom-right
+      // Layout: [extended FAB] [gap] [normal FAB] or [normal FAB] [gap] [extended FAB]
+      // Extended FAB takes more space, normal FAB is compact
+      CogitoNode* left_fab = fabs[0];
+      CogitoNode* right_fab = fabs[1];
+
+      // Get intrinsic sizes for both FABs
+      int left_w = 0, left_h = 0;
+      int right_w = 0, right_h = 0;
+      cogito_intrinsic_size(left_fab, &left_w, &left_h);
+      cogito_intrinsic_size(right_fab, &right_w, &right_h);
+
+      // Apply intrinsic sizes
+      if (left_w > 0) left_fab->w = left_w;
+      if (left_h > 0) left_fab->h = left_h;
+      if (right_w > 0) right_fab->w = right_w;
+      if (right_h > 0) right_fab->h = right_h;
+
+      // Calculate positions
+      int gap = 16;  // Gap between FABs
+      int margin = 16;  // Margin from screen edges
+
+      // Right FAB is always at the right edge
+      int right_x = win->x + win->w - margin - right_fab->w - right_fab->margin_right;
+      int right_y = win->y + win->h - margin - right_fab->h - right_fab->margin_bottom;
+
+      // Left FAB is positioned with gap from right FAB
+      int left_x = right_x - gap - left_fab->w;
+      int left_y = win->y + win->h - margin - left_fab->h - left_fab->margin_bottom;
+
+      // Apply positions based on which FAB this is
+      if (fab_index == 0) {
+        n->x = left_x;
+        n->y = left_y;
       } else {
-        n->x = ctr->x + ctr->w - 16 - n->w - n->margin_right;
+        n->x = right_x;
+        n->y = right_y;
       }
-      n->y = ctr->y + ctr->h - 18 - n->h - n->margin_bottom;
       break;
     }

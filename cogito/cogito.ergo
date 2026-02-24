@@ -272,9 +272,9 @@ fun __cogito_toast_on_click(t = Toast, handler = any) (( -- )) { }
 fun __cogito_toast_set_text(t = Toast, text = string) (( -- )) { }
 fun __cogito_toast(text = string) (( Toast )) { }
 fun __cogito_toasts() (( Toasts )) { }
-fun __cogito_toolbar() (( BottomToolbar )) { }
-fun __cogito_toolbar_set_vibrant(toolbar = BottomToolbar, vibrant = bool) (( -- )) { }
-fun __cogito_toolbar_get_vibrant(toolbar = BottomToolbar) (( bool )) { }
+fun __cogito_toolbar() (( Toolbar )) { }
+fun __cogito_toolbar_set_vibrant(toolbar = Toolbar, vibrant = bool) (( -- )) { }
+fun __cogito_toolbar_get_vibrant(toolbar = Toolbar) (( bool )) { }
 fun __cogito_treeview() (( TreeView )) { }
 fun __cogito_view_chooser_bind(vc = ViewChooser, vs = ViewSwitcher) (( -- )) { }
 fun __cogito_view_chooser_set_items(vc = ViewChooser, items = [string]) (( -- )) { }
@@ -2945,28 +2945,28 @@ class Toast {
     }
 }
 
-class BottomToolbar {
-    fun add(this, child = any) (( BottomToolbar )) {
+class Toolbar {
+    fun add(this, child = any) (( Toolbar )) {
         __cogito_container_add(this, child)
         return this
     }
-    fun set_hexpand(this, expand = bool) (( BottomToolbar )) {
+    fun set_hexpand(this, expand = bool) (( Toolbar )) {
         __cogito_container_set_hexpand(this, expand)
         return this
     }
-    fun set_vexpand(this, expand = bool) (( BottomToolbar )) {
+    fun set_vexpand(this, expand = bool) (( Toolbar )) {
         __cogito_container_set_vexpand(this, expand)
         return this
     }
-    fun set_class(this, cls = string) (( BottomToolbar )) {
+    fun set_class(this, cls = string) (( Toolbar )) {
         __cogito_node_set_class(this, cls)
         return this
     }
-    fun set_id(this, id = string) (( BottomToolbar )) {
+    fun set_id(this, id = string) (( Toolbar )) {
         __cogito_node_set_id(this, id)
         return this
     }
-    fun set_vibrant(this, vibrant = bool) (( BottomToolbar )) {
+    fun set_vibrant(this, vibrant = bool) (( Toolbar )) {
         __cogito_toolbar_set_vibrant(this, vibrant)
         return this
     }
@@ -3413,7 +3413,7 @@ fun colorpicker() (( ColorPicker )) {
     return __cogito_colorpicker()
 }
 
-fun bottom_toolbar() (( BottomToolbar )) {
+fun toolbar() (( Toolbar )) {
     return __cogito_toolbar()
 }
 

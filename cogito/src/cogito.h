@@ -63,7 +63,7 @@ typedef enum {
   COGITO_NODE_TREEVIEW,
   COGITO_NODE_TOASTS,
   COGITO_NODE_TOAST,
-  COGITO_NODE_BOTTOM_TOOLBAR,
+  COGITO_NODE_TOOLBAR,
   COGITO_NODE_CAROUSEL,
   COGITO_NODE_CAROUSEL_ITEM,
   COGITO_NODE_DIALOG,
@@ -202,7 +202,7 @@ cogito_node *cogito_buttongroup_new(void);
 cogito_node *cogito_treeview_new(void);
 cogito_node *cogito_toasts_new(void);
 cogito_node *cogito_toast_new(const char *text);
-cogito_node *cogito_bottom_toolbar_new(void);
+cogito_node *cogito_toolbar_new(void);
 void cogito_toolbar_set_vibrant(cogito_node *toolbar, bool vibrant);
 bool cogito_toolbar_get_vibrant(cogito_node *toolbar);
 cogito_node *cogito_dialog_new(const char *title);

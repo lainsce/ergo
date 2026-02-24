@@ -21,7 +21,7 @@
 #undef cogito_appbar_set_controls
 #undef cogito_appbar_set_subtitle
 #undef cogito_appbar_set_title
-#undef cogito_bottom_toolbar_new
+#undef cogito_toolbar_new
 #undef cogito_button_add_menu
 #undef cogito_button_add_menu_section
 #undef cogito_button_get_size
@@ -1577,7 +1577,7 @@ static ErgoVal __cogito_toast(ErgoVal textv) {
 }
 
 static ErgoVal __cogito_toolbar(void) {
-  cogito_node* n = cogito_bottom_toolbar_new();
+  cogito_node* n = cogito_toolbar_new();
   return cogito_wrap_node(n, COGITO_HANDLE_NODE);
 }
 

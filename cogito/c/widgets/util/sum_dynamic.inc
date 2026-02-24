@@ -221,13 +221,11 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "bottom_sheet\n  background: %s\n  color: %s\n  border-radius: 28 28 0 0\n  padding: 16\n  transition: 300 emphasized\n", scl, ons);
   cogito_sum_append(out, cap, &off,
-  "bottom_toolbar.floating_compact\n  border-radius: 999\n  elevation: 1\n  padding: 8\n");
+  "toolbar.floating_compact\n  border-radius: 999\n  elevation: 3\n  padding: 8\n");
   cogito_sum_append(out, cap, &off,
-  "bottom_toolbar.floating\n  border-radius: 999\n  elevation: 1\n");
+  "toolbar.floating\n  border-radius: 999\n  elevation: 3\n  padding: 8\n");
   cogito_sum_append(out, cap, &off,
-  "bottom_toolbar .iconbtn\n  color: %s\n  background: transparent\n", ons);
-  cogito_sum_append(out, cap, &off,
-  "bottom_toolbar\n  background: %s\n  color: %s\n  min-height: 64\n  padding: 8 16\n", sc, ons);
+  "toolbar\n  background: %s\n  color: %s\n  min-height: 64\n  padding: 8 16\n", sc, ons);
   cogito_sum_append(out, cap, &off,
   "bottom-nav:selection\n  background: %s\n  color: %s\n", secc, osecc);
   cogito_sum_append(out, cap, &off,
@@ -353,8 +351,6 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "fab:hover\n  background: %s\n  color: %s\n  elevation: 3\n", pc, op);
   cogito_sum_append(out, cap, &off,
-  "fab.toolbar_plus\n  background: %s\n  color: %s\n  elevation: 3\n", secc, osecc);
-  cogito_sum_append(out, cap, &off,
   "fab.primary\n  background: %s\n  color: %s\n", pc, opc);
   cogito_sum_append(out, cap, &off,
   "fab.secondary\n  background: %s\n  color: %s\n", secc, osecc);
@@ -402,10 +398,6 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   "iconbtn.tonal:hover\n  background: %s\n  color: %s\n", p, op);
   cogito_sum_append(out, cap, &off,
   "iconbtn.tonal\n  background: %s\n  color: %s\n  transition: 150 standard\n", pc, opc);
-  cogito_sum_append(out, cap, &off,
-  "iconbtn.toolbar_float_icon\n  background: %s\n  color: %s\n  border-radius: 99\n  min-width: 48\n  min-height: 48\n", sc, ons);
-  cogito_sum_append(out, cap, &off,
-  "iconbtn.toolbar_plus\n  background: %s\n  color: %s\n  border-radius: 20\n  min-width: 56\n  min-height: 56\n  elevation: 3\n", secc, osecc);
   cogito_sum_append(out, cap, &off,
   "iconbtn\n  background: transparent\n  color: %s\n  transition: 150 standard\n", osurfvar);
   cogito_sum_append(out, cap, &off,
@@ -587,13 +579,11 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "toasts\n  padding: 12\n");
   cogito_sum_append(out, cap, &off,
-  "toolbar.floating_compact\n  border-radius: 999\n  border: 1 solid %s\n  elevation: 1\n  padding: 8\n", outl);
+  "toolbar.floating_compact\n  padding: 8\n");
   cogito_sum_append(out, cap, &off,
-  "toolbar.floating\n  border-radius: 999\n  border: 1 solid %s\n  elevation: 1\n", outl);
+  "toolbar.floating\n  padding: 8\n");
   cogito_sum_append(out, cap, &off,
   "toolbar\n  background: %s\n  color: %s\n  min-height: 64\n  padding: 8 16\n", sc, ons);
-  cogito_sum_append(out, cap, &off,
-  "toolbar iconbtn\n  background: %s\n  color: %s\n  min-height: 64\n  padding: 8 16\n", sc, ons);
   cogito_sum_append(out, cap, &off,
   "tooltip\n  background: %s\n  color: %s\n  border-radius: 6\n  font-size: 14\n  padding: 6 8\n", invsrf, invons);
   cogito_sum_append(out, cap, &off,
@@ -637,7 +627,7 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "switch knob:checked\n  background: %s\n", surf);
   cogito_sum_append(out, cap, &off,
-  "fab-menu\n  background: %s\n  color: %s\n  border-radius: 100\n", p, op);
+  "fab-menu\n  background: %s\n  color: %s\n", p, op);
   cogito_sum_append(out, cap, &off,
   "fab-menu.primary\n  background: %s\n  color: %s\n", pc, opc);
   cogito_sum_append(out, cap, &off,

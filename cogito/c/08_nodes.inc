@@ -477,7 +477,7 @@ static void cogito_intrinsic_size(CogitoNode* n, int* out_w, int* out_h) {
 
     #include "widgets/intrinsic/toasts.inc"
 
-    #include "widgets/intrinsic/bottom_toolbar.inc"
+    #include "widgets/intrinsic/toolbar.inc"
 
     #include "widgets/intrinsic/toast.inc"
 

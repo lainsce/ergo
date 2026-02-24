@@ -1,12 +1,13 @@
 enum {
-  COGITO_BOTTOM_TOOLBAR_MAX_SLOTS = 6,
-  COGITO_BOTTOM_TOOLBAR_DOCKED_GAP = 32,
-  COGITO_BOTTOM_TOOLBAR_FLOATING_GAP = 8,
-  COGITO_BOTTOM_TOOLBAR_FLOATING_COMPACT_GAP = 4,
-  COGITO_BOTTOM_TOOLBAR_FLOATING_COMPACT_SIDE_PADDING = 8,
-  COGITO_BOTTOM_TOOLBAR_OUTER_PADDING = 16,
-  COGITO_BOTTOM_TOOLBAR_FLOATING_BOTTOM_OFFSET = 40,
-  COGITO_BOTTOM_TOOLBAR_FLOATING_MIN_SLOT_WIDTH = 88
+  COGITO_TOOLBAR_MAX_SLOTS = 6,
+  COGITO_TOOLBAR_DOCKED_GAP = 32,
+  COGITO_TOOLBAR_FLOATING_GAP = 8,
+  COGITO_TOOLBAR_FLOATING_COMPACT_GAP = 4,
+  COGITO_TOOLBAR_FLOATING_SIDE_PADDING = 8,
+  COGITO_TOOLBAR_FLOATING_COMPACT_SIDE_PADDING = 8,
+  COGITO_TOOLBAR_OUTER_PADDING = 16,
+  COGITO_TOOLBAR_FLOATING_MARGIN = 16,
+  COGITO_TOOLBAR_FLOATING_MIN_SLOT_WIDTH = 88
 };
 
 static bool cogito_toolbar_has_class(const CogitoNode* toolbar, const char* token) {
@@ -27,25 +28,39 @@ static int cogito_toolbar_reserved_height(const CogitoNode* toolbar, int toolbar
   if (!toolbar || toolbar_h <= 0) return 0;
   int reserve = toolbar_h;
   if (cogito_toolbar_is_floating(toolbar)) {
-    reserve += COGITO_BOTTOM_TOOLBAR_FLOATING_BOTTOM_OFFSET;
+    reserve += COGITO_TOOLBAR_FLOATING_MARGIN;
   }
   return reserve;
 }
 
 static int cogito_toolbar_floating_width(const CogitoNode* toolbar, int window_w) {
-  int max_w = window_w - (COGITO_BOTTOM_TOOLBAR_OUTER_PADDING * 2);
+  int max_w = window_w - (COGITO_TOOLBAR_FLOATING_MARGIN * 2);
   if (max_w < 1) max_w = window_w;
 
+  // Find FAB child if any
+  const CogitoNode* fab_child = NULL;
+  if (toolbar) {
+    for (size_t i = 0; i < toolbar->len; i++) {
+      const CogitoNode* c = toolbar->children[i];
+      if (c && c->kind == COGITO_FAB) {
+        fab_child = c;
+        break;
+      }
+    }
+  }
+
   bool compact = cogito_toolbar_is_compact(toolbar);
-  if (compact) {
+  if (compact || fab_child) {
     int count = 0;
     int content_w = 0;
     if (toolbar) {
       size_t max_count = toolbar->len;
-      if (max_count > COGITO_BOTTOM_TOOLBAR_MAX_SLOTS) max_count = COGITO_BOTTOM_TOOLBAR_MAX_SLOTS;
+      if (max_count > COGITO_TOOLBAR_MAX_SLOTS) max_count = COGITO_TOOLBAR_MAX_SLOTS;
       for (size_t i = 0; i < max_count; i++) {
         CogitoNode* c = toolbar->children[i];
         if (!c) continue;
+        // Skip FAB in width calculation for floating toolbar
+        if (fab_child && c->kind == COGITO_FAB) continue;
         int cw = 0;
         int ch = 0;
         cogito_intrinsic_size(c, &cw, &ch);
@@ -69,18 +84,20 @@ static int cogito_toolbar_floating_width(const CogitoNode* toolbar, int window_w
       }
     }
     if (count > 1) {
-      content_w += COGITO_BOTTOM_TOOLBAR_FLOATING_COMPACT_GAP * (count - 1);
+      int gap = compact ? COGITO_TOOLBAR_FLOATING_COMPACT_GAP : COGITO_TOOLBAR_FLOATING_GAP;
+      content_w += gap * (count - 1);
     }
-    int preferred_w = (COGITO_BOTTOM_TOOLBAR_FLOATING_COMPACT_SIDE_PADDING * 2) + content_w;
+    int side = COGITO_TOOLBAR_FLOATING_SIDE_PADDING;
+    int preferred_w = (side * 2) + content_w;
     if (preferred_w > max_w) preferred_w = max_w;
     if (preferred_w < 1) preferred_w = 1;
     return preferred_w;
   }
 
-  int slot_w = COGITO_BOTTOM_TOOLBAR_FLOATING_MIN_SLOT_WIDTH;
+  int slot_w = COGITO_TOOLBAR_FLOATING_MIN_SLOT_WIDTH;
   if (toolbar) {
     size_t count = toolbar->len;
-    if (count > COGITO_BOTTOM_TOOLBAR_MAX_SLOTS) count = COGITO_BOTTOM_TOOLBAR_MAX_SLOTS;
+    if (count > COGITO_TOOLBAR_MAX_SLOTS) count = COGITO_TOOLBAR_MAX_SLOTS;
     for (size_t i = 0; i < count; i++) {
       CogitoNode* c = toolbar->children[i];
       if (!c) continue;
@@ -91,9 +108,9 @@ static int cogito_toolbar_floating_width(const CogitoNode* toolbar, int window_w
     }
   }
 
-  int preferred_w = (COGITO_BOTTOM_TOOLBAR_OUTER_PADDING * 2) +
-                    (slot_w * COGITO_BOTTOM_TOOLBAR_MAX_SLOTS) +
-                    (COGITO_BOTTOM_TOOLBAR_FLOATING_GAP * (COGITO_BOTTOM_TOOLBAR_MAX_SLOTS - 1));
+  int preferred_w = (COGITO_TOOLBAR_FLOATING_MARGIN * 2) +
+                    (slot_w * COGITO_TOOLBAR_MAX_SLOTS) +
+                    (COGITO_TOOLBAR_FLOATING_GAP * (COGITO_TOOLBAR_MAX_SLOTS - 1));
   if (preferred_w > max_w) preferred_w = max_w;
   if (preferred_w < 1) preferred_w = 1;
   return preferred_w;
@@ -153,15 +170,15 @@ static void cogito_layout_window(CogitoNode* win) {
     if (toolbar_floating) {
       tw = cogito_toolbar_floating_width(toolbar, win->w);
       tx = (win->w - tw) / 2;
-      int min_x = COGITO_BOTTOM_TOOLBAR_OUTER_PADDING;
-      int max_x = win->w - COGITO_BOTTOM_TOOLBAR_OUTER_PADDING - tw;
+      int min_x = COGITO_TOOLBAR_FLOATING_MARGIN;
+      int max_x = win->w - COGITO_TOOLBAR_FLOATING_MARGIN - tw;
       if (max_x < min_x) {
         min_x = 0;
         max_x = 0;
       }
       if (tx < min_x) tx = min_x;
       if (tx > max_x) tx = max_x;
-      ty -= COGITO_BOTTOM_TOOLBAR_FLOATING_BOTTOM_OFFSET;
+      ty = win->h - toolbar_h - COGITO_TOOLBAR_FLOATING_MARGIN;
     }
     if (ty < 0) ty = 0;
     cogito_layout_node(toolbar, tx, ty, tw, toolbar_h);

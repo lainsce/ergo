@@ -12,8 +12,9 @@ case COGITO_FAB_MENU: {
   CogitoColor bg = s.has_bg ? s.bg : n->bg;
   CogitoColor text_color = s.has_text ? s.text : n->text_color;
 
-  // Closed: fully circular FAB; Open: rounded rectangle (radius=16)
-  int radius = menu_open ? 16 : n->h / 2;
+  // FAB Menu is S-size (56x56) with corner radius 16
+  // Closed: use 16px radius; Open: use 16px radius (rounded rectangle)
+  int radius = 16;
 
   // Animate colors
   cogito_anim_apply(n, &s, &bg, &text_color, NULL, NULL);

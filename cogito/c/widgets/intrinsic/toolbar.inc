@@ -4,11 +4,22 @@ case COGITO_TOOLBAR: {
       const int floating_gap = 8;
       const int floating_compact_gap = 4;
       const int outer_pad = 16;
+      const int floating_pad = 8;
       const int compact_side_pad = 8;
 
       const char* cls = (n->class_name && n->class_name->data) ? n->class_name->data : NULL;
       bool floating = cls && strstr(cls, "floating") != NULL;
       bool compact = floating && cls && strstr(cls, "compact") != NULL;
+
+      // Find FAB child if any
+      CogitoNode* fab_child = NULL;
+      for (size_t i = 0; i < n->len; i++) {
+        CogitoNode* c = n->children[i];
+        if (c && c->kind == COGITO_FAB) {
+          fab_child = c;
+          break;
+        }
+      }
 
       int slots = (int)n->len;
       if (slots > max_slots) slots = max_slots;
@@ -16,13 +27,17 @@ case COGITO_TOOLBAR: {
 
       int gap = floating ? floating_gap : docked_gap;
       if (compact) gap = floating_compact_gap;
-      int side = compact ? compact_side_pad : outer_pad;
+      int side = compact ? compact_side_pad : (floating ? floating_pad : outer_pad);
 
       int max_item_w = 0;
       int sum_item_w = 0;
+      int non_fab_count = 0;
       for (int i = 0; i < slots; i++) {
         CogitoNode* c = n->children[i];
         if (!c) continue;
+        // Skip FAB in size calculation for floating toolbar
+        if (floating && c->kind == COGITO_FAB) continue;
+        non_fab_count++;
         int cw = 0;
         int ch = 0;
         cogito_intrinsic_size(c, &cw, &ch);
@@ -48,11 +63,13 @@ case COGITO_TOOLBAR: {
       if (max_item_w < 48) max_item_w = 48;
       h = 64;
 
-      if (compact) {
-        if (slots <= 0) {
+      if (compact || (floating && fab_child)) {
+        // For floating with FAB, calculate width without FAB slot
+        int effective_count = floating && fab_child ? non_fab_count : slots;
+        if (effective_count <= 0) {
           w = side * 2;
         } else {
-          int total_gap = (slots > 1) ? gap * (slots - 1) : 0;
+          int total_gap = (effective_count > 1) ? gap * (effective_count - 1) : 0;
           w = side * 2 + sum_item_w + total_gap;
         }
       } else {
