@@ -58,16 +58,16 @@ static bool cogito_datepicker_hit_panel(CogitoNode* panel, int mx, int my) {
   uint8_t mode = cogito_datepicker_mode(panel);
   bool needs_relayout = false;
 
-  bool over_month_label = cogito_hit_rect(mx, my, ly.month_label_x, ly.month_label_y, ly.month_label_w, ly.month_label_h);
-  bool over_year_label = cogito_hit_rect(mx, my, ly.year_label_x, ly.year_label_y, ly.year_label_w, ly.year_label_h);
+  bool over_month_label = cogito_hit_rect_min48(mx, my, ly.month_label_x, ly.month_label_y, ly.month_label_w, ly.month_label_h);
+  bool over_year_label = cogito_hit_rect_min48(mx, my, ly.year_label_x, ly.year_label_y, ly.year_label_w, ly.year_label_h);
 
   if (mode == COGITO_DATEPICKER_MODE_CALENDAR) {
-    if (cogito_hit_rect(mx, my, ly.cancel_x, ly.cancel_y, ly.cancel_w, ly.cancel_h)) {
+    if (cogito_hit_rect_min48(mx, my, ly.cancel_x, ly.cancel_y, ly.cancel_w, ly.cancel_h)) {
       if (win) cogito_popover_close(EV_OBJ(win));
       return true;
     }
 
-    if (cogito_hit_rect(mx, my, ly.ok_x, ly.ok_y, ly.ok_w, ly.ok_h)) {
+    if (cogito_hit_rect_min48(mx, my, ly.ok_x, ly.ok_y, ly.ok_w, ly.ok_h)) {
       bool changed = false;
       if (owner && owner->kind == COGITO_DATEPICKER) {
         cogito_datepicker_ensure_date(owner);
@@ -90,16 +90,16 @@ static bool cogito_datepicker_hit_panel(CogitoNode* panel, int mx, int my) {
     } else if (over_year_label) {
       cogito_datepicker_selector_set_mode(panel, COGITO_DATEPICKER_MODE_YEAR_LIST, &ly);
       needs_relayout = true;
-    } else if (cogito_hit_rect(mx, my, ly.month_prev_x, ly.month_prev_y, ly.month_prev_w, ly.month_prev_h)) {
+    } else if (cogito_hit_rect_min48(mx, my, ly.month_prev_x, ly.month_prev_y, ly.month_prev_w, ly.month_prev_h)) {
       cogito_datepicker_shift_view_month(panel, -1);
       needs_relayout = true;
-    } else if (cogito_hit_rect(mx, my, ly.month_next_x, ly.month_next_y, ly.month_next_w, ly.month_next_h)) {
+    } else if (cogito_hit_rect_min48(mx, my, ly.month_next_x, ly.month_next_y, ly.month_next_w, ly.month_next_h)) {
       cogito_datepicker_shift_view_month(panel, 1);
       needs_relayout = true;
-    } else if (cogito_hit_rect(mx, my, ly.year_prev_x, ly.year_prev_y, ly.year_prev_w, ly.year_prev_h)) {
+    } else if (cogito_hit_rect_min48(mx, my, ly.year_prev_x, ly.year_prev_y, ly.year_prev_w, ly.year_prev_h)) {
       cogito_datepicker_shift_view_year(panel, -1);
       needs_relayout = true;
-    } else if (cogito_hit_rect(mx, my, ly.year_next_x, ly.year_next_y, ly.year_next_w, ly.year_next_h)) {
+    } else if (cogito_hit_rect_min48(mx, my, ly.year_next_x, ly.year_next_y, ly.year_next_w, ly.year_next_h)) {
       cogito_datepicker_shift_view_year(panel, 1);
       needs_relayout = true;
     } else {

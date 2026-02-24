@@ -938,7 +938,9 @@ static bool cogito_backend_ready = false;
 static CogitoMenu cogito_menu = {
   0
 };
+static int cogito_menu_kbd_index = -1;
 static CogitoNode* cogito_fab_menu_open_node = NULL;
+static int cogito_fab_menu_kbd_index = -1;
 static CogitoFont* cogito_font = NULL;
 static bool cogito_font_ready = false;
 static CogitoFont* cogito_font_serif = NULL;
@@ -975,6 +977,7 @@ static bool cogito_sum_default_loaded = false;
 static char* cogito_user_sum = NULL;
 static int cogito_style_version = 0;
 static CogitoNode* cogito_focused = NULL;
+static CogitoNode* cogito_focus_before_overlay = NULL;
 // Draw-context: forced text color for selected children (propagates down render tree)
 static CogitoColor cogito_selection_text = {
   0
@@ -1003,12 +1006,38 @@ static double cogito_theme_contrast = 0.0;    // -1.0 to 1.0 (from system or use
 static double cogito_theme_font_weight = 0.0; // 0=unset, 100-900
 static double cogito_theme_roundness = 0.0;   // 0=unset, multiplier
 static int    cogito_theme_spacing = 0;        // 0=unset, 1=compact, 2=normal, 3=comfortable
+static bool cogito_prefers_reduced_motion = false;
+static bool cogito_prefers_high_contrast = false;
 static CogitoColor cogito_theme_accent = {
   0,
   0,
   0,
   0
 };
+
+static bool cogito_overlay_contains_node(const CogitoNode* root, const CogitoNode* needle) {
+  if (!root || !needle) return false;
+  if (root == needle) return true;
+  for (size_t i = 0; i < root->len; i++) {
+    if (cogito_overlay_contains_node(root->children[i], needle)) return true;
+  }
+  return false;
+}
+
+static void cogito_overlay_focus_snapshot(void) {
+  if (!cogito_focused || cogito_focused->disabled) return;
+  cogito_focus_before_overlay = cogito_focused;
+}
+
+static void cogito_overlay_focus_restore(CogitoNode* root) {
+  if (!root) return;
+  if (cogito_focus_before_overlay &&
+      !cogito_focus_before_overlay->disabled &&
+      cogito_overlay_contains_node(root, cogito_focus_before_overlay)) {
+    cogito_focused = cogito_focus_before_overlay;
+  }
+  cogito_focus_before_overlay = NULL;
+}
 enum {
   COGITO_LABEL_CLASS_NONE = 0,
   COGITO_LABEL_CLASS_TITLE,
@@ -1490,6 +1519,14 @@ static CogitoColor cogito_anim_color(CogitoNode* n, CogitoColor target, CogitoCo
 
 static int cogito_anim_int(CogitoNode* n, int target, int* cur, int* from, int* tgt, double* start, double now) {
   if (!n) return target;
+  if (cogito_prefers_reduced_motion) {
+    *cur = target;
+    *from = target;
+    *tgt = target;
+    if (start) *start = now;
+    n->anim_inited = true;
+    return target;
+  }
   if (!n->anim_inited) {
     *cur = target;
     *from = target;
@@ -1534,6 +1571,14 @@ static int cogito_anim_int(CogitoNode* n, int target, int* cur, int* from, int* 
 __attribute__((unused))
 static float cogito_anim_float(CogitoNode* n, float target, float* cur, float* from, float* tgt, double* start, double now) {
   if (!n) return target;
+  if (cogito_prefers_reduced_motion) {
+    *cur = target;
+    *from = target;
+    *tgt = target;
+    if (start) *start = now;
+    n->anim_inited = true;
+    return target;
+  }
   if (!n->anim_inited) {
     *cur = target;
     *from = target;
@@ -1579,6 +1624,18 @@ static void cogito_anim_apply(CogitoNode* n, const CogitoStyle* s, CogitoColor* 
   if (s->has_transition_ease) n->anim_ease = s->transition_ease;
   double now = cogito_backend->get_time();
   double dt = cogito_spring_dt; // frame-rate-independent delta-time
+
+  if (cogito_prefers_reduced_motion) {
+    float opacity = n->opacity_set ? n->opacity : 1.0f;
+    if (opacity < 0.0f) opacity = 0.0f;
+    if (opacity > 1.0f) opacity = 1.0f;
+    if (bg) *bg = cogito_apply_opacity(*bg, opacity);
+    if (text) *text = cogito_apply_opacity(*text, opacity);
+    if (border) *border = cogito_apply_opacity(*border, opacity);
+    if (selection) *selection = cogito_apply_opacity(*selection, opacity);
+    n->anim_inited = true;
+    return;
+  }
 
   // Choose spring profile: expressive for UI elements, functional for opacity
   double k_color = COGITO_SPRING_K_EXPRESSIVE;
@@ -1717,6 +1774,7 @@ static bool cogito_node_should_ripple(const CogitoNode* n) {
 // Start a ripple animation at the given position (mouse-relative to widget)
 static void cogito_ripple_start(CogitoNode* n, int mx, int my) {
   if (!n) return;
+  if (cogito_prefers_reduced_motion) return;
   n->ripple_active = true;
   n->ripple_start = cogito_backend->get_time();
   n->ripple_x = mx - n->x;
@@ -1743,6 +1801,11 @@ static void cogito_ripple_start(CogitoNode* n, int mx, int my) {
 // Update ripple progress; returns true if still active
 static bool cogito_ripple_update(CogitoNode* n) {
   if (!n || !n->ripple_active) return false;
+  if (cogito_prefers_reduced_motion) {
+    n->ripple_active = false;
+    n->ripple_progress = 1.0f;
+    return false;
+  }
   double now = cogito_backend->get_time();
   double elapsed_ms = (now - n->ripple_start) * 1000.0;
   if (elapsed_ms >= COGITO_RIPPLE_DURATION_MS) {

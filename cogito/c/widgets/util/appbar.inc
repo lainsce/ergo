@@ -22,6 +22,8 @@ static bool cogito_tree_has_visible_bottom_sheet_above_y(const CogitoNode* n, in
   return false;
 }
 
+enum { COGITO_WINDOW_DRAG_HIT_PAD = 8 };
+
 static bool cogito_appbar_bottom_sheet_active(const CogitoNode* appbar) {
   if (!appbar) return false;
   CogitoNode* win = cogito_node_window((CogitoNode*)appbar);
@@ -103,7 +105,12 @@ static CogitoNode* cogito_find_appbar(CogitoNode* win) {
 
 static CogitoNode* cogito_find_appbar_at_point_recursive(CogitoNode* n, int x, int y) {
   if (!n) return NULL;
-  if (n->kind == COGITO_APPBAR && cogito_hit_rect(x, y, n->x, n->y, n->w, n->h)) {
+  if (n->kind == COGITO_APPBAR &&
+      cogito_hit_rect(x, y,
+                      n->x - COGITO_WINDOW_DRAG_HIT_PAD,
+                      n->y - COGITO_WINDOW_DRAG_HIT_PAD,
+                      n->w + COGITO_WINDOW_DRAG_HIT_PAD * 2,
+                      n->h + COGITO_WINDOW_DRAG_HIT_PAD * 2)) {
     return n;
   }
   for (size_t i = 0; i < n->len; i++) {
@@ -124,17 +131,38 @@ static bool cogito_is_first_appbar(CogitoNode* win, CogitoNode* appbar) {
   return first == appbar;
 }
 
+static bool cogito_hit_rect_min48_local(int px, int py, int rx, int ry, int rw, int rh) {
+  int hw = rw < 48 ? 48 : rw;
+  int hh = rh < 48 ? 48 : rh;
+  int hx = rx - (hw - rw) / 2;
+  int hy = ry - (hh - rh) / 2;
+  return cogito_hit_rect(px, py, hx, hy, hw, hh);
+}
+
 static bool cogito_point_over_appbar_buttons(CogitoNode* app, int x, int y) {
   if (!app) return false;
+  int btn_hit_pad = 1; // element_size + 2px target (1px on each side)
   if (app->appbar.btn_close_x >= 0 &&
-      cogito_hit_rect(x, y, app->appbar.btn_close_x, app->appbar.btn_y, app->appbar.btn_size, app->appbar.btn_size)) return true;
+      cogito_hit_rect(x, y,
+                      app->appbar.btn_close_x - btn_hit_pad,
+                      app->appbar.btn_y - btn_hit_pad,
+                      app->appbar.btn_size + 2,
+                      app->appbar.btn_size + 2)) return true;
   if (app->appbar.btn_min_x >= 0 &&
-      cogito_hit_rect(x, y, app->appbar.btn_min_x, app->appbar.btn_y, app->appbar.btn_size, app->appbar.btn_size)) return true;
+      cogito_hit_rect(x, y,
+                      app->appbar.btn_min_x - btn_hit_pad,
+                      app->appbar.btn_y - btn_hit_pad,
+                      app->appbar.btn_size + 2,
+                      app->appbar.btn_size + 2)) return true;
   if (app->appbar.btn_max_x >= 0 &&
-      cogito_hit_rect(x, y, app->appbar.btn_max_x, app->appbar.btn_y, app->appbar.btn_size, app->appbar.btn_size)) return true;
+      cogito_hit_rect(x, y,
+                      app->appbar.btn_max_x - btn_hit_pad,
+                      app->appbar.btn_y - btn_hit_pad,
+                      app->appbar.btn_size + 2,
+                      app->appbar.btn_size + 2)) return true;
   for (size_t i = 0; i < app->len; i++) {
     CogitoNode* c = app->children[i];
-    if (cogito_hit_rect(x, y, c->x, c->y, c->w, c->h)) return true;
+    if (cogito_hit_rect_min48_local(x, y, c->x, c->y, c->w, c->h)) return true;
   }
   return false;
 }

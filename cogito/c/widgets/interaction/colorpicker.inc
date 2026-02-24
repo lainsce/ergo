@@ -88,14 +88,14 @@ static bool cogito_colorpicker_hit_panel(CogitoNode* panel, int mx, int my) {
   int ox = 0, oy = 0, ow = 0, oh = 0;
   cogito_colorpicker_panel_footer_layout(panel, &cx, &cy, &cw, &ch, &ox, &oy, &ow, &oh);
 
-  if (cogito_hit_rect(mx, my, cx, cy, cw, ch)) {
+  if (cogito_hit_rect_min48(mx, my, cx, cy, cw, ch)) {
     // Cancel: close popover, discard panel changes
     CogitoNode* win = cogito_node_window(panel);
     if (win) cogito_popover_close(EV_OBJ(win));
     return true;
   }
 
-  if (cogito_hit_rect(mx, my, ox, oy, ow, oh)) {
+  if (cogito_hit_rect_min48(mx, my, ox, oy, ow, oh)) {
     // OK: read slider children for H/C/T, commit to owner, fire onChange, close popover
     CogitoNode* owner = panel->colorpicker.owner;
     CogitoNode* win = cogito_node_window(panel);
@@ -143,7 +143,7 @@ static void cogito_colorpicker_click(CogitoNode* n, int mx, int my) {
   // Icon zone click → open panel popover
   int ix = 0, iy = 0, iw = 0, ih = 0;
   cogito_colorpicker_field_layout(n, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, &ix, &iy, &iw, &ih);
-  if (cogito_hit_rect(mx, my, ix, iy, iw, ih)) {
+  if (cogito_hit_rect_min48(mx, my, ix, iy, iw, ih)) {
     cogito_colorpicker_show_popover(n);
     return;
   }

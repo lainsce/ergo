@@ -187,6 +187,10 @@ static void cogito_draw_menu(void) {
     cogito_backend->get_mouse_position(&mx, &my);
   }
   int hover = cogito_menu_hit(&cogito_menu, mx, my);
+  if (cogito_menu_kbd_index >= 0 && cogito_menu.owner &&
+      (size_t)cogito_menu_kbd_index < cogito_menu.owner->menu_len) {
+    hover = cogito_menu_kbd_index;
+  }
 
   // Insets for hover/toggled highlight
   int sel_inset_edge = 4;

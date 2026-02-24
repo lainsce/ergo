@@ -1,10 +1,18 @@
 static void cogito_menu_close(void) {
+  CogitoNode* owner = cogito_menu.owner;
   cogito_menu.open = false;
   cogito_menu.owner = NULL;
+  cogito_menu_kbd_index = -1;
+  if (owner) {
+    CogitoNode* win = cogito_node_window(owner);
+    if (win) cogito_overlay_focus_restore(win);
+    cogito_a11y_emit_event("overlay-close", owner, "menu");
+  }
 }
 
 static void cogito_menu_open_for(CogitoNode* n) {
   if (!n || n->menu_len == 0) return;
+  cogito_overlay_focus_snapshot();
   int font_size = cogito_font_size();
   if (cogito_theme.menu.has_font_size && cogito_theme.menu.font_size > 0) {
     font_size = cogito_theme.menu.font_size;
@@ -23,8 +31,8 @@ static void cogito_menu_open_for(CogitoNode* n) {
   int min_h = item_style->has_min_h ? item_style->min_h
               : (cogito_theme.menu.has_min_h ? cogito_theme.menu.min_h : 0);
   if (min_h > item_h) item_h = min_h;
-  // Minimum 48px item height for sectioned menus (accessibility)
-  if (use_section && item_h < 48) item_h = 48;
+  // Minimum 48px item height for pointer accessibility on all platforms.
+  if (item_h < 48) item_h = 48;
 
   int menu_pad_top = 8;
   int menu_pad_bottom = 8;
@@ -171,6 +179,8 @@ static void cogito_menu_open_for(CogitoNode* n) {
   cogito_menu.h = h;
   cogito_menu.x = x;
   cogito_menu.y = y;
+  cogito_menu_kbd_index = (n->selected >= 0 && (size_t)n->selected < n->menu_len) ? n->selected : 0;
+  cogito_a11y_emit_event("overlay-open", n, "menu");
 }
 
 static int cogito_menu_hit(const CogitoMenu* menu, int x, int y) {

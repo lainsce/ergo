@@ -26,7 +26,7 @@ static bool cogito_treeview_click(CogitoNode* tree, int x, int y) {
     int chevron_x = inner_x + pad + depth * indent_step;
     int chevron_y = row_y + (row_h - chevron_h) / 2;
     if (row_node && row_node->len > 0 &&
-        cogito_hit_rect(x, y, chevron_x, chevron_y, chevron_w, chevron_h)) {
+        cogito_hit_rect_min48(x, y, chevron_x, chevron_y, chevron_w, chevron_h)) {
       row_node->tree_collapsed = !row_node->tree_collapsed;
     } else {
       tree->selected = row;

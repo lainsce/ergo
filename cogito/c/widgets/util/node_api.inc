@@ -234,12 +234,9 @@ static void cogito_node_set_a11y_label(ErgoVal nodev, ErgoVal labelv) {
   } else if (labelv.tag != EVT_NULL) {
     n->a11y_label = stdr_to_string(labelv);
   }
-#if defined(__APPLE__)
-  if (n->kind == COGITO_WINDOW && cogito_backend_ready) {
-    const char* s = n->a11y_label ? n->a11y_label->data : "";
-    cogito_macos_set_window_a11y_label(s);
+  if (n->kind == COGITO_WINDOW) {
+    cogito_apply_window_a11y_label(n);
   }
-#endif
 }
 
 static void cogito_node_set_a11y_role(ErgoVal nodev, ErgoVal rolev) {

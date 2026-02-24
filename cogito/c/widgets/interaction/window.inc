@@ -116,6 +116,7 @@ static void cogito_window_clear_dialog(ErgoVal winv) {
     cogito_dialog_slot_clear(EV_OBJ(win->dialog));
   }
   win->dialog_open = false;
+  cogito_overlay_focus_restore(win);
   if (cogito_debug_hit) {
     fprintf(stderr, "cogito: window_clear_dialog calling relayout\n");
     fflush(stderr);

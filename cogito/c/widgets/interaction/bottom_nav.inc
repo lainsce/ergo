@@ -88,7 +88,7 @@ static void cogito_bottom_nav_on_change(ErgoVal navv, ErgoVal handler) {
 
 static int cogito_bottom_nav_hit_index(CogitoNode* n, int x, int y) {
   if (!n || n->kind != COGITO_BOTTOM_NAV) return -1;
-  if (x < n->x || x >= n->x + n->w || y < n->y || y >= n->y + n->h) return -1;
+  if (!cogito_hit_node(n, x, y)) return -1;
 
   if (n->bottom_nav.len == 0) return -1;
   int reserved_right = 0;
@@ -103,10 +103,13 @@ static int cogito_bottom_nav_hit_index(CogitoNode* n, int x, int y) {
   if (x >= n->x + items_w) return -1;
   int item_w = items_w / (int)n->bottom_nav.len;
   if (item_w < 1) return -1;
-  int rel_x = x - n->x;
-  int idx = rel_x / item_w;
-  if (idx >= (int)n->bottom_nav.len) idx = (int)n->bottom_nav.len - 1;
-  return idx;
+  for (int idx = 0; idx < (int)n->bottom_nav.len; idx++) {
+    int ix = n->x + idx * item_w;
+    int iw = (idx == (int)n->bottom_nav.len - 1) ? (n->x + items_w - ix) : item_w;
+    if (iw < 1) iw = 1;
+    if (cogito_hit_rect_min48(x, y, ix, n->y, iw, n->h)) return idx;
+  }
+  return -1;
 }
 
 static inline CogitoNode* cogito_find_bottom_nav_hit(CogitoNode* n, int x, int y, int* out_idx) {

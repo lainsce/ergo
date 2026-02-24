@@ -41,6 +41,333 @@ static bool cogito_node_is_or_descends_from_kind(CogitoNode* n, CogitoKind kind)
   return false;
 }
 
+static bool cogito_focus_is_text_editing(CogitoNode* n) {
+  if (!n || n->disabled) return false;
+  if ((n->kind == COGITO_TEXTFIELD || n->kind == COGITO_TEXTVIEW || n->kind == COGITO_SEARCHFIELD) &&
+      n->editable) {
+    return true;
+  }
+  return n->kind == COGITO_COLORPICKER && n->colorpicker.hex_editing;
+}
+
+static bool cogito_keyboard_toggle_focus(CogitoNode* n) {
+  if (!n || n->disabled) return false;
+  if (n->kind != COGITO_CHECKBOX && n->kind != COGITO_SWITCH && n->kind != COGITO_SWITCHBAR) return false;
+
+  n->checked = !n->checked;
+  if (n->kind == COGITO_CHECKBOX && n->group.tag != EVT_NULL) {
+    if (n->checked) {
+      CogitoNode* root = cogito_root(n);
+      if (root) {
+        for (size_t i = 0; i < root->len; i++) {
+          CogitoNode* sib = root->children[i];
+          if (!sib || sib == n) continue;
+          if (sib->kind == COGITO_CHECKBOX && sib->group.tag == n->group.tag) {
+            sib->checked = false;
+          }
+        }
+      }
+    }
+  }
+  cogito_invoke_change(n);
+  return true;
+}
+
+static bool cogito_keyboard_adjust_slider(CogitoNode* n, int dir) {
+  if (!n || n->kind != COGITO_SLIDER || n->disabled || dir == 0) return false;
+  double span = n->slider.max - n->slider.min;
+  double step = span / 20.0;
+  if (step < 0.000001) step = 1.0;
+  double prev0 = n->slider.value;
+  double prev1 = n->slider.value2;
+  if (n->slider.mode == COGITO_SLIDER_MODE_RANGE) {
+    if (n->slider.active_handle == 2) {
+      n->slider.value2 = cogito_slider_clamp(n->slider.value2 + (double)dir * step, n->slider.min, n->slider.max);
+      if (n->slider.value2 < n->slider.value) n->slider.value = n->slider.value2;
+    } else {
+      n->slider.active_handle = 1;
+      n->slider.value = cogito_slider_clamp(n->slider.value + (double)dir * step, n->slider.min, n->slider.max);
+      if (n->slider.value > n->slider.value2) n->slider.value2 = n->slider.value;
+    }
+  } else {
+    n->slider.value = cogito_slider_clamp(n->slider.value + (double)dir * step, n->slider.min, n->slider.max);
+    n->slider.value2 = n->slider.value;
+  }
+  if (n->slider.value == prev0 && n->slider.value2 == prev1) return false;
+  cogito_invoke_change(n);
+  return true;
+}
+
+static bool cogito_keyboard_adjust_stepper(CogitoNode* n, int dir) {
+  if (!n || n->kind != COGITO_STEPPER || n->disabled || dir == 0) return false;
+  double prev = n->stepper.value;
+  n->stepper.value += (double)dir * n->stepper.step;
+  if (n->stepper.value < n->stepper.min) n->stepper.value = n->stepper.min;
+  if (n->stepper.value > n->stepper.max) n->stepper.value = n->stepper.max;
+  if (n->stepper.value == prev) return false;
+  cogito_invoke_change(n);
+  return true;
+}
+
+static bool cogito_keyboard_move_indexed_selection(CogitoNode* n, int dir) {
+  if (!n || n->disabled || dir == 0) return false;
+  switch (n->kind) {
+    case COGITO_TABS: {
+      if (n->tab_len == 0) return false;
+      int prev = n->selected;
+      int next = prev < 0 ? 0 : prev + dir;
+      if (next < 0) next = 0;
+      if (next >= (int)n->tab_len) next = (int)n->tab_len - 1;
+      if (next == prev) return false;
+      n->selected = next;
+      if (n->view_switcher && n->tab_ids && (size_t)next < n->tab_len) {
+        CogitoNode* vs = n->view_switcher;
+        ErgoStr* id = n->tab_ids[next];
+        if (id) {
+          if (vs->view_active_id) ergo_release_val(EV_STR(vs->view_active_id));
+          vs->view_active_id = id;
+          ergo_retain_val(EV_STR(vs->view_active_id));
+        }
+      }
+      cogito_invoke_change(n);
+      return true;
+    }
+    case COGITO_NAV_RAIL: {
+      if (n->nav_rail.len == 0) return false;
+      int prev = n->nav_rail.selected;
+      int next = prev + dir;
+      if (next < 0) next = 0;
+      if (next >= (int)n->nav_rail.len) next = (int)n->nav_rail.len - 1;
+      if (next == prev) return false;
+      cogito_handle_nav_rail_select(n, next);
+      return true;
+    }
+    case COGITO_BOTTOM_NAV: {
+      if (n->bottom_nav.len == 0) return false;
+      int prev = n->bottom_nav.selected;
+      int next = prev + dir;
+      if (next < 0) next = 0;
+      if (next >= (int)n->bottom_nav.len) next = (int)n->bottom_nav.len - 1;
+      if (next == prev) return false;
+      cogito_handle_bottom_nav_select(n, next);
+      return true;
+    }
+    case COGITO_BUTTON_GROUP: {
+      if (n->len == 0) return false;
+      int prev = n->selected;
+      int next = prev + dir;
+      if (next < 0) next = 0;
+      if (next >= (int)n->len) next = (int)n->len - 1;
+      if (next == prev) return false;
+      n->selected = next;
+      if (n->on_select) {
+        ErgoVal arg = EV_INT(next);
+        cogito_invoke(n->on_select, 1, &arg);
+      }
+      return true;
+    }
+    case COGITO_CAROUSEL: {
+      if (n->len == 0) return false;
+      int prev = n->carousel.active_index;
+      int next = prev + dir;
+      if (next < 0) next = 0;
+      if (next >= (int)n->len) next = (int)n->len - 1;
+      if (next == prev) return false;
+      n->carousel.active_index = next;
+      cogito_invoke_select(n, next, false);
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+
+static bool cogito_keyboard_activate_focus(CogitoNode* n, int mx, int my) {
+  if (!n || n->disabled) return false;
+  switch (n->kind) {
+    case COGITO_BUTTON:
+    case COGITO_ICONBTN:
+    case COGITO_FAB:
+    case COGITO_FAB_MENU:
+    case COGITO_CHIP:
+    case COGITO_SPLIT_BUTTON:
+      cogito_invoke_click(n);
+      return true;
+    case COGITO_CHECKBOX:
+    case COGITO_SWITCH:
+    case COGITO_SWITCHBAR:
+      return cogito_keyboard_toggle_focus(n);
+    case COGITO_DATEPICKER:
+      cogito_datepicker_click(n, mx, my);
+      return true;
+    case COGITO_TIMEPICKER:
+      cogito_timepicker_click(n, mx, my);
+      return true;
+    default:
+      return false;
+  }
+}
+
+static bool cogito_escape_close_embedded_overlays(CogitoNode* n) {
+  if (!n) return false;
+
+  for (size_t i = n->len; i > 0; i--) {
+    if (cogito_escape_close_embedded_overlays(n->children[i - 1])) return true;
+  }
+
+  if (n->kind == COGITO_BOTTOM_SHEET) {
+    int min_h = cogito_bottom_sheet_min_height(n);
+    bool changed = n->bottom_sheet.dragging || n->bottom_sheet.expanded ||
+                   n->bottom_sheet.desired_h != min_h || n->h > (min_h + 1);
+    if (!changed) return false;
+    n->bottom_sheet.desired_h = min_h;
+    n->bottom_sheet.expanded = false;
+    n->bottom_sheet.dragging = false;
+    if (cogito_bottom_sheet_active == n) cogito_bottom_sheet_active = NULL;
+    if (cogito_pointer_capture == n) cogito_pointer_capture = NULL;
+    return true;
+  }
+
+  if (n->kind == COGITO_SIDE_SHEET) {
+    // Sidebar mode is docked layout, not an overlay dismiss target.
+    if (n->side_sheet.mode == COGITO_SIDE_SHEET_SIDEBAR) return false;
+    int min_w = cogito_side_sheet_min_width(n);
+    bool changed = n->side_sheet.dragging || n->side_sheet.expanded ||
+                   n->side_sheet.desired_w != min_w || n->w > (min_w + 1);
+    if (!changed) return false;
+    n->side_sheet.desired_w = min_w;
+    n->side_sheet.expanded = false;
+    n->side_sheet.dragging = false;
+    if (cogito_side_sheet_active == n) cogito_side_sheet_active = NULL;
+    if (cogito_pointer_capture == n) cogito_pointer_capture = NULL;
+    return true;
+  }
+
+  return false;
+}
+
+static bool cogito_escape_close_overlays(CogitoNode* win) {
+  if (!win) return false;
+
+  if (cogito_menu.open) {
+    cogito_menu_close();
+    return true;
+  }
+  if (cogito_fab_menu_open_node) {
+    CogitoNode* fm = cogito_fab_menu_open_node;
+    cogito_fab_menu_open_node->popover_open = false;
+    cogito_fab_menu_open_node = NULL;
+    cogito_fab_menu_kbd_index = -1;
+    cogito_overlay_focus_restore(win);
+    cogito_a11y_emit_event("overlay-close", fm, "fab-menu");
+    cogito_window_relayout(win);
+    return true;
+  }
+  if (win->side_sheet_open && win->side_sheet_node) {
+    cogito_window_clear_side_sheet(EV_OBJ(win));
+    return true;
+  }
+  if (win->popover_open && win->popover) {
+    cogito_popover_close(EV_OBJ(win));
+    return true;
+  }
+
+  CogitoNode* slot = (win->dialog && win->dialog->kind == COGITO_DIALOG_SLOT && win->dialog->dialog_open && win->dialog->dialog)
+    ? win->dialog
+    : cogito_find_dialog_slot(win);
+  if ((slot && slot->dialog_open && slot->dialog) || win->dialog_open) {
+    cogito_window_clear_dialog(EV_OBJ(win));
+    return true;
+  }
+
+  if (cogito_escape_close_embedded_overlays(win)) {
+    cogito_window_relayout(win);
+    return true;
+  }
+
+  return false;
+}
+
+static CogitoNode* cogito_focus_scope_root(CogitoNode* win) {
+  if (!win) return NULL;
+  if (win->popover_open && win->popover) return win->popover;
+  CogitoNode* slot = (win->dialog && win->dialog->kind == COGITO_DIALOG_SLOT && win->dialog->dialog_open && win->dialog->dialog)
+    ? win->dialog
+    : cogito_find_dialog_slot(win);
+  if (slot && slot->dialog_open && slot->dialog) return slot->dialog;
+  if (win->dialog_open && win->dialog) return win->dialog;
+  return win;
+}
+
+static bool cogito_menu_keyboard_handle(void) {
+  if (!cogito_menu.open || !cogito_menu.owner || cogito_menu.owner->menu_len == 0) return false;
+  int len = (int)cogito_menu.owner->menu_len;
+  if (cogito_menu_kbd_index < 0 || cogito_menu_kbd_index >= len) cogito_menu_kbd_index = 0;
+
+  int next = cogito_menu_kbd_index;
+  if (cogito_backend->is_key_pressed(SDL_SCANCODE_UP)) next--;
+  else if (cogito_backend->is_key_pressed(SDL_SCANCODE_DOWN)) next++;
+  else if (cogito_backend->is_key_pressed(SDL_SCANCODE_HOME)) next = 0;
+  else if (cogito_backend->is_key_pressed(SDL_SCANCODE_END)) next = len - 1;
+  else if (cogito_backend->is_key_pressed(SDL_SCANCODE_TAB)) {
+    bool reverse = cogito_backend->is_key_down(SDL_SCANCODE_LSHIFT) || cogito_backend->is_key_down(SDL_SCANCODE_RSHIFT);
+    next += reverse ? -1 : 1;
+  }
+
+  if (next < 0) next = len - 1;
+  if (next >= len) next = 0;
+  if (next != cogito_menu_kbd_index) {
+    cogito_menu_kbd_index = next;
+    return true;
+  }
+
+  if (cogito_backend->is_key_pressed(SDL_SCANCODE_RETURN) ||
+      cogito_backend->is_key_pressed(SDL_SCANCODE_KP_ENTER) ||
+      cogito_backend->is_key_pressed(SDL_SCANCODE_SPACE)) {
+    cogito_invoke_menu(cogito_menu.owner, (size_t)cogito_menu_kbd_index);
+    cogito_menu_close();
+    return true;
+  }
+  return false;
+}
+
+static bool cogito_fab_menu_keyboard_handle(CogitoNode* win) {
+  if (!cogito_fab_menu_open_node || cogito_fab_menu_open_node->menu_len == 0) return false;
+  int len = (int)cogito_fab_menu_open_node->menu_len;
+  if (cogito_fab_menu_kbd_index < 0 || cogito_fab_menu_kbd_index >= len) cogito_fab_menu_kbd_index = 0;
+
+  int next = cogito_fab_menu_kbd_index;
+  if (cogito_backend->is_key_pressed(SDL_SCANCODE_UP)) next++;
+  else if (cogito_backend->is_key_pressed(SDL_SCANCODE_DOWN)) next--;
+  else if (cogito_backend->is_key_pressed(SDL_SCANCODE_HOME)) next = len - 1;
+  else if (cogito_backend->is_key_pressed(SDL_SCANCODE_END)) next = 0;
+  else if (cogito_backend->is_key_pressed(SDL_SCANCODE_TAB)) {
+    bool reverse = cogito_backend->is_key_down(SDL_SCANCODE_LSHIFT) || cogito_backend->is_key_down(SDL_SCANCODE_RSHIFT);
+    next += reverse ? 1 : -1;
+  }
+  if (next < 0) next = len - 1;
+  if (next >= len) next = 0;
+  if (next != cogito_fab_menu_kbd_index) {
+    cogito_fab_menu_kbd_index = next;
+    return true;
+  }
+
+  if (cogito_backend->is_key_pressed(SDL_SCANCODE_RETURN) ||
+      cogito_backend->is_key_pressed(SDL_SCANCODE_KP_ENTER) ||
+      cogito_backend->is_key_pressed(SDL_SCANCODE_SPACE)) {
+    CogitoNode* owner = cogito_fab_menu_open_node;
+    cogito_invoke_menu(cogito_fab_menu_open_node, (size_t)cogito_fab_menu_kbd_index);
+    cogito_fab_menu_open_node->popover_open = false;
+    cogito_fab_menu_open_node = NULL;
+    cogito_fab_menu_kbd_index = -1;
+    cogito_overlay_focus_restore(win);
+    cogito_a11y_emit_event("overlay-close", owner, "fab-menu");
+    if (win) cogito_window_relayout(win);
+    return true;
+  }
+  return false;
+}
+
 static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (appv.tag != EVT_OBJ) ergo_trap("cogito.run expects app");
   if (winv.tag != EVT_OBJ) ergo_trap("cogito.run expects window");
@@ -156,12 +483,10 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
 #if defined(__APPLE__)
   cogito_configure_macos_window(appbar != NULL);
   bool macos_app_name_pending = !cogito_macos_apply_app_name(app_name);
-  if (win->a11y_label) {
-    cogito_macos_set_window_a11y_label(win->a11y_label->data);
-  }
 #else
   bool macos_app_name_pending = false;
 #endif
+  cogito_apply_window_a11y_label(win);
 
   const char* font_path = getenv("COGITO_FONT");
   if (!font_path || !font_path[
@@ -285,6 +610,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   const int inspector_w = 520;
   const int inspector_h = 680;
   const int inspector_appbar_h = 52;
+  const int inspector_drag_hit_pad = 8;
   const int inspector_corner_r = 18;
 #if defined(__APPLE__)
   const int inspector_shadow_margin = 0;
@@ -657,13 +983,15 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         inspector_drag_active = false;
       }
     }
-    // Escape key closes menu
-    if (cogito_backend->is_key_pressed(SDL_SCANCODE_ESCAPE) && cogito_menu.open) {
-      cogito_menu_close();
+    // Escape closes overlays only; it does not close the main window.
+    if (cogito_backend->is_key_pressed(SDL_SCANCODE_ESCAPE)) {
+      (void)cogito_escape_close_overlays(win);
     }
-    if (cogito_backend->is_key_pressed(SDL_SCANCODE_ESCAPE) && cogito_fab_menu_open_node) {
-      cogito_fab_menu_open_node->popover_open = false;
-      cogito_fab_menu_open_node = NULL;
+    if (cogito_menu_keyboard_handle()) {
+      cogito_queue_draw(win);
+    }
+    if (cogito_fab_menu_keyboard_handle(win)) {
+      cogito_queue_draw(win);
     }
     // Drag handling (non-macOS)
 #if !defined(__APPLE__)
@@ -804,11 +1132,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       cogito_inspector_view_h = 0;
     }
     // Tab key navigation
-    if (cogito_backend->is_key_pressed(SDL_SCANCODE_TAB)) {
-      CogitoNode* slot = (win->dialog && win->dialog->kind == COGITO_DIALOG_SLOT && win->dialog->dialog_open && win->dialog->dialog)
-        ? win->dialog
-        : cogito_find_dialog_slot(win);
-      CogitoNode* root = (slot && slot->dialog) ? slot->dialog : win;
+    if (cogito_backend->is_key_pressed(SDL_SCANCODE_TAB) && !cogito_menu.open && !cogito_fab_menu_open_node) {
+      CogitoNode* root = cogito_focus_scope_root(win);
       bool reverse = cogito_backend->is_key_down(SDL_SCANCODE_LSHIFT) || cogito_backend->is_key_down(SDL_SCANCODE_RSHIFT);
       bool found = false;
       CogitoNode* next = reverse
@@ -818,7 +1143,37 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       if (cogito_focused && cogito_focused != next && cogito_focused->kind == COGITO_COLORPICKER) {
         cogito_focused->colorpicker.hex_editing = false;
       }
+      if (next && next != cogito_focused) {
+        cogito_a11y_emit_event("focus", next, "keyboard");
+      }
       cogito_focused = next;
+    }
+    if (cogito_focused && !cogito_focus_is_text_editing(cogito_focused) && !cogito_focused->disabled) {
+      bool relayout = false;
+      int dir = 0;
+      if (cogito_backend->is_key_pressed(SDL_SCANCODE_LEFT) ||
+          cogito_backend->is_key_pressed(SDL_SCANCODE_UP)) {
+        dir = -1;
+      } else if (cogito_backend->is_key_pressed(SDL_SCANCODE_RIGHT) ||
+                 cogito_backend->is_key_pressed(SDL_SCANCODE_DOWN)) {
+        dir = 1;
+      }
+      if (dir != 0) {
+        if (cogito_keyboard_adjust_slider(cogito_focused, dir)) relayout = true;
+        else if (cogito_keyboard_adjust_stepper(cogito_focused, dir)) relayout = true;
+        else if (cogito_keyboard_move_indexed_selection(cogito_focused, dir)) relayout = true;
+      }
+
+      bool activate = cogito_backend->is_key_pressed(SDL_SCANCODE_RETURN) ||
+                      cogito_backend->is_key_pressed(SDL_SCANCODE_KP_ENTER) ||
+                      cogito_backend->is_key_pressed(SDL_SCANCODE_SPACE);
+      if (activate) {
+        int cx = cogito_focused->x + cogito_focused->w / 2;
+        int cy = cogito_focused->y + cogito_focused->h / 2;
+        if (cogito_keyboard_activate_focus(cogito_focused, cx, cy)) relayout = true;
+      }
+
+      if (relayout) cogito_window_relayout(win);
     }
     // Text input handling
     bool focused_text_editable = cogito_focused &&
@@ -1376,7 +1731,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           if (inspector_mouse_in_frame) {
             int appbar_h = inspector_appbar_h;
             if (appbar_h > inspector_frame_h) appbar_h = inspector_frame_h;
-            if (imy < inspector_frame_y + appbar_h) {
+            if (imy < inspector_frame_y + appbar_h + inspector_drag_hit_pad) {
               if (inspector_lights.over_close) {
                 cogito_backend->window_destroy(inspector_window);
                 inspector_window = NULL;
@@ -1449,12 +1804,16 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       }
       if (cogito_fab_menu_open_node) {
         // Any click closes the FAB menu; if an item was hit, invoke it first.
+        CogitoNode* owner = cogito_fab_menu_open_node;
         int idx = cogito_fab_menu_item_hit(cogito_fab_menu_open_node, mx, my);
         if (idx >= 0) {
           cogito_invoke_menu(cogito_fab_menu_open_node, (size_t)idx);
         }
         cogito_fab_menu_open_node->popover_open = false;
         cogito_fab_menu_open_node = NULL;
+        cogito_fab_menu_kbd_index = -1;
+        cogito_overlay_focus_restore(win);
+        cogito_a11y_emit_event("overlay-close", owner, "fab-menu");
         cogito_window_relayout(win);
       } else if (cogito_menu.open) {
         int idx = cogito_menu_hit(&cogito_menu, mx, my);
@@ -1484,18 +1843,31 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         }
         // Check for traffic light clicks on the first appbar
         if (!active_dialog && appbar && !appbar_blocked_by_bottom_sheet) {
+          int btn_hit_pad = 1; // element_size + 2px target (1px on each side)
           if (appbar->appbar.btn_close_x >= 0 &&
-              cogito_hit_rect(mx, my, appbar->appbar.btn_close_x, appbar->appbar.btn_y, appbar->appbar.btn_size, appbar->appbar.btn_size)) {
+              cogito_hit_rect(mx, my,
+                              appbar->appbar.btn_close_x - btn_hit_pad,
+                              appbar->appbar.btn_y - btn_hit_pad,
+                              appbar->appbar.btn_size + 2,
+                              appbar->appbar.btn_size + 2)) {
             cogito_appbar_window_action(win,
             0);
             handled = true;
           } else if (appbar->appbar.btn_min_x >= 0 &&
-                     cogito_hit_rect(mx, my, appbar->appbar.btn_min_x, appbar->appbar.btn_y, appbar->appbar.btn_size, appbar->appbar.btn_size)) {
+                     cogito_hit_rect(mx, my,
+                                     appbar->appbar.btn_min_x - btn_hit_pad,
+                                     appbar->appbar.btn_y - btn_hit_pad,
+                                     appbar->appbar.btn_size + 2,
+                                     appbar->appbar.btn_size + 2)) {
             cogito_appbar_window_action(win,
             1);
             handled = true;
           } else if (appbar->appbar.btn_max_x >= 0 &&
-                     cogito_hit_rect(mx, my, appbar->appbar.btn_max_x, appbar->appbar.btn_y, appbar->appbar.btn_size, appbar->appbar.btn_size)) {
+                     cogito_hit_rect(mx, my,
+                                     appbar->appbar.btn_max_x - btn_hit_pad,
+                                     appbar->appbar.btn_y - btn_hit_pad,
+                                     appbar->appbar.btn_size + 2,
+                                     appbar->appbar.btn_size + 2)) {
             cogito_appbar_window_action(win,
             2);
             handled = true;
@@ -1507,7 +1879,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         if (!handled && win->side_sheet_open && win->side_sheet_node) {
           int sx = 0, sy = 0, sw = 0, sh = 0;
           cogito_side_sheet_close_rect(win->side_sheet_node, &sx, &sy, &sw, &sh);
-          if (sw > 0 && sh > 0 && cogito_hit_rect(mx, my, sx, sy, sw, sh)) {
+          if (sw > 0 && sh > 0 && cogito_hit_rect_min48(mx, my, sx, sy, sw, sh)) {
             cogito_window_clear_side_sheet(EV_OBJ(win));
             cogito_window_relayout(win);
             handled = true;
@@ -1531,7 +1903,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         if (!handled && active_dialog) {
           int dx = 0, dy = 0, dw = 0, dh = 0;
           cogito_dialog_close_rect(active_dialog, &dx, &dy, &dw, &dh);
-          if (dw > 0 && dh > 0 && cogito_hit_rect(mx, my, dx, dy, dw, dh)) {
+          if (dw > 0 && dh > 0 && cogito_hit_rect_min48(mx, my, dx, dy, dw, dh)) {
             if (slot && slot->kind == COGITO_DIALOG_SLOT) {
               cogito_dialog_slot_clear(EV_OBJ(slot));
             } else {
@@ -1586,11 +1958,12 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         if (!focus_hit) {
           focus_hit = cogito_find_text_input(root, mx, my);
         }
-        if (focus_hit && focus_hit->disabled) focus_hit = NULL;
+          if (focus_hit && focus_hit->disabled) focus_hit = NULL;
         if (focus_hit) {
           if (cogito_focused && cogito_focused != focus_hit && cogito_focused->kind == COGITO_COLORPICKER) {
             cogito_focused->colorpicker.hex_editing = false;
           }
+          if (focus_hit != cogito_focused) cogito_a11y_emit_event("focus", focus_hit, "pointer");
           cogito_focused = focus_hit;
           int pad = 8;
           int size = cogito_node_font_size(focus_hit);
@@ -1614,7 +1987,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           } else if (focus_hit->kind == COGITO_COLORPICKER) {
             int hx = 0, hy = 0, hw = 0, hh = 0;
             cogito_colorpicker_hex_rect(focus_hit, &hx, &hy, &hw, &hh);
-            focus_hit->colorpicker.hex_editing = cogito_hit_rect(mx, my, hx, hy, hw, hh);
+            focus_hit->colorpicker.hex_editing = cogito_hit_rect_min48(mx, my, hx, hy, hw, hh);
             int rel_x = mx - (hx + pad);
             if (rel_x < 0) rel_x = 0;
             focus_hit->text_input.caret = cogito_text_index_from_x(focus_hit, t, size, rel_x);
@@ -1626,6 +1999,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           if (cogito_focused && cogito_focused != hit && cogito_focused->kind == COGITO_COLORPICKER) {
             cogito_focused->colorpicker.hex_editing = false;
           }
+          if (hit != cogito_focused) cogito_a11y_emit_event("focus", hit, "pointer");
           cogito_focused = hit;
         } else {
           if (cogito_focused && cogito_focused->kind == COGITO_COLORPICKER) {
@@ -1809,14 +2183,14 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           } else if (hit->kind == COGITO_TOAST) {
             int cx = 0, cy = 0, cw = 0, ch = 0;
             cogito_toast_close_rect(hit, &cx, &cy, &cw, &ch);
-            if (cw > 0 && ch > 0 && cogito_hit_rect(mx, my, cx, cy, cw, ch)) {
+            if (cw > 0 && ch > 0 && cogito_hit_rect_min48(mx, my, cx, cy, cw, ch)) {
               CogitoNode* parent = hit->parent;
               if (parent) {
                 cogito_container_remove_child(parent, hit);
                 cogito_window_relayout(win);
               }
             } else if (hit->action_text && hit->action_button_w > 0 &&
-                      cogito_hit_rect(mx, my, hit->action_button_x, hit->action_button_y,
+                      cogito_hit_rect_min48(mx, my, hit->action_button_x, hit->action_button_y,
                                      hit->action_button_w, hit->action_button_h)) {
               if (hit->on_action) {
                 ErgoVal arg = EV_OBJ(hit);
@@ -1829,7 +2203,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           } else if (hit->kind == COGITO_CHIP) {
             int cx = 0, cy = 0, cw = 0, ch = 0;
             cogito_chip_close_rect(hit, &cx, &cy, &cw, &ch);
-            if (cw > 0 && ch > 0 && cogito_hit_rect(mx, my, cx, cy, cw, ch)) {
+            if (cw > 0 && ch > 0 && cogito_hit_rect_min48(mx, my, cx, cy, cw, ch)) {
               // Clicked on close button
               if (hit->on_action) {
                 ErgoVal arg = EV_OBJ(hit);
@@ -1845,7 +2219,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           } else if (hit->kind == COGITO_BOTTOM_SHEET) {
             int hx = 0, hy = 0, hw = 0, hh = 0;
             cogito_bottom_sheet_handle_rect(hit, &hx, &hy, &hw, &hh);
-            if (cogito_hit_rect(mx, my, hx, hy, hw, hh)) {
+            if (cogito_hit_rect_min48(mx, my, hx, hy, hw, hh)) {
               hit->bottom_sheet.dragging = true;
               hit->bottom_sheet.drag_start_y = my;
               hit->bottom_sheet.drag_start_h = hit->h;
@@ -1856,7 +2230,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           } else if (hit->kind == COGITO_SIDE_SHEET) {
             int hx = 0, hy = 0, hw = 0, hh = 0;
             cogito_side_sheet_handle_rect(hit, &hx, &hy, &hw, &hh);
-            if (cogito_hit_rect(mx, my, hx, hy, hw, hh)) {
+            if (cogito_hit_rect_min48(mx, my, hx, hy, hw, hh)) {
               hit->side_sheet.dragging = true;
               hit->side_sheet.drag_start_x = mx;
               hit->side_sheet.drag_start_w = hit->w;
@@ -1868,8 +2242,11 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             cogito_invoke_click(hit);
           } else if (hit->kind == COGITO_FAB_MENU) {
             if (hit->menu_len > 0) {
+              cogito_overlay_focus_snapshot();
               hit->popover_open = true;
               cogito_fab_menu_open_node = hit;
+              cogito_fab_menu_kbd_index = 0;
+              cogito_a11y_emit_event("overlay-open", hit, "fab-menu");
               cogito_window_relayout(cogito_node_window(hit));
             }
           } else if (hit->kind == COGITO_STEPPER) {
@@ -1888,8 +2265,12 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
               int idx = cogito_nav_rail_hit_index(hit, mx, my);
               if (idx >= 0) {
                 if (cogito_fab_menu_open_node) {
+                  CogitoNode* owner = cogito_fab_menu_open_node;
                   cogito_fab_menu_open_node->popover_open = false;
                   cogito_fab_menu_open_node = NULL;
+                  cogito_fab_menu_kbd_index = -1;
+                  cogito_overlay_focus_restore(win);
+                  cogito_a11y_emit_event("overlay-close", owner, "fab-menu");
                 }
                 cogito_handle_nav_rail_select(hit, idx);
                 cogito_window_relayout(win);
@@ -1899,8 +2280,12 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             int idx = cogito_bottom_nav_hit_index(hit, mx, my);
             if (idx >= 0) {
               if (cogito_fab_menu_open_node) {
+                CogitoNode* owner = cogito_fab_menu_open_node;
                 cogito_fab_menu_open_node->popover_open = false;
                 cogito_fab_menu_open_node = NULL;
+                cogito_fab_menu_kbd_index = -1;
+                cogito_overlay_focus_restore(win);
+                cogito_a11y_emit_event("overlay-close", owner, "fab-menu");
               }
               cogito_handle_bottom_nav_select(hit, idx);
               cogito_window_relayout(win);
@@ -1919,7 +2304,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             if (hit->action_text && hit->action_text->data && hit->action_text->data[
               0
             ]) {
-              if (hit->action_button_w > 0 && cogito_hit_rect(mx, my, hit->action_button_x, hit->action_button_y,
+              if (hit->action_button_w > 0 && cogito_hit_rect_min48(mx, my, hit->action_button_x, hit->action_button_y,
                           hit->action_button_w, hit->action_button_h)) {
                 if (hit->on_action) {
                   ErgoVal arg = EV_OBJ(hit);
@@ -1949,7 +2334,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             if (left_w < 0) left_w = 0;
             if (left_w > available_w) left_w = available_w;
             int handle_x = hit->x + left_w;
-            if (cogito_hit_rect(mx, my, handle_x - 4, hit->y, handle_w + 8, hit->h)) {
+            if (cogito_hit_rect_min48(mx, my, handle_x - 4, hit->y, handle_w + 8, hit->h)) {
               hit->view_dual.dragging = true;
               hit->view_dual.drag_offset = mx - handle_x;
               cogito_pointer_capture = hit;
@@ -1981,7 +2366,10 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         ];
         if (!_cn) continue;
         if (_cn->kind == COGITO_CAROUSEL && _cn->carousel.animating) {
-          double t = (_now - _cn->carousel.anim_start) / CAROUSEL_ANIM_DURATION;
+          double t = 1.0;
+          if (CAROUSEL_ANIM_DURATION > 0.0) {
+            t = (_now - _cn->carousel.anim_start) / CAROUSEL_ANIM_DURATION;
+          }
           if (t >= 1.0) {
             t = 1.0;
             _cn->carousel.animating = false;
@@ -2229,6 +2617,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (cogito_fab_menu_open_node) {
     cogito_fab_menu_open_node->popover_open = false;
     cogito_fab_menu_open_node = NULL;
+    cogito_fab_menu_kbd_index = -1;
   }
   if (cogito_user_sum) {
     free(cogito_user_sum);

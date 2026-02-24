@@ -3,13 +3,16 @@ static int cogito_tabs_hit_index(CogitoNode* n, int x, int y) {
   if (!cogito_hit_node(n, x, y)) return -1;
   if (n->w <= 0 || n->tab_len == 0) return -1;
   const int slot_count = 4;
-  int rel_x = x - n->x;
-  if (rel_x < 0) return -1;
-  int idx = (rel_x * slot_count) / n->w;
-  if (idx < 0) idx = 0;
-  if (idx >= slot_count) idx = slot_count - 1;
-  if (idx >= (int)n->tab_len) return -1;
-  return idx;
+  int slot_w = n->w / slot_count;
+  if (slot_w < 1) slot_w = 1;
+  for (int i = 0; i < slot_count; i++) {
+    if (i >= (int)n->tab_len) break;
+    int sx = n->x + i * slot_w;
+    int sw = (i == slot_count - 1) ? (n->x + n->w - sx) : slot_w;
+    if (sw < 1) sw = 1;
+    if (cogito_hit_rect_min48(x, y, sx, n->y, sw, n->h)) return i;
+  }
+  return -1;
 }
 static CogitoNode* cogito_tabs_new_obj(void) {
   CogitoNode* t = cogito_node_new(COGITO_TABS);

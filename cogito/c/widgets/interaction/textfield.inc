@@ -70,11 +70,11 @@ static CogitoNode* cogito_find_text_input(CogitoNode* n, int x, int y) {
   }
   if ((n->kind == COGITO_TEXTFIELD || n->kind == COGITO_TEXTVIEW || n->kind == COGITO_SEARCHFIELD) &&
       n->editable &&
-      cogito_hit_node(n, x, y)) return n;
+      cogito_hit_node_min48(n, x, y)) return n;
   if (n->kind == COGITO_COLORPICKER) {
     int hx = 0, hy = 0, hw = 0, hh = 0;
     cogito_colorpicker_hex_rect(n, &hx, &hy, &hw, &hh);
-    if (cogito_hit_rect(x, y, hx, hy, hw, hh)) return n;
+    if (cogito_hit_rect_min48(x, y, hx, hy, hw, hh)) return n;
   }
   return NULL;
 }

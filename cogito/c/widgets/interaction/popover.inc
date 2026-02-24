@@ -19,6 +19,7 @@ static void cogito_popover_show(ErgoVal anchorv, ErgoVal popoverv) {
   // Find window to attach popover to
   CogitoNode* win = cogito_node_window(anchor);
   if (!win) return;
+  cogito_overlay_focus_snapshot();
 
   // Release old popover if any
   if (win->popover) ergo_release_val(EV_OBJ(win->popover));
@@ -31,6 +32,7 @@ static void cogito_popover_show(ErgoVal anchorv, ErgoVal popoverv) {
 
   cogito_apply_style_tree(pop);
   cogito_window_relayout(win);
+  cogito_a11y_emit_event("overlay-open", pop, "popover");
 }
 
 __attribute__((unused))
@@ -63,7 +65,9 @@ static void cogito_popover_close(ErgoVal windowv) {
   }
   win->popover_anchor = NULL;
   win->popover_open = false;
+  cogito_overlay_focus_restore(win);
   cogito_window_relayout(win);
+  cogito_a11y_emit_event("overlay-close", win, "popover");
 }
 
 __attribute__((unused))

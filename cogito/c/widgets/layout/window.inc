@@ -391,5 +391,6 @@ static void cogito_window_relayout(CogitoNode* win) {
   if (!win) return;
   cogito_layout_begin();
   cogito_layout_window(win);
+  cogito_a11y_sync_tree(win);
   if (cogito_layout_changed()) cogito_queue_draw(win);
 }

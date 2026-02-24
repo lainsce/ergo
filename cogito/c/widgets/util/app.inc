@@ -17,6 +17,26 @@ static void cogito_app_drop(ErgoObj* o) {
   }
 }
 
+static bool cogito_system_prefers_reduced_motion(void) {
+  const char* v = getenv("COGITO_REDUCED_MOTION");
+  if (!v || !v[0]) v = getenv("ERGO_REDUCED_MOTION");
+  if (v && (strcmp(v, "1") == 0 || strcmp(v, "true") == 0 || strcmp(v, "yes") == 0 || strcmp(v, "on") == 0)) return true;
+  v = getenv("COGITO_MOTION");
+  if (!v || !v[0]) v = getenv("ERGO_MOTION");
+  if (v && (strstr(v, "reduce") || strstr(v, "REDUCE") || strstr(v, "minimal"))) return true;
+  return false;
+}
+
+static bool cogito_system_prefers_high_contrast(void) {
+  const char* v = getenv("COGITO_HIGH_CONTRAST");
+  if (!v || !v[0]) v = getenv("ERGO_HIGH_CONTRAST");
+  if (v && (strcmp(v, "1") == 0 || strcmp(v, "true") == 0 || strcmp(v, "yes") == 0 || strcmp(v, "on") == 0)) return true;
+  v = getenv("COGITO_CONTRAST");
+  if (!v || !v[0]) v = getenv("ERGO_CONTRAST");
+  if (v && (strstr(v, "high") || strstr(v, "HIGH"))) return true;
+  return false;
+}
+
 static CogitoApp* cogito_app_new_obj(void) {
   CogitoApp* app = (CogitoApp*)ergo_obj_new(sizeof(CogitoApp), cogito_app_drop);
   app->native = NULL;
@@ -77,6 +97,8 @@ static void cogito_update_system_theme(ErgoVal appv) {
   CogitoColor acc = {0};
   bool has_acc = cogito_system_accent(&acc);
   bool changed = false;
+  bool reduced_motion = cogito_system_prefers_reduced_motion();
+  bool high_contrast = cogito_system_prefers_high_contrast();
   if (dark != app->system_dark) {
     app->system_dark = dark;
     changed = true;
@@ -94,8 +116,17 @@ static void cogito_update_system_theme(ErgoVal appv) {
     changed = true;
   }
   double sys_contrast = cogito_system_contrast();
+  if (high_contrast && sys_contrast < 0.8) sys_contrast = 1.0;
   if (sys_contrast != cogito_theme_contrast) {
     cogito_theme_contrast = sys_contrast;
+    changed = true;
+  }
+  if (reduced_motion != cogito_prefers_reduced_motion) {
+    cogito_prefers_reduced_motion = reduced_motion;
+    changed = true;
+  }
+  if (high_contrast != cogito_prefers_high_contrast) {
+    cogito_prefers_high_contrast = high_contrast;
     changed = true;
   }
   cogito_theme_font_weight = cogito_system_font_weight();

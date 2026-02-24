@@ -189,7 +189,7 @@ static bool cogito_nav_rail_hit_toggle(CogitoNode* n, int x, int y) {
   if (!n || n->kind != COGITO_NAV_RAIL || !n->nav_rail.show_toggle) return false;
   int tx = 0, ty = 0, tw = 0, th = 0;
   cogito_nav_rail_toggle_rect(n, &tx, &ty, &tw, &th);
-  return cogito_hit_rect(x, y, tx, ty, tw, th);
+  return cogito_hit_rect_min48(x, y, tx, ty, tw, th);
 }
 
 static int cogito_nav_rail_items_start_y(CogitoNode* n) {
@@ -229,9 +229,7 @@ static int cogito_nav_rail_hit_index(CogitoNode* n, int x, int y) {
   int item_step = cogito_nav_rail_item_step(n);
 
   for (size_t i = 0; i < n->nav_rail.len; i++) {
-    if (y >= item_y && y < item_y + item_step) {
-      return (int)i;
-    }
+    if (cogito_hit_rect_min48(x, y, n->x, item_y, rail_w, item_step)) return (int)i;
     item_y += item_step;
   }
   return -1;

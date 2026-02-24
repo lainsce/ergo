@@ -237,6 +237,227 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   return n;
 }
 
+static bool cogito_str_has_text(const ErgoStr* s) {
+  return s && s->data && s->data[0];
+}
+
+static const char* cogito_node_default_a11y_role(CogitoKind kind) {
+  switch (kind) {
+    case COGITO_WINDOW: return "window";
+    case COGITO_DIALOG:
+    case COGITO_SETTINGS_WINDOW:
+    case COGITO_ABOUT_WINDOW:
+    case COGITO_BOTTOM_SHEET:
+    case COGITO_SIDE_SHEET:
+      return "dialog";
+    case COGITO_BUTTON:
+    case COGITO_ICONBTN:
+    case COGITO_FAB:
+    case COGITO_FAB_MENU:
+    case COGITO_SPLIT_BUTTON:
+    case COGITO_CHIP:
+      return "button";
+    case COGITO_CHECKBOX: return "checkbox";
+    case COGITO_SWITCH:
+    case COGITO_SWITCHBAR:
+      return "switch";
+    case COGITO_TEXTFIELD:
+    case COGITO_TEXTVIEW:
+    case COGITO_SEARCHFIELD:
+      return "textbox";
+    case COGITO_DROPDOWN: return "combobox";
+    case COGITO_SLIDER:
+    case COGITO_STEPPER:
+      return "slider";
+    case COGITO_PROGRESS: return "progressbar";
+    case COGITO_DATEPICKER:
+    case COGITO_TIMEPICKER:
+    case COGITO_COLORPICKER:
+      return "picker";
+    case COGITO_TABS: return "tablist";
+    case COGITO_NAV_RAIL:
+    case COGITO_BOTTOM_NAV:
+    case COGITO_BUTTON_GROUP:
+    case COGITO_VIEW_CHOOSER:
+      return "radiogroup";
+    case COGITO_LIST:
+    case COGITO_CONTENT_LIST:
+      return "list";
+    case COGITO_GRID: return "grid";
+    case COGITO_TREEVIEW: return "tree";
+    case COGITO_TOOLBAR:
+    case COGITO_APPBAR:
+      return "toolbar";
+    case COGITO_LABEL:
+    case COGITO_BADGE:
+    case COGITO_ACTIVE_INDICATOR:
+      return "text";
+    case COGITO_IMAGE:
+    case COGITO_AVATAR:
+      return "img";
+    case COGITO_DIVIDER: return "separator";
+    case COGITO_TOAST:
+    case COGITO_TOASTS:
+    case COGITO_BANNER:
+      return "status";
+    case COGITO_TOOLTIP:
+    case COGITO_TIP_VIEW:
+      return "tooltip";
+    case COGITO_VSTACK:
+    case COGITO_HSTACK:
+    case COGITO_ZSTACK:
+    case COGITO_FIXED:
+    case COGITO_SCROLLER:
+    case COGITO_CARD:
+    case COGITO_MENU_SECTION:
+    case COGITO_SETTINGS_PAGE:
+    case COGITO_SETTINGS_LIST:
+    case COGITO_SETTINGS_ROW:
+    case COGITO_WELCOME_SCREEN:
+    case COGITO_EMPTY_PAGE:
+    case COGITO_VIEW_DUAL:
+    case COGITO_CAROUSEL:
+    case COGITO_CAROUSEL_ITEM:
+      return "group";
+    default:
+      return "region";
+  }
+}
+
+static const char* cogito_node_effective_a11y_role(const CogitoNode* n) {
+  if (!n) return "region";
+  if (cogito_str_has_text(n->a11y_role)) return n->a11y_role->data;
+  return cogito_node_default_a11y_role(n->kind);
+}
+
+static const char* cogito_node_effective_a11y_label(const CogitoNode* n, char* out, size_t out_sz) {
+  if (!n || !out || out_sz == 0) return "";
+  out[0] = '\0';
+  if (cogito_str_has_text(n->a11y_label)) return n->a11y_label->data;
+  if (cogito_str_has_text(n->text)) return n->text->data;
+  if (cogito_str_has_text(n->subtitle)) return n->subtitle->data;
+  if (cogito_str_has_text(n->hint)) return n->hint->data;
+  if (cogito_str_has_text(n->tooltip)) return n->tooltip->data;
+  if (cogito_str_has_text(n->action_text)) return n->action_text->data;
+  if (cogito_str_has_text(n->view_id)) return n->view_id->data;
+  if (cogito_str_has_text(n->icon)) return n->icon->data;
+  snprintf(out, out_sz, "%s", cogito_node_effective_a11y_role(n));
+  return out;
+}
+
+static void cogito_a11y_emit_event(const char* event, const CogitoNode* n, const char* detail) {
+  const char* path = getenv("COGITO_A11Y_EVENTS_PATH");
+  if (!path || !path[0]) {
+#if defined(__APPLE__)
+    path = "/tmp/cogito_a11y_events_macos.jsonl";
+#else
+    path = "/tmp/cogito_a11y_events_linux.jsonl";
+#endif
+  }
+  FILE* f = fopen(path, "a");
+  if (!f) return;
+  char label_buf[192];
+  const char* label = cogito_node_effective_a11y_label(n, label_buf, sizeof(label_buf));
+  const char* role = cogito_node_effective_a11y_role(n);
+  fprintf(f, "{\"event\":\"");
+  for (const char* p = event ? event : "event"; *p; p++) {
+    if (*p == '"' || *p == '\\') fputc('\\', f);
+    if (*p == '\n') { fputs("\\n", f); continue; }
+    fputc(*p, f);
+  }
+  fputs("\",\"role\":\"", f);
+  for (const char* p = role ? role : "region"; *p; p++) {
+    if (*p == '"' || *p == '\\') fputc('\\', f);
+    if (*p == '\n') { fputs("\\n", f); continue; }
+    fputc(*p, f);
+  }
+  fputs("\",\"label\":\"", f);
+  for (const char* p = label ? label : ""; *p; p++) {
+    if (*p == '"' || *p == '\\') fputc('\\', f);
+    if (*p == '\n') { fputs("\\n", f); continue; }
+    fputc(*p, f);
+  }
+  fputs("\",\"detail\":\"", f);
+  for (const char* p = detail ? detail : ""; *p; p++) {
+    if (*p == '"' || *p == '\\') fputc('\\', f);
+    if (*p == '\n') { fputs("\\n", f); continue; }
+    fputc(*p, f);
+  }
+  fputs("\"}\n", f);
+  fclose(f);
+}
+
+static void cogito_a11y_dump_node_json(FILE* f, const CogitoNode* n) {
+  if (!f || !n) return;
+  char label_buf[192];
+  const char* role = cogito_node_effective_a11y_role(n);
+  const char* label = cogito_node_effective_a11y_label(n, label_buf, sizeof(label_buf));
+  const char* state = "normal";
+  if (n->disabled) state = "disabled";
+  else if (n->checked) state = "checked";
+  fprintf(f, "{\"id\":\"%p\",\"role\":\"", (void*)n);
+  for (const char* p = role ? role : "region"; *p; p++) {
+    if (*p == '"' || *p == '\\') fputc('\\', f);
+    if (*p == '\n') { fputs("\\n", f); continue; }
+    fputc(*p, f);
+  }
+  fputs("\",\"label\":\"", f);
+  for (const char* p = label ? label : ""; *p; p++) {
+    if (*p == '"' || *p == '\\') fputc('\\', f);
+    if (*p == '\n') { fputs("\\n", f); continue; }
+    fputc(*p, f);
+  }
+  fprintf(f, "\",\"state\":\"%s\",\"x\":%d,\"y\":%d,\"w\":%d,\"h\":%d,\"children\":[",
+          state, n->x, n->y, n->w, n->h);
+  bool first = true;
+  for (size_t i = 0; i < n->len; i++) {
+    const CogitoNode* c = n->children[i];
+    if (!c || c->w <= 0 || c->h <= 0) continue;
+    if (!first) fprintf(f, ",");
+    cogito_a11y_dump_node_json(f, c);
+    first = false;
+  }
+  fprintf(f, "]}");
+}
+
+static void cogito_a11y_sync_tree(CogitoNode* win) {
+  if (!win || win->kind != COGITO_WINDOW) return;
+  const char* path = getenv("COGITO_A11Y_TREE_PATH");
+  if (!path || !path[0]) {
+#if defined(__APPLE__)
+    path = "/tmp/cogito_a11y_tree_macos.json";
+#else
+    path = "/tmp/cogito_a11y_tree_linux.json";
+#endif
+  }
+  FILE* f = fopen(path, "w");
+  if (!f) return;
+  cogito_a11y_dump_node_json(f, win);
+  fputc('\n', f);
+  fclose(f);
+}
+
+static void cogito_apply_window_a11y_label(CogitoNode* n) {
+  if (!n || n->kind != COGITO_WINDOW) return;
+  if (!cogito_backend_ready || !cogito_backend || !cogito_active_backend_window) return;
+
+  char label_buf[256];
+  const char* label = cogito_node_effective_a11y_label(n, label_buf, sizeof(label_buf));
+
+#if defined(__APPLE__)
+  cogito_macos_set_window_a11y_label(label);
+#endif
+
+  if (cogito_backend->window_set_title) {
+    const char* visible_title = (n->text && n->text->data && n->text->data[0])
+      ? n->text->data
+      : COGITO_USER_VERSION;
+    const char* title = cogito_str_has_text(n->a11y_label) ? label : visible_title;
+    cogito_backend->window_set_title(cogito_active_backend_window, title);
+  }
+  cogito_a11y_sync_tree(n);
+}
+
 static void cogito_node_set_text(CogitoNode* n, ErgoStr* s) {
   if (!n) return;
   if (s) ergo_retain_val(EV_STR(s));

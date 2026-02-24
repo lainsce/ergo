@@ -439,20 +439,40 @@ static void cogito_datepicker_panel_cell_date(const CogitoNode* n, int idx,
   if (out_in_view) *out_in_view = in_view;
 }
 
+static bool cogito_datepicker_hit_rect_min48_local(int px, int py, int rx, int ry, int rw, int rh) {
+  int hw = rw < 48 ? 48 : rw;
+  int hh = rh < 48 ? 48 : rh;
+  int hx = rx - (hw - rw) / 2;
+  int hy = ry - (hh - rh) / 2;
+  return cogito_hit_rect(px, py, hx, hy, hw, hh);
+}
+
 static bool cogito_datepicker_panel_hit_day(CogitoNode* n, int mx, int my,
                                             int* out_year, int* out_month, int* out_day,
                                             bool* out_in_view) {
   if (!n || n->kind != COGITO_DATEPICKER) return false;
   CogitoDatePickerPanelLayout ly;
   cogito_datepicker_panel_layout(n, &ly);
-  if (!cogito_hit_rect(mx, my, ly.grid_x, ly.grid_y, ly.grid_w, ly.grid_h)) return false;
-  int col = (mx - ly.grid_x) / ly.cell_w;
-  int row = (my - ly.grid_y) / ly.cell_h;
-  if (col < 0 || col >= COGITO_DATEPICKER_POP_COLS || row < 0 || row >= COGITO_DATEPICKER_POP_ROWS) {
-    return false;
+  int best_idx = -1;
+  int best_dist2 = INT_MAX;
+  for (int row = 0; row < COGITO_DATEPICKER_POP_ROWS; row++) {
+    for (int col = 0; col < COGITO_DATEPICKER_POP_COLS; col++) {
+      int cell_x = ly.grid_x + col * ly.cell_w;
+      int cell_y = ly.grid_y + row * ly.cell_h;
+      if (!cogito_datepicker_hit_rect_min48_local(mx, my, cell_x, cell_y, ly.cell_w, ly.cell_h)) continue;
+      int cx = cell_x + ly.cell_w / 2;
+      int cy = cell_y + ly.cell_h / 2;
+      int dx = mx - cx;
+      int dy = my - cy;
+      int dist2 = dx * dx + dy * dy;
+      if (dist2 < best_dist2) {
+        best_dist2 = dist2;
+        best_idx = row * COGITO_DATEPICKER_POP_COLS + col;
+      }
+    }
   }
-  int idx = row * COGITO_DATEPICKER_POP_COLS + col;
-  cogito_datepicker_panel_cell_date(n, idx, out_year, out_month, out_day, out_in_view);
+  if (best_idx < 0) return false;
+  cogito_datepicker_panel_cell_date(n, best_idx, out_year, out_month, out_day, out_in_view);
   return true;
 }
 
@@ -470,9 +490,7 @@ static bool cogito_datepicker_panel_hit_selector_item(CogitoNode* n, int mx, int
   CogitoDatePickerPanelLayout ly;
   cogito_datepicker_panel_layout(n, &ly);
   int hit_x = ly.selector_x;
-  int hit_y = ly.selector_y;
   int hit_w = ly.selector_w;
-  int hit_h = ly.selector_h;
 
   int tx = 0, ty = 0, tw = 0, th = 0, ux = 0, uy = 0, uw = 0, uh = 0;
   bool has_scrollbar = cogito_datepicker_panel_selector_scrollbar_rect(n, &tx, &ty, &tw, &th, &ux, &uy, &uw, &uh);
@@ -481,16 +499,27 @@ static bool cogito_datepicker_panel_hit_selector_item(CogitoNode* n, int mx, int
     if (hit_w < 0) hit_w = 0;
   }
 
-  if (!cogito_hit_rect(mx, my, hit_x, hit_y, hit_w, hit_h)) return false;
-
   int rows = cogito_datepicker_selector_visible_rows(&ly);
   int total = cogito_datepicker_selector_total(mode);
   if (total <= 0) return false;
 
   cogito_datepicker_selector_clamp_start(n, mode, rows);
 
-  int rel_y = my - ly.selector_y;
-  int row = rel_y / ly.selector_row_h;
+  int row = -1;
+  int best_dist2 = INT_MAX;
+  for (int r = 0; r < rows; r++) {
+    int ry = ly.selector_y + r * ly.selector_row_h;
+    if (!cogito_datepicker_hit_rect_min48_local(mx, my, hit_x, ry, hit_w, ly.selector_row_h)) continue;
+    int cx = hit_x + hit_w / 2;
+    int cy = ry + ly.selector_row_h / 2;
+    int dx = mx - cx;
+    int dy = my - cy;
+    int dist2 = dx * dx + dy * dy;
+    if (dist2 < best_dist2) {
+      best_dist2 = dist2;
+      row = r;
+    }
+  }
   if (row < 0 || row >= rows) return false;
 
   int idx = n->datepicker.list_start + row;

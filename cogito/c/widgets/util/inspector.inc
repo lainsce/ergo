@@ -1,5 +1,6 @@
 static int cogito_inspector_hit_test(CogitoWindow* win, int x, int y, void* user) {
   (void)win;
+  enum { COGITO_WINDOW_DRAG_HIT_PAD = 8 };
   const int* params = (const int*)user;
   int appbar_h = (params && params[0] > 0) ? params[0] : 52;
   int margin = (params && params[1] > 0) ? params[1] : 0;
@@ -18,7 +19,9 @@ static int cogito_inspector_hit_test(CogitoWindow* win, int x, int y, void* user
     return 0; // normal, so clicks on traffic lights are delivered to UI handlers.
   }
   // Cogito hit-test enum values: 0 = normal, 1 = draggable.
-  return (y >= margin && y < (margin + appbar_h) && x >= margin) ? 1 : 0;
+  return (y >= (margin - COGITO_WINDOW_DRAG_HIT_PAD) &&
+          y < (margin + appbar_h + COGITO_WINDOW_DRAG_HIT_PAD) &&
+          x >= (margin - COGITO_WINDOW_DRAG_HIT_PAD)) ? 1 : 0;
 }
 
 static void cogito_inspector_color_hex(CogitoColor c, char* out, size_t cap) {

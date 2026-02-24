@@ -355,6 +355,10 @@ class Window {
         __cogito_node_set_a11y_label(this, label)
         return this
     }
+    fun set_a11y_role(this, role = string) (( Window )) {
+        __cogito_node_set_a11y_role(this, role)
+        return this
+    }
     fun set_disabled(this, on = bool) (( Window )) {
         __cogito_node_set_disabled(this, on)
         return this
@@ -3239,11 +3243,13 @@ fun open_url(url = string) (( bool )) {
 fun set_class(node = any, cls = string) (( -- )) {
     __cogito_node_set_class(node, cls)
 }
-fun set_a11y_label(node = any, label = string) (( -- )) {
+fun set_a11y_label(node = any, label = string) (( any )) {
     __cogito_node_set_a11y_label(node, label)
+    return node
 }
-fun set_a11y_role(node = any, role = string) (( -- )) {
+fun set_a11y_role(node = any, role = string) (( any )) {
     __cogito_node_set_a11y_role(node, role)
+    return node
 }
 fun set_tooltip(node = any, text = string) (( -- )) {
     __cogito_node_set_tooltip(node, text)
@@ -4014,4 +4020,3 @@ class SplitButton {
         return this
     }
 }
-

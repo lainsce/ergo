@@ -37,4 +37,4 @@
   if ((out_idx) >= (int)(cr)->len) (out_idx) = (int)(cr)->len - 1; \
 } while(0)
 
-#define CAROUSEL_ANIM_DURATION 0.35
+#define CAROUSEL_ANIM_DURATION (cogito_prefers_reduced_motion ? 0.0 : 0.35)

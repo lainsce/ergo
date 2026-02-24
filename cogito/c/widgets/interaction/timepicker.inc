@@ -91,7 +91,7 @@ static bool cogito_timepicker_hit_panel(CogitoNode* panel, int mx, int my) {
   CogitoTimePickerPanelLayout ly;
   cogito_timepicker_panel_layout(panel, &ly);
 
-  if (cogito_hit_rect(mx, my, ly.keyboard_x, ly.keyboard_y, ly.keyboard_w, ly.keyboard_h)) {
+  if (cogito_hit_rect_min48(mx, my, ly.keyboard_x, ly.keyboard_y, ly.keyboard_w, ly.keyboard_h)) {
     panel->timepicker.dial_visible = !panel->timepicker.dial_visible;
     if (!panel->timepicker.dial_visible) {
       if (cogito_pointer_capture == panel) cogito_pointer_capture = NULL;
@@ -102,7 +102,7 @@ static bool cogito_timepicker_hit_panel(CogitoNode* panel, int mx, int my) {
     return true;
   }
 
-  if (cogito_hit_rect(mx, my, ly.cancel_x, ly.cancel_y, ly.cancel_w, ly.cancel_h)) {
+  if (cogito_hit_rect_min48(mx, my, ly.cancel_x, ly.cancel_y, ly.cancel_w, ly.cancel_h)) {
     if (owner && owner->kind == COGITO_TIMEPICKER) {
       owner->timepicker.dial_visible = panel->timepicker.dial_visible;
     }
@@ -112,7 +112,7 @@ static bool cogito_timepicker_hit_panel(CogitoNode* panel, int mx, int my) {
     return true;
   }
 
-  if (cogito_hit_rect(mx, my, ly.ok_x, ly.ok_y, ly.ok_w, ly.ok_h)) {
+  if (cogito_hit_rect_min48(mx, my, ly.ok_x, ly.ok_y, ly.ok_w, ly.ok_h)) {
     bool changed = false;
     if (owner && owner->kind == COGITO_TIMEPICKER) {
       cogito_timepicker_ensure_time(owner);
@@ -132,23 +132,23 @@ static bool cogito_timepicker_hit_panel(CogitoNode* panel, int mx, int my) {
   }
 
   bool needs_relayout = false;
-  if (cogito_hit_rect(mx, my, ly.hour_x, ly.hour_y, ly.hour_w, ly.hour_h)) {
+  if (cogito_hit_rect_min48(mx, my, ly.hour_x, ly.hour_y, ly.hour_w, ly.hour_h)) {
     if (panel->timepicker.mode != COGITO_TIMEPICKER_MODE_HOUR) {
       panel->timepicker.mode = COGITO_TIMEPICKER_MODE_HOUR;
       needs_relayout = true;
     }
-  } else if (cogito_hit_rect(mx, my, ly.minute_x, ly.minute_y, ly.minute_w, ly.minute_h)) {
+  } else if (cogito_hit_rect_min48(mx, my, ly.minute_x, ly.minute_y, ly.minute_w, ly.minute_h)) {
     if (panel->timepicker.mode != COGITO_TIMEPICKER_MODE_MINUTE) {
       panel->timepicker.mode = COGITO_TIMEPICKER_MODE_MINUTE;
       needs_relayout = true;
     }
-  } else if (cogito_hit_rect(mx, my, ly.ampm_x, ly.ampm_y, ly.ampm_w, ly.ampm_split_h)) {
+  } else if (cogito_hit_rect_min48(mx, my, ly.ampm_x, ly.ampm_y, ly.ampm_w, ly.ampm_split_h)) {
     if (panel->timepicker.hour >= 12) {
       panel->timepicker.hour -= 12;
       panel->timepicker.ampm = false;
       needs_relayout = true;
     }
-  } else if (cogito_hit_rect(mx, my, ly.ampm_x, ly.ampm_y + ly.ampm_split_h, ly.ampm_w, ly.ampm_h - ly.ampm_split_h)) {
+  } else if (cogito_hit_rect_min48(mx, my, ly.ampm_x, ly.ampm_y + ly.ampm_split_h, ly.ampm_w, ly.ampm_h - ly.ampm_split_h)) {
     if (panel->timepicker.hour < 12) {
       panel->timepicker.hour += 12;
       panel->timepicker.ampm = true;

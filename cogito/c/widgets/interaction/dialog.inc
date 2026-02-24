@@ -36,18 +36,20 @@ static void cogito_dialog_slot_show(ErgoVal slotv, ErgoVal dialogv) {
   if (dialogv.tag != EVT_OBJ) ergo_trap("cogito.dialog_slot_show expects dialog");
   CogitoNode* slot = (CogitoNode*)slotv.as.p;
   CogitoNode* dlg = (CogitoNode*)dialogv.as.p;
+  CogitoNode* win = cogito_node_window(slot);
+  cogito_overlay_focus_snapshot();
   if (slot->dialog) ergo_release_val(EV_OBJ(slot->dialog));
   slot->dialog = dlg;
   slot->dialog_open = true;
   dlg->parent = slot;
   ergo_retain_val(EV_OBJ(dlg));
-  CogitoNode* win = cogito_node_window(slot);
   if (win) {
     win->dialog = slot;
     win->dialog_open = true;
   }
   cogito_apply_style_tree(dlg);
   cogito_window_relayout(cogito_node_window(slot));
+  cogito_a11y_emit_event("overlay-open", dlg, "dialog");
 }
 static void cogito_dialog_slot_clear(ErgoVal slotv) {
   if (slotv.tag != EVT_OBJ) ergo_trap("cogito.dialog_slot_clear expects dialog slot");
@@ -57,7 +59,9 @@ static void cogito_dialog_slot_clear(ErgoVal slotv) {
   if (win && win->dialog == slot) {
     win->dialog_open = false;
   }
+  cogito_overlay_focus_restore(win ? win : slot);
   cogito_window_relayout(cogito_node_window(slot));
+  cogito_a11y_emit_event("overlay-close", slot, "dialog");
 }
 static void cogito_dialog_close(ErgoVal dialogv) {
   if (dialogv.tag != EVT_OBJ) ergo_trap("cogito.dialog_close expects dialog");
@@ -68,20 +72,26 @@ static void cogito_dialog_close(ErgoVal dialogv) {
     if (win && win->dialog == dlg->parent) {
       win->dialog_open = false;
     }
+    cogito_overlay_focus_restore(win ? win : dlg->parent);
     cogito_window_relayout(cogito_node_window(dlg->parent));
+    cogito_a11y_emit_event("overlay-close", dlg, "dialog");
     return;
   }
   // Fallback for legacy direct-window dialogs or detached dialog objects.
   CogitoNode* win = cogito_node_window(dlg);
   if (win && win->dialog == dlg) {
     win->dialog_open = false;
+    cogito_overlay_focus_restore(win);
     cogito_window_relayout(win);
+    cogito_a11y_emit_event("overlay-close", dlg, "dialog");
     return;
   }
   if (win && win->dialog && win->dialog->kind == COGITO_DIALOG_SLOT && win->dialog->dialog == dlg) {
     win->dialog->dialog_open = false;
     win->dialog_open = false;
+    cogito_overlay_focus_restore(win);
     cogito_window_relayout(win);
+    cogito_a11y_emit_event("overlay-close", dlg, "dialog");
   }
 }
 static void cogito_dialog_remove(ErgoVal dialogv) {

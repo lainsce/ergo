@@ -1,6 +1,8 @@
 static void cogito_invoke_change(CogitoNode* n);
 static CogitoNode* cogito_root(CogitoNode* n);
 static bool cogito_hit_node(CogitoNode* n, int x, int y);
+static bool cogito_hit_rect_min48(int x, int y, int rx, int ry, int rw, int rh);
+static bool cogito_hit_node_min48(const CogitoNode* n, int x, int y);
 static void cogito_clear_children(CogitoNode* node);
 static void cogito_node_set_class(ErgoVal nodev, ErgoVal classv);
 
@@ -53,6 +55,7 @@ static void cogito_invoke_click(CogitoNode* n) {
   }
   ErgoVal arg = EV_OBJ(n);
   cogito_invoke(n->on_click, 1, &arg);
+  cogito_a11y_emit_event("activate", n, "click");
 }
 
 static void cogito_invoke_menu(CogitoNode* n, size_t idx) {
@@ -72,6 +75,7 @@ static void cogito_invoke_change(CogitoNode* n) {
   if (!n || !n->on_change) return;
   ErgoVal arg = EV_OBJ(n);
   cogito_invoke(n->on_change, 1, &arg);
+  cogito_a11y_emit_event("value-changed", n, "");
 }
 
 static void cogito_invoke_select(CogitoNode* n, int idx, bool activate) {
@@ -198,6 +202,14 @@ static bool cogito_hit_rect(int x, int y, int rx, int ry, int rw, int rh) {
   return x >= rx && y >= ry && x <= rx + rw && y <= ry + rh;
 }
 
+static bool cogito_hit_rect_min48(int x, int y, int rx, int ry, int rw, int rh) {
+  int hit_w = rw < 48 ? 48 : rw;
+  int hit_h = rh < 48 ? 48 : rh;
+  int hit_x = rx - (hit_w - rw) / 2;
+  int hit_y = ry - (hit_h - rh) / 2;
+  return cogito_hit_rect(x, y, hit_x, hit_y, hit_w, hit_h);
+}
+
 static bool cogito_hit_node(CogitoNode* n, int x, int y) {
   return cogito_hit_rect(x, y, n->x, n->y, n->w, n->h);
 }
@@ -205,11 +217,7 @@ static bool cogito_hit_node(CogitoNode* n, int x, int y) {
 // Expanded hit test: inflates the hit rect to a minimum of 48×48dp (centered),
 // so small interactive widgets meet the accessibility touch-target requirement (§11.1).
 static bool cogito_hit_node_min48(const CogitoNode* n, int x, int y) {
-  int hit_w = n->w < 48 ? 48 : n->w;
-  int hit_h = n->h < 48 ? 48 : n->h;
-  int hit_x = n->x - (hit_w - n->w) / 2;
-  int hit_y = n->y - (hit_h - n->h) / 2;
-  return cogito_hit_rect(x, y, hit_x, hit_y, hit_w, hit_h);
+  return cogito_hit_rect_min48(x, y, n->x, n->y, n->w, n->h);
 }
 
 static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
@@ -288,7 +296,7 @@ static CogitoNode* cogito_find_clickable(CogitoNode* n, int x, int y) {
       n->kind == COGITO_SETTINGS_WINDOW ||
       n->kind == COGITO_EMPTY_PAGE || n->kind == COGITO_WELCOME_SCREEN ||
       n->kind == COGITO_ABOUT_WINDOW) {
-    if (cogito_hit_node(n, x, y)) return n;
+    if (cogito_hit_node_min48(n, x, y)) return n;
   }
   // Small interactive widgets: expand hit target to 48×48dp minimum (§11.1 Accessibility).
   // The visual size is unchanged; only the clickable/hover detection area is enlarged.
@@ -342,6 +350,11 @@ static bool cogito_node_focusable(const CogitoNode* n) {
     #include "widgets/interaction/focusable/stepper.inc"
     #include "widgets/interaction/focusable/buttongroup.inc"
     #include "widgets/interaction/focusable/searchfield.inc"
+    case COGITO_SPLIT_BUTTON:
+    case COGITO_TABS:
+    case COGITO_TIMEPICKER:
+    case COGITO_TREEVIEW:
+      return true;
     default:
       return false;
   }

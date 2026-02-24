@@ -37,8 +37,8 @@ static ErgoVal cogito_stepper_get_value(ErgoVal nodev) {
 }
 static void cogito_stepper_hit_test(CogitoNode* n, int mx, int my) {
   int btn_w = n->h;
-  n->stepper.hit_minus = cogito_hit_rect(mx, my, n->x, n->y, btn_w, n->h);
-  n->stepper.hit_plus = cogito_hit_rect(mx, my, n->x + n->w - btn_w, n->y, btn_w, n->h);
+  n->stepper.hit_minus = cogito_hit_rect_min48(mx, my, n->x, n->y, btn_w, n->h);
+  n->stepper.hit_plus = cogito_hit_rect_min48(mx, my, n->x + n->w - btn_w, n->y, btn_w, n->h);
 }
 
 static CogitoNode* cogito_find_stepper_hit(CogitoNode* n, int x, int y) {
@@ -56,8 +56,8 @@ static CogitoNode* cogito_find_stepper_hit(CogitoNode* n, int x, int y) {
 }
 static void cogito_stepper_click(CogitoNode* n, int mx, int my) {
   int btn_w = n->h;
-  bool hit_minus = cogito_hit_rect(mx, my, n->x, n->y, btn_w, n->h);
-  bool hit_plus = cogito_hit_rect(mx, my, n->x + n->w - btn_w, n->y, btn_w, n->h);
+  bool hit_minus = cogito_hit_rect_min48(mx, my, n->x, n->y, btn_w, n->h);
+  bool hit_plus = cogito_hit_rect_min48(mx, my, n->x + n->w - btn_w, n->y, btn_w, n->h);
   double prev = n->stepper.value;
   if (hit_minus && n->stepper.value > n->stepper.min) {
     n->stepper.value -= n->stepper.step;
