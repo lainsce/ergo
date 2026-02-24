@@ -4,6 +4,12 @@ bring stdr
 bring cogito
 
 def app = cogito.app()
+def ?drawing_tool = @"Pen"
+def ?shape_phase = 0.0
+def ?shape_paused = true
+def ?shape_armed = false
+def ?shape_timer_id = 0
+def ?shape_instruction_text = @"5 - Inhale"
 
 macro clicked_message() (( string )) {
     @"$this button clicked."
@@ -1214,62 +1220,148 @@ fun build_image_page() (( cogito.VStack )) {
 fun build_drawing_area_page() (( cogito.VStack )) {
     let vstack = build_page(@"DrawingArea", @"DrawingArea captures press, drag, and release gestures. Use the pen toggle and eraser to switch tools.")
 
-    let status = cogito.label(@"Pointer: (0, 0)")
+    let status = cogito.label(@"Tool: Pen | Event: Idle | Pointer: (0, 0)")
     .set_class(@"body")
     vstack.add(status)
+
+    let hint = cogito.label(@"Press inside the area, drag continuously, then release. Status updates on every drag event.")
+    .set_class(@"caption")
+    .set_wrap(true)
+    vstack.add(hint)
+
+    drawing_tool = @"Pen"
+
+    let pen_btn = cogito.iconbtn(@"sf:pencil")
+    .set_toggle(true)
+    .set_checked(true)
+    .on_click((b = cogito.IconButton) => {
+        b.set_checked(true)
+        drawing_tool = @"Pen"
+        status.set_text(@"Tool: Pen | Event: Tool Changed")
+    })
+
+    let eraser_btn = cogito.iconbtn(@"sf:eraser")
+    .set_toggle(true)
+    .set_checked(false)
+    .on_click((b = cogito.IconButton) => {
+        b.set_checked(true)
+        pen_btn.set_checked(false)
+        drawing_tool = @"Eraser"
+        status.set_text(@"Tool: Eraser | Event: Tool Changed")
+    })
 
     let area_row = cogito.hstack()
     .set_hexpand(true)
     .set_gap(12)
 
-    area_row.add(cogito.label(@" ").set_hexpand(true))
+    area_row.add(cogito.label(@"").set_hexpand(true))
 
     let area = cogito.drawing_area()
     .set_class(@"outlined")
+    .set_hexpand(true)
     .on_press((a = cogito.DrawingArea) => {
-        status.set_text(@"Press at ($a.get_x(), $a.get_y())")
+        let tool = drawing_tool
+        status.set_text(@"Tool: $tool | Event: Press | Pointer: ($a.get_x(), $a.get_y())")
     })
     .on_drag((a = cogito.DrawingArea) => {
-        status.set_text(@"Drag at ($a.get_x(), $a.get_y())")
+        let tool = drawing_tool
+        status.set_text(@"Tool: $tool | Event: Drag | Pointer: ($a.get_x(), $a.get_y())")
     })
     .on_release((a = cogito.DrawingArea) => {
-        status.set_text(@"Release at ($a.get_x(), $a.get_y())")
+        let tool = drawing_tool
+        status.set_text(@"Tool: $tool | Event: Release | Pointer: ($a.get_x(), $a.get_y())")
     })
     area_row.add(area)
 
-    area_row.add(cogito.label(@" ").set_hexpand(true))
+    area_row.add(cogito.label(@"").set_hexpand(true))
     vstack.add(area_row)
 
     let controls = cogito.hstack()
     .set_hexpand(true)
     .set_gap(12)
 
-    controls.add(cogito.label(@" ").set_hexpand(true))
-
-    let pen_btn = cogito.iconbtn(@"sf:pencil")
-    .set_toggle(true)
-    .set_checked(true)
-    .on_click((b = cogito.IconButton) => {
-        status.set_text(@"Tool: Pen")
-
-        b.set_checked(true)
-    })
+    controls.add(cogito.label(@"").set_hexpand(true))
     controls.add(pen_btn)
-
-    let eraser_btn = cogito.iconbtn(@"sf:eraser")
-    .set_toggle(true)
-    .on_click((b = cogito.IconButton) => {
-        status.set_text(@"Tool: Eraser")
-
-        b.set_checked(true)
-        pen_btn.set_checked(false)
-    })
     controls.add(eraser_btn)
 
-    controls.add(cogito.label(@" ").set_hexpand(true))
+    controls.add(cogito.label(@"").set_hexpand(true))
     vstack.add(controls)
 
     return vstack
+}
+
+fun session_breath_multiplier(phase = num, min_multiplier = num) (( num )) {
+    if phase < 0.25 {
+        return min_multiplier + (phase * 4.0) * (1.0 - min_multiplier)
+    } elif phase < 0.5 {
+        return 1.0
+    } elif phase < 0.75 {
+        return 1.0 - ((phase - 0.5) * 4.0) * (1.0 - min_multiplier)
+    }
+    return min_multiplier
+}
+
+fun session_countdown5(progress = num) (( num )) {
+    let p = progress * 5.0
+    if p < 1.0 { return 5 }
+    elif p < 2.0 { return 4 }
+    elif p < 3.0 { return 3 }
+    elif p < 4.0 { return 2 }
+    return 1
+}
+
+fun session_wrap_phase(v = num) (( num )) {
+    if v >= 1.0 { return v - 1.0 }
+    return v
+}
+
+fun session_add(a = num, b = num) (( num )) {
+    return a + b
+}
+
+fun session_phase_label(phase = num) (( string )) {
+    if phase < 0.25 {
+        return @"Inhale"
+    } elif phase < 0.5 {
+        return @"Hold"
+    } elif phase < 0.75 {
+        return @"Exhale"
+    }
+    return @"Hold"
+}
+
+fun session_phase_progress(phase = num) (( num )) {
+    if phase < 0.25 {
+        return phase * 4.0
+    } elif phase < 0.5 {
+        return (phase - 0.25) * 4.0
+    } elif phase < 0.75 {
+        return (phase - 0.5) * 4.0
+    }
+    return (phase - 0.75) * 4.0
+}
+
+fun session_layer_size(base_size = num, phase = num, min_multiplier = num, layer_index = num, layer_count = num) (( num )) {
+    let lag = layer_index * 0.015
+    let staggered_phase = if phase >= lag { phase - lag } else { phase - lag + 1.0 }
+    let mult = session_breath_multiplier(staggered_phase, min_multiplier)
+    let radius_factor = 1.0 - (0.9 * layer_index / (layer_count - 1.0))
+    let size = base_size * radius_factor * mult
+    if size < 24.0 { return 24.0 }
+    return size
+}
+
+fun session_apply_scaled_vertices(target = cogito.Shape, template = cogito.Shape, scale = num) (( -- )) {
+    let ?s = scale
+    if s < 0.01 { s = 0.01 }
+    if s > 1.0 { s = 1.0 }
+    for (let ?i = 0; i < 128; i += 1) {
+        let bx = template.get_vertex_x(i)
+        let by = template.get_vertex_y(i)
+        let x = 0.5 + (bx - 0.5) * s
+        let y = 0.5 + (by - 0.5) * s
+        target.set_vertex(i, x, y)
+    }
 }
 
 fun build_shape_gallery_page() (( cogito.VStack )) {
@@ -1282,25 +1374,145 @@ fun build_shape_gallery_page() (( cogito.VStack )) {
     let burst_col = cogito.vstack()
     .set_gap(8)
     .add(cogito.shape(23)
-        .set_class(@"filled"))
+        .set_class(@"primary"))
     .add(cogito.label(@"Burst").set_class(@"caption"))
 
     let flower_col = cogito.vstack()
     .set_gap(8)
     .add(cogito.shape(27)
-        .set_class(@"tonal"))
+    .set_class(@"secondary"))
     .add(cogito.label(@"Flower").set_class(@"caption"))
 
     let sunny_col = cogito.vstack()
     .set_gap(8)
     .add(cogito.shape(15)
-        .set_class(@"tertiary"))
+    .set_class(@"tertiary"))
     .add(cogito.label(@"Sunny").set_class(@"caption"))
 
     row.add(burst_col)
     row.add(flower_col)
     row.add(sunny_col)
     vstack.add(row)
+
+    let section = cogito.label(@"Shape Breathing Animation")
+    .set_class(@"heading")
+    vstack.add(section)
+
+    shape_instruction_text = @"5 - Inhale"
+    let instruction = cogito.label(shape_instruction_text)
+    .set_class(@"body")
+    vstack.add(instruction)
+
+    if shape_timer_id != 0 {
+        cogito.clear_timer(shape_timer_id)
+        shape_timer_id = 0
+    }
+    shape_phase = 0.0
+    shape_paused = true
+    shape_armed = false
+    let min_multiplier = 0.6
+    let layer_count = 3.0
+    let base_size = 256.0
+
+    let layer0 = cogito.shape(15).set_size(256).set_color(@"#B0B5FE")
+    let layer1 = cogito.shape(15).set_size(256).set_color(@"#E3ED86")
+    let center = cogito.shape(27).set_size(256).set_color(@"#23398D")
+    let anchor = cogito.shape(15).set_size(256).set_color(@"transparent")
+    let layer0_base = cogito.shape(15).set_size(256)
+    let layer1_base = cogito.shape(15).set_size(256)
+    let center_base = cogito.shape(27).set_size(256)
+    let center_scale = 24.0 / 256.0
+
+    let render = () => {
+        let wrapped = shape_phase
+
+        let progress = session_phase_progress(wrapped)
+        let second = session_countdown5(progress)
+        let instruction_text = session_phase_label(wrapped)
+        let next_instruction = @"$second - $instruction_text"
+        if next_instruction != shape_instruction_text {
+            shape_instruction_text = next_instruction
+            instruction.set_text(next_instruction)
+        }
+
+        let scale0 = session_layer_size(base_size, wrapped, min_multiplier, 0.0, layer_count) / base_size
+        let scale1 = session_layer_size(base_size, wrapped, min_multiplier, 1.0, layer_count) / base_size
+        session_apply_scaled_vertices(layer0, layer0_base, scale0)
+        session_apply_scaled_vertices(layer1, layer1_base, scale1)
+        session_apply_scaled_vertices(center, center_base, center_scale)
+    }
+
+    let tick = () => {
+        shape_phase = session_wrap_phase(session_add(shape_phase, 0.002))
+        render()
+    }
+
+    let stop_timer = () => {
+        if shape_timer_id != 0 {
+            cogito.clear_timer(shape_timer_id)
+            shape_timer_id = 0
+        }
+    }
+    let start_timer = () => {
+        if shape_timer_id == 0 && shape_armed && !shape_paused {
+            shape_timer_id = cogito.set_interval_for(center, 50, () => {
+                tick()
+            })
+        }
+    }
+
+    let stack = cogito.zstack()
+    .set_align(4)
+    .set_hexpand(true)
+    .add(anchor)
+    .add(layer0)
+    .add(layer1)
+    .add(center)
+
+    render()
+    vstack.add(stack)
+
+    let controls = cogito.hstack()
+    .set_gap(12)
+
+    let play_button = cogito.button(@"Play")
+    .set_class(@"filled")
+    .on_click((b = cogito.Button) => {
+        shape_armed = true
+        shape_paused = false
+        tick()
+        start_timer()
+    })
+    controls.add(play_button)
+
+    let pause_button = cogito.button(@"Pause / Resume")
+    .set_class(@"outlined")
+    .on_click((b = cogito.Button) => {
+        if shape_armed {
+            let now_paused = !shape_paused
+            shape_paused = now_paused
+            if now_paused {
+                stop_timer()
+            } else {
+                start_timer()
+            }
+        }
+    })
+    controls.add(pause_button)
+
+    let reset_button = cogito.button(@"Reset")
+    .set_class(@"text")
+    .on_click((b = cogito.Button) => {
+        shape_phase = 0.0
+        shape_paused = true
+        shape_armed = false
+        shape_instruction_text = @"5 - Inhale"
+        instruction.set_text(shape_instruction_text)
+        stop_timer()
+        render()
+    })
+    controls.add(reset_button)
+    vstack.add(controls)
 
     return vstack
 }
@@ -2057,10 +2269,6 @@ fun build_ui(win = cogito.Window) (( -- )) {
     .add(@"drawing_area", (vs = cogito.ViewSwitcher) => build_drawing_area_page())
     .add(@"shape_gallery", (vs = cogito.ViewSwitcher) => build_shape_gallery_page())
 
-    let selected_idx = 0
-    views.set_active(view_id_from_index(selected_idx))
-    content_bar.set_title(view_title_from_index(selected_idx))
-
     let sidebar = cogito.vstack()
     .set_class(@"sidebar")
     .set_vexpand(true)
@@ -2120,9 +2328,15 @@ fun build_ui(win = cogito.Window) (( -- )) {
     .add(cogito.label(@"DrawingArea").set_padding(10,16,10,16))
     .add(cogito.label(@"Shape Gallery").set_padding(10,16,10,16))
     .on_select((idx) => {
-        views.set_active(view_id_from_index(idx))
+        let vid = view_id_from_index(idx)
+        views.set_active(vid)
         content_bar.set_title(view_title_from_index(idx))
     })
+
+    let selected_idx = 0
+    let initial_view = view_id_from_index(selected_idx)
+    views.set_active(initial_view)
+    content_bar.set_title(view_title_from_index(selected_idx))
 
     let sidebar_scroller = cogito.scroller()
     .set_class(@"sidebar")

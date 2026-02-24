@@ -94,6 +94,9 @@ static void cogito_apply_theme(bool dark, CogitoColor accent);
 #ifndef COGITO_SHAPE_SVG_POLY_MAX
 #define COGITO_SHAPE_SVG_POLY_MAX 1024 // Max vertices for SVG polygon shapes (e.g. from icon paths)
 #endif
+#ifndef COGITO_DRAWING_AREA_MAX_POINTS
+#define COGITO_DRAWING_AREA_MAX_POINTS 8192
+#endif
 #define COGITO_NAV_RAIL_COLLAPSED_INDICATOR_HEIGHT 32 // Cogito Expressive: 32dp indicator height
 #define COGITO_NAV_RAIL_COLLAPSED_INDICATOR_NO_LABEL_HEIGHT 56 // Icon-only mode: taller indicator to center icon
 #define COGITO_NAV_RAIL_COLLAPSED_ICON_Y_OFFSET 4 // Center icon in 32dp indicator
@@ -597,6 +600,7 @@ typedef struct CogitoNode {
   ErgoFn* on_activate;
   ErgoFn* builder;
   ErgoFn* on_action;
+  ErgoFn* on_draw;
 
   // State
   ErgoVal group;
@@ -923,11 +927,18 @@ typedef struct CogitoNode {
       int pointer_y;
       int press_x;
       int press_y;
+      int point_count;
+      int points_x[COGITO_DRAWING_AREA_MAX_POINTS];
+      int points_y[COGITO_DRAWING_AREA_MAX_POINTS];
+      CogitoColor canvas_color;
+      int canvas_line_width;
     } drawing_area;
     struct {
       int preset;
       int size_dp;
       int color_style; // 0=custom, 1=primary, 2=secondary, 3=tertiary
+      bool custom_color_set;
+      CogitoColor custom_color;
       float vertices[COGITO_SHAPE_VERTEX_COUNT * 2];
       int svg_poly_count;
       float svg_poly[COGITO_SHAPE_SVG_POLY_MAX * 2];
@@ -1026,6 +1037,7 @@ static CogitoNode* cogito_colorpicker_active = NULL;
 static int cogito_colorpicker_channel = -1;
 static CogitoNode* cogito_timepicker_active = NULL;
 static CogitoNode* cogito_pointer_capture = NULL;
+static CogitoNode* cogito_canvas_active = NULL;
 static CogitoNode* cogito_tooltip_hovered = NULL;
 static CogitoApp* cogito_active_app = NULL;
 static CogitoNode* cogito_active_window = NULL;

@@ -157,9 +157,16 @@ fun __cogito_drawing_area() (( DrawingArea )) { }
 fun __cogito_drawing_area_on_press(area = DrawingArea, handler = any) (( -- )) { }
 fun __cogito_drawing_area_on_drag(area = DrawingArea, handler = any) (( -- )) { }
 fun __cogito_drawing_area_on_release(area = DrawingArea, handler = any) (( -- )) { }
+fun __cogito_drawing_area_on_draw(area = DrawingArea, handler = any) (( -- )) { }
 fun __cogito_drawing_area_get_x(area = DrawingArea) (( num )) { }
 fun __cogito_drawing_area_get_y(area = DrawingArea) (( num )) { }
 fun __cogito_drawing_area_get_pressed(area = DrawingArea) (( bool )) { }
+fun __cogito_drawing_area_clear(area = DrawingArea) (( -- )) { }
+fun __cogito_canvas_set_color(ctx = any, color = any) (( -- )) { }
+fun __cogito_canvas_set_line_width(ctx = any, width = num) (( -- )) { }
+fun __cogito_canvas_line(ctx = any, x1 = num, y1 = num, x2 = num, y2 = num) (( -- )) { }
+fun __cogito_canvas_rect(ctx = any, x = num, y = num, w = num, h = num) (( -- )) { }
+fun __cogito_canvas_fill_rect(ctx = any, x = num, y = num, w = num, h = num) (( -- )) { }
 fun __cogito_shape(preset = num) (( Shape )) { }
 fun __cogito_shape_set_preset(shape = Shape, preset = num) (( -- )) { }
 fun __cogito_shape_get_preset(shape = Shape) (( num )) { }
@@ -213,6 +220,13 @@ fun __cogito_progress_set_value(p = Progress, value = num) (( -- )) { }
 fun __cogito_progress_set_wavy(p = Progress, on = bool) (( -- )) { }
 fun __cogito_progress(value = num) (( Progress )) { }
 fun __cogito_run(app = App, win = Window) (( -- )) { }
+fun __cogito_timer_timeout(ms = num, handler = any) (( num )) { }
+fun __cogito_timer_interval(ms = num, handler = any) (( num )) { }
+fun __cogito_timer_timeout_for(node = any, ms = num, handler = any) (( num )) { }
+fun __cogito_timer_interval_for(node = any, ms = num, handler = any) (( num )) { }
+fun __cogito_timer_cancel(timer_id = num) (( bool )) { }
+fun __cogito_timer_cancel_for(node = any) (( -- )) { }
+fun __cogito_timer_cancel_all() (( -- )) { }
 fun __cogito_scroller_set_axes(scroller = Scroller, h = bool, v = bool) (( -- )) { }
 fun __cogito_scroller() (( Scroller )) { }
 fun __cogito_searchfield_get_text(sf = SearchField) (( string )) { }
@@ -3266,6 +3280,27 @@ fun set_script_dir(dir = string) (( -- )) {
 fun open_url(url = string) (( bool )) {
     return __cogito_open_url(url)
 }
+fun set_timeout(ms = num, handler = any) (( num )) {
+    return __cogito_timer_timeout(ms, handler)
+}
+fun set_interval(ms = num, handler = any) (( num )) {
+    return __cogito_timer_interval(ms, handler)
+}
+fun set_timeout_for(node = any, ms = num, handler = any) (( num )) {
+    return __cogito_timer_timeout_for(node, ms, handler)
+}
+fun set_interval_for(node = any, ms = num, handler = any) (( num )) {
+    return __cogito_timer_interval_for(node, ms, handler)
+}
+fun clear_timer(timer_id = num) (( bool )) {
+    return __cogito_timer_cancel(timer_id)
+}
+fun clear_timers_for(node = any) (( -- )) {
+    __cogito_timer_cancel_for(node)
+}
+fun clear_timers() (( -- )) {
+    __cogito_timer_cancel_all()
+}
 fun set_class(node = any, cls = string) (( -- )) {
     __cogito_node_set_class(node, cls)
 }
@@ -3672,6 +3707,10 @@ class DrawingArea {
         __cogito_drawing_area_on_release(this, handler)
         return this
     }
+    fun on_draw(this, handler = any) (( DrawingArea )) {
+        __cogito_drawing_area_on_draw(this, handler)
+        return this
+    }
     fun get_x(this) (( num )) {
         return __cogito_drawing_area_get_x(this)
     }
@@ -3680,6 +3719,30 @@ class DrawingArea {
     }
     fun get_pressed(this) (( bool )) {
         return __cogito_drawing_area_get_pressed(this)
+    }
+    fun clear(this) (( DrawingArea )) {
+        __cogito_drawing_area_clear(this)
+        return this
+    }
+    fun set_color(this, color = any) (( DrawingArea )) {
+        __cogito_canvas_set_color(this, color)
+        return this
+    }
+    fun set_line_width(this, width = num) (( DrawingArea )) {
+        __cogito_canvas_set_line_width(this, width)
+        return this
+    }
+    fun line(this, x1 = num, y1 = num, x2 = num, y2 = num) (( DrawingArea )) {
+        __cogito_canvas_line(this, x1, y1, x2, y2)
+        return this
+    }
+    fun rect(this, x = num, y = num, w = num, h = num) (( DrawingArea )) {
+        __cogito_canvas_rect(this, x, y, w, h)
+        return this
+    }
+    fun fill_rect(this, x = num, y = num, w = num, h = num) (( DrawingArea )) {
+        __cogito_canvas_fill_rect(this, x, y, w, h)
+        return this
     }
     fun set_margins(this, left = num, top = num, right = num, bottom = num) (( DrawingArea )) {
         __cogito_container_set_margins(this, left, top, right, bottom)
@@ -3699,6 +3762,29 @@ class DrawingArea {
     }
     fun set_id(this, id = string) (( DrawingArea )) {
         __cogito_node_set_id(this, id)
+        return this
+    }
+}
+
+class Canvas {
+    fun set_color(this, color = any) (( Canvas )) {
+        __cogito_canvas_set_color(this, color)
+        return this
+    }
+    fun set_line_width(this, width = num) (( Canvas )) {
+        __cogito_canvas_set_line_width(this, width)
+        return this
+    }
+    fun line(this, x1 = num, y1 = num, x2 = num, y2 = num) (( Canvas )) {
+        __cogito_canvas_line(this, x1, y1, x2, y2)
+        return this
+    }
+    fun rect(this, x = num, y = num, w = num, h = num) (( Canvas )) {
+        __cogito_canvas_rect(this, x, y, w, h)
+        return this
+    }
+    fun fill_rect(this, x = num, y = num, w = num, h = num) (( Canvas )) {
+        __cogito_canvas_fill_rect(this, x, y, w, h)
         return this
     }
 }

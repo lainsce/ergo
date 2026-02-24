@@ -4,6 +4,7 @@ static bool cogito_hit_node(CogitoNode* n, int x, int y);
 static bool cogito_hit_rect_min48(int x, int y, int rx, int ry, int rw, int rh);
 static bool cogito_hit_node_min48(const CogitoNode* n, int x, int y);
 static void cogito_clear_children(CogitoNode* node);
+static void cogito_timer_cancel_owner_tree(CogitoNode* root);
 static void cogito_node_set_class(ErgoVal nodev, ErgoVal classv);
 
 static void cogito_invoke(ErgoFn* fn, int argc, ErgoVal* argv) {
@@ -441,6 +442,7 @@ static void cogito_container_remove_child(CogitoNode* parent, CogitoNode* child)
     if (parent->children[i] == child) { idx = i; break; }
   }
   if (idx >= parent->len) return;
+  cogito_timer_cancel_owner_tree(parent->children[idx]);
   ergo_release_val(EV_OBJ(parent->children[idx]));
   for (size_t i = idx + 1; i < parent->len; i++) {
     parent->children[i - 1] = parent->children[i];
@@ -451,6 +453,7 @@ static void cogito_container_remove_child(CogitoNode* parent, CogitoNode* child)
 static void cogito_clear_children(CogitoNode* node) {
   if (!node || !node->children) return;
   for (size_t i = 0; i < node->len; i++) {
+    cogito_timer_cancel_owner_tree(node->children[i]);
     ergo_release_val(EV_OBJ(node->children[i]));
   }
   free(node->children);
@@ -460,5 +463,6 @@ static void cogito_clear_children(CogitoNode* node) {
 }
 
 #include "widgets/util/app.inc"
+#include "widgets/util/timer.inc"
 
 #include "widgets/util/node_api.inc"

@@ -1116,6 +1116,19 @@ static bool cogito_shape_point_inside_evenodd(const float* px, const float* py, 
   return inside;
 }
 
+static int cogito_shape_pixel_coverage_4x4(const float* px, const float* py, int point_count, int x, int y) {
+  const float offs[4] = {0.125f, 0.375f, 0.625f, 0.875f};
+  int hit = 0;
+  for (int oy = 0; oy < 4; oy++) {
+    for (int ox = 0; ox < 4; ox++) {
+      float sx = (float)x + offs[ox];
+      float sy = (float)y + offs[oy];
+      if (cogito_shape_point_inside_evenodd(px, py, point_count, sx, sy)) hit++;
+    }
+  }
+  return hit;
+}
+
 #define COGITO_SHAPE_MAX_POINTS COGITO_SHAPE_SVG_POLY_MAX
 
 static int cogito_shape_build_smooth_points(const float* px, const float* py, int point_count, float* out_x, float* out_y, int max_out, bool smooth_points) {
@@ -1230,28 +1243,99 @@ static void cogito_draw_shape_polygon(const float* px, const float* py, int in_p
   if (min_y > max_y) return;
   if (min_x > max_x) return;
 
+  int bbox_w = (max_x - min_x + 1);
+  int bbox_h = (max_y - min_y + 1);
+  if (bbox_w < 1) bbox_w = 1;
+  if (bbox_h < 1) bbox_h = 1;
+  int bbox_area = bbox_w * bbox_h;
+
+  // 4x4 supersampling is accurate but very expensive for large polygons.
+  // Keep it for small shapes and fall back to the cheaper AA scanline path
+  // for larger ones.
+  const int ssaa_area_limit = 4096;
   if (antialias && !smooth_points) {
-    // For literal SVG-like shapes, supersampled even-odd fill avoids scanline
-    // intersection pairing artifacts at sharp spikes.
-    const float offs[4] = {0.125f, 0.375f, 0.625f, 0.875f};
     const int samples = 16;
+    if (bbox_area <= ssaa_area_limit) {
+      // Small literal SVG-like shapes: full 4x4 SSAA for max fidelity.
+      for (int y = min_y; y <= max_y; y++) {
+        for (int x = min_x; x <= max_x; x++) {
+          int hit = cogito_shape_pixel_coverage_4x4(draw_x, draw_y, point_count, x, y);
+          if (hit <= 0) continue;
+          CogitoColor c = fill;
+          int a = (int)lroundf((float)fill.a * ((float)hit / (float)samples));
+          if (a <= 0) continue;
+          if (a > 255) a = 255;
+          c.a = (uint8_t)a;
+          cogito_backend->draw_rect(x, y, 1, 1, c);
+        }
+      }
+      goto shape_stroke;
+    }
+
+    // Large shapes: adaptive SSAA.
+    // Fill interior spans directly and supersample only the edge pixels.
+    float xs_adapt[64];
     for (int y = min_y; y <= max_y; y++) {
-      for (int x = min_x; x <= max_x; x++) {
-        int hit = 0;
-        for (int oy = 0; oy < 4; oy++) {
-          for (int ox = 0; ox < 4; ox++) {
-            float sx = (float)x + offs[ox];
-            float sy = (float)y + offs[oy];
-            if (cogito_shape_point_inside_evenodd(draw_x, draw_y, point_count, sx, sy)) hit++;
+      int n = cogito_shape_intersections(draw_x, draw_y, point_count, y, xs_adapt, 64);
+      for (int i = 0; i + 1 < n; i += 2) {
+        float x0 = xs_adapt[i];
+        float x1 = xs_adapt[i + 1];
+        if (x1 < x0) {
+          float t = x0;
+          x0 = x1;
+          x1 = t;
+        }
+        if (x1 <= x0) continue;
+
+        int left = (int)floorf(x0);
+        int right = (int)floorf(x1 - 1e-4f);
+        if (right < left) continue;
+
+        int span_w = right - left + 1;
+        if (span_w <= 2) {
+          // Very thin spans: sample every pixel.
+          for (int x = left; x <= right; x++) {
+            int hit = cogito_shape_pixel_coverage_4x4(draw_x, draw_y, point_count, x, y);
+            if (hit <= 0) continue;
+            CogitoColor c = fill;
+            int a = (int)lroundf((float)fill.a * ((float)hit / (float)samples));
+            if (a <= 0) continue;
+            if (a > 255) a = 255;
+            c.a = (uint8_t)a;
+            cogito_backend->draw_rect(x, y, 1, 1, c);
+          }
+          continue;
+        }
+
+        // Fill interior in one call.
+        int interior_x = left + 1;
+        int interior_w = span_w - 2;
+        if (interior_w > 0) {
+          cogito_backend->draw_rect(interior_x, y, interior_w, 1, fill);
+        }
+
+        // Sample only left and right edge pixels.
+        int hit_l = cogito_shape_pixel_coverage_4x4(draw_x, draw_y, point_count, left, y);
+        if (hit_l > 0) {
+          CogitoColor c = fill;
+          int a = (int)lroundf((float)fill.a * ((float)hit_l / (float)samples));
+          if (a > 255) a = 255;
+          if (a > 0) {
+            c.a = (uint8_t)a;
+            cogito_backend->draw_rect(left, y, 1, 1, c);
           }
         }
-        if (hit <= 0) continue;
-        CogitoColor c = fill;
-        int a = (int)lroundf((float)fill.a * ((float)hit / (float)samples));
-        if (a <= 0) continue;
-        if (a > 255) a = 255;
-        c.a = (uint8_t)a;
-        cogito_backend->draw_rect(x, y, 1, 1, c);
+
+        int hit_r = cogito_shape_pixel_coverage_4x4(draw_x, draw_y, point_count, right, y);
+        if (hit_r > 0) {
+          CogitoColor c = fill;
+          int a = (int)lroundf((float)fill.a * ((float)hit_r / (float)samples));
+          if (a > 255) a = 255;
+          if (a > 0) {
+            c.a = (uint8_t)a;
+            cogito_backend->draw_rect(right, y, 1, 1, c);
+          }
+        }
       }
     }
     goto shape_stroke;

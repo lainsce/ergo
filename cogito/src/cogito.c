@@ -156,6 +156,13 @@ static const char *cogito_font_bold_path_active = NULL;
 #define cogito_drawing_area_get_x cogito_drawing_area_get_x_ergo
 #define cogito_drawing_area_get_y cogito_drawing_area_get_y_ergo
 #define cogito_drawing_area_get_pressed cogito_drawing_area_get_pressed_ergo
+#define cogito_drawing_area_clear cogito_drawing_area_clear_ergo
+#define cogito_drawing_area_on_draw cogito_drawing_area_on_draw_ergo
+#define cogito_canvas_set_color cogito_canvas_set_color_ergo
+#define cogito_canvas_set_line_width cogito_canvas_set_line_width_ergo
+#define cogito_canvas_line cogito_canvas_line_ergo
+#define cogito_canvas_rect cogito_canvas_rect_ergo
+#define cogito_canvas_fill_rect cogito_canvas_fill_rect_ergo
 #define cogito_shape_new cogito_shape_new_ergo
 #define cogito_shape_set_preset cogito_shape_set_preset_ergo
 #define cogito_shape_get_preset cogito_shape_get_preset_ergo
@@ -482,6 +489,13 @@ static const char *cogito_font_bold_path_active = NULL;
 #undef cogito_drawing_area_get_x
 #undef cogito_drawing_area_get_y
 #undef cogito_drawing_area_get_pressed
+#undef cogito_drawing_area_clear
+#undef cogito_drawing_area_on_draw
+#undef cogito_canvas_set_color
+#undef cogito_canvas_set_line_width
+#undef cogito_canvas_line
+#undef cogito_canvas_rect
+#undef cogito_canvas_fill_rect
 #undef cogito_shape_new
 #undef cogito_shape_set_preset
 #undef cogito_shape_get_preset
@@ -686,6 +700,11 @@ typedef struct CogitoCbIndex {
   CogitoNode *node;
 } CogitoCbIndex;
 
+typedef struct CogitoCbDraw {
+  cogito_draw_fn fn;
+  void *user;
+} CogitoCbDraw;
+
 typedef struct CogitoHitTestAdapter {
   cogito_window *window;
   cogito_hit_test_fn fn;
@@ -723,6 +742,19 @@ static ErgoVal cogito_cb_index(void *env, int argc, ErgoVal *argv) {
     return EV_NULLV;
   int idx = (argc > 0) ? (int)ergo_as_int(argv[0]) : -1;
   cb->fn((cogito_node *)cb->node, idx, cb->user);
+  return EV_NULLV;
+}
+
+static ErgoVal cogito_cb_draw(void *env, int argc, ErgoVal *argv) {
+  CogitoCbDraw *cb = (CogitoCbDraw *)env;
+  if (!cb || !cb->fn)
+    return EV_NULLV;
+  CogitoNode *n = NULL;
+  if (argc > 0 && argv && argv[0].tag == EVT_OBJ)
+    n = (CogitoNode *)argv[0].as.p;
+  int width = (argc > 1 && argv) ? (int)ergo_as_int(argv[1]) : 0;
+  int height = (argc > 2 && argv) ? (int)ergo_as_int(argv[2]) : 0;
+  cb->fn((cogito_node *)n, width, height, cb->user);
   return EV_NULLV;
 }
 
@@ -837,6 +869,70 @@ bool cogito_open_url(const char *url) {
     return false;
   return cogito_backend->open_url(url);
 }
+
+cogito_timer_id cogito_timer_set_timeout(uint32_t delay_ms, cogito_timer_fn fn,
+                                         void *user) {
+  return (cogito_timer_id)cogito_timer_schedule_c(delay_ms, false, fn, user);
+}
+
+cogito_timer_id cogito_timer_set_interval(uint32_t interval_ms,
+                                          cogito_timer_fn fn, void *user) {
+  return (cogito_timer_id)cogito_timer_schedule_c(interval_ms, true, fn, user);
+}
+
+cogito_timer_id cogito_timer_set_timeout_ex(uint32_t delay_ms, cogito_timer_fn fn,
+                                            void *user,
+                                            cogito_timer_user_free_fn user_free) {
+  return (cogito_timer_id)cogito_timer_schedule_c_ex(
+      delay_ms, false, fn, user, (CogitoTimerUserFreeFn)user_free);
+}
+
+cogito_timer_id cogito_timer_set_interval_ex(
+    uint32_t interval_ms, cogito_timer_fn fn, void *user,
+    cogito_timer_user_free_fn user_free) {
+  return (cogito_timer_id)cogito_timer_schedule_c_ex(
+      interval_ms, true, fn, user, (CogitoTimerUserFreeFn)user_free);
+}
+
+cogito_timer_id cogito_timer_set_timeout_for(cogito_node *owner,
+                                             uint32_t delay_ms,
+                                             cogito_timer_fn fn, void *user) {
+  return (cogito_timer_id)cogito_timer_schedule_c_owner(
+      delay_ms, false, fn, user, (CogitoNode *)owner);
+}
+
+cogito_timer_id cogito_timer_set_interval_for(cogito_node *owner,
+                                              uint32_t interval_ms,
+                                              cogito_timer_fn fn, void *user) {
+  return (cogito_timer_id)cogito_timer_schedule_c_owner(
+      interval_ms, true, fn, user, (CogitoNode *)owner);
+}
+
+cogito_timer_id cogito_timer_set_timeout_for_ex(
+    cogito_node *owner, uint32_t delay_ms, cogito_timer_fn fn, void *user,
+    cogito_timer_user_free_fn user_free) {
+  return (cogito_timer_id)cogito_timer_schedule_c_owner_ex(
+      delay_ms, false, fn, user, (CogitoTimerUserFreeFn)user_free,
+      (CogitoNode *)owner);
+}
+
+cogito_timer_id cogito_timer_set_interval_for_ex(
+    cogito_node *owner, uint32_t interval_ms, cogito_timer_fn fn, void *user,
+    cogito_timer_user_free_fn user_free) {
+  return (cogito_timer_id)cogito_timer_schedule_c_owner_ex(
+      interval_ms, true, fn, user, (CogitoTimerUserFreeFn)user_free,
+      (CogitoNode *)owner);
+}
+
+bool cogito_timer_clear(cogito_timer_id timer_id) {
+  return cogito_timer_cancel_id((uint64_t)timer_id);
+}
+
+void cogito_timer_clear_for(cogito_node *owner) {
+  cogito_timer_cancel_owner((CogitoNode *)owner);
+}
+
+void cogito_timer_clear_all(void) { cogito_timer_clear_all_internal(); }
 
 cogito_window *cogito_window_new(const char *title, int w, int h) {
   ErgoVal tv = cogito_val_from_cstr(title);
@@ -1458,6 +1554,11 @@ bool cogito_drawing_area_get_pressed(cogito_node *area) {
   ErgoVal v = cogito_drawing_area_get_pressed_ergo(EV_OBJ(area));
   return ergo_as_bool(v);
 }
+void cogito_drawing_area_clear(cogito_node *area) {
+  if (!area)
+    return;
+  cogito_drawing_area_clear_ergo(EV_OBJ(area));
+}
 void cogito_drawing_area_on_press(cogito_node *area, cogito_node_fn fn,
                                   void *user) {
   cogito_node_on_click(area, fn, user);
@@ -1481,6 +1582,53 @@ void cogito_drawing_area_on_release(cogito_node *area, cogito_node_fn fn,
   ErgoFn *wrap = cogito_make_fn(cogito_cb_node, env);
   cogito_set_fn(&n->on_action, wrap);
   ergo_release_val(EV_FN(wrap));
+}
+void cogito_drawing_area_on_draw(cogito_node *area, cogito_draw_fn fn,
+                                 void *user) {
+  if (!area)
+    return;
+  CogitoNode *n = (CogitoNode *)area;
+  if (!fn) {
+    cogito_set_fn(&n->on_draw, NULL);
+    return;
+  }
+  CogitoCbDraw *env = (CogitoCbDraw *)calloc(1, sizeof(*env));
+  env->fn = fn;
+  env->user = user;
+  ErgoFn *wrap = cogito_make_fn(cogito_cb_draw, env);
+  cogito_set_fn(&n->on_draw, wrap);
+  ergo_release_val(EV_FN(wrap));
+}
+void cogito_canvas_set_color(cogito_node *area, const char *color) {
+  if (!area)
+    return;
+  ErgoVal cv = cogito_val_from_cstr(color);
+  cogito_canvas_set_color_ergo(EV_OBJ(area), cv);
+  if (cv.tag == EVT_STR)
+    ergo_release_val(cv);
+}
+void cogito_canvas_set_line_width(cogito_node *area, int width) {
+  if (!area)
+    return;
+  cogito_canvas_set_line_width_ergo(EV_OBJ(area), EV_INT(width));
+}
+void cogito_canvas_line(cogito_node *area, int x1, int y1, int x2, int y2) {
+  if (!area)
+    return;
+  cogito_canvas_line_ergo(EV_OBJ(area), EV_INT(x1), EV_INT(y1), EV_INT(x2),
+                          EV_INT(y2));
+}
+void cogito_canvas_rect(cogito_node *area, int x, int y, int w, int h) {
+  if (!area)
+    return;
+  cogito_canvas_rect_ergo(EV_OBJ(area), EV_INT(x), EV_INT(y), EV_INT(w),
+                          EV_INT(h));
+}
+void cogito_canvas_fill_rect(cogito_node *area, int x, int y, int w, int h) {
+  if (!area)
+    return;
+  cogito_canvas_fill_rect_ergo(EV_OBJ(area), EV_INT(x), EV_INT(y), EV_INT(w),
+                               EV_INT(h));
 }
 
 cogito_node *cogito_active_indicator_new(void) {

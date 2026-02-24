@@ -371,6 +371,8 @@ static bool cogito_fab_menu_keyboard_handle(CogitoNode* win) {
 static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (appv.tag != EVT_OBJ) ergo_trap("cogito.run expects app");
   if (winv.tag != EVT_OBJ) ergo_trap("cogito.run expects window");
+  // Timers are scoped to a single run lifecycle.
+  cogito_timer_clear_all_internal();
   CogitoApp* app = (CogitoApp*)appv.as.p;
   CogitoNode* win = (CogitoNode*)winv.as.p;
   const char* title = (win->text && win->text->data && win->text->data[
@@ -727,6 +729,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     if (cogito_active_app) {
       cogito_update_system_theme(appv);
     }
+    bool timer_fired = cogito_timer_dispatch_due();
+    if (timer_fired) cogito_queue_draw(win);
     // Only update inspector button metrics when the inspector is actually open
     if (cogito_inspector_open && inspector_window) {
       cogito_appbar_button_metrics(&inspector_traffic_btn, &inspector_traffic_gap, &inspector_traffic_pad_top, &inspector_traffic_pad_x);
@@ -1583,21 +1587,25 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     // Drawing area drag/release handling
     if (cogito_pointer_capture && cogito_pointer_capture->kind == COGITO_DRAWING_AREA) {
       CogitoNode* da = cogito_pointer_capture;
-      if (cogito_backend->is_mouse_button_down(0)) {
+      bool left_down_da = cogito_backend->is_mouse_button_down(0);
+      bool stroke_active = da->drawing_area.pressed || da->drawing_area.dragging;
+      if (left_down_da && da->drawing_area.pressed) {
         int px = mx - da->x;
         int py = my - da->y;
         if (px != da->drawing_area.pointer_x || py != da->drawing_area.pointer_y) {
           da->drawing_area.pointer_x = px;
           da->drawing_area.pointer_y = py;
+          cogito_drawing_area_add_point(da, px, py);
           da->drawing_area.dragging = true;
           cogito_invoke_change(da);
+          cogito_window_relayout(win);
         }
-      } else {
+      } else if (!left_down_da) {
         da->drawing_area.pointer_x = mx - da->x;
         da->drawing_area.pointer_y = my - da->y;
         da->drawing_area.pressed = false;
         da->drawing_area.dragging = false;
-        if (da->on_action) {
+        if (stroke_active && da->on_action) {
           ErgoVal arg = EV_OBJ(da);
           cogito_invoke(da->on_action, 1, &arg);
         }
@@ -2280,8 +2288,11 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             hit->drawing_area.pointer_y = my - hit->y;
             hit->drawing_area.press_x = hit->drawing_area.pointer_x;
             hit->drawing_area.press_y = hit->drawing_area.pointer_y;
+            cogito_drawing_area_begin_stroke(
+                hit, hit->drawing_area.pointer_x, hit->drawing_area.pointer_y);
             cogito_pointer_capture = hit;
             cogito_invoke_click(hit);
+            cogito_window_relayout(win);
           } else if (hit->kind == COGITO_FAB) {
             cogito_invoke_click(hit);
           } else if (hit->kind == COGITO_FAB_MENU) {
@@ -2488,6 +2499,9 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     }
 
     if (need_redraw) {
+      double __frame_start = (cogito_backend && cogito_backend->get_time)
+          ? cogito_backend->get_time()
+          : 0.0;
       // Rendering
     cogito_backend->begin_frame(window);
     cogito_spring_dt_update(); // Update per-frame dt for all spring integrations
@@ -2609,15 +2623,27 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       cogito_backend->end_frame(inspector_window);
       cogito_backend->present(inspector_window);
       }
+
+      // Cap continuous redraw loops to ~60 FPS to avoid saturating CPU.
+      if (cogito_backend && cogito_backend->get_time && cogito_backend->sleep) {
+        double __frame_end = cogito_backend->get_time();
+        double __elapsed = __frame_end - __frame_start;
+        const double __target = 1.0 / 60.0;
+        if (__elapsed < __target) {
+          uint32_t __sleep_ms = (uint32_t)((__target - __elapsed) * 1000.0);
+          if (__sleep_ms > 0) cogito_backend->sleep(__sleep_ms);
+        }
+      }
     } else {
       // Idle: wait for an event or timeout.
       // SDL_WaitEventTimeout on macOS/Metal may not truly block (compositor
       // events wake it immediately), so always follow with a short sleep.
-      cogito_backend->wait_event_timeout(100);
+      uint32_t wait_ms = cogito_timer_next_wait_ms(100);
+      cogito_backend->wait_event_timeout(wait_ms);
       struct timespec ts = {
         0,
-        8000000
-      }; // 8ms (~120Hz check rate)
+        wait_ms <= 8 ? 1000000 : 8000000
+      }; // 1-8ms sleep to avoid busy spin while keeping timer latency reasonable
       nanosleep(&ts, NULL);
     }
 #if defined(__APPLE__)
@@ -2625,6 +2651,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
 #endif
   }
   // Cleanup
+  cogito_timer_clear_all_internal();
   cogito_font_cache_clear();
   cogito_ft_library_done();
   cogito_icon_cache_clear();

@@ -124,6 +124,23 @@
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__cogito_drawing_area_on_draw")) {
+                        GenExpr da, handler;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &da, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &handler, err)) { gen_expr_free(&da); return false; }
+                        w_line(&cg->w, "cogito_drawing_area_on_draw(%s, %s);", da.tmp, handler.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", da.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", handler.tmp);
+                        gen_expr_release_except(cg, &da, da.tmp);
+                        gen_expr_release_except(cg, &handler, handler.tmp);
+                        gen_expr_free(&da);
+                        gen_expr_free(&handler);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__cogito_drawing_area_get_x")) {
                         GenExpr da;
                         if (!gen_expr(cg, path, e->as.call.args[0], &da, err)) return false;
@@ -156,6 +173,140 @@
                         w_line(&cg->w, "ergo_release_val(%s);", da.tmp);
                         gen_expr_release_except(cg, &da, da.tmp);
                         gen_expr_free(&da);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_drawing_area_clear")) {
+                        GenExpr da;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &da, err)) return false;
+                        w_line(&cg->w, "cogito_drawing_area_clear(%s);", da.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", da.tmp);
+                        gen_expr_release_except(cg, &da, da.tmp);
+                        gen_expr_free(&da);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_canvas_set_color")) {
+                        GenExpr ctx, colorv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &ctx, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &colorv, err)) { gen_expr_free(&ctx); return false; }
+                        w_line(&cg->w, "cogito_canvas_set_color(%s, %s);", ctx.tmp, colorv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", ctx.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", colorv.tmp);
+                        gen_expr_release_except(cg, &ctx, ctx.tmp);
+                        gen_expr_release_except(cg, &colorv, colorv.tmp);
+                        gen_expr_free(&ctx);
+                        gen_expr_free(&colorv);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_canvas_set_line_width")) {
+                        GenExpr ctx, widthv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &ctx, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &widthv, err)) { gen_expr_free(&ctx); return false; }
+                        w_line(&cg->w, "cogito_canvas_set_line_width(%s, %s);", ctx.tmp, widthv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", ctx.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", widthv.tmp);
+                        gen_expr_release_except(cg, &ctx, ctx.tmp);
+                        gen_expr_release_except(cg, &widthv, widthv.tmp);
+                        gen_expr_free(&ctx);
+                        gen_expr_free(&widthv);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_canvas_line")) {
+                        GenExpr ctx, x1, y1, x2, y2;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &ctx, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &x1, err)) { gen_expr_free(&ctx); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[2], &y1, err)) { gen_expr_free(&ctx); gen_expr_free(&x1); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[3], &x2, err)) { gen_expr_free(&ctx); gen_expr_free(&x1); gen_expr_free(&y1); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[4], &y2, err)) { gen_expr_free(&ctx); gen_expr_free(&x1); gen_expr_free(&y1); gen_expr_free(&x2); return false; }
+                        w_line(&cg->w, "cogito_canvas_line(%s, %s, %s, %s, %s);", ctx.tmp, x1.tmp, y1.tmp, x2.tmp, y2.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", ctx.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", x1.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", y1.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", x2.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", y2.tmp);
+                        gen_expr_release_except(cg, &ctx, ctx.tmp);
+                        gen_expr_release_except(cg, &x1, x1.tmp);
+                        gen_expr_release_except(cg, &y1, y1.tmp);
+                        gen_expr_release_except(cg, &x2, x2.tmp);
+                        gen_expr_release_except(cg, &y2, y2.tmp);
+                        gen_expr_free(&ctx);
+                        gen_expr_free(&x1);
+                        gen_expr_free(&y1);
+                        gen_expr_free(&x2);
+                        gen_expr_free(&y2);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_canvas_rect")) {
+                        GenExpr ctx, xv, yv, wv, hv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &ctx, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &xv, err)) { gen_expr_free(&ctx); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[2], &yv, err)) { gen_expr_free(&ctx); gen_expr_free(&xv); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[3], &wv, err)) { gen_expr_free(&ctx); gen_expr_free(&xv); gen_expr_free(&yv); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[4], &hv, err)) { gen_expr_free(&ctx); gen_expr_free(&xv); gen_expr_free(&yv); gen_expr_free(&wv); return false; }
+                        w_line(&cg->w, "cogito_canvas_rect(%s, %s, %s, %s, %s);", ctx.tmp, xv.tmp, yv.tmp, wv.tmp, hv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", ctx.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", xv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", yv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", wv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", hv.tmp);
+                        gen_expr_release_except(cg, &ctx, ctx.tmp);
+                        gen_expr_release_except(cg, &xv, xv.tmp);
+                        gen_expr_release_except(cg, &yv, yv.tmp);
+                        gen_expr_release_except(cg, &wv, wv.tmp);
+                        gen_expr_release_except(cg, &hv, hv.tmp);
+                        gen_expr_free(&ctx);
+                        gen_expr_free(&xv);
+                        gen_expr_free(&yv);
+                        gen_expr_free(&wv);
+                        gen_expr_free(&hv);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__cogito_canvas_fill_rect")) {
+                        GenExpr ctx, xv, yv, wv, hv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &ctx, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &xv, err)) { gen_expr_free(&ctx); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[2], &yv, err)) { gen_expr_free(&ctx); gen_expr_free(&xv); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[3], &wv, err)) { gen_expr_free(&ctx); gen_expr_free(&xv); gen_expr_free(&yv); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[4], &hv, err)) { gen_expr_free(&ctx); gen_expr_free(&xv); gen_expr_free(&yv); gen_expr_free(&wv); return false; }
+                        w_line(&cg->w, "cogito_canvas_fill_rect(%s, %s, %s, %s, %s);", ctx.tmp, xv.tmp, yv.tmp, wv.tmp, hv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", ctx.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", xv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", yv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", wv.tmp);
+                        w_line(&cg->w, "ergo_release_val(%s);", hv.tmp);
+                        gen_expr_release_except(cg, &ctx, ctx.tmp);
+                        gen_expr_release_except(cg, &xv, xv.tmp);
+                        gen_expr_release_except(cg, &yv, yv.tmp);
+                        gen_expr_release_except(cg, &wv, wv.tmp);
+                        gen_expr_release_except(cg, &hv, hv.tmp);
+                        gen_expr_free(&ctx);
+                        gen_expr_free(&xv);
+                        gen_expr_free(&yv);
+                        gen_expr_free(&wv);
+                        gen_expr_free(&hv);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
                         gen_expr_add(out, t);
                         out->tmp = t;
                         return true;

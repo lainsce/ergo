@@ -14,6 +14,8 @@ static bool cogito_val_equal(ErgoVal a, ErgoVal b) {
   return false;
 }
 
+static void cogito_timer_cancel_owner_tree(CogitoNode* root);
+
 static bool cogito_group_match(ErgoVal a, ErgoVal b) {
   if (a.tag != b.tag) return false;
   if (a.tag == EVT_STR) {
@@ -34,6 +36,7 @@ static bool cogito_str_eq(const ErgoStr* a, const ErgoStr* b) {
 
 static void cogito_node_drop(ErgoObj* o) {
   CogitoNode* n = (CogitoNode*)o;
+  cogito_timer_cancel_owner_tree(n);
   if (n->text) {
     ergo_release_val(EV_STR(n->text));
     n->text = NULL;
@@ -82,6 +85,10 @@ static void cogito_node_drop(ErgoObj* o) {
   if (n->on_action) {
     ergo_release_val(EV_FN(n->on_action));
     n->on_action = NULL;
+  }
+  if (n->on_draw) {
+    ergo_release_val(EV_FN(n->on_draw));
+    n->on_draw = NULL;
   }
   if (n->action_text) {
     ergo_release_val(EV_STR(n->action_text));

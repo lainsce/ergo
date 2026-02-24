@@ -287,6 +287,8 @@ static CogitoNode* cogito_shape_new_obj(int preset) {
   CogitoNode* n = cogito_node_new(COGITO_SHAPE);
   n->shape.size_dp = 96;
   n->shape.color_style = 0;
+  n->shape.custom_color_set = false;
+  n->shape.custom_color = cogito_color(24, 24, 33, 255);
   cogito_shape_apply_preset_node(n, preset);
   return n;
 }
@@ -315,6 +317,7 @@ static void cogito_shape_set_size(ErgoVal shapev, ErgoVal sizev) {
   CogitoNode* n = (CogitoNode*)shapev.as.p;
   int size_dp = (int)ergo_as_int(sizev);
   if (size_dp < 1) size_dp = 1;
+  if (n->shape.size_dp == size_dp) return;
   n->shape.size_dp = size_dp;
   cogito_window_relayout(cogito_node_window(n));
 }
@@ -333,7 +336,10 @@ static void cogito_shape_set_color_style(ErgoVal shapev, ErgoVal stylev) {
   if (style < 0) style = 0;
   if (style > 3) style = 3;
   n->shape.color_style = style;
-  if (style > 0) n->bg_set = false;
+  if (style > 0) {
+    n->shape.custom_color_set = false;
+    n->bg_set = false;
+  }
   cogito_window_relayout(cogito_node_window(n));
 }
 
@@ -355,7 +361,10 @@ static void cogito_shape_set_color(ErgoVal shapev, ErgoVal colorv) {
     if (style < 0) style = 0;
     if (style > 3) style = 3;
     n->shape.color_style = style;
-    if (style > 0) n->bg_set = false;
+    if (style > 0) {
+      n->shape.custom_color_set = false;
+      n->bg_set = false;
+    }
     cogito_window_relayout(cogito_node_window(n));
     return;
   }
@@ -364,18 +373,23 @@ static void cogito_shape_set_color(ErgoVal shapev, ErgoVal colorv) {
   const char* text = (s && s->data) ? s->data : "";
   if (strcmp(text, "primary") == 0 || strcmp(text, "Primary") == 0) {
     n->shape.color_style = 1;
+    n->shape.custom_color_set = false;
     n->bg_set = false;
   } else if (strcmp(text, "secondary") == 0 || strcmp(text, "Secondary") == 0) {
     n->shape.color_style = 2;
+    n->shape.custom_color_set = false;
     n->bg_set = false;
   } else if (strcmp(text, "tertiary") == 0 || strcmp(text, "Tertiary") == 0) {
     n->shape.color_style = 3;
+    n->shape.custom_color_set = false;
     n->bg_set = false;
   } else {
     const char* p = text;
     CogitoColor c = cogito_color(24, 24, 33, 255);
     if (cogito_css_parse_color(&p, &c)) {
       n->shape.color_style = 0;
+      n->shape.custom_color = c;
+      n->shape.custom_color_set = true;
       n->bg = c;
       n->bg_set = true;
     }
@@ -393,7 +407,8 @@ static void cogito_shape_set_vertex(ErgoVal shapev, ErgoVal idxv, ErgoVal xv, Er
   n->shape.vertices[idx * 2 + 0] = cogito_shape_clamp01(x);
   n->shape.vertices[idx * 2 + 1] = cogito_shape_clamp01(y);
   n->shape.svg_poly_count = 0;
-  cogito_window_relayout(cogito_node_window(n));
+  // Vertex edits change paint only; geometry/layout bounds remain unchanged.
+  cogito_queue_draw(cogito_node_window(n));
 }
 
 static ErgoVal cogito_shape_get_vertex_x(ErgoVal shapev, ErgoVal idxv) {

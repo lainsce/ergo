@@ -33,40 +33,7 @@
                 p = NULL;
             }
 
-            // 2) Installed stdlib locations
-            const char *installed_paths[] = {
-                "/opt/homebrew/share/ergo/stdlib/cogito.ergo",
-                "/usr/local/share/ergo/stdlib/cogito.ergo",
-                "/usr/share/ergo/stdlib/cogito.ergo",
-            };
-            for (size_t i = 0; i < sizeof(installed_paths) / sizeof(installed_paths[0]); i++) {
-                p = strdup(installed_paths[i]);
-                if (p && path_is_file(p)) {
-                    if (!load_file(p, root_dir, stdlib_dir, arena, visited, hash, err)) {
-                        free(p);
-                        return NULL;
-                    }
-                    free(p);
-                    goto found_cogito;
-                }
-                free(p);
-                p = NULL;
-            }
-
-            // 3) stdlib directory configured for this project
-            p = path_join(stdlib_dir, "cogito.ergo");
-            if (p && path_is_file(p)) {
-                if (!load_file(p, root_dir, stdlib_dir, arena, visited, hash, err)) {
-                    free(p);
-                    return NULL;
-                }
-                free(p);
-                goto found_cogito;
-            }
-            free(p);
-            p = NULL;
-
-            // 4) cwd-relative development paths
+            // 2) cwd-relative development paths (prefer local checkout)
             const char *cogito_paths[] = {
                 "cogito/cogito.ergo",
                 "cogito/_build/cogito.ergo",
@@ -91,6 +58,40 @@
                 free(p);
                 p = NULL;
             }
+
+            // 3) Installed stdlib locations
+            const char *installed_paths[] = {
+                "/opt/homebrew/share/ergo/stdlib/cogito.ergo",
+                "/usr/local/share/ergo/stdlib/cogito.ergo",
+                "/usr/share/ergo/stdlib/cogito.ergo",
+            };
+            for (size_t i = 0; i < sizeof(installed_paths) / sizeof(installed_paths[0]); i++) {
+                p = strdup(installed_paths[i]);
+                if (p && path_is_file(p)) {
+                    if (!load_file(p, root_dir, stdlib_dir, arena, visited, hash, err)) {
+                        free(p);
+                        return NULL;
+                    }
+                    free(p);
+                    goto found_cogito;
+                }
+                free(p);
+                p = NULL;
+            }
+
+            // 4) stdlib directory configured for this project
+            p = path_join(stdlib_dir, "cogito.ergo");
+            if (p && path_is_file(p)) {
+                if (!load_file(p, root_dir, stdlib_dir, arena, visited, hash, err)) {
+                    free(p);
+                    return NULL;
+                }
+                free(p);
+                goto found_cogito;
+            }
+            free(p);
+            p = NULL;
+
             // 5) Try relative to the executable
             //    Binary is at <project>/ergo/build/ergo, so cogito.ergo
             //    lives at <exe_dir>/../../cogito/{cogito.ergo,_build/cogito.ergo,build/cogito.ergo}

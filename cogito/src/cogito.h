@@ -12,9 +12,14 @@ extern "C" {
 typedef struct CogitoApp cogito_app;
 typedef struct CogitoNode cogito_node;
 typedef struct CogitoNode cogito_window;
+typedef uint64_t cogito_timer_id;
 
 typedef void (*cogito_node_fn)(cogito_node *node, void *user);
 typedef void (*cogito_index_fn)(cogito_node *node, int index, void *user);
+typedef void (*cogito_draw_fn)(cogito_node *node, int width, int height,
+                               void *user);
+typedef void (*cogito_timer_fn)(void *user);
+typedef void (*cogito_timer_user_free_fn)(void *user);
 typedef enum {
   COGITO_WINDOW_HITTEST_NORMAL = 0,
   COGITO_WINDOW_HITTEST_DRAGGABLE,
@@ -119,6 +124,31 @@ int cogito_accent_from_pixels(const unsigned char *pixels, int n_bytes,
 void cogito_app_set_icon(cogito_app *app, const char *path);
 const char *cogito_app_get_icon(cogito_app *app);
 bool cogito_open_url(const char *url);
+cogito_timer_id cogito_timer_set_timeout(uint32_t delay_ms,
+                                         cogito_timer_fn fn, void *user);
+cogito_timer_id cogito_timer_set_interval(uint32_t interval_ms,
+                                          cogito_timer_fn fn, void *user);
+cogito_timer_id cogito_timer_set_timeout_ex(uint32_t delay_ms,
+                                            cogito_timer_fn fn, void *user,
+                                            cogito_timer_user_free_fn user_free);
+cogito_timer_id cogito_timer_set_interval_ex(uint32_t interval_ms,
+                                             cogito_timer_fn fn, void *user,
+                                             cogito_timer_user_free_fn user_free);
+cogito_timer_id cogito_timer_set_timeout_for(cogito_node *owner,
+                                             uint32_t delay_ms,
+                                             cogito_timer_fn fn, void *user);
+cogito_timer_id cogito_timer_set_interval_for(cogito_node *owner,
+                                              uint32_t interval_ms,
+                                              cogito_timer_fn fn, void *user);
+cogito_timer_id cogito_timer_set_timeout_for_ex(
+    cogito_node *owner, uint32_t delay_ms, cogito_timer_fn fn, void *user,
+    cogito_timer_user_free_fn user_free);
+cogito_timer_id cogito_timer_set_interval_for_ex(
+    cogito_node *owner, uint32_t interval_ms, cogito_timer_fn fn, void *user,
+    cogito_timer_user_free_fn user_free);
+bool cogito_timer_clear(cogito_timer_id timer_id);
+void cogito_timer_clear_for(cogito_node *owner);
+void cogito_timer_clear_all(void);
 
 cogito_window *cogito_window_new(const char *title, int w, int h);
 void cogito_window_free(cogito_window *window);
@@ -416,9 +446,17 @@ void cogito_drawing_area_on_drag(cogito_node *area, cogito_node_fn fn,
                                  void *user);
 void cogito_drawing_area_on_release(cogito_node *area, cogito_node_fn fn,
                                     void *user);
+void cogito_drawing_area_on_draw(cogito_node *area, cogito_draw_fn fn,
+                                 void *user);
 int cogito_drawing_area_get_x(cogito_node *area);
 int cogito_drawing_area_get_y(cogito_node *area);
 bool cogito_drawing_area_get_pressed(cogito_node *area);
+void cogito_drawing_area_clear(cogito_node *area);
+void cogito_canvas_set_color(cogito_node *area, const char *color);
+void cogito_canvas_set_line_width(cogito_node *area, int width);
+void cogito_canvas_line(cogito_node *area, int x1, int y1, int x2, int y2);
+void cogito_canvas_rect(cogito_node *area, int x, int y, int w, int h);
+void cogito_canvas_fill_rect(cogito_node *area, int x, int y, int w, int h);
 void cogito_shape_set_preset(cogito_node *shape, int preset);
 int cogito_shape_get_preset(cogito_node *shape);
 void cogito_shape_set_size(cogito_node *shape, int size_dp);

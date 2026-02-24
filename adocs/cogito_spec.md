@@ -48,6 +48,11 @@ App metadata:
 - `cogito_app_set_icon(...)`
 - `cogito_app_get_icon(...)`
 - `cogito_open_url(...)`
+- Timer scheduling APIs:
+  `cogito_timer_set_timeout(...)`,
+  `cogito_timer_set_interval(...)`,
+  `cogito_timer_clear(...)`,
+  `cogito_timer_clear_all(...)`
 
 ### 3.2 Window Lifecycle
 
