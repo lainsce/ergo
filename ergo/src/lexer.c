@@ -983,6 +983,52 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
                     charvec_free(&buf_raw);
                     return set_error(&lx, err, start_line, start_col, "unterminated string");
                 }
+                if (c == '\\') {
+                    adv(&lx, 1);
+                    char e = peek(&lx, 0);
+                    if (e == 'n') {
+                        if (!charvec_push(&buf_raw, '\n', err, &lx)) { return false; }
+                        adv(&lx, 1);
+                    } else if (e == 't') {
+                        if (!charvec_push(&buf_raw, '\t', err, &lx)) { return false; }
+                        adv(&lx, 1);
+                    } else if (e == 'r') {
+                        if (!charvec_push(&buf_raw, '\r', err, &lx)) { return false; }
+                        adv(&lx, 1);
+                    } else if (e == '\\') {
+                        if (!charvec_push(&buf_raw, '\\', err, &lx)) { return false; }
+                        adv(&lx, 1);
+                    } else if (e == '"') {
+                        if (!charvec_push(&buf_raw, '"', err, &lx)) { return false; }
+                        adv(&lx, 1);
+                    } else if (e == '$') {
+                        if (!charvec_push(&buf_raw, '$', err, &lx)) { return false; }
+                        adv(&lx, 1);
+                    } else if (e == 'u' && peek(&lx, 1) == '{') {
+                        adv(&lx, 2);
+                        CharVec hexbuf = {0};
+                        while (lx.i < lx.len && peek(&lx, 0) != '}') {
+                            if (!charvec_push(&hexbuf, peek(&lx, 0), err, &lx)) { return false; }
+                            adv(&lx, 1);
+                        }
+                        if (peek(&lx, 0) != '}') {
+                            charvec_free(&buf_raw);
+                            charvec_free(&hexbuf);
+                            return set_error(&lx, err, lx.line, lx.col, "bad \\u{...} escape");
+                        }
+                        adv(&lx, 1);
+                        if (!append_hex_code(&lx, &buf_raw, hexbuf.data, hexbuf.len, err, lx.line, lx.col)) {
+                            charvec_free(&buf_raw);
+                            charvec_free(&hexbuf);
+                            return false;
+                        }
+                        charvec_free(&hexbuf);
+                    } else {
+                        charvec_free(&buf_raw);
+                        return set_error(&lx, err, lx.line, lx.col, "unknown escape");
+                    }
+                    continue;
+                }
                 if (!charvec_push(&buf_raw, c, err, &lx)) { return false; }
                 adv(&lx, 1);
             }

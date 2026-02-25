@@ -346,6 +346,7 @@ typedef struct {
     size_t params_len;
     RetSpec ret;
     Stmt *body;
+    bool is_pub;
 } FunDecl;
 
 typedef struct {
@@ -364,17 +365,20 @@ typedef struct {
 typedef struct {
     Str name;
     Expr *expr;
+    bool is_pub;
 } ConstDecl;
 
 typedef struct {
     Str name;
     Expr *expr;
     bool is_mut;
+    bool is_pub;
 } DefDecl;
 
 typedef struct {
     Str name;
     TypeRef *typ;
+    bool is_pub;
 } FieldDecl;
 
 typedef enum {
@@ -387,6 +391,8 @@ typedef struct {
     Str name;
     Str vis;
     bool is_seal;
+    Str base_name;
+    bool has_base;
     ClassKind kind;
     FieldDecl **fields;
     size_t fields_len;

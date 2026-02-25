@@ -39,6 +39,7 @@ typedef struct {
     Ty *ty;
     bool is_mut;
     bool is_const;
+    bool is_moved;
 } Binding;
 
 typedef struct {
@@ -80,6 +81,7 @@ typedef struct {
 typedef struct {
     Str name;
     ConstVal val;
+    bool is_pub;
 } ConstEntry;
 
 typedef struct {
@@ -92,6 +94,7 @@ typedef struct {
     Str name;
     Ty *ty;
     bool is_mut;
+    bool is_pub;
 } GlobalVar;
 
 typedef struct {
@@ -103,6 +106,7 @@ typedef struct {
 typedef struct {
     Str name;
     Ty *ty;
+    bool is_pub;
 } FieldEntry;
 
 typedef struct FunSig FunSig;
@@ -110,6 +114,7 @@ typedef struct FunSig FunSig;
 typedef struct {
     Str name;
     FunSig *sig;
+    bool is_pub;
 } MethodEntry;
 
 struct FunSig {
@@ -125,6 +130,7 @@ struct FunSig {
     Str owner_class;
     Str cask_path;
     bool extern_stub;
+    bool is_pub;
 };
 
 typedef struct {
@@ -133,6 +139,7 @@ typedef struct {
     Str qname;
     Str vis;
     bool is_seal;
+    Str base_qname;
     ClassKind kind;
     Str cask_path;
     FieldEntry *fields;

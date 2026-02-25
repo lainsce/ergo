@@ -51,7 +51,7 @@ Current reserved words:
 
 1. Plain string: `"text"`
    - No interpolation.
-   - Escapes are not processed in this form.
+   - Escapes are processed: `\n`, `\t`, `\r`, `\\`, `\"`, `\$`, and `\u{...}`.
 2. Interpolated string: `@"text $name"`
    - Supports interpolation expressions beginning with `$`.
    - The interpolation parser accepts:
@@ -107,12 +107,12 @@ cask mymod
 
 Allowed top-level declarations:
 
-- `fun`
+- `fun` (optionally `pub`)
 - `macro`
 - `entry`
 - nominal declarations: `class`, `struct`, `enum` (with optional `pub` / `lock` / `seal` prefixes)
-- `def` (module global)
-- `const` (module constants, general-purpose)
+- `def` (module global, optionally `pub`)
+- `const` (module constants, general-purpose, optionally `pub`)
 
 Macro declaration form:
 
@@ -164,6 +164,10 @@ Function return syntax:
 
 - Unifying a type with `null` produces a nullable form internally.
 - Nullable values are restricted in many operations (member/index/call/arithmetic/comparison).
+- Assignability is strict for nullability:
+  - assigning/passing/returning `T | null` where `T` is required is a type error,
+  - assigning `null` where non-null `T` is required is a type error,
+  - assigning non-null `T` into `T | null` remains allowed.
 - Null-coalescing operator is supported:
   - `a ?? b` evaluates to `a` when `a != null`, otherwise `b`.
 
@@ -192,18 +196,27 @@ fun add(a = num, b = num) (( num )) {
 - Methods are declared inside nominal types (`class` / `struct` / `enum`) with `fun`.
 - First parameter must be `this` or `?this`.
 - `this`/`?this` is implicit receiver syntax and does not use `= Type`.
+- Methods can be declared `pub fun ...` for cross-cask visibility.
 
 ### 8.3 Nominal Type Syntax
 
 ```ergo
 class Point {
-    x = num
+    pub x = num
     y = num
 
     fun init(?this, x = num, y = num) (( -- )) {
         this.x = x
         this.y = y
     }
+}
+```
+
+Class inheritance syntax (single base class):
+
+```ergo
+class Child : base.Parent {
+    fun init(?this) (( -- )) { }
 }
 ```
 
@@ -222,12 +235,29 @@ enum Result = [
 ]
 ```
 
+`enum` currently behaves as a nominal field container (same construction model as `struct`), not as tagged-sum variants.
+
 ### 8.4 Nominal Modifiers
 
 - `pub class/struct/enum ...` is parsed.
 - `lock class ...` enforces restricted field access (same file or own methods).
 - `seal` is only valid on `class` declarations.
-- There is currently no class inheritance syntax, so `seal` has no additional runtime/dispatch effect beyond this declaration constraint.
+- `class Child : Base` is supported for class declarations.
+- `seal` acts as a final class restriction for inheritance:
+  - inheriting from a sealed class is a compile-time error.
+- Inheritance currently enforces base-class validity and sealed-class rejection; it does not yet add broader polymorphic dispatch semantics.
+
+### 8.5 Visibility (`pub`)
+
+- `pub` controls cross-cask (cross-file module) access.
+- Non-`pub` symbols are cask-private.
+- Enforced entities:
+  - nominal types (`class` / `struct` / `enum`),
+  - top-level `fun`,
+  - top-level `def`,
+  - top-level `const`,
+  - class fields,
+  - class methods.
 
 ## 9. Statements and Control Flow
 
@@ -267,12 +297,12 @@ Element type:
 ### 9.4 Return
 
 - `return` or `return expr`.
-- For non-void functions, explicit `return expr` is the reliable way to set return values.
-- Without explicit return, generated code defaults return storage to `null`.
-- Current typechecking behavior:
-  - validates explicit `return` statements (`return expr` required in non-void functions, bare `return` for void),
-  - does not enforce whole-function/path-complete return coverage.
-  - So non-void functions may legally fall through; runtime value is then `null`.
+- For non-void functions (including methods and `entry` when non-void), all reachable paths must return.
+- Path-complete return checking is conservative for loops:
+  - loops are not treated as guaranteed-return constructs unless a guaranteed return is proven outside loop uncertainty.
+  - if a loop may exit and execution can fall through, this is a type error.
+- Void-return functions keep existing behavior (no path-complete return requirement).
+- Diagnostics include a fallthrough-path reason (for example, missing `else` or a branch that can fall through).
 
 ### 9.5 Loop Control
 
@@ -324,6 +354,8 @@ Supported pattern kinds:
 - bool literal
 - `null`
 
+`match` is a general conditional expression/statement form over values and patterns; it is not enum-variant destructuring.
+
 ### 10.3 Unary `#`
 
 - `#x` is lowered to `stdr.len(x)`.
@@ -337,7 +369,31 @@ Supported pattern kinds:
 ### 10.5 `move(x)`
 
 - `move(x)` is lowered into a move expression form.
-- Current backend behavior expects mutable local bindings for move targets.
+- Enforced model:
+  - only identifier operands are accepted,
+  - target must be a mutable local binding (`let ?x = ...`),
+  - globals, fields, index targets, temporaries, and immutable locals are rejected by typechecking.
+- Source invalidation:
+  - after `move(x)`, `x` is marked moved and direct use is a type error (`use of moved value`),
+  - assigning to `x` reinitializes the binding and clears moved state.
+- Interaction rules:
+  - passing/returning/field-assignment are supported by using `move(local_ident)` as an expression,
+  - closure/typecheck behavior follows normal local-binding analysis with moved-state checks.
+
+### 10.6 Operator Precedence and Associativity
+
+Parser precedence is explicit (lowest to highest):
+
+1. Assignment: `=`, `+=`, `-=`, `*=`, `/=` (right-associative)
+2. Null-coalescing: `??` (left-associative)
+3. Logical OR: `||` (left-associative)
+4. Logical AND: `&&` (left-associative)
+5. Equality: `==`, `!=` (left-associative)
+6. Relational: `<`, `<=`, `>`, `>=` (left-associative)
+7. Additive: `+`, `-` (left-associative)
+8. Multiplicative: `*`, `/`, `%` (left-associative)
+9. Unary: `!`, unary `-`, `#` (prefix)
+10. Postfix: call `()`, index `[]`, member `.`, macro-call sugar `!name` (highest)
 
 ## 11. Runtime/Type Semantics
 
@@ -351,6 +407,7 @@ Supported pattern kinds:
   - empty string false
   - empty array false
   - others true
+- Lint mode can report non-`bool` conditions as warnings (or errors in strict lint mode).
 
 ### 11.2 Logical Operators
 
@@ -367,11 +424,6 @@ Typing rule (semantic model):
   - coalesce: `let v = a[i] ?? fallback`
   - null test: `if stdr.is_null(a[i]) { ... }`
   - explicit compare: `if a[i] != null { ... }`
-
-Implementation note:
-
-- Current typechecker tracks array indexing as element type `T` in many contexts,
-  while runtime may still produce `null` on out-of-bounds reads.
 
 - Arrays:
   - read out-of-bounds -> `null`

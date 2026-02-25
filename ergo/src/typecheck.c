@@ -1625,11 +1625,45 @@ static Ty *unify(Arena *arena, Ty *a, Ty *b, Str path, const char *where, Subst 
 
 static bool ensure_assignable(Arena *arena, Ty *expected, Ty *actual, Str path, const char *where, Diag *err) {
     if (!expected || !actual) return false;
-    if (ty_is_null(expected) || ty_is_null(actual)) return true;
     if (expected->tag == TY_PRIM && str_eq_c(expected->name, "any")) return true;
     if (actual->tag == TY_PRIM && str_eq_c(actual->name, "any")) return true;
-    if (ty_is_nullable(expected) || ty_is_nullable(actual)) {
-        return ensure_assignable(arena, ty_strip_nullable(expected), ty_strip_nullable(actual), path, where, err);
+    if (ty_is_null(expected)) {
+        if (ty_is_null(actual) || ty_is_nullable(actual)) {
+            return true;
+        }
+        char ea[64];
+        char eb[64];
+        ty_desc(expected, ea, sizeof(ea));
+        ty_desc(actual, eb, sizeof(eb));
+        set_errf(err, path, 0, 0, "type mismatch%s%s (expected %s, got %s)",
+                 where && where[0] ? ": " : "", where ? where : "", ea, eb);
+        return false;
+    }
+    if (ty_is_null(actual)) {
+        if (ty_is_nullable(expected)) {
+            return true;
+        }
+        char ea[64];
+        char eb[64];
+        ty_desc(expected, ea, sizeof(ea));
+        ty_desc(actual, eb, sizeof(eb));
+        set_errf(err, path, 0, 0, "type mismatch%s%s (expected %s, got %s)",
+                 where && where[0] ? ": " : "", where ? where : "", ea, eb);
+        return false;
+    }
+    if (ty_is_nullable(expected)) {
+        Ty *base_expected = ty_strip_nullable(expected);
+        Ty *base_actual = ty_is_nullable(actual) ? ty_strip_nullable(actual) : actual;
+        return ensure_assignable(arena, base_expected, base_actual, path, where, err);
+    }
+    if (ty_is_nullable(actual)) {
+        char ea[64];
+        char eb[64];
+        ty_desc(expected, ea, sizeof(ea));
+        ty_desc(actual, eb, sizeof(eb));
+        set_errf(err, path, 0, 0, "type mismatch%s%s (expected %s, got %s)",
+                 where && where[0] ? ": " : "", where ? where : "", ea, eb);
+        return false;
     }
     if (expected->tag == TY_ARRAY && actual->tag == TY_ARRAY) {
         return ensure_assignable(arena, expected->elem, actual->elem, path, where, err);
@@ -1791,6 +1825,10 @@ static ConstEntry *find_const(ModuleConsts *mc, Str name) {
     return NULL;
 }
 
+static bool is_cross_cask(Str from_cask, Str target_cask) {
+    return !str_eq(from_cask, target_cask);
+}
+
 static Ty *ty_from_type_ref(GlobalEnv *env, TypeRef *tref, Str ctx_mod, Str *imports, size_t imports_len, Diag *err) {
     if (!tref) return NULL;
     if (tref->kind == TYPE_ARRAY) {
@@ -1837,7 +1875,13 @@ static Ty *ty_from_type_ref(GlobalEnv *env, TypeRef *tref, Str ctx_mod, Str *imp
             return NULL;
         }
         ClassInfo *ci = find_class(env, n);
-        if (ci) return ty_class(env->arena, n);
+        if (ci) {
+            if (is_cross_cask(ctx_mod, ci->cask) && !str_eq_c(ci->vis, "pub")) {
+                set_errf(err, ctx_mod, tref->line, tref->col, "type '%.*s' is not public", (int)n.len, n.data);
+                return NULL;
+            }
+            return ty_class(env->arena, n);
+        }
         set_errf(err, ctx_mod, tref->line, tref->col, "unknown type '%.*s'", (int)n.len, n.data);
         return NULL;
     }
@@ -2067,6 +2111,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
             mg->vars[idx].name = d->as.def_decl.name;
             mg->vars[idx].ty = NULL;
             mg->vars[idx].is_mut = d->as.def_decl.is_mut;
+            mg->vars[idx].is_pub = d->as.def_decl.is_pub;
             idx++;
         }
         mg->len = idx;
@@ -2129,6 +2174,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
             }
             mc->entries[idx].name = cd->name;
             mc->entries[idx].val = cv;
+            mc->entries[idx].is_pub = cd->is_pub;
             idx++;
         }
     }
@@ -2156,6 +2202,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
             ci->qname = qname;
             ci->vis = d->as.class_decl.vis;
             ci->is_seal = d->as.class_decl.is_seal;
+            ci->base_qname = (Str){0};
             ci->kind = d->as.class_decl.kind;
             ci->cask_path = m->path;
         }
@@ -2172,6 +2219,46 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
             Str qname = qualify_class_name(arena, mod_name, d->as.class_decl.name);
             ClassInfo *ci = find_class(env, qname);
             if (!ci) continue;
+            if (d->as.class_decl.has_base) {
+                TypeRef base_ref;
+                memset(&base_ref, 0, sizeof(base_ref));
+                base_ref.kind = TYPE_NAME;
+                base_ref.line = d->line;
+                base_ref.col = d->col;
+                base_ref.as.name = d->as.class_decl.base_name;
+                Ty *base_ty = ty_from_type_ref(env, &base_ref, mod_name, imps ? imps->imports : NULL, imps ? imps->imports_len : 0, err);
+                if (!base_ty || base_ty->tag != TY_CLASS) {
+                    set_errf(err, m->path, d->line, d->col, "%.*s: base type must be a class",
+                             (int)m->path.len, m->path.data);
+                    return NULL;
+                }
+                ClassInfo *base_ci = find_class(env, base_ty->name);
+                if (!base_ci) {
+                    set_errf(err, m->path, d->line, d->col, "%.*s: unknown base class '%.*s'",
+                             (int)m->path.len, m->path.data,
+                             (int)d->as.class_decl.base_name.len, d->as.class_decl.base_name.data);
+                    return NULL;
+                }
+                if (base_ci->kind != CLASS_KIND_CLASS) {
+                    set_errf(err, m->path, d->line, d->col, "%.*s: base type '%.*s' is not a class",
+                             (int)m->path.len, m->path.data,
+                             (int)base_ci->name.len, base_ci->name.data);
+                    return NULL;
+                }
+                if (str_eq(base_ci->qname, ci->qname)) {
+                    set_errf(err, m->path, d->line, d->col, "%.*s: class '%.*s' cannot inherit from itself",
+                             (int)m->path.len, m->path.data,
+                             (int)ci->name.len, ci->name.data);
+                    return NULL;
+                }
+                if (base_ci->is_seal) {
+                    set_errf(err, m->path, d->line, d->col, "%.*s: cannot inherit from sealed class '%.*s'",
+                             (int)m->path.len, m->path.data,
+                             (int)base_ci->name.len, base_ci->name.data);
+                    return NULL;
+                }
+                ci->base_qname = base_ci->qname;
+            }
 
             size_t fields_len = d->as.class_decl.fields_len;
             size_t methods_len = d->as.class_decl.methods_len;
@@ -2190,6 +2277,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
                 if (!fty) return NULL;
                 ci->fields[f].name = fd->name;
                 ci->fields[f].ty = fty;
+                ci->fields[f].is_pub = fd->is_pub;
             }
 
             for (size_t m_i = 0; m_i < methods_len; m_i++) {
@@ -2251,6 +2339,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
                 sig->owner_class = ci->qname;
                 sig->cask_path = m->path;
                 sig->extern_stub = false;
+                sig->is_pub = md->is_pub;
 
                 // check duplicate method name
                 for (size_t k = 0; k < m_i; k++) {
@@ -2265,6 +2354,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
                 }
                 ci->methods[m_i].name = md->name;
                 ci->methods[m_i].sig = sig;
+                ci->methods[m_i].is_pub = md->is_pub;
             }
         }
     }
@@ -2342,6 +2432,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
                 env->funs[findex].owner_class.len = 0;
                 env->funs[findex].cask_path = m->path;
                 env->funs[findex].extern_stub = extern_stub;
+                env->funs[findex].is_pub = fd->is_pub;
                 findex++;
             }
             if (d->kind == DECL_ENTRY) {
@@ -2404,7 +2495,7 @@ static bool is_mut_lvalue(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env) {
     if (!e) return false;
     if (e->kind == EXPR_IDENT) {
         Binding *b = locals_lookup(loc, e->as.ident.name);
-        if (b) return b->is_mut && !b->is_const;
+        if (b) return b->is_mut && !b->is_const && !b->is_moved;
         ModuleGlobals *mg = find_cask_globals(env, ctx->cask_name);
         GlobalVar *gv = find_global(mg, e->as.ident.name);
         return gv && gv->is_mut;
@@ -2492,6 +2583,13 @@ static Ty *tc_call(Expr *call_expr, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag 
             FunSig *sig = find_fun(env, mod, name);
             if (!sig) {
                 set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: unknown %.*s.%.*s",
+                         (int)ctx->cask_path.len, ctx->cask_path.data,
+                         (int)mod.len, mod.data,
+                         (int)name.len, name.data);
+                return NULL;
+            }
+            if (is_cross_cask(ctx->cask_name, mod) && !sig->is_pub) {
+                set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: function '%.*s.%.*s' is not public",
                          (int)ctx->cask_path.len, ctx->cask_path.data,
                          (int)mod.len, mod.data,
                          (int)name.len, name.data);
@@ -2603,6 +2701,13 @@ method_call:
             }
             if (!method) {
                 set_errf(err, ctx->cask_path, fn->line, fn->col, "'%.*s' has no method '%.*s'",
+                         (int)ci->name.len, ci->name.data,
+                         (int)mname.len, mname.data);
+                return NULL;
+            }
+            if (is_cross_cask(ctx->cask_name, ci->cask) && !method->is_pub) {
+                set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: method '%.*s.%.*s' is not public",
+                         (int)ctx->cask_path.len, ctx->cask_path.data,
                          (int)ci->name.len, ci->name.data,
                          (int)mname.len, mname.data);
                 return NULL;
@@ -2813,7 +2918,16 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
         }
         case EXPR_IDENT: {
             Binding *b = locals_lookup(loc, e->as.ident.name);
-            if (b) return b->ty;
+            if (b) {
+                if (b->is_moved) {
+                    set_errf(err, ctx->cask_path, e->line, e->col,
+                             "%.*s: use of moved value '%.*s'",
+                             (int)ctx->cask_path.len, ctx->cask_path.data,
+                             (int)e->as.ident.name.len, e->as.ident.name.data);
+                    return NULL;
+                }
+                return b->ty;
+            }
             if (cask_in_scope(e->as.ident.name, ctx, loc)) {
                 return ty_mod(env->arena, e->as.ident.name);
             }
@@ -2974,6 +3088,7 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                         return NULL;
                     }
                     b->ty = new_ty;
+                    b->is_moved = false;
                     return new_ty;
                 }
                 ModuleGlobals *mg = find_cask_globals(env, ctx->cask_name);
@@ -3017,11 +3132,27 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                 ModuleConsts *mc = find_cask_consts(env, ta->name);
                 if (mc) {
                     ConstEntry *ce = find_const(mc, e->as.member.name);
-                    if (ce) return ce->val.ty;
+                    if (ce) {
+                        if (is_cross_cask(ctx->cask_name, ta->name) && !ce->is_pub) {
+                            set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: const '%.*s.%.*s' is not public",
+                                     (int)ctx->cask_path.len, ctx->cask_path.data,
+                                     (int)ta->name.len, ta->name.data,
+                                     (int)e->as.member.name.len, e->as.member.name.data);
+                            return NULL;
+                        }
+                        return ce->val.ty;
+                    }
                 }
                 ModuleGlobals *mg = find_cask_globals(env, ta->name);
                 GlobalVar *gv = find_global(mg, e->as.member.name);
                 if (gv) {
+                    if (is_cross_cask(ctx->cask_name, ta->name) && !gv->is_pub) {
+                        set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: global '%.*s.%.*s' is not public",
+                                 (int)ctx->cask_path.len, ctx->cask_path.data,
+                                 (int)ta->name.len, ta->name.data,
+                                 (int)e->as.member.name.len, e->as.member.name.data);
+                        return NULL;
+                    }
                     if (!gv->ty) {
                         set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: global '%.*s' used before definition",
                                  (int)ctx->cask_path.len, ctx->cask_path.data,
@@ -3030,7 +3161,15 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                     }
                     return gv->ty;
                 }
-                if (find_fun(env, ta->name, e->as.member.name)) {
+                FunSig *mod_fun = find_fun(env, ta->name, e->as.member.name);
+                if (mod_fun) {
+                    if (is_cross_cask(ctx->cask_name, ta->name) && !mod_fun->is_pub) {
+                        set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: function '%.*s.%.*s' is not public",
+                                 (int)ctx->cask_path.len, ctx->cask_path.data,
+                                 (int)ta->name.len, ta->name.data,
+                                 (int)e->as.member.name.len, e->as.member.name.data);
+                        return NULL;
+                    }
                     set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: cask function '%.*s.%.*s' must be called", (int)ctx->cask_path.len, ctx->cask_path.data, (int)ta->name.len, ta->name.data, (int)e->as.member.name.len, e->as.member.name.data);
                     return NULL;
                 }
@@ -3053,11 +3192,25 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                 }
                 for (size_t i = 0; i < ci->fields_len; i++) {
                     if (str_eq(ci->fields[i].name, e->as.member.name)) {
+                        if (is_cross_cask(ctx->cask_name, ci->cask) && !ci->fields[i].is_pub) {
+                            set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: field '%.*s.%.*s' is not public",
+                                     (int)ctx->cask_path.len, ctx->cask_path.data,
+                                     (int)ci->name.len, ci->name.data,
+                                     (int)e->as.member.name.len, e->as.member.name.data);
+                            return NULL;
+                        }
                         return ci->fields[i].ty;
                     }
                 }
                 for (size_t i = 0; i < ci->methods_len; i++) {
                     if (str_eq(ci->methods[i].name, e->as.member.name)) {
+                        if (is_cross_cask(ctx->cask_name, ci->cask) && !ci->methods[i].is_pub) {
+                            set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: method '%.*s.%.*s' is not public",
+                                     (int)ctx->cask_path.len, ctx->cask_path.data,
+                                     (int)ci->name.len, ci->name.data,
+                                     (int)e->as.member.name.len, e->as.member.name.data);
+                            return NULL;
+                        }
                         set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: method '%.*s' must be called", (int)ctx->cask_path.len, ctx->cask_path.data, (int)e->as.member.name.len, e->as.member.name.data);
                         return NULL;
                     }
@@ -3082,7 +3235,7 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                 return NULL;
             }
             ta = ty_strip_nullable(ta);
-            if (ta->tag == TY_ARRAY && ta->elem) return ta->elem;
+            if (ta->tag == TY_ARRAY && ta->elem) return ty_nullable(env->arena, ta->elem);
             if (ta->tag == TY_TUPLE && ta->items) {
                 if (e->as.index.i->kind == EXPR_INT) {
                     long long idx = e->as.index.i->as.int_lit.v;
@@ -3147,7 +3300,7 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                 } else {
                     ty = ty_from_type_ref(env, p->typ, ctx->cask_name, ctx->imports, ctx->imports_len, err);
                 }
-                Binding b = { ty, p->is_mut, false };
+                Binding b = { ty, p->is_mut, false, false };
                 locals_define(&lambda_loc, p->name, b);
                 param_tys[i] = ty;
             }
@@ -3202,6 +3355,12 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
             ClassInfo *ci = find_class(env, qname);
             if (!ci) {
                 set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: unknown class '%.*s'", (int)ctx->cask_path.len, ctx->cask_path.data, (int)name.len, name.data);
+                return NULL;
+            }
+            if (is_cross_cask(ctx->cask_name, ci->cask) && !str_eq_c(ci->vis, "pub")) {
+                set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: class '%.*s' is not public",
+                         (int)ctx->cask_path.len, ctx->cask_path.data,
+                         (int)ci->name.len, ci->name.data);
                 return NULL;
             }
             MethodEntry *init = NULL;
@@ -3289,8 +3448,36 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
             }
             return ty_class(env->arena, qname);
         }
-        case EXPR_MOVE:
-            return tc_expr_inner(e->as.move.x, ctx, loc, env, err);
+        case EXPR_MOVE: {
+            if (!e->as.move.x || e->as.move.x->kind != EXPR_IDENT) {
+                set_errf(err, ctx->cask_path, e->line, e->col,
+                         "%.*s: move(...) requires a mutable local binding identifier",
+                         (int)ctx->cask_path.len, ctx->cask_path.data);
+                return NULL;
+            }
+            Binding *b = locals_lookup(loc, e->as.move.x->as.ident.name);
+            if (!b) {
+                set_errf(err, ctx->cask_path, e->line, e->col,
+                         "%.*s: move(...) is only supported on mutable local bindings",
+                         (int)ctx->cask_path.len, ctx->cask_path.data);
+                return NULL;
+            }
+            if (b->is_const || !b->is_mut) {
+                set_errf(err, ctx->cask_path, e->line, e->col,
+                         "%.*s: move(...) requires a mutable local binding",
+                         (int)ctx->cask_path.len, ctx->cask_path.data);
+                return NULL;
+            }
+            if (b->is_moved) {
+                set_errf(err, ctx->cask_path, e->line, e->col,
+                         "%.*s: value '%.*s' has already been moved",
+                         (int)ctx->cask_path.len, ctx->cask_path.data,
+                         (int)e->as.move.x->as.ident.name.len, e->as.move.x->as.ident.name.data);
+                return NULL;
+            }
+            b->is_moved = true;
+            return b->ty;
+        }
         case EXPR_CALL:
             return tc_call(e, ctx, loc, env, err);
         case EXPR_PAREN:
@@ -3304,7 +3491,7 @@ static void tc_pat(Pat *pat, Ty *scrut_ty, Ctx *ctx, Locals *loc, GlobalEnv *env
     if (!pat) return;
     if (pat->kind == PAT_WILD) return;
     if (pat->kind == PAT_IDENT) {
-        Binding b = { scrut_ty, false, false };
+        Binding b = { scrut_ty, false, false, false };
         locals_define(loc, pat->as.name, b);
         return;
     }
@@ -3332,13 +3519,13 @@ static void tc_stmt_inner(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *re
     switch (s->kind) {
         case STMT_LET: {
             Ty *t = tc_expr_inner(s->as.let_s.expr, ctx, loc, env, err);
-            Binding b = { t, s->as.let_s.is_mut, false };
+            Binding b = { t, s->as.let_s.is_mut, false, false };
             locals_define(loc, s->as.let_s.name, b);
             return;
         }
         case STMT_CONST: {
             Ty *t = tc_expr_inner(s->as.const_s.expr, ctx, loc, env, err);
-            Binding b = { t, false, true };
+            Binding b = { t, false, true, false };
             locals_define(loc, s->as.const_s.name, b);
             return;
         }
@@ -3420,7 +3607,7 @@ static void tc_stmt_inner(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *re
                 return;
             }
             locals_push(loc);
-            Binding b = { elem, false, false };
+            Binding b = { elem, false, false, false };
             locals_define(loc, s->as.foreach_s.name, b);
             ctx->loop_depth++;
             tc_stmt_inner(s->as.foreach_s.body, ctx, loc, env, ret_ty, err);
@@ -3684,6 +3871,23 @@ static bool is_empty_body_stub(Stmt *body) {
     return body && body->kind == STMT_BLOCK && body->as.block_s.stmts_len == 0;
 }
 
+static bool check_nonvoid_return_coverage(Stmt *body, Ty *ret_ty, Str path, Str name, int line, int col, Diag *err) {
+    if (!ret_ty || ty_is_void(ret_ty) || is_empty_body_stub(body)) {
+        return true;
+    }
+    if (stmt_guarantees_return(body)) {
+        return true;
+    }
+    char why[256];
+    describe_fallthrough(body, why, sizeof(why));
+    set_errf(err, path, line, col,
+             "%.*s: missing return coverage in function '%.*s': %s",
+             (int)path.len, path.data,
+             (int)name.len, name.data,
+             why);
+    return false;
+}
+
 static void lint_expr(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, LintState *ls);
 static void lint_stmt(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *ret_ty, LintState *ls);
 
@@ -3853,7 +4057,7 @@ static void lint_stmt(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *ret_ty
         case STMT_LET: {
             Diag tmp = {0};
             Ty *t = tc_expr_ctx(s->as.let_s.expr, ctx, loc, env, &tmp);
-            Binding b = { t, s->as.let_s.is_mut, false };
+            Binding b = { t, s->as.let_s.is_mut, false, false };
             locals_define(loc, s->as.let_s.name, b);
             lint_expr(s->as.let_s.expr, ctx, loc, env, ls);
             return;
@@ -3861,7 +4065,7 @@ static void lint_stmt(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *ret_ty
         case STMT_CONST: {
             Diag tmp = {0};
             Ty *t = tc_expr_ctx(s->as.const_s.expr, ctx, loc, env, &tmp);
-            Binding b = { t, false, true };
+            Binding b = { t, false, true, false };
             locals_define(loc, s->as.const_s.name, b);
             lint_expr(s->as.const_s.expr, ctx, loc, env, ls);
             return;
@@ -3902,7 +4106,7 @@ static void lint_stmt(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *ret_ty
         case STMT_FOREACH:
             lint_expr(s->as.foreach_s.expr, ctx, loc, env, ls);
             locals_push(loc);
-            locals_define(loc, s->as.foreach_s.name, (Binding){ ty_prim(env->arena, "any"), false, false });
+            locals_define(loc, s->as.foreach_s.name, (Binding){ ty_prim(env->arena, "any"), false, false, false });
             lint_stmt(s->as.foreach_s.body, ctx, loc, env, ret_ty, ls);
             locals_pop(loc);
             return;
@@ -3951,7 +4155,7 @@ bool lint_program(Program *prog, Arena *arena, ErgoLintMode mode, int *warning_c
                 for (size_t p = 0; p < d->as.fun.params_len; p++) {
                     Param *pp = d->as.fun.params[p];
                     Ty *pty = ty_from_type_ref(env, pp->typ, mod_name, imports, imports_len, &err);
-                    locals_define(&loc, pp->name, (Binding){ pty, pp->is_mut, false });
+                    locals_define(&loc, pp->name, (Binding){ pty, pp->is_mut, false, false });
                 }
                 Ty *ret_ty = lint_ret_ty_from_spec(env, &d->as.fun.ret, mod_name, imports, imports_len, &err);
                 if (ret_ty && !ty_is_void(ret_ty) && !is_empty_body_stub(d->as.fun.body) && !stmt_guarantees_return(d->as.fun.body)) {
@@ -3985,7 +4189,7 @@ bool lint_program(Program *prog, Arena *arena, ErgoLintMode mode, int *warning_c
                         Param *pp = md->params[p];
                         Ty *pty = pp->is_this ? ty_class(env->arena, ci->qname)
                                               : ty_from_type_ref(env, pp->typ, mod_name, imports, imports_len, &err);
-                        locals_define(&loc, pp->name, (Binding){ pty, pp->is_mut, false });
+                        locals_define(&loc, pp->name, (Binding){ pty, pp->is_mut, false, false });
                     }
                     Ty *ret_ty = lint_ret_ty_from_spec(env, &md->ret, mod_name, imports, imports_len, &err);
                     if (ret_ty && !ty_is_void(ret_ty) && !is_empty_body_stub(md->body) && !stmt_guarantees_return(md->body)) {
@@ -4060,7 +4264,7 @@ bool typecheck_program(Program *prog, Arena *arena, Diag *err) {
                 for (size_t p = 0; p < d->as.fun.params_len; p++) {
                     Param *pp = d->as.fun.params[p];
                     Ty *pty = ty_from_type_ref(env, pp->typ, mod_name, imports, imports_len, err);
-                    Binding b = { pty, pp->is_mut, false };
+                    Binding b = { pty, pp->is_mut, false, false };
                     locals_define(&loc, pp->name, b);
                 }
                 Ty *ret_ty = d->as.fun.ret.is_void ? ty_void(env->arena) : NULL;
@@ -4076,11 +4280,18 @@ bool typecheck_program(Program *prog, Arena *arena, Diag *err) {
                         ret_ty = ty_tuple(env->arena, items, rn);
                     }
                 }
-                // Skip return checking for empty bodies (internal function declarations)
-                bool is_empty_body = d->as.fun.body && d->as.fun.body->kind == STMT_BLOCK && 
-                                     d->as.fun.body->as.block_s.stmts_len == 0;
+                if (!check_nonvoid_return_coverage(d->as.fun.body, ret_ty, m->path, d->as.fun.name, d->line, d->col, err)) {
+                    locals_free(&loc);
+                    return false;
+                }
+                // Skip body checking for empty-body declarations.
+                bool is_empty_body = is_empty_body_stub(d->as.fun.body);
                 if (!is_empty_body) {
                     tc_stmt_inner(d->as.fun.body, &ctx, &loc, env, ret_ty, err);
+                    if (err && err->message) {
+                        locals_free(&loc);
+                        return false;
+                    }
                 }
                 locals_free(&loc);
             } else if (d->kind == DECL_CLASS) {
@@ -4100,13 +4311,40 @@ bool typecheck_program(Program *prog, Arena *arena, Diag *err) {
                     ctx.loop_depth = 0;
                     // receiver
                     Ty *self_ty = ty_class(env->arena, ci->qname);
-                    Binding self_b = { self_ty, md->params[0]->is_mut, false };
+                    Binding self_b = { self_ty, md->params[0]->is_mut, false, false };
                     locals_define(&loc, md->params[0]->name, self_b);
                     for (size_t p = 1; p < md->params_len; p++) {
                         Param *pp = md->params[p];
                         Ty *pty = ty_from_type_ref(env, pp->typ, mod_name, imports, imports_len, err);
-                        Binding b = { pty, pp->is_mut, false };
+                        Binding b = { pty, pp->is_mut, false, false };
                         locals_define(&loc, pp->name, b);
+                    }
+                    Ty *ret_ty = md->ret.is_void ? ty_void(env->arena) : NULL;
+                    if (!md->ret.is_void) {
+                        if (md->ret.types_len == 1) {
+                            ret_ty = ty_from_type_ref(env, md->ret.types[0], mod_name, imports, imports_len, err);
+                        } else {
+                            size_t rn = md->ret.types_len;
+                            Ty **items = (Ty **)arena_array(env->arena, rn, sizeof(Ty *));
+                            for (size_t r = 0; r < rn; r++) {
+                                items[r] = ty_from_type_ref(env, md->ret.types[r], mod_name, imports, imports_len, err);
+                            }
+                            ret_ty = ty_tuple(env->arena, items, rn);
+                        }
+                    }
+                    Str method_name = qualify_class_name(env->arena, ci->name, md->name);
+                    int method_line = md->body ? md->body->line : d->line;
+                    int method_col = md->body ? md->body->col : d->col;
+                    if (!check_nonvoid_return_coverage(md->body, ret_ty, m->path, method_name, method_line, method_col, err)) {
+                        locals_free(&loc);
+                        return false;
+                    }
+                    if (!is_empty_body_stub(md->body)) {
+                        tc_stmt_inner(md->body, &ctx, &loc, env, ret_ty, err);
+                        if (err && err->message) {
+                            locals_free(&loc);
+                            return false;
+                        }
                     }
                     locals_free(&loc);
                 }
@@ -4133,7 +4371,15 @@ bool typecheck_program(Program *prog, Arena *arena, Diag *err) {
                         ret_ty = ty_tuple(env->arena, items, rn);
                     }
                 }
+                if (!check_nonvoid_return_coverage(d->as.entry.body, ret_ty, m->path, str_from_c("entry"), d->line, d->col, err)) {
+                    locals_free(&loc);
+                    return false;
+                }
                 tc_stmt_inner(d->as.entry.body, &ctx, &loc, env, ret_ty, err);
+                if (err && err->message) {
+                    locals_free(&loc);
+                    return false;
+                }
                 locals_free(&loc);
             }
         }

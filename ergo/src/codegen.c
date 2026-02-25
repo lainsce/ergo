@@ -620,7 +620,7 @@ static char *codegen_define_local(Codegen *cg, Str name, Ty *ty, bool is_mut, bo
     buf[name.len + 1] = '_';
     snprintf(buf + name.len + 2, n_digits + 1, "%d", cg->var_id);
 
-    Binding b = { ty, is_mut, is_const };
+    Binding b = { ty, is_mut, is_const, false };
     locals_define(&cg->ty_loc, name, b);
     if (!codegen_add_name(cg, name, buf)) return NULL;
     if (!codegen_add_local(cg, buf)) return NULL;
@@ -628,7 +628,7 @@ static char *codegen_define_local(Codegen *cg, Str name, Ty *ty, bool is_mut, bo
 }
 
 static bool codegen_bind_temp(Codegen *cg, Str name, char *cname, Ty *ty) {
-    Binding b = { ty, false, false };
+    Binding b = { ty, false, false, false };
     locals_define(&cg->ty_loc, name, b);
     return codegen_add_name(cg, name, cname);
 }
@@ -3032,7 +3032,7 @@ static bool gen_method(Codegen *cg, Str path, ClassDecl *cls, FunDecl *fn, Diag 
         memset(self_ty, 0, sizeof(Ty));
         self_ty->tag = TY_CLASS;
         self_ty->name = qname;
-        Binding b = { self_ty, fn->params[0]->is_mut, false };
+        Binding b = { self_ty, fn->params[0]->is_mut, false, false };
         locals_define(&cg->ty_loc, fn->params[0]->name, b);
     }
 
@@ -3053,7 +3053,7 @@ static bool gen_method(Codegen *cg, Str path, ClassDecl *cls, FunDecl *fn, Diag 
         char *cname = arena_printf(cg->arena, "a%zu", i - 1);
         codegen_add_name(cg, p->name, cname);
         Ty *pty = sig ? sig->params[i - 1] : NULL;
-        Binding b = { pty, p->is_mut, false };
+        Binding b = { pty, p->is_mut, false, false };
         locals_define(&cg->ty_loc, p->name, b);
     }
 
@@ -3100,7 +3100,7 @@ static bool gen_fun(Codegen *cg, Str path, FunDecl *fn, Diag *err) {
         char *cname = arena_printf(cg->arena, "a%zu", i);
         codegen_add_name(cg, p->name, cname);
         Ty *pty = sig ? sig->params[i] : NULL;
-        Binding b = { pty, p->is_mut, false };
+        Binding b = { pty, p->is_mut, false, false };
         locals_define(&cg->ty_loc, p->name, b);
     }
 
@@ -3683,7 +3683,7 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
                 char *cname = arena_printf(cg->arena, "__cap%zu", c);
                 w_line(&cg->w, "ErgoVal %s = __caps[%zu];", cname, c);
                 codegen_add_name(cg, cap->name, cname);
-                Binding b = { (Ty*)cap->ty, false, false };
+                Binding b = { (Ty*)cap->ty, false, false, false };
                 locals_define(&cg->ty_loc, cap->name, b);
             }
         } else {
@@ -3702,7 +3702,7 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
             } else {
                 pty = cg_ty_gen(cg, param->name);
             }
-            Binding b = { pty, param->is_mut, false };
+            Binding b = { pty, param->is_mut, false, false };
             locals_define(&cg->ty_loc, param->name, b);
         }
         w_line(&cg->w, "ErgoVal __ret = EV_NULLV;");

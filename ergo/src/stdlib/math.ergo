@@ -7,19 +7,19 @@ macro sq() (( num )) {
 }
 
 -- Math constants
-const PI = 3.141592653589793
-const TAU = 6.283185307179586
-const E = 2.718281828459045
-const HALF_PI = 1.5707963267948966
-const PHI = 1.618033988749895
-const SQRT_TWO = 1.4142135623730951
-const SQRT_THREE = 1.7320508075688772
-const INV_PI = 0.3183098861837907
-const INV_TAU = 0.15915494309189535
-const LN_TWO = 0.6931471805599453
-const LN_TEN = 2.302585092994046
-const LOG_TWO_E = 1.4426950408889634
-const LOG_TEN_E = 0.4342944819032518
+pub const PI = 3.141592653589793
+pub const TAU = 6.283185307179586
+pub const E = 2.718281828459045
+pub const HALF_PI = 1.5707963267948966
+pub const PHI = 1.618033988749895
+pub const SQRT_TWO = 1.4142135623730951
+pub const SQRT_THREE = 1.7320508075688772
+pub const INV_PI = 0.3183098861837907
+pub const INV_TAU = 0.15915494309189535
+pub const LN_TWO = 0.6931471805599453
+pub const LN_TEN = 2.302585092994046
+pub const LOG_TWO_E = 1.4426950408889634
+pub const LOG_TEN_E = 0.4342944819032518
 
 -- Internal: wrap angle to [-pi, pi] using a bounded loop.
 fun _wrap_angle(x = num) (( num )) {
@@ -64,7 +64,7 @@ fun _cos_taylor(x = num) (( num )) {
 }
 
 -- Sine function (implemented in Ergo)
-fun sin(x = num) (( num )) {
+pub fun sin(x = num) (( num )) {
   let pi = math.PI
   let half_pi = pi / 2.0
   let ?y = _wrap_angle(x)
@@ -79,7 +79,7 @@ fun sin(x = num) (( num )) {
 }
 
 -- Cosine function (implemented in Ergo)
-fun cos(x = num) (( num )) {
+pub fun cos(x = num) (( num )) {
   let pi = math.PI
   let half_pi = pi / 2.0
   let ?y = _wrap_angle(x)
@@ -95,14 +95,14 @@ fun cos(x = num) (( num )) {
 }
 
 -- Tangent function (implemented in Ergo)
-fun tan(x = num) (( num )) {
+pub fun tan(x = num) (( num )) {
   let s = sin(x)
   let c = cos(x)
   return s / c
 }
 
 -- Square root function (implemented in Ergo)
-fun sqrt(x = num) (( num )) {
+pub fun sqrt(x = num) (( num )) {
   if x <= 0.0 {
     return 0.0
   }
@@ -121,16 +121,16 @@ fun sqrt(x = num) (( num )) {
 }
 
 -- Absolute value
-fun abs(x = num) (( num )) {
+pub fun abs(x = num) (( num )) {
   return if x < 0.0 { -x } else { x }
 }
 
 -- Minimum of two floats
-fun min(a = num, b = num) (( num )) {
+pub fun min(a = num, b = num) (( num )) {
   return if a < b { a } else { b }
 }
 
 -- Maximum of two floats
-fun max(a = num, b = num) (( num )) {
+pub fun max(a = num, b = num) (( num )) {
   return if a > b { a } else { b }
 }

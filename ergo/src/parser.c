@@ -206,13 +206,13 @@ static Expr *parse_array_lit(Parser *p);
 static Pat *parse_pattern(Parser *p);
 static MatchArm *parse_match_arm(Parser *p);
 static RetSpec parse_ret_spec(Parser *p);
-static FunDecl *parse_fun_decl(Parser *p);
-static Decl *parse_fun(Parser *p);
+static FunDecl *parse_fun_decl(Parser *p, bool is_pub);
+static Decl *parse_fun(Parser *p, bool is_pub);
 static MacroDecl *parse_macro_decl(Parser *p);
 static Decl *parse_macro(Parser *p);
 static Decl *parse_entry(Parser *p);
-static Decl *parse_const_decl(Parser *p);
-static Decl *parse_def_decl(Parser *p);
+static Decl *parse_const_decl(Parser *p, bool is_pub);
+static Decl *parse_def_decl(Parser *p, bool is_pub);
 static Decl *parse_nominal(Parser *p);
 static Import *parse_import(Parser *p);
 
@@ -491,7 +491,7 @@ static Param **parse_params(Parser *p, size_t *out_len) {
     return (Param **)ptrvec_finalize(p, &params);
 }
 
-static FunDecl *parse_fun_decl(Parser *p) {
+static FunDecl *parse_fun_decl(Parser *p, bool is_pub) {
     Tok *kw = eat(p, TOK_KW_fun);
     if (!p->ok) return NULL;
     Tok *name_tok = eat(p, TOK_IDENT);
@@ -512,6 +512,7 @@ static FunDecl *parse_fun_decl(Parser *p) {
     fun->params_len = params_len;
     fun->ret = ret;
     fun->body = body;
+    fun->is_pub = is_pub;
     (void)kw;
     return fun;
 }
@@ -547,9 +548,9 @@ static MacroDecl *parse_macro_decl(Parser *p) {
     return macro;
 }
 
-static Decl *parse_fun(Parser *p) {
+static Decl *parse_fun(Parser *p, bool is_pub) {
     Tok *kw = peek(p, 0);
-    FunDecl *fun = parse_fun_decl(p);
+    FunDecl *fun = parse_fun_decl(p, is_pub);
     if (!p->ok) return NULL;
     Decl *decl = new_decl(p, DECL_FUN, kw);
     if (!decl) return NULL;
@@ -799,7 +800,7 @@ static Stmt *parse_stmt(Parser *p) {
     return st;
 }
 
-static Decl *parse_const_decl(Parser *p) {
+static Decl *parse_const_decl(Parser *p, bool is_pub) {
     Tok *kw = eat(p, TOK_KW_const);
     if (!p->ok) return NULL;
     Tok *name_tok = eat(p, TOK_IDENT);
@@ -809,10 +810,11 @@ static Decl *parse_const_decl(Parser *p) {
     if (!decl) return NULL;
     decl->as.const_decl.name = name_tok->val.ident;
     decl->as.const_decl.expr = expr;
+    decl->as.const_decl.is_pub = is_pub;
     return decl;
 }
 
-static Decl *parse_def_decl(Parser *p) {
+static Decl *parse_def_decl(Parser *p, bool is_pub) {
     Tok *kw = eat(p, TOK_KW_def);
     if (!p->ok) return NULL;
     bool is_mut = maybe(p, TOK_QMARK) != NULL;
@@ -824,6 +826,7 @@ static Decl *parse_def_decl(Parser *p) {
     decl->as.def_decl.name = name_tok->val.ident;
     decl->as.def_decl.expr = expr;
     decl->as.def_decl.is_mut = is_mut;
+    decl->as.def_decl.is_pub = is_pub;
     return decl;
 }
 
@@ -865,6 +868,19 @@ static Decl *parse_nominal(Parser *p) {
         return NULL;
     }
     Tok *name_tok = eat(p, TOK_IDENT);
+    Str base_name = {0};
+    bool has_base = false;
+    if (kind == CLASS_KIND_CLASS && at(p, TOK_COLON)) {
+        eat(p, TOK_COLON);
+        TypeRef *base = parse_type(p);
+        if (!base) return NULL;
+        if (base->kind != TYPE_NAME) {
+            parser_set_error(p, peek(p, 0), "class base must be a nominal type name");
+            return NULL;
+        }
+        base_name = base->as.name;
+        has_base = true;
+    }
     TokKind body_close = TOK_RBRACE;
     if (kind == CLASS_KIND_CLASS) {
         eat(p, TOK_LBRACE);
@@ -880,14 +896,19 @@ static Decl *parse_nominal(Parser *p) {
     while (!at(p, body_close) && p->ok) {
         if (at(p, TOK_KW_pub) && peek(p, 1)->kind == TOK_KW_fun) {
             eat(p, TOK_KW_pub);
-            FunDecl *fun = parse_fun_decl(p);
+            FunDecl *fun = parse_fun_decl(p, true);
             if (!p->ok) return NULL;
             ptrvec_push(p, &methods, fun);
         } else if (at(p, TOK_KW_fun)) {
-            FunDecl *fun = parse_fun_decl(p);
+            FunDecl *fun = parse_fun_decl(p, false);
             if (!p->ok) return NULL;
             ptrvec_push(p, &methods, fun);
         } else {
+            bool field_pub = false;
+            if (at(p, TOK_KW_pub) && peek(p, 1)->kind == TOK_IDENT) {
+                eat(p, TOK_KW_pub);
+                field_pub = true;
+            }
             Tok *fname = eat(p, TOK_IDENT);
             eat(p, TOK_EQ);
             TypeRef *ftyp = parse_type(p);
@@ -898,6 +919,7 @@ static Decl *parse_nominal(Parser *p) {
             }
             field->name = fname->val.ident;
             field->typ = ftyp;
+            field->is_pub = field_pub;
             ptrvec_push(p, &fields, field);
         }
         skip_semi(p);
@@ -909,6 +931,8 @@ static Decl *parse_nominal(Parser *p) {
     decl->as.class_decl.name = name_tok->val.ident;
     decl->as.class_decl.vis = vis;
     decl->as.class_decl.is_seal = is_seal;
+    decl->as.class_decl.base_name = base_name;
+    decl->as.class_decl.has_base = has_base;
     decl->as.class_decl.kind = kind;
     decl->as.class_decl.fields = (FieldDecl **)ptrvec_finalize(p, &fields);
     decl->as.class_decl.fields_len = fields.len;
@@ -1570,7 +1594,7 @@ Module *parse_cask(Tok *toks, size_t len, const char *path, Arena *arena, Diag *
             if (!p.ok) return NULL;
             ptrvec_push(&p, &decls, decl);
         } else if (at(&p, TOK_KW_fun)) {
-            Decl *decl = parse_fun(&p);
+            Decl *decl = parse_fun(&p, false);
             if (!p.ok) return NULL;
             ptrvec_push(&p, &decls, decl);
         } else if (at(&p, TOK_KW_macro)) {
@@ -1578,11 +1602,26 @@ Module *parse_cask(Tok *toks, size_t len, const char *path, Arena *arena, Diag *
             if (!p.ok) return NULL;
             ptrvec_push(&p, &decls, decl);
         } else if (at(&p, TOK_KW_const)) {
-            Decl *decl = parse_const_decl(&p);
+            Decl *decl = parse_const_decl(&p, false);
             if (!p.ok) return NULL;
             ptrvec_push(&p, &decls, decl);
         } else if (at(&p, TOK_KW_def)) {
-            Decl *decl = parse_def_decl(&p);
+            Decl *decl = parse_def_decl(&p, false);
+            if (!p.ok) return NULL;
+            ptrvec_push(&p, &decls, decl);
+        } else if (at(&p, TOK_KW_pub) && peek(&p, 1)->kind == TOK_KW_fun) {
+            eat(&p, TOK_KW_pub);
+            Decl *decl = parse_fun(&p, true);
+            if (!p.ok) return NULL;
+            ptrvec_push(&p, &decls, decl);
+        } else if (at(&p, TOK_KW_pub) && peek(&p, 1)->kind == TOK_KW_const) {
+            eat(&p, TOK_KW_pub);
+            Decl *decl = parse_const_decl(&p, true);
+            if (!p.ok) return NULL;
+            ptrvec_push(&p, &decls, decl);
+        } else if (at(&p, TOK_KW_pub) && peek(&p, 1)->kind == TOK_KW_def) {
+            eat(&p, TOK_KW_pub);
+            Decl *decl = parse_def_decl(&p, true);
             if (!p.ok) return NULL;
             ptrvec_push(&p, &decls, decl);
         } else if (at(&p, TOK_KW_pub) || at(&p, TOK_KW_lock) || at(&p, TOK_KW_seal) ||
