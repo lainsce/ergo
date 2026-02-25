@@ -21,3 +21,4 @@ run.exe
 
 # Generated files
 *.app
+.opencode
