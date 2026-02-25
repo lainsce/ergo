@@ -194,8 +194,6 @@ static CogitoColor cogito_dyn_rgb_for_tone(
   if (!cache || tone_i < 0 || tone_i > 100) {
     return cogito_hct_to_rgb(hue, chroma, (double)tone_i);
   }
-  if (tone_i <= 0) return (CogitoColor){0, 0, 0, 255};
-  if (tone_i >= 100) return (CogitoColor){255, 255, 255, 255};
   if (!cache->has_rgb[tone_i]) {
     cache->rgb[tone_i] = cogito_hct_to_rgb(hue, chroma, (double)tone_i);
     cache->has_rgb[tone_i] = 1;
@@ -206,7 +204,6 @@ static CogitoColor cogito_dyn_rgb_for_tone(
 static double cogito_dyn_actual_chroma_for_tone(
     CogitoDynToneChromaCache* cache, double hue, double chroma, int tone_i) {
   if (!cache || tone_i < 0 || tone_i > 100) return 0.0;
-  if (tone_i <= 0 || tone_i >= 100) return 0.0;
   if (!cache->has_chroma[tone_i]) {
     CogitoColor cand = cogito_dyn_rgb_for_tone(cache, hue, chroma, tone_i);
     double ch = 0.0, cc = 0.0, ct = 0.0;

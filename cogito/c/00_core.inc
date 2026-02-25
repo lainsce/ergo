@@ -1384,7 +1384,21 @@ static inline bool cogito_theme_take_action_origin(int* out_x, int* out_y) {
   return true;
 }
 
+static inline bool cogito_theme_has_reveal_target(void) {
+  return cogito_active_window &&
+         cogito_active_window->kind == COGITO_WINDOW &&
+         cogito_active_window->w > 0 &&
+         cogito_active_window->h > 0;
+}
+
 static inline void cogito_theme_request_window_reveal(void) {
+  // Ignore theme reveal requests during startup/setup while no drawable
+  // window exists. This avoids stale pending ripples on first paint.
+  if (!cogito_theme_has_reveal_target()) {
+    cogito_theme_window_reveal_pending = false;
+    cogito_theme_action_origin_valid = false;
+    return;
+  }
   cogito_theme_window_reveal_pending = true;
 }
 

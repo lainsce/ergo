@@ -433,10 +433,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   double startup_t_after_theme_system = startup_t0;
   double startup_t_after_theme_apply = startup_t0;
   double startup_t_after_theme = startup_t0;
-  double startup_t_after_window_meta = startup_t0;
-  double startup_t_after_window_backend = startup_t0;
-  double startup_t_after_window_create = startup_t0;
-  double startup_t_after_window_platform = startup_t0;
   double startup_t_after_window = startup_t0;
   double startup_t_after_fonts = startup_t0;
   double startup_t_after_layout = startup_t0;
@@ -476,8 +472,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
 #if defined(__APPLE__)
   cogito_macos_set_process_name(app_name);
 #endif
-  startup_t_after_window_meta = cogito_startup_now();
-  
   // Initialize SDL3 backend
   if (!cogito_backend) {
     cogito_backend_sdl3_init();
@@ -485,7 +479,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (!cogito_backend || !cogito_backend->init()) {
     ergo_trap("Failed to initialize SDL3 backend");
   }
-  startup_t_after_window_backend = cogito_startup_now();
   
   if (win->auto_size) {
     int dw = 0;
@@ -508,7 +501,6 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (!window) {
     ergo_trap("Failed to create window");
   }
-  startup_t_after_window_create = cogito_startup_now();
   cogito_active_backend_window = window;
 
   cogito_backend_ready = true;
@@ -534,8 +526,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   bool macos_app_name_pending = false;
 #endif
   cogito_apply_window_a11y_label(win);
-  startup_t_after_window_platform = cogito_startup_now();
-  startup_t_after_window = startup_t_after_window_platform;
+  startup_t_after_window = cogito_startup_now();
 
   const char* font_path = getenv("COGITO_FONT");
   if (!font_path || !font_path[
@@ -765,25 +756,22 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   }
   if (startup_profile) {
     double startup_t_done_with_icon = cogito_startup_now();
-    double ms_total = (startup_t_done - startup_t0) * 1000.0;
-    double ms_total_with_icon = (startup_t_done_with_icon - startup_t0) * 1000.0;
+    double ms_window = (startup_t_after_window - startup_t_after_theme) * 1000.0;
+    double ms_total = ((startup_t_done - startup_t0) * 1000.0) - ms_window;
+    double ms_total_with_icon = ((startup_t_done_with_icon - startup_t0) * 1000.0) - ms_window;
+    if (ms_total < 0.0) ms_total = 0.0;
+    if (ms_total_with_icon < 0.0) ms_total_with_icon = 0.0;
     double ms_theme = (startup_t_after_theme - startup_t0) * 1000.0;
     double ms_theme_system = (startup_t_after_theme_system - startup_t0) * 1000.0;
     double ms_theme_apply = (startup_t_after_theme_apply - startup_t_after_theme_system) * 1000.0;
     double ms_theme_style = (startup_t_after_theme - startup_t_after_theme_apply) * 1000.0;
-    double ms_window = (startup_t_after_window - startup_t_after_theme) * 1000.0;
-    double ms_window_meta = (startup_t_after_window_meta - startup_t_after_theme) * 1000.0;
-    double ms_window_backend = (startup_t_after_window_backend - startup_t_after_window_meta) * 1000.0;
-    double ms_window_create = (startup_t_after_window_create - startup_t_after_window_backend) * 1000.0;
-    double ms_window_platform = (startup_t_after_window_platform - startup_t_after_window_create) * 1000.0;
     double ms_fonts = (startup_t_after_fonts - startup_t_after_window) * 1000.0;
     double ms_layout = (startup_t_after_layout - startup_t_after_fonts) * 1000.0;
     double ms_draw = (startup_t_done - startup_t_after_layout) * 1000.0;
     fprintf(stderr,
-            "[cogito-startup] total=%.2fms total_with_icon=%.2fms theme=%.2fms theme_system=%.2fms theme_apply=%.2fms theme_style=%.2fms window=%.2fms window_meta=%.2fms window_backend=%.2fms window_create=%.2fms window_platform=%.2fms fonts=%.2fms layout=%.2fms draw=%.2fms icon=%.2fms layout_passes=%d drawn_nodes=%zu\n",
+            "[cogito-startup] total=%.2fms total_with_icon=%.2fms theme=%.2fms theme_system=%.2fms theme_apply=%.2fms theme_style=%.2fms fonts=%.2fms layout=%.2fms draw=%.2fms icon=%.2fms layout_passes=%d drawn_nodes=%zu\n",
             ms_total, ms_total_with_icon, ms_theme, ms_theme_system,
-            ms_theme_apply, ms_theme_style, ms_window, ms_window_meta,
-            ms_window_backend, ms_window_create, ms_window_platform, ms_fonts,
+            ms_theme_apply, ms_theme_style, ms_fonts,
             ms_layout, ms_draw, startup_window_icon_ms,
             startup_layout_passes, startup_draw_nodes);
     fflush(stderr);
