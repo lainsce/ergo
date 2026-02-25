@@ -1754,7 +1754,7 @@ static Str cask_name_for_path(Arena *arena, Str path) {
 }
 
 static Str normalize_import_name(Arena *arena, Str name) {
-    if (str_ends_with(name, ".ergo")) {
+    if (str_ends_with(name, ".yis")) {
         return arena_str_copy(arena, name.data, name.len - 5);
     }
     return name;
@@ -2051,7 +2051,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
         Str mod_name = cask_name_for_path(arena, m->path);
         if (m->has_declared_name && !str_eq(m->declared_name, mod_name)) {
             // The entry module (index 0) may declare a cask name that
-            // differs from its filename (e.g. main.ergo with "cask quilter")
+            // differs from its filename (e.g. main.yis with "cask quilter")
             // to set the project/app identity.  Other modules must match.
             if (i == 0) {
                 mod_name = m->declared_name;
@@ -2463,7 +2463,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
     }
 
     if (!env->entry) {
-        set_err(err, "missing entry() in init.ergo");
+        set_err(err, "missing entry() in init.yis");
         return NULL;
     }
 
@@ -3651,7 +3651,7 @@ Ty *tc_expr_ctx(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *err) {
 }
 
 typedef struct {
-    ErgoLintMode mode;
+    YisLintMode mode;
     int warnings;
     int errors;
 } LintState;
@@ -3665,8 +3665,8 @@ static bool ty_requires_non_null(Ty *t) {
 
 static void lint_emit(LintState *ls, Str path, int line, int col, const char *msg, const char *hint) {
     if (!ls || !msg) return;
-    const char *level = (ls->mode == ERGO_LINT_STRICT) ? "error" : "warning";
-    if (ls->mode == ERGO_LINT_STRICT) ls->errors++;
+    const char *level = (ls->mode == YIS_LINT_STRICT) ? "error" : "warning";
+    if (ls->mode == YIS_LINT_STRICT) ls->errors++;
     else ls->warnings++;
 
     if (line <= 0) line = 1;
@@ -4122,7 +4122,7 @@ static void lint_stmt(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *ret_ty
     }
 }
 
-bool lint_program(Program *prog, Arena *arena, ErgoLintMode mode, int *warning_count, int *error_count) {
+bool lint_program(Program *prog, Arena *arena, YisLintMode mode, int *warning_count, int *error_count) {
     Diag err = {0};
     GlobalEnv *env = build_global_env(prog, arena, &err);
     if (!env) return false;
@@ -4225,7 +4225,7 @@ bool lint_program(Program *prog, Arena *arena, ErgoLintMode mode, int *warning_c
 
     if (warning_count) *warning_count = ls.warnings;
     if (error_count) *error_count = ls.errors;
-    if (mode == ERGO_LINT_STRICT) {
+    if (mode == YIS_LINT_STRICT) {
         return ls.errors == 0;
     }
     return true;

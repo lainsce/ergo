@@ -7,32 +7,32 @@
 #if defined(_WIN32)
 #include <io.h>
 #include <windows.h>
-#define ergo_isatty _isatty
-#define ergo_fileno _fileno
+#define yis_isatty _isatty
+#define yis_fileno _fileno
 #elif defined(__APPLE__)
 #include <unistd.h>
 #include <mach-o/dyld.h>
 #include <limits.h>
-#define ergo_isatty isatty
-#define ergo_fileno fileno
+#define yis_isatty isatty
+#define yis_fileno fileno
 #else
 #include <unistd.h>
 #include <limits.h>
-#define ergo_isatty isatty
-#define ergo_fileno fileno
+#define yis_isatty isatty
+#define yis_fileno fileno
 #endif
 
-bool ergo_stdout_isatty(void) {
-    return ergo_isatty(ergo_fileno(stdout)) != 0;
+bool yis_stdout_isatty(void) {
+    return yis_isatty(yis_fileno(stdout)) != 0;
 }
 
-void ergo_set_stdout_buffered(void) {
-    if (!ergo_stdout_isatty()) {
+void yis_set_stdout_buffered(void) {
+    if (!yis_stdout_isatty()) {
         setvbuf(stdout, NULL, _IOFBF, 1 << 16);
     }
 }
 
-char *ergo_exe_dir(void) {
+char *yis_exe_dir(void) {
     char *path = NULL;
 #if defined(__APPLE__)
     uint32_t sz = 0;

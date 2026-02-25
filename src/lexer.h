@@ -1,5 +1,5 @@
-#ifndef ERGO_LEXER_H
-#define ERGO_LEXER_H
+#ifndef YIS_LEXER_H
+#define YIS_LEXER_H
 
 #include <stddef.h>
 #include <stdbool.h>

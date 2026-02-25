@@ -164,7 +164,7 @@ static const char *get_error_tip(const char *msg) {
     }
     if (strstr(msg, "unknown type")) {
         if (strstr(msg, "use num")) {
-            return "Ergo uses 'num' for all numeric types instead of 'int' or 'float'.";
+            return "Yis uses 'num' for all numeric types instead of 'int' or 'float'.";
         }
         return "This type name is not recognized. Check for typos, missing imports, or explicit generic names like T.";
     }
@@ -216,10 +216,10 @@ static const char *get_error_tip(const char *msg) {
     if (strstr(msg, "missing required `bring stdr;`")) {
         return "Add 'bring stdr;' at the top of your file to import the standard library.";
     }
-    if (strstr(msg, "entry() is only allowed in init.ergo")) {
-        return "The entry() function can only be defined in the main init.ergo file.";
+    if (strstr(msg, "entry() is only allowed in init.yis")) {
+        return "The entry() function can only be defined in the main init.yis file.";
     }
-    if (strstr(msg, "init.ergo must contain exactly one entry()")) {
+    if (strstr(msg, "init.yis must contain exactly one entry()")) {
         return "Your main file must have exactly one entry() function as the program starting point.";
     }
     if (strstr(msg, "method") && strstr(msg, "must be called")) {
@@ -253,18 +253,18 @@ static const char *get_error_tip(const char *msg) {
         return "Check that the file path exists and is accessible.";
     }
     if (strstr(msg, "'.e' files are no longer supported")) {
-        return "Rename your file from .e to .ergo extension.";
+        return "Rename your file from .e to .yis extension.";
     }
     if (strstr(msg, "bring expects stdr/math/cogito")) {
-        return "Use 'bring stdr;', 'bring math;', 'bring cogito;', or a valid .ergo file path.";
+        return "Use 'bring stdr;', 'bring math;', 'bring cogito;', or a valid .yis file path.";
     }
-    if (strstr(msg, "stdr.ergo not found")) {
-        return "The standard library is not installed. Set ERGO_STDLIB to the stdlib directory.";
+    if (strstr(msg, "stdr.yis not found")) {
+        return "The standard library is not installed. Set YIS_STDLIB to the stdlib directory.";
     }
     if (strstr(msg, "Cogito GUI framework not found")) {
-        return "Cogito is required for GUI applications. Install/build Cogito and ensure cogito.ergo is in your stdlib path.";
+        return "Cogito is required for GUI applications. Install/build Cogito and ensure cogito.yis is in your stdlib path.";
     }
-    if (strstr(msg, "missing entry() in init.ergo")) {
+    if (strstr(msg, "missing entry() in init.yis")) {
         return "Your main file needs an entry() function: 'entry() { ... }'.";
     }
     if (strstr(msg, "free function") && strstr(msg, "cannot take this")) {
@@ -283,7 +283,7 @@ static const char *get_error_tip(const char *msg) {
         return "Empty arrays need a type annotation. Use '[]: [num]' or provide at least one element.";
     }
     if (strstr(msg, "cask declaration") && strstr(msg, "must match file name")) {
-        return "Use 'cask <name>' only when it matches the .ergo file basename.";
+        return "Use 'cask <name>' only when it matches the .yis file basename.";
     }
     if (strstr(msg, "foreach expects array or string")) {
         return "for (x in y) requires 'y' to be an array or string. Check the type of your iterable.";
@@ -352,7 +352,7 @@ static const char *get_error_tip(const char *msg) {
         return "The C compiler encountered an error. Check the generated C code or your C compiler setup.";
     }
     if (strstr(msg, "cogito") && strstr(msg, "linker")) {
-        return "Cogito library linking failed. Ensure libcogito is installed or set ERGO_COGITO_FLAGS with the correct linker path.";
+        return "Cogito library linking failed. Ensure libcogito is installed or set YIS_COGITO_FLAGS with the correct linker path.";
     }
     if (strstr(msg, "raylib") && (strstr(msg, "not found") || strstr(msg, "undefined"))) {
         return "Raylib is required for Cogito GUI apps. Install it: 'brew install raylib' (macOS) or see docs.";
@@ -364,16 +364,16 @@ static const char *get_error_tip(const char *msg) {
         return "The C backend doesn't support --emit-c. Use the default compilation instead.";
     }
     if (strstr(msg, "unknown option")) {
-        return "Use 'ergo --help' to see available options.";
+        return "Use 'yis --help' to see available options.";
     }
     if (strstr(msg, "run needs a source path")) {
-        return "Usage: ergo run <file.ergo>";
+        return "Usage: yis run <file.yis>";
     }
     if (strstr(msg, "multiple source paths provided")) {
-        return "Provide only one source file. Use 'ergo run file.ergo'.";
+        return "Provide only one source file. Use 'yis run file.yis'.";
     }
     if (strstr(msg, "unexpected extra arguments")) {
-        return "Too many arguments provided. Use 'ergo <file.ergo>' or 'ergo run <file.ergo>'.";
+        return "Too many arguments provided. Use 'yis <file.yis>' or 'yis run <file.yis>'.";
     }
     
     return NULL;

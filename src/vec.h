@@ -1,5 +1,5 @@
-#ifndef ERGO_VEC_H
-#define ERGO_VEC_H
+#ifndef YIS_VEC_H
+#define YIS_VEC_H
 
 #include <stdlib.h>
 

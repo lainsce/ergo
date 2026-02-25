@@ -1,5 +1,5 @@
-#ifndef ERGO_DIAG_H
-#define ERGO_DIAG_H
+#ifndef YIS_DIAG_H
+#define YIS_DIAG_H
 
 #include <stdbool.h>
 #include <stdio.h>

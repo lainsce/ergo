@@ -101,7 +101,7 @@ static Str arena_copy_str(Arena *arena, const char *s) {
 }
 
 static const char *stdlib_dir_default(void) {
-    const char *env = getenv("ERGO_STDLIB");
+    const char *env = getenv("YIS_STDLIB");
     if (env && env[0]) {
         return env;
     }
@@ -111,11 +111,11 @@ static const char *stdlib_dir_default(void) {
         const char *dir;
         const char *marker;
     } dev_locations[] = {
-        {"src/stdlib", "src/stdlib/stdr.ergo"},
-        {"ergo/src/stdlib", "ergo/src/stdlib/stdr.ergo"},
-        {"../src/stdlib", "../src/stdlib/stdr.ergo"},
-        {"../ergo/src/stdlib", "../ergo/src/stdlib/stdr.ergo"},
-        {"../../ergo/src/stdlib", "../../ergo/src/stdlib/stdr.ergo"},
+        {"src/stdlib", "src/stdlib/stdr.yis"},
+        {"yis/src/stdlib", "yis/src/stdlib/stdr.yis"},
+        {"../src/stdlib", "../src/stdlib/stdr.yis"},
+        {"../yis/src/stdlib", "../yis/src/stdlib/stdr.yis"},
+        {"../../yis/src/stdlib", "../../yis/src/stdlib/stdr.yis"},
     };
     for (size_t i = 0; i < sizeof(dev_locations) / sizeof(dev_locations[0]); i++) {
         if (path_is_file(dev_locations[i].marker)) {
@@ -123,19 +123,19 @@ static const char *stdlib_dir_default(void) {
         }
     }
 
-    // Try relative to the executable (binary at <project>/ergo/build/ergo)
+    // Try relative to the executable (binary at <project>/yis/build/yis)
     {
-        char *exe_dir = ergo_exe_dir();
+        char *exe_dir = yis_exe_dir();
         if (exe_dir) {
             static char stdlib_buf[512];
             const char *exe_rel[] = {
                 "../src/stdlib",
-                "../../ergo/src/stdlib",
+                "../../yis/src/stdlib",
             };
             for (size_t i = 0; i < sizeof(exe_rel) / sizeof(exe_rel[0]); i++) {
                 char *dir = path_join(exe_dir, exe_rel[i]);
                 if (dir) {
-                    char *marker = path_join(dir, "stdr.ergo");
+                    char *marker = path_join(dir, "stdr.yis");
                     if (marker && path_is_file(marker)) {
                         snprintf(stdlib_buf, sizeof(stdlib_buf), "%s", dir);
                         free(marker);
@@ -152,16 +152,16 @@ static const char *stdlib_dir_default(void) {
     }
 
     // Check installed locations
-    if (path_is_file("/usr/local/share/ergo/stdlib/stdr.ergo")) {
-        return "/usr/local/share/ergo/stdlib";
+    if (path_is_file("/usr/local/share/yis/stdlib/stdr.yis")) {
+        return "/usr/local/share/yis/stdlib";
     }
-    if (path_is_file("/opt/homebrew/share/ergo/stdlib/stdr.ergo")) {
-        return "/opt/homebrew/share/ergo/stdlib";
+    if (path_is_file("/opt/homebrew/share/yis/stdlib/stdr.yis")) {
+        return "/opt/homebrew/share/yis/stdlib";
     }
-    if (path_is_file("/usr/share/ergo/stdlib/stdr.ergo")) {
-        return "/usr/share/ergo/stdlib";
+    if (path_is_file("/usr/share/yis/stdlib/stdr.yis")) {
+        return "/usr/share/yis/stdlib";
     }
-    return "ergo/src/stdlib";
+    return "yis/src/stdlib";
 }
 
 static Module *load_file(const char *path,
@@ -246,9 +246,9 @@ static Module *load_file(const char *path,
     for (size_t i = 0; i < mod->imports_len; i++) {
         Import *imp = mod->imports[i];
         if (str_eq_c(imp->name, "stdr")) {
-            char *p = path_join(stdlib_dir, "stdr.ergo");
+            char *p = path_join(stdlib_dir, "stdr.yis");
             if (!p || !path_is_file(p)) {
-                set_err(err, abs_path, "stdr.ergo not found in stdlib");
+                set_err(err, abs_path, "stdr.yis not found in stdlib");
                 free(p);
                 return NULL;
             }
@@ -260,9 +260,9 @@ static Module *load_file(const char *path,
             continue;
         }
         if (str_eq_c(imp->name, "math")) {
-            char *p = path_join(stdlib_dir, "math.ergo");
+            char *p = path_join(stdlib_dir, "math.yis");
             if (!p || !path_is_file(p)) {
-                set_err(err, abs_path, "math.ergo not found in stdlib");
+                set_err(err, abs_path, "math.yis not found in stdlib");
                 free(p);
                 return NULL;
             }
@@ -273,7 +273,7 @@ static Module *load_file(const char *path,
             free(p);
             continue;
         }
-        // Cogito module resolution (ergo-local copy)
+        // Cogito module resolution (yis-local copy)
 #include "cogito_resolve.inc"
         char *name = str_to_c(imp->name);
         if (!name) {
@@ -282,10 +282,10 @@ static Module *load_file(const char *path,
         }
         if (str_ends_with(imp->name, ".e")) {
             free(name);
-            set_err(err, abs_path, "'.e' files are no longer supported; use .ergo");
+            set_err(err, abs_path, "'.e' files are no longer supported; use .yis");
             return NULL;
         }
-        if (!str_ends_with(imp->name, ".ergo")) {
+        if (!str_ends_with(imp->name, ".yis")) {
             size_t nlen = strlen(name);
             char *with_ext = (char *)malloc(nlen + 6);
             if (!with_ext) {
@@ -294,7 +294,7 @@ static Module *load_file(const char *path,
                 return NULL;
             }
             memcpy(with_ext, name, nlen);
-            memcpy(with_ext + nlen, ".ergo", 6);
+            memcpy(with_ext + nlen, ".yis", 6);
             free(name);
             name = with_ext;
         }
@@ -356,7 +356,7 @@ bool load_project(const char *entry_path, Arena *arena, Program **out_prog, uint
     if (entry_count != 1) {
         // Use cask path which is already in arena
         const char *err_path = init_mod->path.data ? init_mod->path.data : "entry file";
-        set_err(err, err_path, "init.ergo must contain exactly one entry() decl");
+        set_err(err, err_path, "init.yis must contain exactly one entry() decl");
         free(entry_abs);
         free(root_dir);
         free(stdlib_abs);
@@ -376,7 +376,7 @@ bool load_project(const char *entry_path, Arena *arena, Program **out_prog, uint
             if (mod->decls[j]->kind == DECL_ENTRY) {
                 // Use cask path which is already in arena
                 const char *err_path = mod->path.data ? mod->path.data : "cask file";
-                set_err(err, err_path, "entry() is only allowed in init.ergo");
+                set_err(err, err_path, "entry() is only allowed in init.yis");
                 free(entry_abs);
                 free(root_dir);
                 free(stdlib_abs);

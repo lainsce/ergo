@@ -1,5 +1,5 @@
-#ifndef ERGO_AST_H
-#define ERGO_AST_H
+#ifndef YIS_AST_H
+#define YIS_AST_H
 
 #include <stdbool.h>
 #include <stddef.h>

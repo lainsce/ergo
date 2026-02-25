@@ -1,6 +1,6 @@
 cask stdr
 
--- Ergo Standard Library: stdr.ergo
+-- Yis Standard Library: stdr.yis
 
 macro is_none() (( bool )) {
   this == null

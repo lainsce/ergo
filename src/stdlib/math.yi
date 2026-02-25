@@ -1,6 +1,6 @@
 cask math
 
--- Ergo Standard Library: math.ergo
+-- Yis Standard Library: math.yis
 
 macro sq() (( num )) {
   this * this
@@ -63,7 +63,7 @@ fun _cos_taylor(x = num) (( num )) {
   return sum
 }
 
--- Sine function (implemented in Ergo)
+-- Sine function (implemented in Yis)
 pub fun sin(x = num) (( num )) {
   let pi = math.PI
   let half_pi = pi / 2.0
@@ -78,7 +78,7 @@ pub fun sin(x = num) (( num )) {
   return sign * _sin_taylor(y)
 }
 
--- Cosine function (implemented in Ergo)
+-- Cosine function (implemented in Yis)
 pub fun cos(x = num) (( num )) {
   let pi = math.PI
   let half_pi = pi / 2.0
@@ -94,14 +94,14 @@ pub fun cos(x = num) (( num )) {
   return sign * _cos_taylor(y)
 }
 
--- Tangent function (implemented in Ergo)
+-- Tangent function (implemented in Yis)
 pub fun tan(x = num) (( num )) {
   let s = sin(x)
   let c = cos(x)
   return s / c
 }
 
--- Square root function (implemented in Ergo)
+-- Square root function (implemented in Yis)
 pub fun sqrt(x = num) (( num )) {
   if x <= 0.0 {
     return 0.0

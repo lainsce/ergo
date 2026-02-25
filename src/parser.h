@@ -1,5 +1,5 @@
-#ifndef ERGO_PARSER_H
-#define ERGO_PARSER_H
+#ifndef YIS_PARSER_H
+#define YIS_PARSER_H
 
 #include <stdbool.h>
 

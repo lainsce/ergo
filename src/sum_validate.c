@@ -881,12 +881,12 @@ static int validate_single_file(const char *file, SumMode forced_mode, bool use_
 }
 
 static void print_sum_usage(FILE *out) {
-    fprintf(out, "Usage: ergo sum validate [--mode off|warn|strict] <path>\n");
+    fprintf(out, "Usage: yis sum validate [--mode off|warn|strict] <path>\n");
     fprintf(out, "\n");
     fprintf(out, "Validate SUM theme files with @bring expansion and source-mapped diagnostics.\n");
     fprintf(out, "If <path> is a directory, all .sum files are validated recursively.\n");
     fprintf(out, "Optional registry injection via CSV env vars:\n");
-    fprintf(out, "  ERGO_SUM_PROPERTIES, ERGO_SUM_TYPES, ERGO_SUM_STATES, ERGO_SUM_FUNCTIONS\n");
+    fprintf(out, "  YIS_SUM_PROPERTIES, YIS_SUM_TYPES, YIS_SUM_STATES, YIS_SUM_FUNCTIONS\n");
 }
 
 int sum_validate_cli(int argc, char **argv) {
@@ -937,10 +937,10 @@ int sum_validate_cli(int argc, char **argv) {
     DiagCounts totals = {0};
     int rc = 0;
 
-    load_injected_list("ERGO_SUM_TYPES", &injected_types);
-    load_injected_list("ERGO_SUM_STATES", &injected_states);
-    load_injected_list("ERGO_SUM_PROPERTIES", &injected_properties);
-    load_injected_list("ERGO_SUM_FUNCTIONS", &injected_functions);
+    load_injected_list("YIS_SUM_TYPES", &injected_types);
+    load_injected_list("YIS_SUM_STATES", &injected_states);
+    load_injected_list("YIS_SUM_PROPERTIES", &injected_properties);
+    load_injected_list("YIS_SUM_FUNCTIONS", &injected_functions);
 
     if (path_is_file(target)) {
         rc = validate_single_file(target, forced_mode, use_forced_mode, &totals);

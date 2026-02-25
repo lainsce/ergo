@@ -1,4 +1,4 @@
-# Ergo Language Reference (Working Spec)
+# Yis Language Reference
 
 This document describes the language behavior currently implemented in this repository.
 It is intended as an implementation-facing reference, not a future design document.
@@ -69,29 +69,29 @@ Current reserved words:
 
 Use `bring` at module top level:
 
-```ergo
+```yis
 bring stdr
 bring math
 bring cogito
 bring utils
-bring utils.ergo
+bring utils.yis
 ```
 
 Current behavior:
 
 - Imports are namespaced (`math.sin(...)`, `utils.fn(...)`).
 - Built-in cask names include `stdr`, `math`, and `cogito`.
-- `bring name` resolves to `name.ergo` for user casks.
-- `bring name.ergo` is accepted.
+- `bring name` resolves to `name.yis` for user casks.
+- `bring name.yis` is accepted.
 - `stdr` is required in non-stdlib casks.
 - Legacy `.e` imports are rejected.
 
 ### 4.2 Module Naming
 
-- Module names are derived from file basename (without `.ergo`).
+- Module names are derived from file basename (without `.yis`).
 - Optional declaration form:
 
-```ergo
+```yis
 cask mymod
 ```
 
@@ -101,7 +101,7 @@ cask mymod
 
 - Exactly one `entry()` is required in the entry module.
 - Imported modules cannot declare `entry()`.
-- Current diagnostics refer to `init.ergo`; this is a toolchain convention reflected in error text.
+- Current diagnostics refer to `init.yis`; this is a toolchain convention reflected in error text.
 
 ## 5. Top-Level Declarations
 
@@ -116,7 +116,7 @@ Allowed top-level declarations:
 
 Macro declaration form:
 
-```ergo
+```yis
 macro plussy(arg = num) (( num )) {
     this + arg
 }
@@ -185,7 +185,7 @@ Assignment requires mutable targets.
 
 ### 8.1 Functions
 
-```ergo
+```yis
 fun add(a = num, b = num) (( num )) {
     return a + b
 }
@@ -200,7 +200,7 @@ fun add(a = num, b = num) (( num )) {
 
 ### 8.3 Nominal Type Syntax
 
-```ergo
+```yis
 class Point {
     pub x = num
     y = num
@@ -214,7 +214,7 @@ class Point {
 
 Class inheritance syntax (single base class):
 
-```ergo
+```yis
 class Child : base.Parent {
     fun init(?this) (( -- )) { }
 }
@@ -222,7 +222,7 @@ class Child : base.Parent {
 
 Struct/enum declarations use `=[ ... ]` field lists:
 
-```ergo
+```yis
 struct Color = [
     r = num
     g = num
@@ -277,13 +277,13 @@ Supported forms:
 
 1. C-style loop:
 
-```ergo
+```yis
 for (init; cond; step) { ... }
 ```
 
 2. Foreach:
 
-```ergo
+```yis
 for (item in expr) { ... }
 ```
 
@@ -469,8 +469,8 @@ Includes constants and numeric helpers such as:
 
 The loader supports source inclusion via comment directive:
 
-```ergo
--- @include "relative/path.ergo"
+```yis
+-- @include "relative/path.yis"
 ```
 
 This is processed before lexing/parsing.

@@ -2,7 +2,7 @@ cask fizzbuzz
 
 bring stdr
 
--- Ergo Example: FizzBuzz
+-- Yis Example: FizzBuzz
 
 macro divisible_by(divisor = num) (( bool )) {
     this % divisor == 0

@@ -329,25 +329,25 @@ static char *mangle_mod(Arena *arena, Str name) {
 static char *mangle_global(Arena *arena, Str mod, Str name) {
     char *mm = mangle_mod(arena, mod);
     if (!mm) return NULL;
-    return arena_printf(arena, "ergo_%s_%.*s", mm, (int)name.len, name.data);
+    return arena_printf(arena, "yis_%s_%.*s", mm, (int)name.len, name.data);
 }
 
 static char *mangle_global_var(Arena *arena, Str mod, Str name) {
     char *mm = mangle_mod(arena, mod);
     if (!mm) return NULL;
-    return arena_printf(arena, "ergo_g_%s_%.*s", mm, (int)name.len, name.data);
+    return arena_printf(arena, "yis_g_%s_%.*s", mm, (int)name.len, name.data);
 }
 
 static char *mangle_global_init(Arena *arena, Str mod) {
     char *mm = mangle_mod(arena, mod);
     if (!mm) return NULL;
-    return arena_printf(arena, "ergo_init_%s", mm);
+    return arena_printf(arena, "yis_init_%s", mm);
 }
 
 static char *mangle_method(Arena *arena, Str mod, Str cls, Str name) {
     char *mm = mangle_mod(arena, mod);
     if (!mm) return NULL;
-    return arena_printf(arena, "ergo_m_%s_%.*s_%.*s", mm, (int)cls.len, cls.data, (int)name.len, name.data);
+    return arena_printf(arena, "yis_m_%s_%.*s_%.*s", mm, (int)cls.len, cls.data, (int)name.len, name.data);
 }
 
 static void split_qname(Str qname, Str *mod, Str *name) {
@@ -473,9 +473,9 @@ static char *codegen_c_class_name(Codegen *cg, Str qname) {
     Str mod, name;
     split_qname(qname, &mod, &name);
     if (mod.len == 0) {
-        return arena_printf(cg->arena, "ErgoObj_%.*s", (int)name.len, name.data);
+        return arena_printf(cg->arena, "YisObj_%.*s", (int)name.len, name.data);
     }
-    return arena_printf(cg->arena, "ErgoObj_%s_%.*s", mangle_mod(cg->arena, mod), (int)name.len, name.data);
+    return arena_printf(cg->arena, "YisObj_%s_%.*s", mangle_mod(cg->arena, mod), (int)name.len, name.data);
 }
 
 static char *codegen_c_field_name(Codegen *cg, Str name) {
@@ -601,7 +601,7 @@ static char *codegen_new_sym(Codegen *cg, const char *base) {
 
 static char *codegen_new_lambda(Codegen *cg) {
     cg->lambda_id++;
-    return arena_printf(cg->arena, "ergo_lambda_%d", cg->lambda_id);
+    return arena_printf(cg->arena, "yis_lambda_%d", cg->lambda_id);
 }
 
 static char *codegen_define_local(Codegen *cg, Str name, Ty *ty, bool is_mut, bool is_const) {
@@ -636,7 +636,7 @@ static bool codegen_bind_temp(Codegen *cg, Str name, char *cname, Ty *ty) {
 static void codegen_release_scope(Codegen *cg, LocalList locals) {
     if (!cg) return;
     for (size_t i = locals.len; i-- > 0;) {
-        w_line(&cg->w, "ergo_release_val(%s);", locals.items[i]);
+        w_line(&cg->w, "yis_release_val(%s);", locals.items[i]);
     }
     free(locals.items);
 }
@@ -1289,7 +1289,7 @@ static void gen_expr_release_except(Codegen *cg, GenExpr *ge, char *keep) {
     for (size_t i = 0; i < ge->cleanup.len; i++) {
         char *v = ge->cleanup.data[i];
         if (v != keep) {
-            w_line(&cg->w, "ergo_release_val(%s);", v);
+            w_line(&cg->w, "yis_release_val(%s);", v);
         }
     }
 }
@@ -1315,10 +1315,10 @@ static bool is_assign_op(TokKind op) {
 
 static const char *compound_assign_opfn(TokKind op) {
     switch (op) {
-        case TOK_PLUSEQ: return "ergo_add";
-        case TOK_MINUSEQ: return "ergo_sub";
-        case TOK_STAREQ: return "ergo_mul";
-        case TOK_SLASHEQ: return "ergo_div";
+        case TOK_PLUSEQ: return "yis_add";
+        case TOK_MINUSEQ: return "yis_sub";
+        case TOK_STAREQ: return "yis_mul";
+        case TOK_SLASHEQ: return "yis_div";
         default: return NULL;
     }
 }
@@ -1337,7 +1337,7 @@ static bool gen_if_expr_chain(Codegen *cg,
     if (!arm->cond) {
         GenExpr v;
         if (!gen_expr(cg, path, arm->value, &v, err)) return false;
-        w_line(&cg->w, "ergo_move_into(&%s, %s);", result_tmp, v.tmp);
+        w_line(&cg->w, "yis_move_into(&%s, %s);", result_tmp, v.tmp);
         gen_expr_release_except(cg, &v, v.tmp);
         gen_expr_free(&v);
         return true;
@@ -1347,8 +1347,8 @@ static bool gen_if_expr_chain(Codegen *cg,
     if (!gen_expr(cg, path, arm->cond, &cond, err)) return false;
     cg->var_id++;
     char *bname = arena_printf(cg->arena, "__b%d", cg->var_id);
-    w_line(&cg->w, "bool %s = ergo_as_bool(%s);", bname, cond.tmp);
-    w_line(&cg->w, "ergo_release_val(%s);", cond.tmp);
+    w_line(&cg->w, "bool %s = yis_as_bool(%s);", bname, cond.tmp);
+    w_line(&cg->w, "yis_release_val(%s);", cond.tmp);
     gen_expr_release_except(cg, &cond, cond.tmp);
     gen_expr_free(&cond);
 
@@ -1356,7 +1356,7 @@ static bool gen_if_expr_chain(Codegen *cg,
     cg->w.indent++;
     GenExpr v;
     if (!gen_expr(cg, path, arm->value, &v, err)) return false;
-    w_line(&cg->w, "ergo_move_into(&%s, %s);", result_tmp, v.tmp);
+    w_line(&cg->w, "yis_move_into(&%s, %s);", result_tmp, v.tmp);
     gen_expr_release_except(cg, &v, v.tmp);
     gen_expr_free(&v);
     cg->w.indent--;
@@ -1383,7 +1383,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
         case EXPR_INT: {
             char *t = codegen_new_tmp(cg);
             if (!t) return cg_set_err(err, path, "out of memory");
-            w_line(&cg->w, "ErgoVal %s = EV_INT(%lld);", t, e->as.int_lit.v);
+            w_line(&cg->w, "YisVal %s = EV_INT(%lld);", t, e->as.int_lit.v);
             gen_expr_add(out, t);
             out->tmp = t;
             return true;
@@ -1391,7 +1391,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
         case EXPR_FLOAT: {
             char *t = codegen_new_tmp(cg);
             if (!t) return cg_set_err(err, path, "out of memory");
-            w_line(&cg->w, "ErgoVal %s = EV_FLOAT(%.17g);", t, e->as.float_lit.v);
+            w_line(&cg->w, "YisVal %s = EV_FLOAT(%.17g);", t, e->as.float_lit.v);
             gen_expr_add(out, t);
             out->tmp = t;
             return true;
@@ -1399,7 +1399,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
         case EXPR_BOOL: {
             char *t = codegen_new_tmp(cg);
             if (!t) return cg_set_err(err, path, "out of memory");
-            w_line(&cg->w, "ErgoVal %s = EV_BOOL(%s);", t, e->as.bool_lit.v ? "true" : "false");
+            w_line(&cg->w, "YisVal %s = EV_BOOL(%s);", t, e->as.bool_lit.v ? "true" : "false");
             gen_expr_add(out, t);
             out->tmp = t;
             return true;
@@ -1407,7 +1407,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
         case EXPR_NULL: {
             char *t = codegen_new_tmp(cg);
             if (!t) return cg_set_err(err, path, "out of memory");
-            w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+            w_line(&cg->w, "YisVal %s = EV_NULLV;", t);
             gen_expr_add(out, t);
             out->tmp = t;
             return true;
@@ -1417,7 +1417,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             if (!parts || parts->len == 0) {
                 char *t = codegen_new_tmp(cg);
                 if (!t) return cg_set_err(err, path, "out of memory");
-                w_line(&cg->w, "ErgoVal %s = EV_STR(stdr_str_lit(\"\"));", t);
+                w_line(&cg->w, "YisVal %s = EV_STR(stdr_str_lit(\"\"));", t);
                 gen_expr_add(out, t);
                 out->tmp = t;
                 return true;
@@ -1430,14 +1430,14 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                 if (!pt) { free(part_tmps); return cg_set_err(err, path, "out of memory"); }
                 if (p->kind == STR_PART_TEXT) {
                     char *esc = c_escape(cg->arena, p->as.text);
-                    w_line(&cg->w, "ErgoVal %s = EV_STR(stdr_str_lit(\"%s\"));", pt, esc ? esc : "");
+                    w_line(&cg->w, "YisVal %s = EV_STR(stdr_str_lit(\"%s\"));", pt, esc ? esc : "");
                 } else if (p->kind == STR_PART_EXPR && p->as.expr) {
                     GenExpr pe;
                     if (!gen_expr(cg, path, p->as.expr, &pe, err)) {
                         free(part_tmps);
                         return false;
                     }
-                    w_line(&cg->w, "ErgoVal %s = %s; ergo_retain_val(%s);", pt, pe.tmp, pt);
+                    w_line(&cg->w, "YisVal %s = %s; yis_retain_val(%s);", pt, pe.tmp, pt);
                     gen_expr_release_except(cg, &pe, NULL);
                     gen_expr_free(&pe);
                 } else {
@@ -1449,13 +1449,13 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             char *parts_name = codegen_new_sym(cg, "parts");
             char *s_name = codegen_new_sym(cg, "s");
             char *arr = codegen_new_tmp(cg);
-            w_line(&cg->w, "ErgoVal %s = EV_NULLV;", arr);
+            w_line(&cg->w, "YisVal %s = EV_NULLV;", arr);
             w_line(&cg->w, "{");
             cg->w.indent++;
             {
                 StrBuf line;
                 sb_init(&line);
-                sb_appendf(&line, "ErgoVal %s[%zu] = { ", parts_name, parts->len);
+                sb_appendf(&line, "YisVal %s[%zu] = { ", parts_name, parts->len);
                 for (size_t i = 0; i < parts->len; i++) {
                     if (i) sb_append(&line, ", ");
                     sb_append(&line, part_tmps[i]);
@@ -1464,12 +1464,12 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                 w_line(&cg->w, "%s", line.data ? line.data : "");
                 sb_free(&line);
             }
-            w_line(&cg->w, "ErgoStr* %s = stdr_str_from_parts(%zu, %s);", s_name, parts->len, parts_name);
+            w_line(&cg->w, "YisStr* %s = stdr_str_from_parts(%zu, %s);", s_name, parts->len, parts_name);
             w_line(&cg->w, "%s = EV_STR(%s);", arr, s_name);
             cg->w.indent--;
             w_line(&cg->w, "}");
             for (size_t i = 0; i < parts->len; i++) {
-                w_line(&cg->w, "ergo_release_val(%s);", part_tmps[i]);
+                w_line(&cg->w, "yis_release_val(%s);", part_tmps[i]);
             }
             free(part_tmps);
             gen_expr_add(out, arr);
@@ -1480,12 +1480,12 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             cg->arr_id++;
             char *arrsym = arena_printf(cg->arena, "__tup%d", cg->arr_id);
             char *t = codegen_new_tmp(cg);
-            w_line(&cg->w, "ErgoArr* %s = stdr_arr_new(%zu);", arrsym, e->as.tuple_lit.items_len);
-            w_line(&cg->w, "ErgoVal %s = EV_ARR(%s);", t, arrsym);
+            w_line(&cg->w, "YisArr* %s = stdr_arr_new(%zu);", arrsym, e->as.tuple_lit.items_len);
+            w_line(&cg->w, "YisVal %s = EV_ARR(%s);", t, arrsym);
             for (size_t i = 0; i < e->as.tuple_lit.items_len; i++) {
                 GenExpr ge;
                 if (!gen_expr(cg, path, e->as.tuple_lit.items[i], &ge, err)) return false;
-                w_line(&cg->w, "ergo_arr_add(%s, %s);", arrsym, ge.tmp);
+                w_line(&cg->w, "yis_arr_add(%s, %s);", arrsym, ge.tmp);
                 gen_expr_release_except(cg, &ge, ge.tmp);
                 gen_expr_free(&ge);
             }
@@ -1497,12 +1497,12 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             cg->arr_id++;
             char *arrsym = arena_printf(cg->arena, "__a%d", cg->arr_id);
             char *t = codegen_new_tmp(cg);
-            w_line(&cg->w, "ErgoArr* %s = stdr_arr_new(%zu);", arrsym, e->as.array_lit.items_len);
-            w_line(&cg->w, "ErgoVal %s = EV_ARR(%s);", t, arrsym);
+            w_line(&cg->w, "YisArr* %s = stdr_arr_new(%zu);", arrsym, e->as.array_lit.items_len);
+            w_line(&cg->w, "YisVal %s = EV_ARR(%s);", t, arrsym);
             for (size_t i = 0; i < e->as.array_lit.items_len; i++) {
                 GenExpr ge;
                 if (!gen_expr(cg, path, e->as.array_lit.items[i], &ge, err)) return false;
-                w_line(&cg->w, "ergo_arr_add(%s, %s);", arrsym, ge.tmp);
+                w_line(&cg->w, "yis_arr_add(%s, %s);", arrsym, ge.tmp);
                 gen_expr_release_except(cg, &ge, ge.tmp);
                 gen_expr_free(&ge);
             }
@@ -1531,12 +1531,12 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                 if (!fi || !fi->wrapper) {
                     return cg_set_err(err, path, "missing function wrapper (internal error)");
                 }
-                w_line(&cg->w, "ErgoVal %s = EV_FN(ergo_fn_new(%s, %zu));", t, fi->wrapper, sig->params_len);
+                w_line(&cg->w, "YisVal %s = EV_FN(yis_fn_new(%s, %zu));", t, fi->wrapper, sig->params_len);
                 gen_expr_add(out, t);
                 out->tmp = t;
                 return true;
             }
-            w_line(&cg->w, "ErgoVal %s = %s; ergo_retain_val(%s);", t, cname, t);
+            w_line(&cg->w, "YisVal %s = %s; yis_retain_val(%s);", t, cname, t);
             gen_expr_add(out, t);
             out->tmp = t;
             return true;
@@ -1551,17 +1551,17 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     char *t = codegen_new_tmp(cg);
                     if (ce->val.ty && ce->val.ty->tag == TY_PRIM && str_eq_c(ce->val.ty->name, "num")) {
                         if (ce->val.is_float) {
-                            w_line(&cg->w, "ErgoVal %s = EV_FLOAT(%.17g);", t, ce->val.f);
+                            w_line(&cg->w, "YisVal %s = EV_FLOAT(%.17g);", t, ce->val.f);
                         } else {
-                            w_line(&cg->w, "ErgoVal %s = EV_INT(%lld);", t, ce->val.i);
+                            w_line(&cg->w, "YisVal %s = EV_INT(%lld);", t, ce->val.i);
                         }
                     } else if (ce->val.ty && ce->val.ty->tag == TY_PRIM && str_eq_c(ce->val.ty->name, "bool")) {
-                        w_line(&cg->w, "ErgoVal %s = EV_BOOL(%s);", t, ce->val.b ? "true" : "false");
+                        w_line(&cg->w, "YisVal %s = EV_BOOL(%s);", t, ce->val.b ? "true" : "false");
                     } else if (ce->val.ty && ce->val.ty->tag == TY_PRIM && str_eq_c(ce->val.ty->name, "string")) {
                         char *esc = c_escape(cg->arena, ce->val.s);
-                        w_line(&cg->w, "ErgoVal %s = EV_STR(stdr_str_lit(\"%s\"));", t, esc ? esc : "");
+                        w_line(&cg->w, "YisVal %s = EV_STR(stdr_str_lit(\"%s\"));", t, esc ? esc : "");
                     } else if (ce->val.ty && ce->val.ty->tag == TY_NULL) {
-                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        w_line(&cg->w, "YisVal %s = EV_NULLV;", t);
                     } else {
                         return cg_set_err(err, path, "unsupported const type");
                     }
@@ -1573,7 +1573,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                 if (codegen_find_global(mg, e->as.member.name)) {
                     char *t = codegen_new_tmp(cg);
                     char *gname = mangle_global_var(cg->arena, base_ty->name, e->as.member.name);
-                    w_line(&cg->w, "ErgoVal %s = %s; ergo_retain_val(%s);", t, gname, t);
+                    w_line(&cg->w, "YisVal %s = %s; yis_retain_val(%s);", t, gname, t);
                     gen_expr_add(out, t);
                     out->tmp = t;
                     return true;
@@ -1586,8 +1586,8 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                 char *t = codegen_new_tmp(cg);
                 char *cname = codegen_c_class_name(cg, base_ty->name);
                 char *field = codegen_c_field_name(cg, e->as.member.name);
-                w_line(&cg->w, "ErgoVal %s = ((%s*)%s.as.p)->%s; ergo_retain_val(%s);", t, cname, ge.tmp, field, t);
-                w_line(&cg->w, "ergo_release_val(%s);", ge.tmp);
+                w_line(&cg->w, "YisVal %s = ((%s*)%s.as.p)->%s; yis_retain_val(%s);", t, cname, ge.tmp, field, t);
+                w_line(&cg->w, "yis_release_val(%s);", ge.tmp);
                 gen_expr_release_except(cg, &ge, ge.tmp);
                 gen_expr_free(&ge);
                 gen_expr_add(out, t);
@@ -1603,7 +1603,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             char *slot = codegen_cname_of(cg, e->as.move.x->as.ident.name);
             if (!slot) return cg_set_err(err, path, "unknown move target");
             char *t = codegen_new_tmp(cg);
-            w_line(&cg->w, "ErgoVal %s = ergo_move(&%s);", t, slot);
+            w_line(&cg->w, "YisVal %s = yis_move(&%s);", t, slot);
             gen_expr_add(out, t);
             out->tmp = t;
             return true;
@@ -1615,7 +1615,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             if (!gen_expr(cg, path, e->as.match_expr.scrut, &scrut, err)) return false;
             char *t = codegen_new_tmp(cg);
             char *matched = codegen_new_sym(cg, "matched");
-            w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+            w_line(&cg->w, "YisVal %s = EV_NULLV;", t);
             w_line(&cg->w, "bool %s = false;", matched);
             for (size_t i = 0; i < e->as.match_expr.arms_len; i++) {
                 MatchArm *arm = e->as.match_expr.arms[i];
@@ -1631,13 +1631,13 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     char *pv = NULL;
                     if (arm->pat->kind == PAT_INT) {
                         pv = codegen_new_tmp(cg);
-                        w_line(&cg->w, "ErgoVal %s = EV_INT(%lld);", pv, arm->pat->as.i);
+                        w_line(&cg->w, "YisVal %s = EV_INT(%lld);", pv, arm->pat->as.i);
                     } else if (arm->pat->kind == PAT_BOOL) {
                         pv = codegen_new_tmp(cg);
-                        w_line(&cg->w, "ErgoVal %s = EV_BOOL(%s);", pv, arm->pat->as.b ? "true" : "false");
+                        w_line(&cg->w, "YisVal %s = EV_BOOL(%s);", pv, arm->pat->as.b ? "true" : "false");
                     } else if (arm->pat->kind == PAT_NULL) {
                         pv = codegen_new_tmp(cg);
-                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", pv);
+                        w_line(&cg->w, "YisVal %s = EV_NULLV;", pv);
                     } else if (arm->pat->kind == PAT_STR) {
                         Expr tmp_expr;
                         memset(&tmp_expr, 0, sizeof(tmp_expr));
@@ -1652,10 +1652,10 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         return cg_set_err(err, path, "unsupported match pattern in codegen");
                     }
                     char *eqt = codegen_new_tmp(cg);
-                    w_line(&cg->w, "ErgoVal %s = ergo_eq(%s, %s);", eqt, scrut.tmp, pv);
-                    w_line(&cg->w, "bool %s = ergo_as_bool(%s);", cond_name, eqt);
-                    w_line(&cg->w, "ergo_release_val(%s);", eqt);
-                    w_line(&cg->w, "ergo_release_val(%s);", pv);
+                    w_line(&cg->w, "YisVal %s = yis_eq(%s, %s);", eqt, scrut.tmp, pv);
+                    w_line(&cg->w, "bool %s = yis_as_bool(%s);", cond_name, eqt);
+                    w_line(&cg->w, "yis_release_val(%s);", eqt);
+                    w_line(&cg->w, "yis_release_val(%s);", pv);
                 }
                 w_line(&cg->w, "if (!%s && %s) {", matched, cond_name);
                 cg->w.indent++;
@@ -1663,25 +1663,25 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                 bool pushed = false;
                 if (bind_name.data) {
                     bind_tmp = codegen_new_tmp(cg);
-                    w_line(&cg->w, "ErgoVal %s = %s; ergo_retain_val(%s);", bind_tmp, scrut.tmp, bind_tmp);
+                    w_line(&cg->w, "YisVal %s = %s; yis_retain_val(%s);", bind_tmp, scrut.tmp, bind_tmp);
                     codegen_push_scope(cg);
                     pushed = true;
                     codegen_bind_temp(cg, bind_name, bind_tmp, scrut_ty);
                 }
                 GenExpr arm_expr;
                 if (!gen_expr(cg, path, arm->expr, &arm_expr, err)) return false;
-                w_line(&cg->w, "ergo_move_into(&%s, %s);", t, arm_expr.tmp);
+                w_line(&cg->w, "yis_move_into(&%s, %s);", t, arm_expr.tmp);
                 gen_expr_release_except(cg, &arm_expr, arm_expr.tmp);
                 gen_expr_free(&arm_expr);
                 if (bind_tmp && pushed) {
                     LocalList locals = codegen_pop_scope(cg);
                     codegen_release_scope(cg, locals);
-                    w_line(&cg->w, "ergo_release_val(%s);", bind_tmp);
+                    w_line(&cg->w, "yis_release_val(%s);", bind_tmp);
                 }
                 cg->w.indent--;
                 w_line(&cg->w, "}");
             }
-            w_line(&cg->w, "ergo_release_val(%s);", scrut.tmp);
+            w_line(&cg->w, "yis_release_val(%s);", scrut.tmp);
             gen_expr_release_except(cg, &scrut, scrut.tmp);
             gen_expr_free(&scrut);
             gen_expr_add(out, t);
@@ -1735,13 +1735,13 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             char *t = codegen_new_tmp(cg);
             if (cap_count > 0) {
                 char *env_name = codegen_new_sym(cg, "env");
-                w_line(&cg->w, "ErgoVal* %s = (ErgoVal*)malloc(sizeof(ErgoVal) * %zu);", env_name, cap_count);
+                w_line(&cg->w, "YisVal* %s = (YisVal*)malloc(sizeof(YisVal) * %zu);", env_name, cap_count);
                 for (size_t ci = 0; ci < cap_count; ci++) {
-                    w_line(&cg->w, "%s[%zu] = %s; ergo_retain_val(%s[%zu]);", env_name, ci, caps[ci]->cname, env_name, ci);
+                    w_line(&cg->w, "%s[%zu] = %s; yis_retain_val(%s[%zu]);", env_name, ci, caps[ci]->cname, env_name, ci);
                 }
-                w_line(&cg->w, "ErgoVal %s = EV_FN(ergo_fn_new_with_env(%s, %zu, %s, %zu));", t, li->name, e->as.lambda.params_len, env_name, cap_count);
+                w_line(&cg->w, "YisVal %s = EV_FN(yis_fn_new_with_env(%s, %zu, %s, %zu));", t, li->name, e->as.lambda.params_len, env_name, cap_count);
             } else {
-                w_line(&cg->w, "ErgoVal %s = EV_FN(ergo_fn_new(%s, %zu));", t, li->name, e->as.lambda.params_len);
+                w_line(&cg->w, "YisVal %s = EV_FN(yis_fn_new(%s, %zu));", t, li->name, e->as.lambda.params_len);
             }
             gen_expr_add(out, t);
             out->tmp = t;
@@ -1775,16 +1775,16 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             Str mod, cls_short;
             split_qname(qname, &mod, &cls_short);
             char *cname = codegen_c_class_name(cg, qname);
-            char *drop_sym = mod.len ? arena_printf(cg->arena, "ergo_drop_%s_%.*s", mangle_mod(cg->arena, mod), (int)cls_short.len, cls_short.data)
-                                      : arena_printf(cg->arena, "ergo_drop_%.*s", (int)cls_short.len, cls_short.data);
+            char *drop_sym = mod.len ? arena_printf(cg->arena, "yis_drop_%s_%.*s", mangle_mod(cg->arena, mod), (int)cls_short.len, cls_short.data)
+                                      : arena_printf(cg->arena, "yis_drop_%.*s", (int)cls_short.len, cls_short.data);
             char *obj_name = codegen_new_sym(cg, "obj");
-            w_line(&cg->w, "%s* %s = (%s*)ergo_obj_new(sizeof(%s), %s);", cname, obj_name, cname, cname, drop_sym);
+            w_line(&cg->w, "%s* %s = (%s*)yis_obj_new(sizeof(%s), %s);", cname, obj_name, cname, cname, drop_sym);
             for (size_t i = 0; i < decl->fields_len; i++) {
                 FieldDecl *fd = decl->fields[i];
                 w_line(&cg->w, "%s->%s = EV_NULLV;", obj_name, codegen_c_field_name(cg, fd->name));
             }
             char *t = codegen_new_tmp(cg);
-            w_line(&cg->w, "ErgoVal %s = EV_OBJ(%s);", t, obj_name);
+            w_line(&cg->w, "YisVal %s = EV_OBJ(%s);", t, obj_name);
 
             ClassInfo *ci = codegen_class_info(cg, qname);
             MethodEntry *init = NULL;
@@ -1812,7 +1812,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     for (size_t f = 0; f < decl->fields_len; f++) {
                         FieldDecl *fd = decl->fields[f];
                         if (str_eq(fd->name, aname)) {
-                            w_line(&cg->w, "ergo_move_into(&%s->%s, %s);", obj_name, codegen_c_field_name(cg, fd->name), ge.tmp);
+                            w_line(&cg->w, "yis_move_into(&%s->%s, %s);", obj_name, codegen_c_field_name(cg, fd->name), ge.tmp);
                             found = true;
                             break;
                         }
@@ -1833,7 +1833,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     GenExpr ge;
                     if (!gen_expr(cg, path, e->as.new_expr.args[i], &ge, err)) return false;
                     FieldDecl *fd = decl->fields[i];
-                    w_line(&cg->w, "ergo_move_into(&%s->%s, %s);", obj_name, codegen_c_field_name(cg, fd->name), ge.tmp);
+                    w_line(&cg->w, "yis_move_into(&%s->%s, %s);", obj_name, codegen_c_field_name(cg, fd->name), ge.tmp);
                     gen_expr_release_except(cg, &ge, ge.tmp);
                     gen_expr_free(&ge);
                 }
@@ -1859,7 +1859,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     w_line(&cg->w, "%s", line.data ? line.data : "");
                     sb_free(&line);
                     for (size_t i = 0; i < arg_ts.len; i++) {
-                        w_line(&cg->w, "ergo_release_val(%s);", arg_ts.data[i]);
+                        w_line(&cg->w, "yis_release_val(%s);", arg_ts.data[i]);
                     }
                     VEC_FREE(arg_ts);
             }
@@ -1869,7 +1869,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
         }
         case EXPR_IF: {
             char *t = codegen_new_tmp(cg);
-            w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+            w_line(&cg->w, "YisVal %s = EV_NULLV;", t);
             if (!gen_if_expr_chain(cg, path, e->as.if_expr.arms, 0, e->as.if_expr.arms_len, t, err)) return false;
             gen_expr_add(out, t);
             out->tmp = t;
@@ -1880,20 +1880,20 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             if (!gen_expr(cg, path, e->as.unary.x, &ge, err)) return false;
             char *t = codegen_new_tmp(cg);
             if (e->as.unary.op == TOK_BANG) {
-                w_line(&cg->w, "ErgoVal %s = EV_BOOL(!ergo_as_bool(%s));", t, ge.tmp);
+                w_line(&cg->w, "YisVal %s = EV_BOOL(!yis_as_bool(%s));", t, ge.tmp);
             } else if (e->as.unary.op == TOK_MINUS) {
                 Ty *xty = cg_tc_expr(cg, path, e->as.unary.x, err);
                 if (!xty) return false;
                 if (xty->tag == TY_PRIM && str_eq_c(xty->name, "num")) {
-                    w_line(&cg->w, "ErgoVal %s = ergo_neg(%s);", t, ge.tmp);
+                    w_line(&cg->w, "YisVal %s = yis_neg(%s);", t, ge.tmp);
                 } else {
-                    w_line(&cg->w, "ErgoVal %s = EV_INT(-ergo_as_int(%s));", t, ge.tmp);
+                    w_line(&cg->w, "YisVal %s = EV_INT(-yis_as_int(%s));", t, ge.tmp);
                 }
             } else {
                 gen_expr_free(&ge);
                 return cg_set_err(err, path, "unsupported unary op");
             }
-            w_line(&cg->w, "ergo_release_val(%s);", ge.tmp);
+            w_line(&cg->w, "yis_release_val(%s);", ge.tmp);
             gen_expr_release_except(cg, &ge, ge.tmp);
             gen_expr_free(&ge);
             gen_expr_add(out, t);
@@ -1910,17 +1910,17 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                 char *t = codegen_new_tmp(cg);
                 const char *opfn = NULL;
                 switch (op) {
-                    case TOK_PLUS: opfn = "ergo_add"; break;
-                    case TOK_MINUS: opfn = "ergo_sub"; break;
-                    case TOK_STAR: opfn = "ergo_mul"; break;
-                    case TOK_SLASH: opfn = "ergo_div"; break;
-                    case TOK_PERCENT: opfn = "ergo_mod"; break;
-                    case TOK_EQEQ: opfn = "ergo_eq"; break;
-                    case TOK_NEQ: opfn = "ergo_ne"; break;
-                    case TOK_LT: opfn = "ergo_lt"; break;
-                    case TOK_LTE: opfn = "ergo_le"; break;
-                    case TOK_GT: opfn = "ergo_gt"; break;
-                    case TOK_GTE: opfn = "ergo_ge"; break;
+                    case TOK_PLUS: opfn = "yis_add"; break;
+                    case TOK_MINUS: opfn = "yis_sub"; break;
+                    case TOK_STAR: opfn = "yis_mul"; break;
+                    case TOK_SLASH: opfn = "yis_div"; break;
+                    case TOK_PERCENT: opfn = "yis_mod"; break;
+                    case TOK_EQEQ: opfn = "yis_eq"; break;
+                    case TOK_NEQ: opfn = "yis_ne"; break;
+                    case TOK_LT: opfn = "yis_lt"; break;
+                    case TOK_LTE: opfn = "yis_le"; break;
+                    case TOK_GT: opfn = "yis_gt"; break;
+                    case TOK_GTE: opfn = "yis_ge"; break;
                     default: break;
                 }
                 if (!opfn) {
@@ -1928,9 +1928,9 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     gen_expr_free(&b);
                     return cg_set_err(err, path, "unsupported binary op");
                 }
-                w_line(&cg->w, "ErgoVal %s = %s(%s, %s);", t, opfn, a.tmp, b.tmp);
-                w_line(&cg->w, "ergo_release_val(%s);", a.tmp);
-                w_line(&cg->w, "ergo_release_val(%s);", b.tmp);
+                w_line(&cg->w, "YisVal %s = %s(%s, %s);", t, opfn, a.tmp, b.tmp);
+                w_line(&cg->w, "yis_release_val(%s);", a.tmp);
+                w_line(&cg->w, "yis_release_val(%s);", b.tmp);
                 gen_expr_release_except(cg, &a, a.tmp);
                 gen_expr_release_except(cg, &b, b.tmp);
                 gen_expr_free(&a);
@@ -1943,24 +1943,24 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                 GenExpr left;
                 if (!gen_expr(cg, path, e->as.binary.a, &left, err)) return false;
                 char *t = codegen_new_tmp(cg);
-                w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                w_line(&cg->w, "YisVal %s = EV_NULLV;", t);
                 w_line(&cg->w, "if (%s.tag != EVT_NULL) {", left.tmp);
                 cg->w.indent++;
-                w_line(&cg->w, "ergo_move_into(&%s, %s);", t, left.tmp);
+                w_line(&cg->w, "yis_move_into(&%s, %s);", t, left.tmp);
                 w_line(&cg->w, "%s = EV_NULLV;", left.tmp);
                 cg->w.indent--;
                 w_line(&cg->w, "} else {");
                 cg->w.indent++;
                 GenExpr right;
                 if (!gen_expr(cg, path, e->as.binary.b, &right, err)) { gen_expr_free(&left); return false; }
-                w_line(&cg->w, "ergo_move_into(&%s, %s);", t, right.tmp);
+                w_line(&cg->w, "yis_move_into(&%s, %s);", t, right.tmp);
                 w_line(&cg->w, "%s = EV_NULLV;", right.tmp);
-                w_line(&cg->w, "ergo_release_val(%s);", right.tmp);
+                w_line(&cg->w, "yis_release_val(%s);", right.tmp);
                 gen_expr_release_except(cg, &right, right.tmp);
                 gen_expr_free(&right);
                 cg->w.indent--;
                 w_line(&cg->w, "}");
-                w_line(&cg->w, "ergo_release_val(%s);", left.tmp);
+                w_line(&cg->w, "yis_release_val(%s);", left.tmp);
                 gen_expr_release_except(cg, &left, left.tmp);
                 gen_expr_free(&left);
                 gen_expr_add(out, t);
@@ -1971,39 +1971,39 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             GenExpr left;
             if (!gen_expr(cg, path, e->as.binary.a, &left, err)) return false;
             char *t = codegen_new_tmp(cg);
-            w_line(&cg->w, "ErgoVal %s = EV_BOOL(false);", t);
+            w_line(&cg->w, "YisVal %s = EV_BOOL(false);", t);
             if (op == TOK_ANDAND) {
-                w_line(&cg->w, "if (ergo_as_bool(%s)) {", left.tmp);
+                w_line(&cg->w, "if (yis_as_bool(%s)) {", left.tmp);
                 cg->w.indent++;
                 GenExpr right;
                 if (!gen_expr(cg, path, e->as.binary.b, &right, err)) { gen_expr_free(&left); return false; }
-                w_line(&cg->w, "ergo_move_into(&%s, EV_BOOL(ergo_as_bool(%s)));", t, right.tmp);
-                w_line(&cg->w, "ergo_release_val(%s);", right.tmp);
+                w_line(&cg->w, "yis_move_into(&%s, EV_BOOL(yis_as_bool(%s)));", t, right.tmp);
+                w_line(&cg->w, "yis_release_val(%s);", right.tmp);
                 gen_expr_release_except(cg, &right, right.tmp);
                 gen_expr_free(&right);
                 cg->w.indent--;
                 w_line(&cg->w, "} else {");
                 cg->w.indent++;
-                w_line(&cg->w, "ergo_move_into(&%s, EV_BOOL(false));", t);
+                w_line(&cg->w, "yis_move_into(&%s, EV_BOOL(false));", t);
                 cg->w.indent--;
                 w_line(&cg->w, "}");
             } else {
-                w_line(&cg->w, "if (ergo_as_bool(%s)) {", left.tmp);
+                w_line(&cg->w, "if (yis_as_bool(%s)) {", left.tmp);
                 cg->w.indent++;
-                w_line(&cg->w, "ergo_move_into(&%s, EV_BOOL(true));", t);
+                w_line(&cg->w, "yis_move_into(&%s, EV_BOOL(true));", t);
                 cg->w.indent--;
                 w_line(&cg->w, "} else {");
                 cg->w.indent++;
                 GenExpr right;
                 if (!gen_expr(cg, path, e->as.binary.b, &right, err)) { gen_expr_free(&left); return false; }
-                w_line(&cg->w, "ergo_move_into(&%s, EV_BOOL(ergo_as_bool(%s)));", t, right.tmp);
-                w_line(&cg->w, "ergo_release_val(%s);", right.tmp);
+                w_line(&cg->w, "yis_move_into(&%s, EV_BOOL(yis_as_bool(%s)));", t, right.tmp);
+                w_line(&cg->w, "yis_release_val(%s);", right.tmp);
                 gen_expr_release_except(cg, &right, right.tmp);
                 gen_expr_free(&right);
                 cg->w.indent--;
                 w_line(&cg->w, "}");
             }
-            w_line(&cg->w, "ergo_release_val(%s);", left.tmp);
+            w_line(&cg->w, "yis_release_val(%s);", left.tmp);
             gen_expr_release_except(cg, &left, left.tmp);
             gen_expr_free(&left);
             gen_expr_add(out, t);
@@ -2019,12 +2019,12 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             if (!gen_expr(cg, path, e->as.index.i, &it, err)) { gen_expr_free(&at); return false; }
             char *t = codegen_new_tmp(cg);
             if (base_ty->tag == TY_PRIM && str_eq_c(base_ty->name, "string")) {
-                w_line(&cg->w, "ErgoVal %s = stdr_str_at(%s, ergo_as_int(%s));", t, at.tmp, it.tmp);
+                w_line(&cg->w, "YisVal %s = stdr_str_at(%s, yis_as_int(%s));", t, at.tmp, it.tmp);
             } else {
-                w_line(&cg->w, "ErgoVal %s = ergo_arr_get((ErgoArr*)%s.as.p, ergo_as_int(%s));", t, at.tmp, it.tmp);
+                w_line(&cg->w, "YisVal %s = yis_arr_get((YisArr*)%s.as.p, yis_as_int(%s));", t, at.tmp, it.tmp);
             }
-            w_line(&cg->w, "ergo_release_val(%s);", at.tmp);
-            w_line(&cg->w, "ergo_release_val(%s);", it.tmp);
+            w_line(&cg->w, "yis_release_val(%s);", at.tmp);
+            w_line(&cg->w, "yis_release_val(%s);", it.tmp);
             gen_expr_release_except(cg, &at, at.tmp);
             gen_expr_release_except(cg, &it, it.tmp);
             gen_expr_free(&at);
@@ -2037,12 +2037,12 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             GenExpr ct;
             if (!gen_expr(cg, path, e->as.ternary.cond, &ct, err)) return false;
             char *t = codegen_new_tmp(cg);
-            w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
-            w_line(&cg->w, "if (ergo_as_bool(%s)) {", ct.tmp);
+            w_line(&cg->w, "YisVal %s = EV_NULLV;", t);
+            w_line(&cg->w, "if (yis_as_bool(%s)) {", ct.tmp);
             cg->w.indent++;
             GenExpr at;
             if (!gen_expr(cg, path, e->as.ternary.then_expr, &at, err)) { gen_expr_free(&ct); return false; }
-            w_line(&cg->w, "ergo_move_into(&%s, %s);", t, at.tmp);
+            w_line(&cg->w, "yis_move_into(&%s, %s);", t, at.tmp);
             gen_expr_release_except(cg, &at, at.tmp);
             gen_expr_free(&at);
             cg->w.indent--;
@@ -2050,12 +2050,12 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             cg->w.indent++;
             GenExpr bt;
             if (!gen_expr(cg, path, e->as.ternary.else_expr, &bt, err)) { gen_expr_free(&ct); return false; }
-            w_line(&cg->w, "ergo_move_into(&%s, %s);", t, bt.tmp);
+            w_line(&cg->w, "yis_move_into(&%s, %s);", t, bt.tmp);
             gen_expr_release_except(cg, &bt, bt.tmp);
             gen_expr_free(&bt);
             cg->w.indent--;
             w_line(&cg->w, "}");
-            w_line(&cg->w, "ergo_release_val(%s);", ct.tmp);
+            w_line(&cg->w, "yis_release_val(%s);", ct.tmp);
             gen_expr_release_except(cg, &ct, ct.tmp);
             gen_expr_free(&ct);
             gen_expr_add(out, t);
@@ -2073,14 +2073,14 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                 return cg_set_err(err, path, "out of memory");
             }
             if (!is_compound) {
-                w_line(&cg->w, "ErgoVal %s = %s; ergo_retain_val(%s);", tret, vt.tmp, tret);
+                w_line(&cg->w, "YisVal %s = %s; yis_retain_val(%s);", tret, vt.tmp, tret);
                 if (e->as.assign.target->kind == EXPR_IDENT) {
                     char *slot = codegen_cname_of(cg, e->as.assign.target->as.ident.name);
                     if (!slot) {
                         gen_expr_free(&vt);
                         return cg_set_err(err, path, "unknown assignment target");
                     }
-                    w_line(&cg->w, "ergo_move_into(&%s, %s);", slot, vt.tmp);
+                    w_line(&cg->w, "yis_move_into(&%s, %s);", slot, vt.tmp);
                 } else if (e->as.assign.target->kind == EXPR_INDEX) {
                     GenExpr at, it;
                     if (!gen_expr(cg, path, e->as.assign.target->as.index.a, &at, err)) {
@@ -2092,9 +2092,9 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         gen_expr_free(&vt);
                         return false;
                     }
-                    w_line(&cg->w, "ergo_arr_set((ErgoArr*)%s.as.p, ergo_as_int(%s), %s);", at.tmp, it.tmp, vt.tmp);
-                    w_line(&cg->w, "ergo_release_val(%s);", at.tmp);
-                    w_line(&cg->w, "ergo_release_val(%s);", it.tmp);
+                    w_line(&cg->w, "yis_arr_set((YisArr*)%s.as.p, yis_as_int(%s), %s);", at.tmp, it.tmp, vt.tmp);
+                    w_line(&cg->w, "yis_release_val(%s);", at.tmp);
+                    w_line(&cg->w, "yis_release_val(%s);", it.tmp);
                     gen_expr_release_except(cg, &at, at.tmp);
                     gen_expr_release_except(cg, &it, it.tmp);
                     gen_expr_free(&at);
@@ -2112,8 +2112,8 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     }
                     char *cname = codegen_c_class_name(cg, base_ty->name);
                     char *field = codegen_c_field_name(cg, e->as.assign.target->as.member.name);
-                    w_line(&cg->w, "ergo_move_into(&((%s*)%s.as.p)->%s, %s);", cname, at.tmp, field, vt.tmp);
-                    w_line(&cg->w, "ergo_release_val(%s);", at.tmp);
+                    w_line(&cg->w, "yis_move_into(&((%s*)%s.as.p)->%s, %s);", cname, at.tmp, field, vt.tmp);
+                    w_line(&cg->w, "yis_release_val(%s);", at.tmp);
                     gen_expr_release_except(cg, &at, at.tmp);
                     gen_expr_free(&at);
                 } else {
@@ -2132,9 +2132,9 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         gen_expr_free(&vt);
                         return cg_set_err(err, path, "unknown assignment target");
                     }
-                    w_line(&cg->w, "ErgoVal %s = %s(%s, %s);", tret, opfn, slot, vt.tmp);
-                    w_line(&cg->w, "ergo_retain_val(%s);", tret);
-                    w_line(&cg->w, "ergo_move_into(&%s, %s);", slot, tret);
+                    w_line(&cg->w, "YisVal %s = %s(%s, %s);", tret, opfn, slot, vt.tmp);
+                    w_line(&cg->w, "yis_retain_val(%s);", tret);
+                    w_line(&cg->w, "yis_move_into(&%s, %s);", slot, tret);
                 } else if (e->as.assign.target->kind == EXPR_INDEX) {
                     Ty *base_ty = cg_tc_expr(cg, path, e->as.assign.target->as.index.a, err);
                     if (!base_ty) {
@@ -2162,13 +2162,13 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         gen_expr_free(&vt);
                         return cg_set_err(err, path, "out of memory");
                     }
-                    w_line(&cg->w, "ErgoVal %s = ergo_arr_get((ErgoArr*)%s.as.p, ergo_as_int(%s));", cur, at.tmp, it.tmp);
-                    w_line(&cg->w, "ErgoVal %s = %s(%s, %s);", tret, opfn, cur, vt.tmp);
-                    w_line(&cg->w, "ergo_retain_val(%s);", tret);
-                    w_line(&cg->w, "ergo_arr_set((ErgoArr*)%s.as.p, ergo_as_int(%s), %s);", at.tmp, it.tmp, tret);
-                    w_line(&cg->w, "ergo_release_val(%s);", cur);
-                    w_line(&cg->w, "ergo_release_val(%s);", at.tmp);
-                    w_line(&cg->w, "ergo_release_val(%s);", it.tmp);
+                    w_line(&cg->w, "YisVal %s = yis_arr_get((YisArr*)%s.as.p, yis_as_int(%s));", cur, at.tmp, it.tmp);
+                    w_line(&cg->w, "YisVal %s = %s(%s, %s);", tret, opfn, cur, vt.tmp);
+                    w_line(&cg->w, "yis_retain_val(%s);", tret);
+                    w_line(&cg->w, "yis_arr_set((YisArr*)%s.as.p, yis_as_int(%s), %s);", at.tmp, it.tmp, tret);
+                    w_line(&cg->w, "yis_release_val(%s);", cur);
+                    w_line(&cg->w, "yis_release_val(%s);", at.tmp);
+                    w_line(&cg->w, "yis_release_val(%s);", it.tmp);
                     gen_expr_release_except(cg, &at, at.tmp);
                     gen_expr_release_except(cg, &it, it.tmp);
                     gen_expr_free(&at);
@@ -2186,17 +2186,17 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     }
                     char *cname = codegen_c_class_name(cg, base_ty->name);
                     char *field = codegen_c_field_name(cg, e->as.assign.target->as.member.name);
-                    w_line(&cg->w, "ErgoVal %s = %s(((%s*)%s.as.p)->%s, %s);", tret, opfn, cname, at.tmp, field, vt.tmp);
-                    w_line(&cg->w, "ergo_retain_val(%s);", tret);
-                    w_line(&cg->w, "ergo_move_into(&((%s*)%s.as.p)->%s, %s);", cname, at.tmp, field, tret);
-                    w_line(&cg->w, "ergo_release_val(%s);", at.tmp);
+                    w_line(&cg->w, "YisVal %s = %s(((%s*)%s.as.p)->%s, %s);", tret, opfn, cname, at.tmp, field, vt.tmp);
+                    w_line(&cg->w, "yis_retain_val(%s);", tret);
+                    w_line(&cg->w, "yis_move_into(&((%s*)%s.as.p)->%s, %s);", cname, at.tmp, field, tret);
+                    w_line(&cg->w, "yis_release_val(%s);", at.tmp);
                     gen_expr_release_except(cg, &at, at.tmp);
                     gen_expr_free(&at);
                 } else {
                     gen_expr_free(&vt);
                     return cg_set_err(err, path, "unsupported assignment target");
                 }
-                w_line(&cg->w, "ergo_release_val(%s);", vt.tmp);
+                w_line(&cg->w, "yis_release_val(%s);", vt.tmp);
             }
             gen_expr_release_except(cg, &vt, vt.tmp);
             gen_expr_free(&vt);
@@ -2242,11 +2242,11 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         w_line(&cg->w, "%s", line.data ? line.data : "");
                         sb_free(&line);
                         for (size_t i = 0; i < arg_ts.len; i++) {
-                            w_line(&cg->w, "ergo_release_val(%s);", arg_ts.data[i]);
+                            w_line(&cg->w, "yis_release_val(%s);", arg_ts.data[i]);
                         }
                         VEC_FREE(arg_ts);
                         char *t = codegen_new_tmp(cg);
-                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        w_line(&cg->w, "YisVal %s = EV_NULLV;", t);
                         gen_expr_add(out, t);
                         out->tmp = t;
                         return true;
@@ -2254,12 +2254,12 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     char *t = codegen_new_tmp(cg);
                     StrBuf line; sb_init(&line);
                     if (direct_extern_stub) {
-                        sb_appendf(&line, "ErgoVal %s = ", t);
+                        sb_appendf(&line, "YisVal %s = ", t);
                         sb_append_n(&line, name.data, name.len);
                         sb_append(&line, "(");
                     } else {
                         char *mangled = mangle_global(cg->arena, mod, name);
-                        sb_appendf(&line, "ErgoVal %s = %s(", t, mangled);
+                        sb_appendf(&line, "YisVal %s = %s(", t, mangled);
                     }
                     for (size_t i = 0; i < arg_ts.len; i++) {
                         if (i) sb_append(&line, ", ");
@@ -2269,7 +2269,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     w_line(&cg->w, "%s", line.data ? line.data : "");
                     sb_free(&line);
                     for (size_t i = 0; i < arg_ts.len; i++) {
-                        w_line(&cg->w, "ergo_release_val(%s);", arg_ts.data[i]);
+                        w_line(&cg->w, "yis_release_val(%s);", arg_ts.data[i]);
                     }
                     VEC_FREE(arg_ts);
                     gen_expr_add(out, t);
@@ -2289,8 +2289,8 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     GenExpr bt;
                     if (!gen_expr(cg, path, base, &bt, err)) return false;
                     char *t = codegen_new_tmp(cg);
-                    w_line(&cg->w, "ErgoVal %s = EV_STR(stdr_to_string(%s));", t, bt.tmp);
-                    w_line(&cg->w, "ergo_release_val(%s);", bt.tmp);
+                    w_line(&cg->w, "YisVal %s = EV_STR(stdr_to_string(%s));", t, bt.tmp);
+                    w_line(&cg->w, "yis_release_val(%s);", bt.tmp);
                     gen_expr_release_except(cg, &bt, bt.tmp);
                     gen_expr_free(&bt);
                     gen_expr_add(out, t);
@@ -2302,14 +2302,14 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     GenExpr at, vt;
                     if (!gen_expr(cg, path, base, &at, err)) return false;
                     if (!gen_expr(cg, path, e->as.call.args[0], &vt, err)) { gen_expr_free(&at); return false; }
-                    w_line(&cg->w, "ergo_arr_add((ErgoArr*)%s.as.p, %s);", at.tmp, vt.tmp);
-                    w_line(&cg->w, "ergo_release_val(%s);", at.tmp);
+                    w_line(&cg->w, "yis_arr_add((YisArr*)%s.as.p, %s);", at.tmp, vt.tmp);
+                    w_line(&cg->w, "yis_release_val(%s);", at.tmp);
                     gen_expr_release_except(cg, &at, at.tmp);
                     gen_expr_release_except(cg, &vt, vt.tmp);
                     gen_expr_free(&at);
                     gen_expr_free(&vt);
                     char *t = codegen_new_tmp(cg);
-                    w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                    w_line(&cg->w, "YisVal %s = EV_NULLV;", t);
                     gen_expr_add(out, t);
                     out->tmp = t;
                     return true;
@@ -2320,9 +2320,9 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     if (!gen_expr(cg, path, base, &at, err)) return false;
                     if (!gen_expr(cg, path, e->as.call.args[0], &it, err)) { gen_expr_free(&at); return false; }
                     char *t = codegen_new_tmp(cg);
-                    w_line(&cg->w, "ErgoVal %s = ergo_arr_remove((ErgoArr*)%s.as.p, ergo_as_int(%s));", t, at.tmp, it.tmp);
-                    w_line(&cg->w, "ergo_release_val(%s);", at.tmp);
-                    w_line(&cg->w, "ergo_release_val(%s);", it.tmp);
+                    w_line(&cg->w, "YisVal %s = yis_arr_remove((YisArr*)%s.as.p, yis_as_int(%s));", t, at.tmp, it.tmp);
+                    w_line(&cg->w, "yis_release_val(%s);", at.tmp);
+                    w_line(&cg->w, "yis_release_val(%s);", it.tmp);
                     gen_expr_release_except(cg, &at, at.tmp);
                     gen_expr_release_except(cg, &it, it.tmp);
                     gen_expr_free(&at);
@@ -2368,22 +2368,22 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         sb_append(&line, ");");
                         w_line(&cg->w, "%s", line.data ? line.data : "");
                         sb_free(&line);
-                        w_line(&cg->w, "ergo_release_val(%s);", bt.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", bt.tmp);
                         gen_expr_release_except(cg, &bt, bt.tmp);
                         gen_expr_free(&bt);
                         for (size_t i = 0; i < arg_ts.len; i++) {
-                            w_line(&cg->w, "ergo_release_val(%s);", arg_ts.data[i]);
+                            w_line(&cg->w, "yis_release_val(%s);", arg_ts.data[i]);
                         }
                         VEC_FREE(arg_ts);
                         char *t = codegen_new_tmp(cg);
-                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        w_line(&cg->w, "YisVal %s = EV_NULLV;", t);
                         gen_expr_add(out, t);
                         out->tmp = t;
                         return true;
                     }
                     char *t = codegen_new_tmp(cg);
                     StrBuf line; sb_init(&line);
-                    sb_appendf(&line, "ErgoVal %s = %s(%s", t, mangled, bt.tmp);
+                    sb_appendf(&line, "YisVal %s = %s(%s", t, mangled, bt.tmp);
                     for (size_t i = 0; i < arg_ts.len; i++) {
                         sb_append(&line, ", ");
                         sb_append(&line, arg_ts.data[i]);
@@ -2391,11 +2391,11 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     sb_append(&line, ");");
                     w_line(&cg->w, "%s", line.data ? line.data : "");
                     sb_free(&line);
-                    w_line(&cg->w, "ergo_release_val(%s);", bt.tmp);
+                    w_line(&cg->w, "yis_release_val(%s);", bt.tmp);
                     gen_expr_release_except(cg, &bt, bt.tmp);
                     gen_expr_free(&bt);
                     for (size_t i = 0; i < arg_ts.len; i++) {
-                        w_line(&cg->w, "ergo_release_val(%s);", arg_ts.data[i]);
+                        w_line(&cg->w, "yis_release_val(%s);", arg_ts.data[i]);
                     }
                     VEC_FREE(arg_ts);
                     gen_expr_add(out, t);
@@ -2415,8 +2415,8 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         GenExpr at;
                         if (!gen_expr(cg, path, e->as.call.args[0], &at, err)) return false;
                         char *t = codegen_new_tmp(cg);
-                        w_line(&cg->w, "ErgoVal %s = EV_STR(stdr_to_string(%s));", t, at.tmp);
-                        w_line(&cg->w, "ergo_release_val(%s);", at.tmp);
+                        w_line(&cg->w, "YisVal %s = EV_STR(stdr_to_string(%s));", t, at.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", at.tmp);
                         gen_expr_release_except(cg, &at, at.tmp);
                         gen_expr_free(&at);
                         gen_expr_add(out, t);
@@ -2427,8 +2427,8 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         GenExpr at;
                         if (!gen_expr(cg, path, e->as.call.args[0], &at, err)) return false;
                         char *t = codegen_new_tmp(cg);
-                        w_line(&cg->w, "ErgoVal %s = EV_INT(stdr_len(%s));", t, at.tmp);
-                        w_line(&cg->w, "ergo_release_val(%s);", at.tmp);
+                        w_line(&cg->w, "YisVal %s = EV_INT(stdr_len(%s));", t, at.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", at.tmp);
                         gen_expr_release_except(cg, &at, at.tmp);
                         gen_expr_free(&at);
                         gen_expr_add(out, t);
@@ -2441,21 +2441,21 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         if (!gen_expr(cg, path, e->as.call.args[0], &fmt, err)) return false;
                         if (!gen_expr(cg, path, e->as.call.args[1], &args, err)) { gen_expr_free(&fmt); return false; }
                         w_line(&cg->w, "stdr_writef_args(%s, %s);", fmt.tmp, args.tmp);
-                        w_line(&cg->w, "ergo_release_val(%s);", fmt.tmp);
-                        w_line(&cg->w, "ergo_release_val(%s);", args.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", fmt.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", args.tmp);
                         gen_expr_release_except(cg, &fmt, fmt.tmp);
                         gen_expr_release_except(cg, &args, args.tmp);
                         gen_expr_free(&fmt);
                         gen_expr_free(&args);
                         char *t = codegen_new_tmp(cg);
-                        w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                        w_line(&cg->w, "YisVal %s = EV_NULLV;", t);
                         gen_expr_add(out, t);
                         out->tmp = t;
                         return true;
                     }
                     if (str_eq_c(fname, "__read_line")) {
                         char *t = codegen_new_tmp(cg);
-                        w_line(&cg->w, "ErgoVal %s = EV_STR(stdr_read_line());", t);
+                        w_line(&cg->w, "YisVal %s = EV_STR(stdr_read_line());", t);
                         gen_expr_add(out, t);
                         out->tmp = t;
                         return true;
@@ -2465,8 +2465,8 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         GenExpr pathv;
                         if (!gen_expr(cg, path, e->as.call.args[0], &pathv, err)) return false;
                         char *t = codegen_new_tmp(cg);
-                        w_line(&cg->w, "ErgoVal %s = stdr_read_text_file(%s);", t, pathv.tmp);
-                        w_line(&cg->w, "ergo_release_val(%s);", pathv.tmp);
+                        w_line(&cg->w, "YisVal %s = stdr_read_text_file(%s);", t, pathv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", pathv.tmp);
                         gen_expr_release_except(cg, &pathv, pathv.tmp);
                         gen_expr_free(&pathv);
                         gen_expr_add(out, t);
@@ -2479,9 +2479,9 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         if (!gen_expr(cg, path, e->as.call.args[0], &pathv, err)) return false;
                         if (!gen_expr(cg, path, e->as.call.args[1], &textv, err)) { gen_expr_free(&pathv); return false; }
                         char *t = codegen_new_tmp(cg);
-                        w_line(&cg->w, "ErgoVal %s = stdr_write_text_file(%s, %s);", t, pathv.tmp, textv.tmp);
-                        w_line(&cg->w, "ergo_release_val(%s);", pathv.tmp);
-                        w_line(&cg->w, "ergo_release_val(%s);", textv.tmp);
+                        w_line(&cg->w, "YisVal %s = stdr_write_text_file(%s, %s);", t, pathv.tmp, textv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", pathv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", textv.tmp);
                         gen_expr_release_except(cg, &pathv, pathv.tmp);
                         gen_expr_release_except(cg, &textv, textv.tmp);
                         gen_expr_free(&pathv);
@@ -2496,9 +2496,9 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         if (!gen_expr(cg, path, e->as.call.args[0], &promptv, err)) return false;
                         if (!gen_expr(cg, path, e->as.call.args[1], &extv, err)) { gen_expr_free(&promptv); return false; }
                         char *t = codegen_new_tmp(cg);
-                        w_line(&cg->w, "ErgoVal %s = stdr_open_file_dialog(%s, %s);", t, promptv.tmp, extv.tmp);
-                        w_line(&cg->w, "ergo_release_val(%s);", promptv.tmp);
-                        w_line(&cg->w, "ergo_release_val(%s);", extv.tmp);
+                        w_line(&cg->w, "YisVal %s = stdr_open_file_dialog(%s, %s);", t, promptv.tmp, extv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", promptv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", extv.tmp);
                         gen_expr_release_except(cg, &promptv, promptv.tmp);
                         gen_expr_release_except(cg, &extv, extv.tmp);
                         gen_expr_free(&promptv);
@@ -2514,10 +2514,10 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         if (!gen_expr(cg, path, e->as.call.args[1], &defaultv, err)) { gen_expr_free(&promptv); return false; }
                         if (!gen_expr(cg, path, e->as.call.args[2], &extv, err)) { gen_expr_free(&promptv); gen_expr_free(&defaultv); return false; }
                         char *t = codegen_new_tmp(cg);
-                        w_line(&cg->w, "ErgoVal %s = stdr_save_file_dialog(%s, %s, %s);", t, promptv.tmp, defaultv.tmp, extv.tmp);
-                        w_line(&cg->w, "ergo_release_val(%s);", promptv.tmp);
-                        w_line(&cg->w, "ergo_release_val(%s);", defaultv.tmp);
-                        w_line(&cg->w, "ergo_release_val(%s);", extv.tmp);
+                        w_line(&cg->w, "YisVal %s = stdr_save_file_dialog(%s, %s, %s);", t, promptv.tmp, defaultv.tmp, extv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", promptv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", defaultv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", extv.tmp);
                         gen_expr_release_except(cg, &promptv, promptv.tmp);
                         gen_expr_release_except(cg, &defaultv, defaultv.tmp);
                         gen_expr_release_except(cg, &extv, extv.tmp);
@@ -2534,10 +2534,10 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         if (!gen_expr(cg, path, e->as.call.args[1], &line, err)) { gen_expr_free(&fmt); return false; }
                         if (!gen_expr(cg, path, e->as.call.args[2], &args, err)) { gen_expr_free(&fmt); gen_expr_free(&line); return false; }
                         char *t = codegen_new_tmp(cg);
-                        w_line(&cg->w, "ErgoVal %s = stdr_readf_parse(%s, %s, %s);", t, fmt.tmp, line.tmp, args.tmp);
-                        w_line(&cg->w, "ergo_release_val(%s);", fmt.tmp);
-                        w_line(&cg->w, "ergo_release_val(%s);", line.tmp);
-                        w_line(&cg->w, "ergo_release_val(%s);", args.tmp);
+                        w_line(&cg->w, "YisVal %s = stdr_readf_parse(%s, %s, %s);", t, fmt.tmp, line.tmp, args.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", fmt.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", line.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", args.tmp);
                         gen_expr_release_except(cg, &fmt, fmt.tmp);
                         gen_expr_release_except(cg, &line, line.tmp);
                         gen_expr_release_except(cg, &args, args.tmp);
@@ -2584,11 +2584,11 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                             w_line(&cg->w, "%s", line.data ? line.data : "");
                             sb_free(&line);
                             for (size_t i = 0; i < arg_ts.len; i++) {
-                                w_line(&cg->w, "ergo_release_val(%s);", arg_ts.data[i]);
+                                w_line(&cg->w, "yis_release_val(%s);", arg_ts.data[i]);
                             }
                             VEC_FREE(arg_ts);
                             char *t = codegen_new_tmp(cg);
-                            w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+                            w_line(&cg->w, "YisVal %s = EV_NULLV;", t);
                             gen_expr_add(out, t);
                             out->tmp = t;
                             return true;
@@ -2596,12 +2596,12 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         char *t = codegen_new_tmp(cg);
                         StrBuf line; sb_init(&line);
                         if (direct_extern_stub) {
-                            sb_appendf(&line, "ErgoVal %s = ", t);
+                            sb_appendf(&line, "YisVal %s = ", t);
                             sb_append_n(&line, fname.data, fname.len);
                             sb_append(&line, "(");
                         } else {
                             char *mangled = mangle_global(cg->arena, sig->cask, fname);
-                            sb_appendf(&line, "ErgoVal %s = %s(", t, mangled);
+                            sb_appendf(&line, "YisVal %s = %s(", t, mangled);
                         }
                         for (size_t i = 0; i < arg_ts.len; i++) {
                             if (i) sb_append(&line, ", ");
@@ -2611,7 +2611,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         w_line(&cg->w, "%s", line.data ? line.data : "");
                         sb_free(&line);
                         for (size_t i = 0; i < arg_ts.len; i++) {
-                            w_line(&cg->w, "ergo_release_val(%s);", arg_ts.data[i]);
+                            w_line(&cg->w, "yis_release_val(%s);", arg_ts.data[i]);
                         }
                         VEC_FREE(arg_ts);
                         gen_expr_add(out, t);
@@ -2633,11 +2633,11 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                 gen_expr_free(&ge);
             }
             char *t = codegen_new_tmp(cg);
-            w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+            w_line(&cg->w, "YisVal %s = EV_NULLV;", t);
             if (arg_ts.len > 0) {
                 char *argv_name = codegen_new_sym(cg, "argv");
                 StrBuf line; sb_init(&line);
-                sb_appendf(&line, "ErgoVal %s[%zu] = { ", argv_name, arg_ts.len);
+                sb_appendf(&line, "YisVal %s[%zu] = { ", argv_name, arg_ts.len);
                 for (size_t i = 0; i < arg_ts.len; i++) {
                     if (i) sb_append(&line, ", ");
                     sb_append(&line, arg_ts.data[i]);
@@ -2646,18 +2646,18 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                 w_line(&cg->w, "{");
                 cg->w.indent++;
                 w_line(&cg->w, "%s", line.data ? line.data : "");
-                w_line(&cg->w, "%s = ergo_call(%s, %zu, %s);", t, ft.tmp, arg_ts.len, argv_name);
+                w_line(&cg->w, "%s = yis_call(%s, %zu, %s);", t, ft.tmp, arg_ts.len, argv_name);
                 cg->w.indent--;
                 w_line(&cg->w, "}");
                 sb_free(&line);
             } else {
-                w_line(&cg->w, "%s = ergo_call(%s, 0, NULL);", t, ft.tmp);
+                w_line(&cg->w, "%s = yis_call(%s, 0, NULL);", t, ft.tmp);
             }
-            w_line(&cg->w, "ergo_release_val(%s);", ft.tmp);
+            w_line(&cg->w, "yis_release_val(%s);", ft.tmp);
             gen_expr_release_except(cg, &ft, ft.tmp);
             gen_expr_free(&ft);
             for (size_t i = 0; i < arg_ts.len; i++) {
-                w_line(&cg->w, "ergo_release_val(%s);", arg_ts.data[i]);
+                w_line(&cg->w, "yis_release_val(%s);", arg_ts.data[i]);
             }
             VEC_FREE(arg_ts);
             gen_expr_add(out, t);
@@ -2667,7 +2667,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
         case EXPR_BLOCK: {
             char *t = codegen_new_tmp(cg);
             if (!t) return cg_set_err(err, path, "out of memory");
-            w_line(&cg->w, "ErgoVal %s = EV_NULLV;", t);
+            w_line(&cg->w, "YisVal %s = EV_NULLV;", t);
             if (!gen_stmt(cg, path, e->as.block_expr.block, false, err)) return false;
             gen_expr_add(out, t);
             out->tmp = t;
@@ -2700,8 +2700,8 @@ static bool gen_if_chain(Codegen *cg, Str path, IfArm **arms, size_t idx, size_t
     if (!gen_expr(cg, path, arm->cond, &cond, err)) return false;
     cg->var_id++;
     char *bname = arena_printf(cg->arena, "__b%d", cg->var_id);
-    w_line(&cg->w, "bool %s = ergo_as_bool(%s);", bname, cond.tmp);
-    w_line(&cg->w, "ergo_release_val(%s);", cond.tmp);
+    w_line(&cg->w, "bool %s = yis_as_bool(%s);", bname, cond.tmp);
+    w_line(&cg->w, "yis_release_val(%s);", cond.tmp);
     gen_expr_release_except(cg, &cond, cond.tmp);
     gen_expr_free(&cond);
 
@@ -2748,10 +2748,10 @@ static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err) {
             if (!ty) return false;
             char *cvar = codegen_define_local(cg, s->as.let_s.name, ty, s->as.let_s.is_mut, false);
             if (!cvar) return cg_set_err(err, path, "out of memory");
-            w_line(&cg->w, "ErgoVal %s = EV_NULLV;", cvar);
+            w_line(&cg->w, "YisVal %s = EV_NULLV;", cvar);
             GenExpr ge;
             if (!gen_expr(cg, path, s->as.let_s.expr, &ge, err)) return false;
-            w_line(&cg->w, "ergo_move_into(&%s, %s);", cvar, ge.tmp);
+            w_line(&cg->w, "yis_move_into(&%s, %s);", cvar, ge.tmp);
             gen_expr_release_except(cg, &ge, ge.tmp);
             gen_expr_free(&ge);
             return true;
@@ -2761,10 +2761,10 @@ static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err) {
             if (!ty) return false;
             char *cvar = codegen_define_local(cg, s->as.const_s.name, ty, false, true);
             if (!cvar) return cg_set_err(err, path, "out of memory");
-            w_line(&cg->w, "ErgoVal %s = EV_NULLV;", cvar);
+            w_line(&cg->w, "YisVal %s = EV_NULLV;", cvar);
             GenExpr ge;
             if (!gen_expr(cg, path, s->as.const_s.expr, &ge, err)) return false;
-            w_line(&cg->w, "ergo_move_into(&%s, %s);", cvar, ge.tmp);
+            w_line(&cg->w, "yis_move_into(&%s, %s);", cvar, ge.tmp);
             gen_expr_release_except(cg, &ge, ge.tmp);
             gen_expr_free(&ge);
             return true;
@@ -2772,7 +2772,7 @@ static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err) {
         case STMT_EXPR: {
             GenExpr ge;
             if (!gen_expr(cg, path, s->as.expr_s.expr, &ge, err)) return false;
-            w_line(&cg->w, "ergo_release_val(%s);", ge.tmp);
+            w_line(&cg->w, "yis_release_val(%s);", ge.tmp);
             gen_expr_release_except(cg, &ge, ge.tmp);
             gen_expr_free(&ge);
             return true;
@@ -2782,7 +2782,7 @@ static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err) {
                 if (s->as.ret_s.expr) {
                     GenExpr ge;
                     if (!gen_expr(cg, path, s->as.ret_s.expr, &ge, err)) return false;
-                    w_line(&cg->w, "ergo_release_val(%s);", ge.tmp);
+                    w_line(&cg->w, "yis_release_val(%s);", ge.tmp);
                     gen_expr_release_except(cg, &ge, ge.tmp);
                     gen_expr_free(&ge);
                 }
@@ -2793,7 +2793,7 @@ static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err) {
                 } else {
                     GenExpr ge;
                     if (!gen_expr(cg, path, s->as.ret_s.expr, &ge, err)) return false;
-                    w_line(&cg->w, "ergo_move_into(&__ret, %s);", ge.tmp);
+                    w_line(&cg->w, "yis_move_into(&__ret, %s);", ge.tmp);
                     gen_expr_release_except(cg, &ge, ge.tmp);
                     gen_expr_free(&ge);
                 }
@@ -2832,8 +2832,8 @@ static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err) {
                 if (!gen_expr(cg, path, s->as.for_s.cond, &ct, err)) return false;
                 cg->var_id++;
                 char *bname = arena_printf(cg->arena, "__b%d", cg->var_id);
-                w_line(&cg->w, "bool %s = ergo_as_bool(%s);", bname, ct.tmp);
-                w_line(&cg->w, "ergo_release_val(%s);", ct.tmp);
+                w_line(&cg->w, "bool %s = yis_as_bool(%s);", bname, ct.tmp);
+                w_line(&cg->w, "yis_release_val(%s);", ct.tmp);
                 gen_expr_release_except(cg, &ct, ct.tmp);
                 gen_expr_free(&ct);
                 w_line(&cg->w, "if (!%s) {", bname);
@@ -2854,7 +2854,7 @@ static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err) {
             if (s->as.for_s.step) {
                 GenExpr st;
                 if (!gen_expr(cg, path, s->as.for_s.step, &st, err)) return false;
-                w_line(&cg->w, "ergo_release_val(%s);", st.tmp);
+                w_line(&cg->w, "yis_release_val(%s);", st.tmp);
                 gen_expr_release_except(cg, &st, st.tmp);
                 gen_expr_free(&st);
             }
@@ -2882,7 +2882,7 @@ static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err) {
 
             codegen_push_scope(cg);
             char *cvar = codegen_define_local(cg, s->as.foreach_s.name, ety, false, false);
-            w_line(&cg->w, "ErgoVal %s = EV_NULLV;", cvar);
+            w_line(&cg->w, "YisVal %s = EV_NULLV;", cvar);
 
             w_line(&cg->w, "int %s = stdr_len(%s);", len_name, it.tmp);
             w_line(&cg->w, "for (int %s = 0; %s < %s; %s++) {", idx_name, idx_name, len_name, idx_name);
@@ -2893,11 +2893,11 @@ static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err) {
             codegen_push_scope(cg);
 
             if (elem_ty->tag == TY_ARRAY) {
-                w_line(&cg->w, "ErgoVal __e = ergo_arr_get((ErgoArr*)%s.as.p, %s);", it.tmp, idx_name);
+                w_line(&cg->w, "YisVal __e = yis_arr_get((YisArr*)%s.as.p, %s);", it.tmp, idx_name);
             } else {
-                w_line(&cg->w, "ErgoVal __e = stdr_str_at(%s, %s);", it.tmp, idx_name);
+                w_line(&cg->w, "YisVal __e = stdr_str_at(%s, %s);", it.tmp, idx_name);
             }
-            w_line(&cg->w, "ergo_move_into(&%s, __e);", cvar);
+            w_line(&cg->w, "yis_move_into(&%s, __e);", cvar);
 
             if (s->as.foreach_s.body->kind == STMT_BLOCK) {
                 if (!gen_block(cg, path, s->as.foreach_s.body, ret_void, err)) return false;
@@ -2913,7 +2913,7 @@ static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err) {
 
             LocalList outer_locals = codegen_pop_scope(cg);
             codegen_release_scope(cg, outer_locals);
-            w_line(&cg->w, "ergo_release_val(%s);", it.tmp);
+            w_line(&cg->w, "yis_release_val(%s);", it.tmp);
             gen_expr_release_except(cg, &it, it.tmp);
             gen_expr_free(&it);
             return true;
@@ -2945,18 +2945,18 @@ static bool gen_class_defs(Codegen *cg, Diag *err) {
         Str mod, name;
         split_qname(ce->qname, &mod, &name);
         char *cname = codegen_c_class_name(cg, ce->qname);
-        char *drop_sym = mod.len ? arena_printf(cg->arena, "ergo_drop_%s_%.*s", mangle_mod(cg->arena, mod), (int)name.len, name.data)
-                                  : arena_printf(cg->arena, "ergo_drop_%.*s", (int)name.len, name.data);
+        char *drop_sym = mod.len ? arena_printf(cg->arena, "yis_drop_%s_%.*s", mangle_mod(cg->arena, mod), (int)name.len, name.data)
+                                  : arena_printf(cg->arena, "yis_drop_%.*s", (int)name.len, name.data);
         w_line(&cg->w, "typedef struct %s {", cname);
         cg->w.indent++;
-        w_line(&cg->w, "ErgoObj base;");
+        w_line(&cg->w, "YisObj base;");
         for (size_t f = 0; f < ce->decl->fields_len; f++) {
             FieldDecl *fd = ce->decl->fields[f];
-            w_line(&cg->w, "ErgoVal %s;", codegen_c_field_name(cg, fd->name));
+            w_line(&cg->w, "YisVal %s;", codegen_c_field_name(cg, fd->name));
         }
         cg->w.indent--;
         w_line(&cg->w, "} %s;", cname);
-        w_line(&cg->w, "static void %s(ErgoObj* o);", drop_sym);
+        w_line(&cg->w, "static void %s(YisObj* o);", drop_sym);
         w_line(&cg->w, "");
     }
     for (size_t i = 0; i < cg->class_decls_len; i++) {
@@ -2964,14 +2964,14 @@ static bool gen_class_defs(Codegen *cg, Diag *err) {
         Str mod, name;
         split_qname(ce->qname, &mod, &name);
         char *cname = codegen_c_class_name(cg, ce->qname);
-        char *drop_sym = mod.len ? arena_printf(cg->arena, "ergo_drop_%s_%.*s", mangle_mod(cg->arena, mod), (int)name.len, name.data)
-                                  : arena_printf(cg->arena, "ergo_drop_%.*s", (int)name.len, name.data);
-        w_line(&cg->w, "static void %s(ErgoObj* o) {", drop_sym);
+        char *drop_sym = mod.len ? arena_printf(cg->arena, "yis_drop_%s_%.*s", mangle_mod(cg->arena, mod), (int)name.len, name.data)
+                                  : arena_printf(cg->arena, "yis_drop_%.*s", (int)name.len, name.data);
+        w_line(&cg->w, "static void %s(YisObj* o) {", drop_sym);
         cg->w.indent++;
         w_line(&cg->w, "%s* self = (%s*)o;", cname, cname);
         for (size_t f = 0; f < ce->decl->fields_len; f++) {
             FieldDecl *fd = ce->decl->fields[f];
-            w_line(&cg->w, "ergo_release_val(self->%s);", codegen_c_field_name(cg, fd->name));
+            w_line(&cg->w, "yis_release_val(self->%s);", codegen_c_field_name(cg, fd->name));
         }
         cg->w.indent--;
         w_line(&cg->w, "}");
@@ -2985,7 +2985,7 @@ static char *c_params(size_t count, bool leading_comma) {
     StrBuf b; sb_init(&b);
     for (size_t i = 0; i < count; i++) {
         if (i) sb_append(&b, ", ");
-        sb_appendf(&b, "ErgoVal a%zu", i);
+        sb_appendf(&b, "YisVal a%zu", i);
     }
     char *out = b.data ? dup_cstr(b.data) : NULL;
     sb_free(&b);
@@ -3058,13 +3058,13 @@ static bool gen_method(Codegen *cg, Str path, ClassDecl *cls, FunDecl *fn, Diag 
     }
 
     bool ret_void = fn->ret.is_void;
-    const char *ret_ty = ret_void ? "void" : "ErgoVal";
+    const char *ret_ty = ret_void ? "void" : "YisVal";
     char *params = c_params(fn->params_len > 0 ? fn->params_len - 1 : 0, true);
     char *mangled = mangle_method(cg->arena, cg->current_cask, cls->name, fn->name);
-    w_line(&cg->w, "static %s %s(ErgoVal self%s) {", ret_ty, mangled, params ? params : "");
+    w_line(&cg->w, "static %s %s(YisVal self%s) {", ret_ty, mangled, params ? params : "");
     cg->w.indent++;
     if (!ret_void) {
-        w_line(&cg->w, "ErgoVal __ret = EV_NULLV;");
+        w_line(&cg->w, "YisVal __ret = EV_NULLV;");
     }
 
     if (!gen_block(cg, path, fn->body, ret_void, err)) return false;
@@ -3105,13 +3105,13 @@ static bool gen_fun(Codegen *cg, Str path, FunDecl *fn, Diag *err) {
     }
 
     bool ret_void = fn->ret.is_void;
-    const char *ret_ty = ret_void ? "void" : "ErgoVal";
+    const char *ret_ty = ret_void ? "void" : "YisVal";
     char *params = c_params(fn->params_len, false);
     char *mangled = mangle_global(cg->arena, cg->current_cask, fn->name);
     w_line(&cg->w, "static %s %s(%s) {", ret_ty, mangled, params ? params : "void");
     cg->w.indent++;
     if (!ret_void) {
-        w_line(&cg->w, "ErgoVal __ret = EV_NULLV;");
+        w_line(&cg->w, "YisVal __ret = EV_NULLV;");
     }
 
     if (!gen_block(cg, path, fn->body, ret_void, err)) return false;
@@ -3164,7 +3164,7 @@ static bool gen_entry(Codegen *cg, Diag *err) {
         cg->current_imports_len = mi ? mi->imports_len : 0;
     }
 
-    w_line(&cg->w, "static void ergo_entry(void) {");
+    w_line(&cg->w, "static void yis_entry(void) {");
     cg->w.indent++;
     for (size_t i = 0; i < cg->prog->mods_len; i++) {
         Module *m = cg->prog->mods[i];
@@ -3297,7 +3297,7 @@ static void codegen_free(Codegen *cg) {
 static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
     codegen_collect_lambdas(cg);
 
-    const char *runtime_override = getenv("ERGO_RUNTIME");
+    const char *runtime_override = getenv("YIS_RUNTIME");
     bool runtime_forced = runtime_override && runtime_override[0];
     const char *runtime_path = runtime_forced ? runtime_override : NULL;
     char *exe_runtime_path = NULL;  // heap-allocated, freed below
@@ -3305,10 +3305,10 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
     if (!runtime_path) {
         const char *runtime_candidates[] = {
             "src/runtime.inc",
-            "ergo/src/runtime.inc",
+            "yis/src/runtime.inc",
             "../src/runtime.inc",
-            "../ergo/src/runtime.inc",
-            "../../ergo/src/runtime.inc",
+            "../yis/src/runtime.inc",
+            "../../yis/src/runtime.inc",
         };
         runtime_path = NULL;
         for (size_t i = 0; i < sizeof(runtime_candidates) / sizeof(runtime_candidates[0]); i++) {
@@ -3318,14 +3318,14 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
             }
         }
         // If not found via cwd-relative paths, try relative to the executable.
-        // The binary is typically at <project>/ergo/build/ergo, so
+        // The binary is typically at <project>/yis/build/yis, so
         // runtime.inc is at <exe_dir>/../src/runtime.inc.
         if (!runtime_path) {
-            char *exe_dir = ergo_exe_dir();
+            char *exe_dir = yis_exe_dir();
             if (exe_dir) {
                 const char *exe_rel[] = {
                     "../src/runtime.inc",
-                    "../../ergo/src/runtime.inc",
+                    "../../yis/src/runtime.inc",
                 };
                 for (size_t i = 0; i < sizeof(exe_rel) / sizeof(exe_rel[0]); i++) {
                     char *candidate = path_join(exe_dir, exe_rel[i]);
@@ -3355,27 +3355,30 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
         }
     }
     if (!runtime_src) {
-        runtime_src = (const char *)ergo_runtime_embedded;
-        runtime_len = (size_t)ergo_runtime_embedded_len;
+        runtime_src = (const char *)yis_runtime_embedded;
+        runtime_len = (size_t)yis_runtime_embedded_len;
     }
 
     size_t cogito_bindings_len = 0;
     const char *cogito_bindings_src = NULL;
     if (uses_cogito) {
-        const char *bindings_override = getenv("ERGO_COGITO_BINDINGS");
+        const char *bindings_override = getenv("YIS_COGITO_BINDINGS");
         bool bindings_forced = bindings_override && bindings_override[0];
         const char *bindings_path = bindings_forced ? bindings_override : NULL;
 
         if (!bindings_path) {
             const char *bindings_candidates[] = {
-                "cogito/ergo/cogito_bindings.inc",
-                "../cogito/ergo/cogito_bindings.inc",
-                "../../cogito/ergo/cogito_bindings.inc",
+                "cogito/yis/cogito_bindings.inc",
+                "cogito/src/yis/cogito_bindings.inc",        // split-repo layout
+                "../cogito/yis/cogito_bindings.inc",
+                "../cogito/src/yis/cogito_bindings.inc",     // split-repo layout
+                "../../cogito/yis/cogito_bindings.inc",
+                "../../cogito/src/yis/cogito_bindings.inc",  // split-repo layout
 #if defined(__APPLE__)
-                "/opt/homebrew/share/ergo/cogito/cogito_bindings.inc",
-                "/usr/local/share/ergo/cogito/cogito_bindings.inc",
+                "/opt/homebrew/share/yis/cogito/cogito_bindings.inc",
+                "/usr/local/share/yis/cogito/cogito_bindings.inc",
 #endif
-                "/usr/share/ergo/cogito/cogito_bindings.inc",
+                "/usr/share/yis/cogito/cogito_bindings.inc",
             };
             for (size_t i = 0; i < sizeof(bindings_candidates) / sizeof(bindings_candidates[0]); i++) {
                 if (path_is_file(bindings_candidates[i])) {
@@ -3385,12 +3388,12 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
             }
 
             if (!bindings_path) {
-                char *exe_dir = ergo_exe_dir();
+                char *exe_dir = yis_exe_dir();
                 if (exe_dir) {
                     const char *exe_rel[] = {
-                        "../share/ergo/cogito/cogito_bindings.inc",
-                        "../../share/ergo/cogito/cogito_bindings.inc",
-                        "../Resources/share/ergo/cogito/cogito_bindings.inc",
+                        "../share/yis/cogito/cogito_bindings.inc",
+                        "../../share/yis/cogito/cogito_bindings.inc",
+                        "../Resources/share/yis/cogito/cogito_bindings.inc",
                     };
                     for (size_t i = 0; i < sizeof(exe_rel) / sizeof(exe_rel[0]); i++) {
                         char *candidate = path_join(exe_dir, exe_rel[i]);
@@ -3423,7 +3426,7 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
             free(exe_runtime_path);
             free(exe_cogito_bindings_path);
             return cg_set_err(err, (Str){bindings_override, strlen(bindings_override)},
-                              "ERGO_COGITO_BINDINGS points to a missing file");
+                              "YIS_COGITO_BINDINGS points to a missing file");
         }
     }
 
@@ -3458,7 +3461,7 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
             Decl *d = m->decls[j];
             if (d->kind != DECL_DEF) continue;
             char *gname = mangle_global_var(cg->arena, mod_name, d->as.def_decl.name);
-            w_line(&cg->w, "static ErgoVal %s = EV_NULLV;", gname);
+            w_line(&cg->w, "static YisVal %s = EV_NULLV;", gname);
         }
     }
     w_line(&cg->w, "");
@@ -3470,7 +3473,7 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
     if (cg->lambdas_len > 0) {
         w_line(&cg->w, "// ---- lambda forward decls ----");
         for (size_t i = 0; i < cg->lambdas_len; i++) {
-            w_line(&cg->w, "static ErgoVal %s(void* env, int argc, ErgoVal* argv);", cg->lambdas[i].name);
+            w_line(&cg->w, "static YisVal %s(void* env, int argc, YisVal* argv);", cg->lambdas[i].name);
         }
         w_line(&cg->w, "");
     }
@@ -3478,7 +3481,7 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
     if (cg->funvals_len > 0) {
         w_line(&cg->w, "// ---- function value forward decls ----");
         for (size_t i = 0; i < cg->funvals_len; i++) {
-            w_line(&cg->w, "static ErgoVal %s(void* env, int argc, ErgoVal* argv);", cg->funvals[i].wrapper);
+            w_line(&cg->w, "static YisVal %s(void* env, int argc, YisVal* argv);", cg->funvals[i].wrapper);
         }
         w_line(&cg->w, "");
     }
@@ -3492,15 +3495,15 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
             if (d->kind == DECL_CLASS) {
                 for (size_t k = 0; k < d->as.class_decl.methods_len; k++) {
                     FunDecl *md = d->as.class_decl.methods[k];
-                    const char *ret_ty = md->ret.is_void ? "void" : "ErgoVal";
+                    const char *ret_ty = md->ret.is_void ? "void" : "YisVal";
                     char *params = c_params(md->params_len > 0 ? md->params_len - 1 : 0, true);
                     char *mangled = mangle_method(cg->arena, mod_name, d->as.class_decl.name, md->name);
-                    w_line(&cg->w, "static %s %s(ErgoVal self%s);", ret_ty, mangled, params ? params : "");
+                    w_line(&cg->w, "static %s %s(YisVal self%s);", ret_ty, mangled, params ? params : "");
                     if (params) free(params);
                 }
             }
             if (d->kind == DECL_FUN) {
-                const char *ret_ty = d->as.fun.ret.is_void ? "void" : "ErgoVal";
+                const char *ret_ty = d->as.fun.ret.is_void ? "void" : "YisVal";
                 char *params = c_params(d->as.fun.params_len, false);
                 char *mangled = mangle_global(cg->arena, mod_name, d->as.fun.name);
                 w_line(&cg->w, "static %s %s(%s);", ret_ty, mangled, params ? params : "void");
@@ -3513,7 +3516,7 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
             w_line(&cg->w, "static void %s(void);", init_name);
         }
     }
-    w_line(&cg->w, "static void ergo_entry(void);");
+    w_line(&cg->w, "static void yis_entry(void);");
     w_line(&cg->w, "");
 
     if (cg->funvals_len > 0) {
@@ -3522,12 +3525,12 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
             FunValInfo *fi = &cg->funvals[i];
             FunSig *sig = codegen_fun_sig(cg, fi->cask, fi->name);
             if (!sig) continue;
-            w_line(&cg->w, "static ErgoVal %s(void* env, int argc, ErgoVal* argv) {", fi->wrapper);
+            w_line(&cg->w, "static YisVal %s(void* env, int argc, YisVal* argv) {", fi->wrapper);
             cg->w.indent++;
             w_line(&cg->w, "(void)env;");
-            w_line(&cg->w, "if (argc != %zu) ergo_trap(\"fn arity mismatch\");", sig->params_len);
+            w_line(&cg->w, "if (argc != %zu) yis_trap(\"fn arity mismatch\");", sig->params_len);
             for (size_t p = 0; p < sig->params_len; p++) {
-                w_line(&cg->w, "ErgoVal arg%zu = argv[%zu];", p, p);
+                w_line(&cg->w, "YisVal arg%zu = argv[%zu];", p, p);
             }
             bool ret_void = sig->ret && sig->ret->tag == TY_VOID;
             bool direct_extern_stub = is_extern_stub_sig(sig);
@@ -3595,7 +3598,7 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
             GenExpr ge;
             if (!gen_expr(cg, m->path, d->as.def_decl.expr, &ge, err)) return false;
             char *gname = mangle_global_var(cg->arena, mod_name, d->as.def_decl.name);
-            w_line(&cg->w, "ergo_move_into(&%s, %s);", gname, ge.tmp);
+            w_line(&cg->w, "yis_move_into(&%s, %s);", gname, ge.tmp);
             gen_expr_release_except(cg, &ge, ge.tmp);
             gen_expr_free(&ge);
         }
@@ -3672,16 +3675,16 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
         cg->has_current_class = false;
 
         // emit lambda
-        w_line(&cg->w, "static ErgoVal %s(void* env, int argc, ErgoVal* argv) {", li->name);
+        w_line(&cg->w, "static YisVal %s(void* env, int argc, YisVal* argv) {", li->name);
         cg->w.indent++;
 
         // Unpack captured variables from env
         if (li->lam->as.lambda.captures_len > 0) {
-            w_line(&cg->w, "ErgoVal* __caps = (ErgoVal*)env;");
+            w_line(&cg->w, "YisVal* __caps = (YisVal*)env;");
             for (size_t c = 0; c < li->lam->as.lambda.captures_len; c++) {
                 Capture *cap = li->lam->as.lambda.captures[c];
                 char *cname = arena_printf(cg->arena, "__cap%zu", c);
-                w_line(&cg->w, "ErgoVal %s = __caps[%zu];", cname, c);
+                w_line(&cg->w, "YisVal %s = __caps[%zu];", cname, c);
                 codegen_add_name(cg, cap->name, cname);
                 Binding b = { (Ty*)cap->ty, false, false, false };
                 locals_define(&cg->ty_loc, cap->name, b);
@@ -3690,11 +3693,11 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
             w_line(&cg->w, "(void)env;");
         }
 
-        w_line(&cg->w, "if (argc != %zu) ergo_trap(\"lambda arity mismatch\");", li->lam->as.lambda.params_len);
+        w_line(&cg->w, "if (argc != %zu) yis_trap(\"lambda arity mismatch\");", li->lam->as.lambda.params_len);
         for (size_t p = 0; p < li->lam->as.lambda.params_len; p++) {
             Param *param = li->lam->as.lambda.params[p];
             char *cname = arena_printf(cg->arena, "arg%zu", p);
-            w_line(&cg->w, "ErgoVal %s = argv[%zu];", cname, p);
+            w_line(&cg->w, "YisVal %s = argv[%zu];", cname, p);
             codegen_add_name(cg, param->name, cname);
             Ty *pty = NULL;
             if (param->typ) {
@@ -3705,10 +3708,10 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
             Binding b = { pty, param->is_mut, false, false };
             locals_define(&cg->ty_loc, param->name, b);
         }
-        w_line(&cg->w, "ErgoVal __ret = EV_NULLV;");
+        w_line(&cg->w, "YisVal __ret = EV_NULLV;");
         GenExpr ge;
         if (!gen_expr(cg, li->path, li->lam->as.lambda.body, &ge, err)) return false;
-        w_line(&cg->w, "ergo_move_into(&__ret, %s);", ge.tmp);
+        w_line(&cg->w, "yis_move_into(&__ret, %s);", ge.tmp);
         gen_expr_release_except(cg, &ge, ge.tmp);
         gen_expr_free(&ge);
         {
@@ -3753,7 +3756,7 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
     w_line(&cg->w, "#ifdef __OBJC__");
     w_line(&cg->w, "@autoreleasepool {");
     cg->w.indent++;
-    w_line(&cg->w, "ergo_runtime_init();");
+    w_line(&cg->w, "yis_runtime_init();");
     // Always set script directory when entry_path is available
     if (cg->entry_path.data && cg->entry_path.len > 0) {
         // Find the directory of the entry script
@@ -3768,18 +3771,18 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
             char *dir = arena_alloc(cg->arena, dir_len + 1);
             memcpy(dir, path, dir_len);
             dir[dir_len] = 0;
-            w_line(&cg->w, "ErgoVal __script_dir = EV_STR(stdr_str_lit(\"%s\"));", dir);
+            w_line(&cg->w, "YisVal __script_dir = EV_STR(stdr_str_lit(\"%s\"));", dir);
             w_line(&cg->w, "__cogito_set_script_dir(__script_dir);");
-            w_line(&cg->w, "ergo_release_val(__script_dir);");
+            w_line(&cg->w, "yis_release_val(__script_dir);");
         } else {
         }
     } else {
     }
-    w_line(&cg->w, "ergo_entry();");
+    w_line(&cg->w, "yis_entry();");
     cg->w.indent--;
     w_line(&cg->w, "}");
     w_line(&cg->w, "#else");
-    w_line(&cg->w, "ergo_runtime_init();");
+    w_line(&cg->w, "yis_runtime_init();");
     // Always set script directory when entry_path is available
     if (cg->entry_path.data && cg->entry_path.len > 0) {
         const char *path = cg->entry_path.data;
@@ -3793,12 +3796,12 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
             char *dir = arena_alloc(cg->arena, dir_len + 1);
             memcpy(dir, path, dir_len);
             dir[dir_len] = 0;
-            w_line(&cg->w, "ErgoVal __script_dir = EV_STR(stdr_str_lit(\"%s\"));", dir);
+            w_line(&cg->w, "YisVal __script_dir = EV_STR(stdr_str_lit(\"%s\"));", dir);
             w_line(&cg->w, "__cogito_set_script_dir(__script_dir);");
-            w_line(&cg->w, "ergo_release_val(__script_dir);");
+            w_line(&cg->w, "yis_release_val(__script_dir);");
         }
     }
-    w_line(&cg->w, "ergo_entry();");
+    w_line(&cg->w, "yis_entry();");
     w_line(&cg->w, "#endif");
     w_line(&cg->w, "return 0;");
     cg->w.indent--;

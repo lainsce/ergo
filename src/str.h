@@ -1,5 +1,5 @@
-#ifndef ERGO_STR_H
-#define ERGO_STR_H
+#ifndef YIS_STR_H
+#define YIS_STR_H
 
 #include <stddef.h>
 

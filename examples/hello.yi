@@ -1,6 +1,6 @@
 cask hello
 
--- Ergo Example: Hello World
+-- Yis Example: Hello World
 
 bring stdr
 
@@ -9,5 +9,5 @@ macro nl() (( string )) {
 }
 
 entry () (( -- )) {
-    write(@"Hello, Ergo World!".nl())
+    write(@"Hello, Yis World!".nl())
 }

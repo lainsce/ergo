@@ -1,5 +1,5 @@
-#ifndef ERGO_CODEGEN_H
-#define ERGO_CODEGEN_H
+#ifndef YIS_CODEGEN_H
+#define YIS_CODEGEN_H
 
 #include <stdbool.h>
 

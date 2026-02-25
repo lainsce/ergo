@@ -1,5 +1,5 @@
-#ifndef ERGO_PROJECT_H
-#define ERGO_PROJECT_H
+#ifndef YIS_PROJECT_H
+#define YIS_PROJECT_H
 
 #include <stdbool.h>
 #include <stdint.h>

@@ -1,5 +1,5 @@
-#ifndef ERGO_ARENA_H
-#define ERGO_ARENA_H
+#ifndef YIS_ARENA_H
+#define YIS_ARENA_H
 
 #include <stddef.h>
 

@@ -1,5 +1,5 @@
-#ifndef ERGO_TYPECHECK_H
-#define ERGO_TYPECHECK_H
+#ifndef YIS_TYPECHECK_H
+#define YIS_TYPECHECK_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -177,13 +177,13 @@ typedef struct {
 } GlobalEnv;
 
 typedef enum {
-    ERGO_LINT_WARN = 0,
-    ERGO_LINT_STRICT = 1
-} ErgoLintMode;
+    YIS_LINT_WARN = 0,
+    YIS_LINT_STRICT = 1
+} YisLintMode;
 
 Program *lower_program(Program *prog, Arena *arena, Diag *err);
 bool typecheck_program(Program *prog, Arena *arena, Diag *err);
-bool lint_program(Program *prog, Arena *arena, ErgoLintMode mode, int *warning_count, int *error_count);
+bool lint_program(Program *prog, Arena *arena, YisLintMode mode, int *warning_count, int *error_count);
 
 GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err);
 Ty *tc_expr(Expr *e, GlobalEnv *env, Str cask_path, Str cask_name, Str *imports, size_t imports_len, Diag *err);

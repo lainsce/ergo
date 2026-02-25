@@ -2,11 +2,11 @@
 set -eu
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-ERGO_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
+YIS_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
 
-RUNTIME_SRC="${1:-$ERGO_DIR/src/runtime.inc}"
-OUT_FILE="${2:-$ERGO_DIR/src/runtime_embedded.h}"
-TMP_FILE="${TMPDIR:-/tmp}/ergo_runtime_expanded.$$"
+RUNTIME_SRC="${1:-$YIS_DIR/src/runtime.inc}"
+OUT_FILE="${2:-$YIS_DIR/src/runtime_embedded.h}"
+TMP_FILE="${TMPDIR:-/tmp}/yis_runtime_expanded.$$"
 
 cleanup() {
   rm -f "$TMP_FILE"
@@ -48,14 +48,14 @@ BEGIN {
 ' "$RUNTIME_SRC" > "$TMP_FILE"
 
 {
-  echo "#ifndef ERGO_RUNTIME_EMBEDDED_H"
-  echo "#define ERGO_RUNTIME_EMBEDDED_H"
+  echo "#ifndef YIS_RUNTIME_EMBEDDED_H"
+  echo "#define YIS_RUNTIME_EMBEDDED_H"
   echo ""
-  echo "// Auto-generated snapshot of ergo/src/runtime.inc with // @include expansion."
-  echo "// Used as a fallback when runtime.inc is not available next to the ergo binary."
-  echo "// Regenerate with: ergo/tools/gen_runtime_embedded.sh"
+  echo "// Auto-generated snapshot of yis/src/runtime.inc with // @include expansion."
+  echo "// Used as a fallback when runtime.inc is not available next to the yis binary."
+  echo "// Regenerate with: yis/tools/gen_runtime_embedded.sh"
   echo ""
-  echo "static const char ergo_runtime_embedded[] ="
+  echo "static const char yis_runtime_embedded[] ="
   awk '
   {
     line = $0
@@ -64,7 +64,7 @@ BEGIN {
     printf "\"%s\\n\"\n", line
   }' "$TMP_FILE"
   echo ";"
-  echo "static const unsigned int ergo_runtime_embedded_len = (unsigned int)(sizeof(ergo_runtime_embedded) - 1);"
+  echo "static const unsigned int yis_runtime_embedded_len = (unsigned int)(sizeof(yis_runtime_embedded) - 1);"
   echo ""
   echo "#endif"
 } > "$OUT_FILE"

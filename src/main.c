@@ -7,13 +7,13 @@
 
 #if defined(_WIN32)
 #include <direct.h>
-#define ergo_getcwd _getcwd
-#define ergo_mkdir(path) _mkdir(path)
+#define yis_getcwd _getcwd
+#define yis_mkdir(path) _mkdir(path)
 #else
 #include <unistd.h>
 #include <sys/stat.h>
-#define ergo_getcwd getcwd
-#define ergo_mkdir(path) mkdir((path), 0755)
+#define yis_getcwd getcwd
+#define yis_mkdir(path) mkdir((path), 0755)
 #endif
 
 #include "arena.h"
@@ -26,7 +26,7 @@
 #include "str.h"
 #include "typecheck.h"
 
-#define ERGO_CACHE_VERSION __DATE__ " " __TIME__
+#define YIS_CACHE_VERSION __DATE__ " " __TIME__
 
 static uint64_t hash_update(uint64_t h, const void *data, size_t len) {
     const unsigned char *p = (const unsigned char *)data;
@@ -57,22 +57,22 @@ static bool ensure_dir(const char *path) {
     if (!path || !path[0]) {
         return false;
     }
-    if (ergo_mkdir(path) == 0) {
+    if (yis_mkdir(path) == 0) {
         return true;
     }
     return errno == EEXIST;
 }
 
 static char *cache_base_dir(void) {
-    const char *env = getenv("ERGO_CACHE_DIR");
+    const char *env = getenv("YIS_CACHE_DIR");
     if (env && env[0]) {
         return dup_cstr(env);
     }
     char buf[4096];
-    if (!ergo_getcwd(buf, sizeof(buf))) {
+    if (!yis_getcwd(buf, sizeof(buf))) {
         return NULL;
     }
-    return path_join(buf, ".ergo-cache");
+    return path_join(buf, ".yis-cache");
 }
 
 static int run_binary(const char *path) {
@@ -160,7 +160,7 @@ static bool prepare_macos_app_bundle(const char *exe_path, const char *bundle_id
 
 static bool expr_string_literal_as_filename(Expr *e, char *out, size_t out_cap);
 
-// Cogito build integration (ergo-local copy)
+// Cogito build integration (yis-local copy)
 #include "cogito_build.inc"
 
 static bool sanitize_filename_component(const char *src, size_t src_len, char *out, size_t out_cap) {
@@ -227,15 +227,15 @@ static bool expr_string_literal_as_filename(Expr *e, char *out, size_t out_cap) 
 }
 
 
-#define ERGO_VERSION "0.1.0"
+#define YIS_VERSION "0.1.0"
 
 static bool verbose_mode = false;
 
 static void print_usage(FILE *out) {
-    fprintf(out, "Usage: ergo [OPTIONS] <source.ergo>\n");
-    fprintf(out, "       ergo run [OPTIONS] <source.ergo>\n");
-    fprintf(out, "       ergo lint [--mode warn|strict] <source.ergo>\n");
-    fprintf(out, "       ergo sum validate [--mode off|warn|strict] <path>\n");
+    fprintf(out, "Usage: yis [OPTIONS] <source.yis>\n");
+    fprintf(out, "       yis run [OPTIONS] <source.yis>\n");
+    fprintf(out, "       yis lint [--mode warn|strict] <source.yis>\n");
+    fprintf(out, "       yis sum validate [--mode off|warn|strict] <path>\n");
     fprintf(out, "\n");
     fprintf(out, "Options:\n");
     fprintf(out, "  -h, --help       Show this help message\n");
@@ -243,38 +243,38 @@ static void print_usage(FILE *out) {
     fprintf(out, "  --verbose        Enable verbose error output with more context\n");
     fprintf(out, "\n");
     fprintf(out, "Examples:\n");
-    fprintf(out, "  ergo init.ergo              # Compile and check init.ergo\n");
-    fprintf(out, "  ergo run init.ergo          # Compile and run init.ergo\n");
-    fprintf(out, "  ergo lint --mode strict init.ergo\n");
-    fprintf(out, "  ergo sum validate theme.sum # Validate one SUM file\n");
-    fprintf(out, "  ergo --help                 # Show this help\n");
+    fprintf(out, "  yis init.yis              # Compile and check init.yis\n");
+    fprintf(out, "  yis run init.yis          # Compile and run init.yis\n");
+    fprintf(out, "  yis lint --mode strict init.yis\n");
+    fprintf(out, "  yis sum validate theme.sum # Validate one SUM file\n");
+    fprintf(out, "  yis --help                 # Show this help\n");
     fprintf(out, "\n");
     fprintf(out, "Environment Variables:\n");
-    fprintf(out, "  ERGO_STDLIB      Path to standard library (default: auto-detected, fallback: ergo/src/stdlib)\n");
-    fprintf(out, "  ERGO_CACHE_DIR   Cache directory for compiled binaries\n");
-    fprintf(out, "  ERGO_NO_CACHE    Set to 1 to disable caching\n");
-    fprintf(out, "  ERGO_KEEP_C      Set to 1 to keep generated C files\n");
+    fprintf(out, "  YIS_STDLIB      Path to standard library (default: auto-detected, fallback: yis/src/stdlib)\n");
+    fprintf(out, "  YIS_CACHE_DIR   Cache directory for compiled binaries\n");
+    fprintf(out, "  YIS_NO_CACHE    Set to 1 to disable caching\n");
+    fprintf(out, "  YIS_KEEP_C      Set to 1 to keep generated C files\n");
     fprintf(out, "  CC               C compiler to use (default: cc)\n");
-    fprintf(out, "  ERGO_CC_FLAGS    Additional C compiler flags\n");
+    fprintf(out, "  YIS_CC_FLAGS    Additional C compiler flags\n");
     fprintf(out, "  NO_COLOR         Set to disable colored output\n");
     fprintf(out, "\n");
     fprintf(out, "Cogito GUI Framework:\n");
     fprintf(out, "  To build GUI applications with Cogito:\n");
-    fprintf(out, "    1. Install or build Cogito (libcogito + cogito.ergo)\n");
-    fprintf(out, "    2. Add 'bring cogito;' to your init.ergo\n");
+    fprintf(out, "    1. Install or build Cogito (libcogito + cogito.yis)\n");
+    fprintf(out, "    2. Add 'bring cogito;' to your init.yis\n");
     fprintf(out, "    3. Ensure raylib is installed (brew install raylib on macOS)\n");
     fprintf(out, "\n");
     fprintf(out, "  Cogito Environment Variables:\n");
-    fprintf(out, "    ERGO_COGITO_CFLAGS   Additional C flags for Cogito compilation\n");
-    fprintf(out, "    ERGO_COGITO_FLAGS    Additional linker flags for Cogito\n");
-    fprintf(out, "    ERGO_COGITO_STDLIB   Directory or file path for cogito.ergo module resolution\n");
-    fprintf(out, "    ERGO_RAYLIB_CFLAGS   C flags for raylib (auto-detected on macOS/Linux)\n");
-    fprintf(out, "    ERGO_RAYLIB_FLAGS    Linker flags for raylib (auto-detected on macOS/Linux)\n");
+    fprintf(out, "    YIS_COGITO_CFLAGS   Additional C flags for Cogito compilation\n");
+    fprintf(out, "    YIS_COGITO_FLAGS    Additional linker flags for Cogito\n");
+    fprintf(out, "    YIS_COGITO_STDLIB   Directory or file path for cogito.yis module resolution\n");
+    fprintf(out, "    YIS_RAYLIB_CFLAGS   C flags for raylib (auto-detected on macOS/Linux)\n");
+    fprintf(out, "    YIS_RAYLIB_FLAGS    Linker flags for raylib (auto-detected on macOS/Linux)\n");
 }
 
 static void print_version(void) {
-    printf("ergo version %s\n", ERGO_VERSION);
-    printf("Copyright (c) 2026 Ergo Contributors\n");
+    printf("yis version %s\n", YIS_VERSION);
+    printf("Copyright (c) 2026 Yis Contributors\n");
 }
 
 static int is_flag(const char *arg, const char *flag) {
@@ -287,7 +287,7 @@ static const char *cc_path(void) {
 }
 
 static const char *cc_flags(void) {
-    const char *flags = getenv("ERGO_CC_FLAGS");
+    const char *flags = getenv("YIS_CC_FLAGS");
     return flags && flags[0] ? flags : "-O3 -std=c11 -pipe";
 }
 
@@ -351,7 +351,7 @@ static const char *raylib_default_ldflags(void) {
 
 
 int main(int argc, char **argv) {
-    ergo_set_stdout_buffered();
+    yis_set_stdout_buffered();
 
     if (argc < 2) {
         print_usage(stderr);
@@ -390,7 +390,7 @@ int main(int argc, char **argv) {
     }
 
     if (is_flag(argv[1], "lint")) {
-        ErgoLintMode lint_mode = ERGO_LINT_WARN;
+        YisLintMode lint_mode = YIS_LINT_WARN;
         const char *entry = NULL;
         for (int i = 2; i < argc; i++) {
             if (strcmp(argv[i], "--mode") == 0) {
@@ -400,9 +400,9 @@ int main(int argc, char **argv) {
                 }
                 i++;
                 if (strcmp(argv[i], "warn") == 0) {
-                    lint_mode = ERGO_LINT_WARN;
+                    lint_mode = YIS_LINT_WARN;
                 } else if (strcmp(argv[i], "strict") == 0) {
-                    lint_mode = ERGO_LINT_STRICT;
+                    lint_mode = YIS_LINT_STRICT;
                 } else {
                     fprintf(stderr, "error: unknown lint mode '%s'\n", argv[i]);
                     return 2;
@@ -485,13 +485,13 @@ int main(int argc, char **argv) {
         const char *extra_ldflags = "";
         char extra_cflags_buf[2048] = {0};
         char extra_ldflags_buf[2048] = {0};
-        const char *cogito_cflags_env = getenv("ERGO_COGITO_CFLAGS");
+        const char *cogito_cflags_env = getenv("YIS_COGITO_CFLAGS");
         const char *cogito_cflags = (cogito_cflags_env && cogito_cflags_env[0]) ? cogito_cflags_env : cogito_default_cflags();
         if (cogito_cflags && cogito_cflags[0]) {
             extra_cflags = cogito_cflags;
         }
         if (uses_cogito) {
-            const char *ray_cflags = getenv("ERGO_RAYLIB_CFLAGS");
+            const char *ray_cflags = getenv("YIS_RAYLIB_CFLAGS");
             if (!(ray_cflags && ray_cflags[0])) {
 #if defined(__APPLE__) || defined(__linux__)
                 ray_cflags = raylib_default_cflags();
@@ -499,8 +499,8 @@ int main(int argc, char **argv) {
             }
             extra_cflags = join_flags(extra_cflags_buf, sizeof(extra_cflags_buf), ray_cflags, cogito_cflags);
 
-            const char *ray_flags = getenv("ERGO_RAYLIB_FLAGS");
-            const char *cogito_flags = getenv("ERGO_COGITO_FLAGS");
+            const char *ray_flags = getenv("YIS_RAYLIB_FLAGS");
+            const char *cogito_flags = getenv("YIS_COGITO_FLAGS");
             if (!(ray_flags && ray_flags[0])) {
                 ray_flags = raylib_default_ldflags();
             }
@@ -519,11 +519,11 @@ int main(int argc, char **argv) {
         }
         entry_basename = entry_basename ? entry_basename + 1 : entry;
 
-        // Remove .ergo extension if present
+        // Remove .yis extension if present
         char name_source[256];
         snprintf(name_source, sizeof(name_source), "%s", entry_basename);
         char *dot = strrchr(name_source, '.');
-        if (dot && strcmp(dot, ".ergo") == 0) {
+        if (dot && strcmp(dot, ".yis") == 0) {
             *dot = '\0';
         }
         char name_without_ext[256];
@@ -551,7 +551,7 @@ int main(int argc, char **argv) {
             if (strchr(name_without_ext, '.')) {
                 snprintf(macos_bundle_id, sizeof(macos_bundle_id), "%s", name_without_ext);
             } else {
-                snprintf(macos_bundle_id, sizeof(macos_bundle_id), "org.ergo.%s", name_without_ext);
+                snprintf(macos_bundle_id, sizeof(macos_bundle_id), "org.yis.%s", name_without_ext);
             }
             snprintf(unique_bin_name, sizeof(unique_bin_name), "%s.app/Contents/MacOS/%s", name_without_ext, name_without_ext);
         }
@@ -562,9 +562,9 @@ int main(int argc, char **argv) {
         build_hash = hash_cstr(build_hash, cc_flags());
         build_hash = hash_cstr(build_hash, extra_cflags);
         build_hash = hash_cstr(build_hash, extra_ldflags);
-        build_hash = hash_cstr(build_hash, ERGO_CACHE_VERSION);
+        build_hash = hash_cstr(build_hash, YIS_CACHE_VERSION);
 
-        const char *no_cache_env = getenv("ERGO_NO_CACHE");
+        const char *no_cache_env = getenv("YIS_NO_CACHE");
         bool cache_enabled = false;
         if (no_cache_env && no_cache_env[0]) {
             cache_enabled = (no_cache_env[0] == '0');
@@ -648,7 +648,7 @@ int main(int argc, char **argv) {
             arena_free(&arena);
             return 1;
         }
-        const char *c_path = cache_c ? cache_c : ".ergo_run.c";
+        const char *c_path = cache_c ? cache_c : ".yis_run.c";
         const char *bin_path = cache_bin ? cache_bin : unique_bin_name;
 
         char run_cmd_buf[1024];
@@ -702,7 +702,7 @@ int main(int argc, char **argv) {
             arena_free(&arena);
             return rc;
         }
-        const char *keep_c = getenv("ERGO_KEEP_C");
+        const char *keep_c = getenv("YIS_KEEP_C");
         if (!(keep_c && keep_c[0] && keep_c[0] != '0')) {
             (void)remove(c_path);
         }

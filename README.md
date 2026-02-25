@@ -1,10 +1,10 @@
-# Ergo
+# Yis
 
-> Vala was the war. Ergo is the spoils.
+> Vala was the war. Yis is the spoils.
 
 This repository contains:
 
-- `ergo`: the Ergo language compiler (C11)
+- `yis`: the Yis language compiler (C11)
 
 ## Requirements
 
@@ -18,34 +18,34 @@ Example (macOS/Homebrew):
 brew install meson ninja
 ```
 
-## Build Ergo
+## Build Yis
 
 ```sh
-meson setup ergo/build ergo
-meson compile -C ergo/build
+meson setup yis/build yis
+meson compile -C yis/build
 ```
 
 Run the compiler from the build tree:
 
 ```sh
-./ergo/build/ergo --help
-./ergo/build/ergo ergo/examples/hello.ergo
-./ergo/build/ergo run ergo/examples/hello.ergo
+./yis/build/yis --help
+./yis/build/yis yis/examples/hello.yi
+./yis/build/yis run yis/examples/hello.yi
 ```
 
 ## Optional Install
 
-Install Ergo and stdlib:
+Install Yis and stdlib:
 
 ```sh
-meson install -C ergo/build
+meson install -C yis/build
 ```
 
 ## Useful Environment Variables
 
-- `ERGO_STDLIB`: override stdlib path
-- `ERGO_CACHE_DIR`: cache directory for compiled binaries
-- `ERGO_NO_CACHE=1`: disable binary cache
-- `ERGO_KEEP_C=1`: keep generated C files
-- `ERGO_CC_FLAGS`: extra C compiler flags
+- `YIS_STDLIB`: override stdlib path
+- `YIS_CACHE_DIR`: cache directory for compiled binaries
+- `YIS_NO_CACHE=1`: disable binary cache
+- `YIS_KEEP_C=1`: keep generated C files
+- `YIS_CC_FLAGS`: extra C compiler flags
 - `NO_COLOR=1`: disable colored compiler output

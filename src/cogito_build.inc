@@ -1,6 +1,6 @@
 static bool import_name_looks_cogito(Str name) {
     if (str_eq_c(name, "cogito")) return true;
-    // Allow names like cogito.ergo or cogito.something in case import normalization differs.
+    // Allow names like cogito.yis or cogito.something in case import normalization differs.
     if (name.len >= 6 && memcmp(name.data, "cogito", 6) == 0) {
         if (name.len == 6) return true;
         char next = name.data[6];
@@ -17,7 +17,7 @@ static bool module_path_looks_cogito(Str path) {
         if (p[i] == '/' || p[i] == '\\') start = i + 1;
     }
     size_t n = len - start;
-    if (n >= 5 && memcmp(p + start + n - 5, ".ergo", 5) == 0) {
+    if (n >= 5 && memcmp(p + start + n - 5, ".yis", 5) == 0) {
         n -= 5;
     }
     return n == 6 && memcmp(p + start, "cogito", 6) == 0;
@@ -233,8 +233,11 @@ static bool program_find_cogito_appid_name(Program *prog, char *out, size_t out_
 static const char *cogito_default_cflags(void) {
     // Try cwd-relative development locations first.
     if (path_is_file("cogito/src/cogito.h")) return "-Icogito/src";
+    if (path_is_file("cogito/src/src/cogito.h")) return "-Icogito/src/src";   // split-repo layout
     if (path_is_file("../cogito/src/cogito.h")) return "-I../cogito/src";
+    if (path_is_file("../cogito/src/src/cogito.h")) return "-I../cogito/src/src"; // split-repo layout
     if (path_is_file("../../cogito/src/cogito.h")) return "-I../../cogito/src";
+    if (path_is_file("../../cogito/src/src/cogito.h")) return "-I../../cogito/src/src"; // split-repo layout
 
     // Installed header layout (meson install_headers(..., subdir : 'cogito')).
     if (path_is_file("cogito/include/cogito/cogito.h")) return "-Icogito/include/cogito";
@@ -248,12 +251,13 @@ static const char *cogito_default_cflags(void) {
 #endif
     if (path_is_file("/usr/include/cogito/cogito.h")) return "-I/usr/include/cogito";
 
-    // Try relative to executable (binary at <project>/ergo/build/ergo)
-    char *exe_dir = ergo_exe_dir();
+    // Try relative to executable (binary at <project>/yis/build/yis)
+    char *exe_dir = yis_exe_dir();
     if (exe_dir) {
         static char cflag_buf[512];
         const char *rel[] = {
             "../../cogito/src/cogito.h",
+            "../../cogito/src/src/cogito.h",        // split-repo layout
             "../../cogito/include/cogito/cogito.h",
         };
         for (size_t i = 0; i < sizeof(rel) / sizeof(rel[0]); i++) {
@@ -316,9 +320,9 @@ static const char *cogito_default_ldflags(void) {
         }
     }
 
-    // 2) Try relative to the executable (binary at <project>/ergo/build/ergo)
+    // 2) Try relative to the executable (binary at <project>/yis/build/yis)
     {
-        char *exe_dir = ergo_exe_dir();
+        char *exe_dir = yis_exe_dir();
         if (exe_dir) {
             const char *rel_dirs[] = {
                 "../../cogito/_build",
