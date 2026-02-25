@@ -1,6 +1,6 @@
 static bool import_name_looks_cogito(Str name) {
     if (str_eq_c(name, "cogito")) return true;
-    // Allow names like cogito.yis or cogito.something in case import normalization differs.
+    // Allow names like cogito.yi or cogito.something in case import normalization differs.
     if (name.len >= 6 && memcmp(name.data, "cogito", 6) == 0) {
         if (name.len == 6) return true;
         char next = name.data[6];
@@ -17,7 +17,7 @@ static bool module_path_looks_cogito(Str path) {
         if (p[i] == '/' || p[i] == '\\') start = i + 1;
     }
     size_t n = len - start;
-    if (n >= 5 && memcmp(p + start + n - 5, ".yis", 5) == 0) {
+    if (n >= 5 && memcmp(p + start + n - 5, ".yi", 5) == 0) {
         n -= 5;
     }
     return n == 6 && memcmp(p + start, "cogito", 6) == 0;

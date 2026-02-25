@@ -93,14 +93,14 @@ struct YisVal {
   } as;
 };
 
-#define EV_NULLV ((YisVal){.tag=EVT_NULL})
-#define EV_INT(x) ((YisVal){.tag=EVT_INT, .as.i=(int64_t)(x)})
-#define EV_FLOAT(x) ((YisVal){.tag=EVT_FLOAT, .as.f=(double)(x)})
-#define EV_BOOL(x) ((YisVal){.tag=EVT_BOOL, .as.b=(x)?true:false})
-#define EV_STR(x) ((YisVal){.tag=EVT_STR, .as.p=(x)})
-#define EV_ARR(x) ((YisVal){.tag=EVT_ARR, .as.p=(x)})
-#define EV_OBJ(x) ((YisVal){.tag=EVT_OBJ, .as.p=(x)})
-#define EV_FN(x) ((YisVal){.tag=EVT_FN, .as.p=(x)})
+#define YV_NULLV ((YisVal){.tag=EVT_NULL})
+#define YV_INT(x) ((YisVal){.tag=EVT_INT, .as.i=(int64_t)(x)})
+#define YV_FLOAT(x) ((YisVal){.tag=EVT_FLOAT, .as.f=(double)(x)})
+#define YV_BOOL(x) ((YisVal){.tag=EVT_BOOL, .as.b=(x)?true:false})
+#define YV_STR(x) ((YisVal){.tag=EVT_STR, .as.p=(x)})
+#define YV_ARR(x) ((YisVal){.tag=EVT_ARR, .as.p=(x)})
+#define YV_OBJ(x) ((YisVal){.tag=EVT_OBJ, .as.p=(x)})
+#define YV_FN(x) ((YisVal){.tag=EVT_FN, .as.p=(x)})
 
 static void yis_trap(const char* msg) {
   fprintf(stderr, "runtime error: %s\n", msg ? msg : "unknown error");
@@ -143,8 +143,8 @@ static YisVal yis_arr_remove(YisArr* a, int64_t idx);
 static YisVal stdr_str_at(YisVal v, int64_t idx) {
   if (v.tag != EVT_STR) yis_trap("str_at expects string");
   YisStr* s = (YisStr*)v.as.p;
-  if (idx < 0 || (size_t)idx >= s->len) return EV_STR(&yis_static_empty);
-  return EV_STR(stdr_str_from_slice(s->data + idx, 1));
+  if (idx < 0 || (size_t)idx >= s->len) return YV_STR(&yis_static_empty);
+  return YV_STR(stdr_str_from_slice(s->data + idx, 1));
 }
 
 static int stdr_len(YisVal v) {
@@ -159,7 +159,7 @@ static void stdr_write(YisVal v) {
   YisStr* s = stdr_to_string(v);
   fwrite(s->data, 1, s->len, stdout);
   if (yis_stdout_isatty) fflush(stdout);
-  yis_release_val(EV_STR(s));
+  yis_release_val(YV_STR(s));
 }
 
 static void writef(YisVal fmt, int argc, YisVal* argv) {
@@ -174,7 +174,7 @@ static void writef(YisVal fmt, int argc, YisVal* argv) {
       if (argi < argc) {
         YisStr* ps = stdr_to_string(argv[argi++]);
         fwrite(ps->data, 1, ps->len, stdout);
-        yis_release_val(EV_STR(ps));
+        yis_release_val(YV_STR(ps));
       }
       i += 2;
       seg = i;
@@ -223,19 +223,19 @@ static YisVal stdr_read_text_file(YisVal pathv) {
   if (pathv.tag != EVT_STR) yis_trap("read_text_file expects string path");
   YisStr* path = (YisStr*)pathv.as.p;
   FILE* f = fopen(path->data, "rb");
-  if (!f) return EV_NULLV;
+  if (!f) return YV_NULLV;
   if (fseek(f, 0, SEEK_END) != 0) {
     fclose(f);
-    return EV_NULLV;
+    return YV_NULLV;
   }
   long sz = ftell(f);
   if (sz < 0) {
     fclose(f);
-    return EV_NULLV;
+    return YV_NULLV;
   }
   if (fseek(f, 0, SEEK_SET) != 0) {
     fclose(f);
-    return EV_NULLV;
+    return YV_NULLV;
   }
   size_t len = (size_t)sz;
   YisStr* out = (YisStr*)malloc(sizeof(YisStr) + len + 1);
@@ -249,12 +249,12 @@ static YisVal stdr_read_text_file(YisVal pathv) {
   fclose(f);
   if (n != len) {
     free(out);
-    return EV_NULLV;
+    return YV_NULLV;
   }
   out->ref = 1;
   out->len = len;
   out->data[len] = 0;
-  return EV_STR(out);
+  return YV_STR(out);
 }
 
 static YisVal stdr_write_text_file(YisVal pathv, YisVal textv) {
@@ -263,21 +263,21 @@ static YisVal stdr_write_text_file(YisVal pathv, YisVal textv) {
   YisStr* path = (YisStr*)pathv.as.p;
   YisStr* text = (YisStr*)textv.as.p;
   FILE* f = fopen(path->data, "wb");
-  if (!f) return EV_BOOL(false);
+  if (!f) return YV_BOOL(false);
   size_t n = 0;
   if (text->len > 0) n = fwrite(text->data, 1, text->len, f);
   bool ok = (n == text->len) && (fclose(f) == 0);
-  return EV_BOOL(ok);
+  return YV_BOOL(ok);
 }
 
 static YisVal stdr_capture_shell_first_line(const char* cmd) {
-  if (!cmd || !cmd[0]) return EV_NULLV;
+  if (!cmd || !cmd[0]) return YV_NULLV;
 #if defined(_WIN32)
   FILE* p = _popen(cmd, "r");
 #else
   FILE* p = popen(cmd, "r");
 #endif
-  if (!p) return EV_NULLV;
+  if (!p) return YV_NULLV;
   char buf[4096];
   if (!fgets(buf, sizeof(buf), p)) {
 #if defined(_WIN32)
@@ -285,7 +285,7 @@ static YisVal stdr_capture_shell_first_line(const char* cmd) {
 #else
     pclose(p);
 #endif
-    return EV_NULLV;
+    return YV_NULLV;
   }
 #if defined(_WIN32)
   _pclose(p);
@@ -294,8 +294,8 @@ static YisVal stdr_capture_shell_first_line(const char* cmd) {
 #endif
   size_t len = strlen(buf);
   while (len > 0 && (buf[len - 1] == '\n' || buf[len - 1] == '\r')) len--;
-  if (len == 0) return EV_NULLV;
-  return EV_STR(stdr_str_from_slice(buf, len));
+  if (len == 0) return YV_NULLV;
+  return YV_STR(stdr_str_from_slice(buf, len));
 }
 
 static YisVal stdr_open_file_dialog(YisVal promptv, YisVal extv) {
@@ -312,7 +312,7 @@ static YisVal stdr_open_file_dialog(YisVal promptv, YisVal extv) {
 #else
   (void)prompt;
   (void)ext;
-  return EV_NULLV;
+  return YV_NULLV;
 #endif
 }
 
@@ -335,7 +335,7 @@ static YisVal stdr_save_file_dialog(YisVal promptv, YisVal default_namev, YisVal
   (void)prompt;
   (void)def;
   (void)ext;
-  return EV_NULLV;
+  return YV_NULLV;
 #endif
 }
 
@@ -484,15 +484,15 @@ static YisVal stdr_readf_parse(YisVal fmt, YisVal line, YisVal args) {
     YisVal hint = a->items[i];
     YisVal v;
     if (hint.tag == EVT_INT) {
-      v = EV_INT(stdr_parse_int_slice(cap, trim_len));
+      v = YV_INT(stdr_parse_int_slice(cap, trim_len));
     } else if (hint.tag == EVT_FLOAT) {
-      v = EV_FLOAT(stdr_parse_float_slice(cap, trim_len));
+      v = YV_FLOAT(stdr_parse_float_slice(cap, trim_len));
     } else if (hint.tag == EVT_BOOL) {
-      v = EV_BOOL(stdr_parse_bool_slice(cap, trim_len));
+      v = YV_BOOL(stdr_parse_bool_slice(cap, trim_len));
     } else if (hint.tag == EVT_STR) {
-      v = EV_STR(stdr_str_from_slice(cap, trim_len));
+      v = YV_STR(stdr_str_from_slice(cap, trim_len));
     } else {
-      v = EV_STR(stdr_str_from_slice(cap, trim_len));
+      v = YV_STR(stdr_str_from_slice(cap, trim_len));
     }
     yis_arr_add(out, v);
   }
@@ -500,7 +500,7 @@ static YisVal stdr_readf_parse(YisVal fmt, YisVal line, YisVal args) {
   if (seg_ptrs != stack_ptrs) free(seg_ptrs);
   if (seg_lens != stack_lens) free(seg_lens);
 
-  return EV_ARR(out);
+  return YV_ARR(out);
 }
 
 static YisStr* stdr_to_string(YisVal v) {
@@ -541,7 +541,7 @@ static YisStr* stdr_str_from_parts(int n, YisVal* parts) {
   for (int i = 0; i < n; i++) {
     memcpy(out->data + off, strs[i]->data, strs[i]->len);
     off += strs[i]->len;
-    yis_release_val(EV_STR(strs[i]));
+    yis_release_val(YV_STR(strs[i]));
   }
   out->data[total] = 0;
   if (strs != stack_strs) free(strs);
@@ -591,7 +591,7 @@ static void yis_release_val(YisVal v) {
 
 static YisVal yis_move(YisVal* slot) {
   YisVal v = *slot;
-  *slot = EV_NULLV;
+  *slot = YV_NULLV;
   return v;
 }
 
@@ -626,61 +626,61 @@ static bool yis_as_bool(YisVal v) {
 }
 
 static YisVal yis_add(YisVal a, YisVal b) {
-  if (a.tag == EVT_FLOAT || b.tag == EVT_FLOAT) return EV_FLOAT(yis_as_float(a) + yis_as_float(b));
-  return EV_INT(yis_as_int(a) + yis_as_int(b));
+  if (a.tag == EVT_FLOAT || b.tag == EVT_FLOAT) return YV_FLOAT(yis_as_float(a) + yis_as_float(b));
+  return YV_INT(yis_as_int(a) + yis_as_int(b));
 }
 
 static YisVal yis_sub(YisVal a, YisVal b) {
-  if (a.tag == EVT_FLOAT || b.tag == EVT_FLOAT) return EV_FLOAT(yis_as_float(a) - yis_as_float(b));
-  return EV_INT(yis_as_int(a) - yis_as_int(b));
+  if (a.tag == EVT_FLOAT || b.tag == EVT_FLOAT) return YV_FLOAT(yis_as_float(a) - yis_as_float(b));
+  return YV_INT(yis_as_int(a) - yis_as_int(b));
 }
 
 static YisVal yis_mul(YisVal a, YisVal b) {
-  if (a.tag == EVT_FLOAT || b.tag == EVT_FLOAT) return EV_FLOAT(yis_as_float(a) * yis_as_float(b));
-  return EV_INT(yis_as_int(a) * yis_as_int(b));
+  if (a.tag == EVT_FLOAT || b.tag == EVT_FLOAT) return YV_FLOAT(yis_as_float(a) * yis_as_float(b));
+  return YV_INT(yis_as_int(a) * yis_as_int(b));
 }
 
 static YisVal yis_div(YisVal a, YisVal b) {
-  if (a.tag == EVT_FLOAT || b.tag == EVT_FLOAT) return EV_FLOAT(yis_as_float(a) / yis_as_float(b));
-  return EV_INT(yis_as_int(a) / yis_as_int(b));
+  if (a.tag == EVT_FLOAT || b.tag == EVT_FLOAT) return YV_FLOAT(yis_as_float(a) / yis_as_float(b));
+  return YV_INT(yis_as_int(a) / yis_as_int(b));
 }
 
 static YisVal yis_mod(YisVal a, YisVal b) {
   if (a.tag == EVT_FLOAT || b.tag == EVT_FLOAT) yis_trap("% expects integer");
-  return EV_INT(yis_as_int(a) % yis_as_int(b));
+  return YV_INT(yis_as_int(a) % yis_as_int(b));
 }
 
 static YisVal yis_neg(YisVal a) {
-  if (a.tag == EVT_FLOAT) return EV_FLOAT(-a.as.f);
-  return EV_INT(-yis_as_int(a));
+  if (a.tag == EVT_FLOAT) return YV_FLOAT(-a.as.f);
+  return YV_INT(-yis_as_int(a));
 }
 
 static YisVal yis_eq(YisVal a, YisVal b) {
-  if (a.tag != b.tag) return EV_BOOL(false);
+  if (a.tag != b.tag) return YV_BOOL(false);
   switch (a.tag) {
-    case EVT_NULL: return EV_BOOL(true);
-    case EVT_BOOL: return EV_BOOL(a.as.b == b.as.b);
-    case EVT_INT: return EV_BOOL(a.as.i == b.as.i);
-    case EVT_FLOAT: return EV_BOOL(a.as.f == b.as.f);
+    case EVT_NULL: return YV_BOOL(true);
+    case EVT_BOOL: return YV_BOOL(a.as.b == b.as.b);
+    case EVT_INT: return YV_BOOL(a.as.i == b.as.i);
+    case EVT_FLOAT: return YV_BOOL(a.as.f == b.as.f);
     case EVT_STR: {
       YisStr* sa = (YisStr*)a.as.p;
       YisStr* sb = (YisStr*)b.as.p;
-      if (sa->len != sb->len) return EV_BOOL(false);
-      return EV_BOOL(memcmp(sa->data, sb->data, sa->len) == 0);
+      if (sa->len != sb->len) return YV_BOOL(false);
+      return YV_BOOL(memcmp(sa->data, sb->data, sa->len) == 0);
     }
-    default: return EV_BOOL(a.as.p == b.as.p);
+    default: return YV_BOOL(a.as.p == b.as.p);
   }
 }
 
 static YisVal yis_ne(YisVal a, YisVal b) {
   YisVal v = yis_eq(a, b);
-  return EV_BOOL(!v.as.b);
+  return YV_BOOL(!v.as.b);
 }
 
-static YisVal yis_lt(YisVal a, YisVal b) { return EV_BOOL(yis_as_float(a) < yis_as_float(b)); }
-static YisVal yis_le(YisVal a, YisVal b) { return EV_BOOL(yis_as_float(a) <= yis_as_float(b)); }
-static YisVal yis_gt(YisVal a, YisVal b) { return EV_BOOL(yis_as_float(a) > yis_as_float(b)); }
-static YisVal yis_ge(YisVal a, YisVal b) { return EV_BOOL(yis_as_float(a) >= yis_as_float(b)); }
+static YisVal yis_lt(YisVal a, YisVal b) { return YV_BOOL(yis_as_float(a) < yis_as_float(b)); }
+static YisVal yis_le(YisVal a, YisVal b) { return YV_BOOL(yis_as_float(a) <= yis_as_float(b)); }
+static YisVal yis_gt(YisVal a, YisVal b) { return YV_BOOL(yis_as_float(a) > yis_as_float(b)); }
+static YisVal yis_ge(YisVal a, YisVal b) { return YV_BOOL(yis_as_float(a) >= yis_as_float(b)); }
 
 static YisArr* stdr_arr_new(int n) {
   YisArr* a = (YisArr*)malloc(sizeof(YisArr));
@@ -700,7 +700,7 @@ static void yis_arr_add(YisArr* a, YisVal v) {
 }
 
 static YisVal yis_arr_get(YisArr* a, int64_t idx) {
-  if (idx < 0 || (size_t)idx >= a->len) return EV_NULLV;
+  if (idx < 0 || (size_t)idx >= a->len) return YV_NULLV;
   YisVal v = a->items[idx];
   yis_retain_val(v);
   return v;
@@ -713,7 +713,7 @@ static void yis_arr_set(YisArr* a, int64_t idx, YisVal v) {
 }
 
 static YisVal yis_arr_remove(YisArr* a, int64_t idx) {
-  if (idx < 0 || (size_t)idx >= a->len) return EV_NULLV;
+  if (idx < 0 || (size_t)idx >= a->len) return YV_NULLV;
   YisVal v = a->items[idx];
   for (size_t i = (size_t)idx; i + 1 < a->len; i++) {
     a->items[i] = a->items[i + 1];
@@ -729,7 +729,7 @@ static YisObj* yis_obj_new(size_t size, void (*drop)(YisObj*)) {
   return o;
 }
 
-static YisFn* yis_fn_new(YisVal (*fn)(void* env, int argc, YisVal* argv), int arity) {
+static YisFn* yi_fn_new(YisVal (*fn)(void* env, int argc, YisVal* argv), int arity) {
   YisFn* f = (YisFn*)malloc(sizeof(YisFn));
   f->ref = 1;
   f->arity = arity;
@@ -739,7 +739,7 @@ static YisFn* yis_fn_new(YisVal (*fn)(void* env, int argc, YisVal* argv), int ar
   return f;
 }
 
-static YisFn* yis_fn_new_with_env(YisVal (*fn)(void* env, int argc, YisVal* argv), int arity, void* env, int env_size) {
+static YisFn* yi_fn_new_with_env(YisVal (*fn)(void* env, int argc, YisVal* argv), int arity, void* env, int env_size) {
   YisFn* f = (YisFn*)malloc(sizeof(YisFn));
   f->ref = 1;
   f->arity = arity;

@@ -72,7 +72,7 @@ static char *cache_base_dir(void) {
     if (!yis_getcwd(buf, sizeof(buf))) {
         return NULL;
     }
-    return path_join(buf, ".yis-cache");
+    return path_join(buf, ".yi-cache");
 }
 
 static int run_binary(const char *path) {
@@ -232,9 +232,9 @@ static bool expr_string_literal_as_filename(Expr *e, char *out, size_t out_cap) 
 static bool verbose_mode = false;
 
 static void print_usage(FILE *out) {
-    fprintf(out, "Usage: yis [OPTIONS] <source.yis>\n");
-    fprintf(out, "       yis run [OPTIONS] <source.yis>\n");
-    fprintf(out, "       yis lint [--mode warn|strict] <source.yis>\n");
+    fprintf(out, "Usage: yis [OPTIONS] <source.yi>\n");
+    fprintf(out, "       yis run [OPTIONS] <source.yi>\n");
+    fprintf(out, "       yis lint [--mode warn|strict] <source.yi>\n");
     fprintf(out, "       yis sum validate [--mode off|warn|strict] <path>\n");
     fprintf(out, "\n");
     fprintf(out, "Options:\n");
@@ -243,9 +243,9 @@ static void print_usage(FILE *out) {
     fprintf(out, "  --verbose        Enable verbose error output with more context\n");
     fprintf(out, "\n");
     fprintf(out, "Examples:\n");
-    fprintf(out, "  yis init.yis              # Compile and check init.yis\n");
-    fprintf(out, "  yis run init.yis          # Compile and run init.yis\n");
-    fprintf(out, "  yis lint --mode strict init.yis\n");
+    fprintf(out, "  yis init.yi              # Compile and check init.yi\n");
+    fprintf(out, "  yis run init.yi          # Compile and run init.yi\n");
+    fprintf(out, "  yis lint --mode strict init.yi\n");
     fprintf(out, "  yis sum validate theme.sum # Validate one SUM file\n");
     fprintf(out, "  yis --help                 # Show this help\n");
     fprintf(out, "\n");
@@ -260,14 +260,14 @@ static void print_usage(FILE *out) {
     fprintf(out, "\n");
     fprintf(out, "Cogito GUI Framework:\n");
     fprintf(out, "  To build GUI applications with Cogito:\n");
-    fprintf(out, "    1. Install or build Cogito (libcogito + cogito.yis)\n");
-    fprintf(out, "    2. Add 'bring cogito;' to your init.yis\n");
+    fprintf(out, "    1. Install or build Cogito (libcogito + cogito.yi)\n");
+    fprintf(out, "    2. Add 'bring cogito;' to your init.yi\n");
     fprintf(out, "    3. Ensure raylib is installed (brew install raylib on macOS)\n");
     fprintf(out, "\n");
     fprintf(out, "  Cogito Environment Variables:\n");
     fprintf(out, "    YIS_COGITO_CFLAGS   Additional C flags for Cogito compilation\n");
     fprintf(out, "    YIS_COGITO_FLAGS    Additional linker flags for Cogito\n");
-    fprintf(out, "    YIS_COGITO_STDLIB   Directory or file path for cogito.yis module resolution\n");
+    fprintf(out, "    YIS_COGITO_STDLIB   Directory or file path for cogito.yi module resolution\n");
     fprintf(out, "    YIS_RAYLIB_CFLAGS   C flags for raylib (auto-detected on macOS/Linux)\n");
     fprintf(out, "    YIS_RAYLIB_FLAGS    Linker flags for raylib (auto-detected on macOS/Linux)\n");
 }
@@ -519,11 +519,11 @@ int main(int argc, char **argv) {
         }
         entry_basename = entry_basename ? entry_basename + 1 : entry;
 
-        // Remove .yis extension if present
+        // Remove .yi extension if present
         char name_source[256];
         snprintf(name_source, sizeof(name_source), "%s", entry_basename);
         char *dot = strrchr(name_source, '.');
-        if (dot && strcmp(dot, ".yis") == 0) {
+        if (dot && strcmp(dot, ".yi") == 0) {
             *dot = '\0';
         }
         char name_without_ext[256];
@@ -551,7 +551,7 @@ int main(int argc, char **argv) {
             if (strchr(name_without_ext, '.')) {
                 snprintf(macos_bundle_id, sizeof(macos_bundle_id), "%s", name_without_ext);
             } else {
-                snprintf(macos_bundle_id, sizeof(macos_bundle_id), "org.yis.%s", name_without_ext);
+                snprintf(macos_bundle_id, sizeof(macos_bundle_id), "org.yi.%s", name_without_ext);
             }
             snprintf(unique_bin_name, sizeof(unique_bin_name), "%s.app/Contents/MacOS/%s", name_without_ext, name_without_ext);
         }
@@ -648,7 +648,7 @@ int main(int argc, char **argv) {
             arena_free(&arena);
             return 1;
         }
-        const char *c_path = cache_c ? cache_c : ".yis_run.c";
+        const char *c_path = cache_c ? cache_c : ".yi_run.c";
         const char *bin_path = cache_bin ? cache_bin : unique_bin_name;
 
         char run_cmd_buf[1024];

@@ -111,11 +111,11 @@ static const char *stdlib_dir_default(void) {
         const char *dir;
         const char *marker;
     } dev_locations[] = {
-        {"src/stdlib", "src/stdlib/stdr.yis"},
-        {"yis/src/stdlib", "yis/src/stdlib/stdr.yis"},
-        {"../src/stdlib", "../src/stdlib/stdr.yis"},
-        {"../yis/src/stdlib", "../yis/src/stdlib/stdr.yis"},
-        {"../../yis/src/stdlib", "../../yis/src/stdlib/stdr.yis"},
+        {"src/stdlib", "src/stdlib/stdr.yi"},
+        {"yis/src/stdlib", "yis/src/stdlib/stdr.yi"},
+        {"../src/stdlib", "../src/stdlib/stdr.yi"},
+        {"../yis/src/stdlib", "../yis/src/stdlib/stdr.yi"},
+        {"../../yis/src/stdlib", "../../yis/src/stdlib/stdr.yi"},
     };
     for (size_t i = 0; i < sizeof(dev_locations) / sizeof(dev_locations[0]); i++) {
         if (path_is_file(dev_locations[i].marker)) {
@@ -135,7 +135,7 @@ static const char *stdlib_dir_default(void) {
             for (size_t i = 0; i < sizeof(exe_rel) / sizeof(exe_rel[0]); i++) {
                 char *dir = path_join(exe_dir, exe_rel[i]);
                 if (dir) {
-                    char *marker = path_join(dir, "stdr.yis");
+                    char *marker = path_join(dir, "stdr.yi");
                     if (marker && path_is_file(marker)) {
                         snprintf(stdlib_buf, sizeof(stdlib_buf), "%s", dir);
                         free(marker);
@@ -152,13 +152,13 @@ static const char *stdlib_dir_default(void) {
     }
 
     // Check installed locations
-    if (path_is_file("/usr/local/share/yis/stdlib/stdr.yis")) {
+    if (path_is_file("/usr/local/share/yis/stdlib/stdr.yi")) {
         return "/usr/local/share/yis/stdlib";
     }
-    if (path_is_file("/opt/homebrew/share/yis/stdlib/stdr.yis")) {
+    if (path_is_file("/opt/homebrew/share/yis/stdlib/stdr.yi")) {
         return "/opt/homebrew/share/yis/stdlib";
     }
-    if (path_is_file("/usr/share/yis/stdlib/stdr.yis")) {
+    if (path_is_file("/usr/share/yis/stdlib/stdr.yi")) {
         return "/usr/share/yis/stdlib";
     }
     return "yis/src/stdlib";
@@ -246,9 +246,9 @@ static Module *load_file(const char *path,
     for (size_t i = 0; i < mod->imports_len; i++) {
         Import *imp = mod->imports[i];
         if (str_eq_c(imp->name, "stdr")) {
-            char *p = path_join(stdlib_dir, "stdr.yis");
+            char *p = path_join(stdlib_dir, "stdr.yi");
             if (!p || !path_is_file(p)) {
-                set_err(err, abs_path, "stdr.yis not found in stdlib");
+                set_err(err, abs_path, "stdr.yi not found in stdlib");
                 free(p);
                 return NULL;
             }
@@ -260,9 +260,9 @@ static Module *load_file(const char *path,
             continue;
         }
         if (str_eq_c(imp->name, "math")) {
-            char *p = path_join(stdlib_dir, "math.yis");
+            char *p = path_join(stdlib_dir, "math.yi");
             if (!p || !path_is_file(p)) {
-                set_err(err, abs_path, "math.yis not found in stdlib");
+                set_err(err, abs_path, "math.yi not found in stdlib");
                 free(p);
                 return NULL;
             }
@@ -282,19 +282,19 @@ static Module *load_file(const char *path,
         }
         if (str_ends_with(imp->name, ".e")) {
             free(name);
-            set_err(err, abs_path, "'.e' files are no longer supported; use .yis");
+            set_err(err, abs_path, "'.e' files are no longer supported; use .yi");
             return NULL;
         }
-        if (!str_ends_with(imp->name, ".yis")) {
+        if (!str_ends_with(imp->name, ".yi")) {
             size_t nlen = strlen(name);
-            char *with_ext = (char *)malloc(nlen + 6);
+            char *with_ext = (char *)malloc(nlen + 4);
             if (!with_ext) {
                 free(name);
                 set_err(err, abs_path, "out of memory");
                 return NULL;
             }
             memcpy(with_ext, name, nlen);
-            memcpy(with_ext + nlen, ".yis", 6);
+            memcpy(with_ext + nlen, ".yi", 3);
             free(name);
             name = with_ext;
         }
@@ -356,7 +356,7 @@ bool load_project(const char *entry_path, Arena *arena, Program **out_prog, uint
     if (entry_count != 1) {
         // Use cask path which is already in arena
         const char *err_path = init_mod->path.data ? init_mod->path.data : "entry file";
-        set_err(err, err_path, "init.yis must contain exactly one entry() decl");
+        set_err(err, err_path, "init.yi must contain exactly one entry() decl");
         free(entry_abs);
         free(root_dir);
         free(stdlib_abs);
@@ -376,7 +376,7 @@ bool load_project(const char *entry_path, Arena *arena, Program **out_prog, uint
             if (mod->decls[j]->kind == DECL_ENTRY) {
                 // Use cask path which is already in arena
                 const char *err_path = mod->path.data ? mod->path.data : "cask file";
-                set_err(err, err_path, "entry() is only allowed in init.yis");
+                set_err(err, err_path, "entry() is only allowed in init.yi");
                 free(entry_abs);
                 free(root_dir);
                 free(stdlib_abs);

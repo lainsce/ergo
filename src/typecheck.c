@@ -1740,13 +1740,11 @@ static Str cask_name_for_path(Arena *arena, Str path) {
         }
     }
     size_t name_len = len - start;
-    if (name_len >= 5 &&
-        p[start + name_len - 5] == '.' &&
-        p[start + name_len - 4] == 'e' &&
-        p[start + name_len - 3] == 'r' &&
-        p[start + name_len - 2] == 'g' &&
-        p[start + name_len - 1] == 'o') {
-        name_len -= 5;
+    if (name_len >= 3 &&
+        p[start + name_len - 3] == '.' &&
+        p[start + name_len - 2] == 'y' &&
+        p[start + name_len - 1] == 'i') {
+        name_len -= 3;
     }
     Str name = arena_str_copy(arena, p + start, name_len);
     
@@ -1754,8 +1752,8 @@ static Str cask_name_for_path(Arena *arena, Str path) {
 }
 
 static Str normalize_import_name(Arena *arena, Str name) {
-    if (str_ends_with(name, ".yis")) {
-        return arena_str_copy(arena, name.data, name.len - 5);
+    if (str_ends_with(name, ".yi")) {
+        return arena_str_copy(arena, name.data, name.len - 3);
     }
     return name;
 }
@@ -2051,7 +2049,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
         Str mod_name = cask_name_for_path(arena, m->path);
         if (m->has_declared_name && !str_eq(m->declared_name, mod_name)) {
             // The entry module (index 0) may declare a cask name that
-            // differs from its filename (e.g. main.yis with "cask quilter")
+            // differs from its filename (e.g. main.yi with "cask quilter")
             // to set the project/app identity.  Other modules must match.
             if (i == 0) {
                 mod_name = m->declared_name;
@@ -2463,7 +2461,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
     }
 
     if (!env->entry) {
-        set_err(err, "missing entry() in init.yis");
+        set_err(err, "missing entry() in init.yi");
         return NULL;
     }
 

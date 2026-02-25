@@ -74,21 +74,21 @@ bring stdr
 bring math
 bring cogito
 bring utils
-bring utils.yis
+bring utils.yi
 ```
 
 Current behavior:
 
 - Imports are namespaced (`math.sin(...)`, `utils.fn(...)`).
 - Built-in cask names include `stdr`, `math`, and `cogito`.
-- `bring name` resolves to `name.yis` for user casks.
-- `bring name.yis` is accepted.
+- `bring name` resolves to `name.yi` for user casks.
+- `bring name.yi` is accepted.
 - `stdr` is required in non-stdlib casks.
 - Legacy `.e` imports are rejected.
 
 ### 4.2 Module Naming
 
-- Module names are derived from file basename (without `.yis`).
+- Module names are derived from file basename (without `.yi`).
 - Optional declaration form:
 
 ```yis
@@ -101,7 +101,7 @@ cask mymod
 
 - Exactly one `entry()` is required in the entry module.
 - Imported modules cannot declare `entry()`.
-- Current diagnostics refer to `init.yis`; this is a toolchain convention reflected in error text.
+- Current diagnostics refer to `init.yi`; this is a toolchain convention reflected in error text.
 
 ## 5. Top-Level Declarations
 
@@ -470,7 +470,7 @@ Includes constants and numeric helpers such as:
 The loader supports source inclusion via comment directive:
 
 ```yis
--- @include "relative/path.yis"
+-- @include "relative/path.yi"
 ```
 
 This is processed before lexing/parsing.

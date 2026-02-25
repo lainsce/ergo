@@ -1,6 +1,6 @@
 cask math
 
--- Yis Standard Library: math.yis
+-- Yis Standard Library: math.yi
 
 macro sq() (( num )) {
   this * this

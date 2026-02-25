@@ -216,10 +216,10 @@ static const char *get_error_tip(const char *msg) {
     if (strstr(msg, "missing required `bring stdr;`")) {
         return "Add 'bring stdr;' at the top of your file to import the standard library.";
     }
-    if (strstr(msg, "entry() is only allowed in init.yis")) {
-        return "The entry() function can only be defined in the main init.yis file.";
+    if (strstr(msg, "entry() is only allowed in init.yi")) {
+        return "The entry() function can only be defined in the main init.yi file.";
     }
-    if (strstr(msg, "init.yis must contain exactly one entry()")) {
+    if (strstr(msg, "init.yi must contain exactly one entry()")) {
         return "Your main file must have exactly one entry() function as the program starting point.";
     }
     if (strstr(msg, "method") && strstr(msg, "must be called")) {
@@ -253,18 +253,18 @@ static const char *get_error_tip(const char *msg) {
         return "Check that the file path exists and is accessible.";
     }
     if (strstr(msg, "'.e' files are no longer supported")) {
-        return "Rename your file from .e to .yis extension.";
+        return "Rename your file from .e to .yi extension.";
     }
     if (strstr(msg, "bring expects stdr/math/cogito")) {
-        return "Use 'bring stdr;', 'bring math;', 'bring cogito;', or a valid .yis file path.";
+        return "Use 'bring stdr;', 'bring math;', 'bring cogito;', or a valid .yi file path.";
     }
-    if (strstr(msg, "stdr.yis not found")) {
+    if (strstr(msg, "stdr.yi not found")) {
         return "The standard library is not installed. Set YIS_STDLIB to the stdlib directory.";
     }
     if (strstr(msg, "Cogito GUI framework not found")) {
-        return "Cogito is required for GUI applications. Install/build Cogito and ensure cogito.yis is in your stdlib path.";
+        return "Cogito is required for GUI applications. Install/build Cogito and ensure cogito.yi is in your stdlib path.";
     }
-    if (strstr(msg, "missing entry() in init.yis")) {
+    if (strstr(msg, "missing entry() in init.yi")) {
         return "Your main file needs an entry() function: 'entry() { ... }'.";
     }
     if (strstr(msg, "free function") && strstr(msg, "cannot take this")) {
@@ -283,7 +283,7 @@ static const char *get_error_tip(const char *msg) {
         return "Empty arrays need a type annotation. Use '[]: [num]' or provide at least one element.";
     }
     if (strstr(msg, "cask declaration") && strstr(msg, "must match file name")) {
-        return "Use 'cask <name>' only when it matches the .yis file basename.";
+        return "Use 'cask <name>' only when it matches the .yi file basename.";
     }
     if (strstr(msg, "foreach expects array or string")) {
         return "for (x in y) requires 'y' to be an array or string. Check the type of your iterable.";
@@ -367,13 +367,13 @@ static const char *get_error_tip(const char *msg) {
         return "Use 'yis --help' to see available options.";
     }
     if (strstr(msg, "run needs a source path")) {
-        return "Usage: yis run <file.yis>";
+        return "Usage: yis run <file.yi>";
     }
     if (strstr(msg, "multiple source paths provided")) {
-        return "Provide only one source file. Use 'yis run file.yis'.";
+        return "Provide only one source file. Use 'yis run file.yi'.";
     }
     if (strstr(msg, "unexpected extra arguments")) {
-        return "Too many arguments provided. Use 'yis <file.yis>' or 'yis run <file.yis>'.";
+        return "Too many arguments provided. Use 'yis <file.yi>' or 'yis run <file.yi>'.";
     }
     
     return NULL;
