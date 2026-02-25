@@ -6,8 +6,31 @@ static void cogito_app_set_ensor_variant(ErgoVal app, ErgoVal variant) {
   int v = ergo_as_int(variant);
   if (v < 0) v = 0;
   if (v > 5) v = 5;
+  if (v == cogito_theme_ensor_variant) return;
+  cogito_theme_request_window_reveal();
   cogito_theme_ensor_variant = v;
+  if (!cogito_active_window) {
+    cogito_theme_refresh_deferred = true;
+    return;
+  }
   CogitoColor accent = cogito_app_effective_accent(app);
+  cogito_theme_refresh_deferred = false;
+  cogito_apply_theme(cogito_theme_dark, accent);
+}
+
+// Set theme contrast in [-1, 1] and re-apply current theme.
+static void cogito_app_set_contrast(ErgoVal app, ErgoVal contrast) {
+  double v = ergo_as_float(contrast);
+  if (v < -1.0) v = -1.0;
+  if (v > 1.0) v = 1.0;
+  if (fabs(v - cogito_theme_contrast) < 0.000001) return;
+  cogito_theme_contrast = v;
+  if (!cogito_active_window) {
+    cogito_theme_refresh_deferred = true;
+    return;
+  }
+  CogitoColor accent = cogito_app_effective_accent(app);
+  cogito_theme_refresh_deferred = false;
   cogito_apply_theme(cogito_theme_dark, accent);
 }
 
@@ -25,7 +48,32 @@ static void cogito_sum_append(char* dst, size_t dst_cap, size_t* dst_off, const 
   }
 }
 
+static inline double cogito_dynsum_now(void) {
+#if defined(CLOCK_MONOTONIC)
+  struct timespec ts;
+  if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0) {
+    return (double)ts.tv_sec + (double)ts.tv_nsec / 1000000000.0;
+  }
+#endif
+#if defined(TIME_UTC)
+  struct timespec ts_utc;
+  if (timespec_get(&ts_utc, TIME_UTC) == TIME_UTC) {
+    return (double)ts_utc.tv_sec + (double)ts_utc.tv_nsec / 1000000000.0;
+  }
+#endif
+  return 0.0;
+}
+
 static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t cap) {
+  const char* profile_env = getenv("COGITO_THEME_PROFILE");
+  bool profile = profile_env && profile_env[0] && profile_env[0] != '0';
+  if (!profile) {
+    const char* startup_profile_env = getenv("COGITO_STARTUP_PROFILE");
+    profile = startup_profile_env && startup_profile_env[0] && startup_profile_env[0] != '0';
+  }
+  double t0 = profile ? cogito_dynsum_now() : 0.0;
+  double t_after_scheme = t0;
+
   size_t off = 0;
   if (cap == 0) return;
   out[0] = 0;
@@ -35,6 +83,7 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
 
   // Build scheme using Ensor dynamic scheme
   CogitoEnsorScheme scheme = cogito_ensor_build_dynamic_scheme(dark, h, c, t, cogito_theme_ensor_variant, cogito_theme_contrast);
+  t_after_scheme = profile ? cogito_dynsum_now() : t_after_scheme;
 
   // Cache tertiary colors for widgets to use (SUM path)
   cogito_cache_tertiary_colors(&scheme);
@@ -110,63 +159,104 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   "*\n  color: %s\n  font-size: 14\n", ons);
 
   cogito_sum_append(out, cap, &off,
-  ".surface\n  background: %s\n", surf);
+  ".surface\n  background: %s\n  color: %s\n", surf, ons);
   cogito_sum_append(out, cap, &off,
-  ".surface-container-high\n  background: %s\n", sch);
+  ".surface-container-high\n  background: %s\n  color: %s\n", sc, ons);
   cogito_sum_append(out, cap, &off,
-  ".surface-container-highest\n  background: %s\n", schi);
+  ".surface-container-highest\n  background: %s\n  color: %s\n", schi, ons);
   cogito_sum_append(out, cap, &off,
-  ".surface-container-low\n  background: %s\n", scl);
+  ".surface-container-low\n  background: %s\n  color: %s\n", scl, ons);
   cogito_sum_append(out, cap, &off,
-  ".surface-container-lowest\n  background: %s\n", sclo);
+  ".surface-container-lowest\n  background: %s\n  color: %s\n", sclo, ons);
   cogito_sum_append(out, cap, &off,
-  ".surface-container\n  background: %s\n", sc);
+  ".surface-container\n  background: %s\n  color: %s\n", sc, ons);
   cogito_sum_append(out, cap, &off,
-  ".surface-bright\n  background: %s\n", surfbrt);
+  ".surface-bright\n  background: %s\n  color: %s\n", surfbrt, ons);
   cogito_sum_append(out, cap, &off,
-  ".surface-dim\n  background: %s\n", surfdim);
+  ".surface-dim\n  background: %s\n  color: %s\n", surfdim, ons);
   cogito_sum_append(out, cap, &off,
   ".surface-variant\n  background: %s\n  color: %s\n", surfvar, osurfvar);
 
   cogito_sum_append(out, cap, &off,
   ".inverse-primary\n  color: %s\n", invp);
   cogito_sum_append(out, cap, &off,
+  ".inverse-primary-fill\n  background: %s\n  color: %s\n", invp, p);
+  cogito_sum_append(out, cap, &off,
   ".inverse-surface\n  background: %s\n  color: %s\n", invsrf, invons);
+  cogito_sum_append(out, cap, &off,
+  ".on-inverse-surface\n  background: %s\n  color: %s\n", invons, invsrf);
 
   cogito_sum_append(out, cap, &off,
   ".error\n  background: %s\n  color: %s\n", err, oerr);
   cogito_sum_append(out, cap, &off,
+  ".on-error\n  background: %s\n  color: %s\n", oerr, err);
+  cogito_sum_append(out, cap, &off,
   ".error-container\n  background: %s\n  color: %s\n", errc, oerrc);
+  cogito_sum_append(out, cap, &off,
+  ".on-error-container\n  background: %s\n  color: %s\n", oerrc, errc);
 
   cogito_sum_append(out, cap, &off,
   ".primary\n  background: %s\n  color: %s\n", p, op);
   cogito_sum_append(out, cap, &off,
+  ".on-primary\n  background: %s\n  color: %s\n", op, p);
+  cogito_sum_append(out, cap, &off,
   ".primary-container\n  background: %s\n  color: %s\n", pc, opc);
+  cogito_sum_append(out, cap, &off,
+  ".on-primary-container\n  background: %s\n  color: %s\n", opc, pc);
   cogito_sum_append(out, cap, &off,
   ".primary-fixed\n  background: %s\n  color: %s\n", pf, opf);
   cogito_sum_append(out, cap, &off,
   ".primary-fixed-dim\n  background: %s\n  color: %s\n", pfd, opfv);
   cogito_sum_append(out, cap, &off,
+  ".on-primary-fixed\n  background: %s\n  color: %s\n", opf, pf);
+  cogito_sum_append(out, cap, &off,
+  ".on-primary-fixed-variant\n  background: %s\n  color: %s\n", opfv, pfd);
+  cogito_sum_append(out, cap, &off,
   ".secondary\n  background: %s\n  color: %s\n", sec, osec);
   cogito_sum_append(out, cap, &off,
+  ".on-secondary\n  background: %s\n  color: %s\n", osec, sec);
+  cogito_sum_append(out, cap, &off,
   ".secondary-container\n  background: %s\n  color: %s\n", secc, osecc);
+  cogito_sum_append(out, cap, &off,
+  ".on-secondary-container\n  background: %s\n  color: %s\n", osecc, secc);
   cogito_sum_append(out, cap, &off,
   ".secondary-fixed\n  background: %s\n  color: %s\n", sf, osf);
   cogito_sum_append(out, cap, &off,
   ".secondary-fixed-dim\n  background: %s\n  color: %s\n", sfd, osfv);
   cogito_sum_append(out, cap, &off,
+  ".on-secondary-fixed\n  background: %s\n  color: %s\n", osf, sf);
+  cogito_sum_append(out, cap, &off,
+  ".on-secondary-fixed-variant\n  background: %s\n  color: %s\n", osfv, sfd);
+  cogito_sum_append(out, cap, &off,
   ".tertiary\n  background: %s\n  color: %s\n", tert, otert);
   cogito_sum_append(out, cap, &off,
+  ".on-tertiary\n  background: %s\n  color: %s\n", otert, tert);
+  cogito_sum_append(out, cap, &off,
   ".tertiary-container\n  background: %s\n  color: %s\n", tertc, otertc);
+  cogito_sum_append(out, cap, &off,
+  ".on-tertiary-container\n  background: %s\n  color: %s\n", otertc, tertc);
   cogito_sum_append(out, cap, &off,
   ".tertiary-fixed\n  background: %s\n  color: %s\n", tf, otf);
   cogito_sum_append(out, cap, &off,
   ".tertiary-fixed-dim\n  background: %s\n  color: %s\n", tfd, otfv);
+  cogito_sum_append(out, cap, &off,
+  ".on-tertiary-fixed\n  background: %s\n  color: %s\n", otf, tf);
+  cogito_sum_append(out, cap, &off,
+  ".on-tertiary-fixed-variant\n  background: %s\n  color: %s\n", otfv, tfd);
+
+  cogito_sum_append(out, cap, &off,
+  ".on-surface\n  background: %s\n  color: %s\n", ons, surf);
+  cogito_sum_append(out, cap, &off,
+  ".on-surface-variant\n  background: %s\n  color: %s\n", osurfvar, surfvar);
 
   cogito_sum_append(out, cap, &off,
   ".outline\n  border-color: %s\n", outl);
   cogito_sum_append(out, cap, &off,
   ".outline-variant\n  border-color: %s\n", outlv);
+  cogito_sum_append(out, cap, &off,
+  ".outline-fill\n  background: %s\n  color: %s\n", outl, surf);
+  cogito_sum_append(out, cap, &off,
+  ".outline-variant-fill\n  background: %s\n  color: %s\n", outlv, surf);
 
   cogito_sum_append(out, cap, &off,
   ".scrim\n  background: %s\n", scrm);
@@ -456,6 +546,8 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "colorpicker\n  background: %s\n  color: %s\n  border-radius: 12\n  transition: 180 standard\n", sch, ons);
   cogito_sum_append(out, cap, &off,
+  "colorpicker:selection\n  background: %s\n", p);
+  cogito_sum_append(out, cap, &off,
   "buttongroup:disabled\n  background: %s29\n  color: %s52\n", ons, ons);
   cogito_sum_append(out, cap, &off,
   "buttongroup:selection\n  background: %s\n  color: %s\n", sec, osec);
@@ -580,8 +672,6 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   cogito_sum_append(out, cap, &off,
   "zstack\n  background: %s\n  color: %s\n", bg, ons);
   cogito_sum_append(out, cap, &off,
-  ".on-error\n  background: %s\n  color: %s\n", err, oerr);
-  cogito_sum_append(out, cap, &off,
   ".about-window\n  background: %s\n  color: %s\n", sch, ons);
   cogito_sum_append(out, cap, &off,
   "label.about-window-title\n  color: %s\n  font-size: 28\n  font-weight: bold\n", ons);
@@ -609,4 +699,15 @@ static void sum_build_dynamic(bool dark, CogitoColor accent, char* out, size_t c
   "fab-menu.tertiary\n  background: %s\n  color: %s\n", tertc, otertc);
   cogito_sum_append(out, cap, &off,
   "fab-menu.surface\n  background: %s\n  color: %s\n", sch, p);
+
+  if (profile) {
+    double t_end = cogito_dynsum_now();
+    double ms_total = (t_end - t0) * 1000.0;
+    double ms_scheme = (t_after_scheme - t0) * 1000.0;
+    double ms_emit = (t_end - t_after_scheme) * 1000.0;
+    fprintf(stderr,
+            "[cogito-dynsum] total=%.2fms scheme=%.2fms emit=%.2fms\n",
+            ms_total, ms_scheme, ms_emit);
+    fflush(stderr);
+  }
 }

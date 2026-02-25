@@ -28,14 +28,14 @@ case COGITO_COLORPICKER: {
         int size = cogito_node_font_size(n);
         const char* labels[3] = {"H", "C", "T"};
         int lx = n->x + 16;
-        int si = 0;
-        for (size_t i = 0; i < n->len && si < 3; i++) {
-          CogitoNode* c = n->children[i];
-          if (c->kind != COGITO_SLIDER) continue;
+        CogitoNode* rows[3] = {NULL, NULL, NULL};
+        int slider_count = cogito_colorpicker_panel_collect_sliders(n, rows);
+        for (int si = 0; si < slider_count && si < 3; si++) {
+          CogitoNode* c = rows[si];
+          if (!c) continue;
           int lh = cogito_text_height_size(size);
           int ly = c->y + (c->h - lh) / 2;
           cogito_draw_text_size_node(n, lx, ly, labels[si], text_col, size, false);
-          si++;
         }
 
         // Draw slider children (positioned by layout phase)

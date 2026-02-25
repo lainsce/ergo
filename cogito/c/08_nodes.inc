@@ -212,10 +212,10 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->selected = -1;
   n->resizable = true;
   n->editable = true;
-  n->grid_span_x = 1;
-  n->grid_span_y = 1;
-  n->grid_align_x = -1;
-  n->grid_align_y = -1;
+  n->grid_span_x = 0;
+  n->grid_span_y = 0;
+  n->grid_align_x = 0;
+  n->grid_align_y = 0;
   n->text_color = cogito_rgba(30, 30, 30, 255);
   n->border_color = cogito_rgba(25, 25, 25, 255);
   n->selection_color = cogito_rgba(208, 220, 245, 255);
@@ -229,13 +229,12 @@ static CogitoNode* cogito_node_new(CogitoKind kind) {
   n->opacity_target = 1.0f;
   // Layout widgets default to 0 gap, content widgets default to 8 for natural spacing
   bool is_layout = (kind == COGITO_VSTACK || kind == COGITO_HSTACK || kind == COGITO_ZSTACK ||
-                    kind == COGITO_FIXED || kind == COGITO_SCROLLER || kind == COGITO_LIST);
+                    kind == COGITO_FIXED || kind == COGITO_SCROLLER || kind == COGITO_LIST || kind == COGITO_GRID);
   n->gap = is_layout ? 0 : 8;
   // Kind-specific non-zero defaults
   switch (kind) {
     case COGITO_SCROLLER: n->scroller.vert = true; break;
     case COGITO_STEPPER: n->stepper.max = 100.0; n->stepper.step = 1.0; break;
-    case COGITO_GRID: n->grid.cols = 1; n->grid.gap_x = 6; n->grid.gap_y = 6; break;
     case COGITO_IMAGE: case COGITO_AVATAR: n->image.avg_lum = 0.5f; break;
     case COGITO_VIEW_DUAL: n->view_dual.ratio = 0.5f; break;
     default: break;

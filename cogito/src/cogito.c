@@ -35,8 +35,10 @@ static const char *cogito_font_bold_path_active = NULL;
 // Rename internal Ergo-facing symbols to avoid conflicts with public C API.
 #define cogito_app_new cogito_app_new_ergo
 #define cogito_app_set_accent_color cogito_app_set_accent_color_ergo
+#define cogito_app_set_dark_mode cogito_app_set_dark_mode_ergo
 #define cogito_app_set_app_name cogito_app_set_app_name_ergo
 #define cogito_app_set_appid cogito_app_set_appid_ergo
+#define cogito_app_set_contrast cogito_app_set_contrast_ergo
 #define cogito_app_set_icon cogito_app_set_icon_ergo
 #define cogito_app_set_ensor_variant cogito_app_set_ensor_variant_ergo
 #define cogito_appbar_add_button cogito_appbar_add_button_ergo
@@ -368,8 +370,10 @@ static const char *cogito_font_bold_path_active = NULL;
 // Restore public names.
 #undef cogito_app_new
 #undef cogito_app_set_accent_color
+#undef cogito_app_set_dark_mode
 #undef cogito_app_set_app_name
 #undef cogito_app_set_appid
+#undef cogito_app_set_contrast
 #undef cogito_app_set_ensor_variant
 #undef cogito_app_set_icon
 #undef cogito_appbar_add_button
@@ -843,10 +847,94 @@ void cogito_app_set_accent_color(cogito_app *app, const char *hex,
     ergo_release_val(hv);
 }
 
+void cogito_app_set_dark_mode(cogito_app *app, bool dark, bool follow_system) {
+  if (!app)
+    return;
+  cogito_app_set_dark_mode_ergo(EV_OBJ(app), EV_BOOL(dark),
+                                EV_BOOL(follow_system));
+}
+
+const char *cogito_app_set_accent_from_image(cogito_app *app, const char *path,
+                                             bool follow_system) {
+  static char hex_out[8];
+  hex_out[0] = 0;
+  if (!app || !path || !path[0]) {
+    return NULL;
+  }
+#if defined(COGITO_HAS_SDL3_IMAGE)
+  char resolved_path[PATH_MAX];
+  if (!cogito_image_resolve_path(path, resolved_path, sizeof(resolved_path))) {
+    return NULL;
+  }
+
+  SDL_Surface *src = IMG_Load(resolved_path);
+  if (!src) {
+    return NULL;
+  }
+  SDL_Surface *rgba = SDL_ConvertSurface(src, SDL_PIXELFORMAT_RGBA32);
+  SDL_DestroySurface(src);
+  if (!rgba || rgba->w <= 0 || rgba->h <= 0 || !rgba->pixels) {
+    if (rgba)
+      SDL_DestroySurface(rgba);
+    return NULL;
+  }
+
+  int w = rgba->w;
+  int h = rgba->h;
+  size_t row = (size_t)w * 4u;
+  int n_bytes = (int)(row * (size_t)h);
+  int accents[4] = {0};
+  int count = 0;
+
+  if ((size_t)rgba->pitch == row) {
+    count = cogito_accent_from_pixels((const unsigned char *)rgba->pixels,
+                                      n_bytes, true, accents, 4);
+  } else {
+    unsigned char *packed = (unsigned char *)malloc((size_t)n_bytes);
+    if (!packed) {
+      SDL_DestroySurface(rgba);
+      return NULL;
+    }
+    for (int y = 0; y < h; y++) {
+      memcpy(packed + (size_t)y * row,
+             (const unsigned char *)rgba->pixels + (size_t)y * (size_t)rgba->pitch,
+             row);
+    }
+    count = cogito_accent_from_pixels(packed, n_bytes, true, accents, 4);
+    free(packed);
+  }
+  SDL_DestroySurface(rgba);
+
+  if (count <= 0) {
+    return NULL;
+  }
+
+  int rgb = accents[0] & 0x00FFFFFF;
+  char hex[8];
+  snprintf(hex, sizeof(hex), "#%06X", rgb);
+  snprintf(hex_out, sizeof(hex_out), "%s", hex);
+  cogito_app_set_accent_color(app, hex, follow_system);
+  return hex_out;
+#else
+  (void)follow_system;
+  return NULL;
+#endif
+}
+
 void cogito_app_set_ensor_variant(cogito_app *app, int variant) {
   if (!app)
     return;
   cogito_app_set_ensor_variant_ergo(EV_OBJ(app), EV_INT(variant));
+}
+
+void cogito_app_set_contrast(cogito_app *app, double contrast) {
+  if (!app)
+    return;
+  if (contrast < -1.0)
+    contrast = -1.0;
+  if (contrast > 1.0)
+    contrast = 1.0;
+  cogito_app_set_contrast_ergo(EV_OBJ(app), EV_FLOAT(contrast));
 }
 
 int cogito_accent_from_pixels(const unsigned char *pixels, int n_bytes,
@@ -868,6 +956,14 @@ bool cogito_open_url(const char *url) {
   if (!cogito_backend || !cogito_backend->open_url)
     return false;
   return cogito_backend->open_url(url);
+}
+
+bool cogito_app_copy_to_clipboard(cogito_app *app, const char *text) {
+  if (!app || !text)
+    return false;
+  if (!cogito_backend || !cogito_backend->set_clipboard_text)
+    return false;
+  return cogito_backend->set_clipboard_text(text);
 }
 
 cogito_timer_id cogito_timer_set_timeout(uint32_t delay_ms, cogito_timer_fn fn,
@@ -1392,6 +1488,32 @@ cogito_node *cogito_datepicker_new(void) {
 }
 cogito_node *cogito_colorpicker_new(void) {
   return cogito_from_val(cogito_colorpicker_new_ergo());
+}
+
+void cogito_colorpicker_set_hex(cogito_node *colorpicker, const char *hex) {
+  if (!colorpicker || colorpicker->kind != COGITO_COLORPICKER || !hex)
+    return;
+  CogitoColor c = {0};
+  if (!cogito_hex_to_color(hex, &c))
+    return;
+  double h = 0.0, cc = 0.0, t = 0.0;
+  cogito_rgb_to_hct(c, &h, &cc, &t);
+  colorpicker->colorpicker.h = h;
+  colorpicker->colorpicker.c = cc;
+  colorpicker->colorpicker.t = t;
+  cogito_colorpicker_sync_hex((CogitoNode *)colorpicker);
+}
+
+const char *cogito_colorpicker_get_hex(cogito_node *colorpicker) {
+  if (!colorpicker || colorpicker->kind != COGITO_COLORPICKER)
+    return "";
+  CogitoNode *n = (CogitoNode *)colorpicker;
+  if (!n->text || !n->text->data || !n->text->data[0]) {
+    cogito_colorpicker_sync_hex(n);
+  }
+  if (!n->text || !n->text->data)
+    return "";
+  return n->text->data;
 }
 cogito_node *cogito_stepper_new(double min, double max, double value,
                                 double step) {

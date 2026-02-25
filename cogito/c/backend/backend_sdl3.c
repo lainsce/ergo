@@ -45,23 +45,34 @@ static void sdl3_free_geometry_buffers(void);
 
 static SDL_Cursor *sdl3_cursors[COGITO_CURSOR_COUNT] = {NULL};
 
+static SDL_SystemCursor sdl3_system_cursor_for(CogitoCursorType cursor) {
+  switch (cursor) {
+  case COGITO_CURSOR_TEXT:
+    return SDL_SYSTEM_CURSOR_TEXT;
+  case COGITO_CURSOR_GRAB:
+  case COGITO_CURSOR_GRABBING:
+  case COGITO_CURSOR_POINTER:
+    return SDL_SYSTEM_CURSOR_POINTER;
+  case COGITO_CURSOR_DEFAULT:
+  default:
+    return SDL_SYSTEM_CURSOR_DEFAULT;
+  }
+}
+
 static void sdl3_init_cursors(void) {
-  sdl3_cursors[COGITO_CURSOR_DEFAULT] =
-      SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
-  sdl3_cursors[COGITO_CURSOR_GRAB] =
-      SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_POINTER);
-  sdl3_cursors[COGITO_CURSOR_GRABBING] =
-      SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_POINTER);
-  sdl3_cursors[COGITO_CURSOR_POINTER] =
-      SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_POINTER);
-  sdl3_cursors[COGITO_CURSOR_TEXT] =
-      SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_TEXT);
+  memset(sdl3_cursors, 0, sizeof(sdl3_cursors));
 }
 
 static void sdl3_set_cursor(CogitoCursorType cursor) {
-  if (cursor >= 0 && cursor < COGITO_CURSOR_COUNT && sdl3_cursors[cursor]) {
-    SDL_SetCursor(sdl3_cursors[cursor]);
+  if (cursor < 0 || cursor >= COGITO_CURSOR_COUNT)
+    return;
+  SDL_Cursor *c = sdl3_cursors[cursor];
+  if (!c) {
+    c = SDL_CreateSystemCursor(sdl3_system_cursor_for(cursor));
+    sdl3_cursors[cursor] = c;
   }
+  if (c)
+    SDL_SetCursor(c);
 }
 
 // ============================================================================
@@ -816,6 +827,12 @@ static bool sdl3_open_url(const char *url) {
   if (!url || !url[0])
     return false;
   return SDL_OpenURL(url);
+}
+
+static bool sdl3_set_clipboard_text(const char *text) {
+  if (!text)
+    return false;
+  return SDL_SetClipboardText(text);
 }
 
 // ============================================================================
@@ -2721,6 +2738,7 @@ static CogitoBackend sdl3_backend = {
     .window_set_icon = sdl3_window_set_icon,
     .window_get_id = sdl3_window_get_id,
     .open_url = sdl3_open_url,
+    .set_clipboard_text = sdl3_set_clipboard_text,
     .begin_frame = sdl3_begin_frame,
     .end_frame = sdl3_end_frame,
     .present = sdl3_present,

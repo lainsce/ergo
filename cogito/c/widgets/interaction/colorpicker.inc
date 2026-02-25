@@ -96,21 +96,15 @@ static bool cogito_colorpicker_hit_panel(CogitoNode* panel, int mx, int my) {
   }
 
   if (cogito_hit_rect_min48(mx, my, ox, oy, ow, oh)) {
-    // OK: read slider children for H/C/T, commit to owner, fire onChange, close popover
+    // OK: commit panel H/C/T state to owner, fire onChange, close popover
     CogitoNode* owner = panel->colorpicker.owner;
     CogitoNode* win = cogito_node_window(panel);
     if (owner && owner->kind == COGITO_COLORPICKER) {
-      double new_h = owner->colorpicker.h;
-      double new_c = owner->colorpicker.c;
-      double new_t = owner->colorpicker.t;
-      int si = 0;
-      for (size_t i = 0; i < panel->len && si < 3; i++) {
-        CogitoNode* c = panel->children[i];
-        if (c->kind != COGITO_SLIDER) continue;
-        if (si == 0) new_h = c->slider.value;
-        else if (si == 1) new_c = c->slider.value;
-        else new_t = c->slider.value;
-        si++;
+      double new_h = panel->colorpicker.h;
+      double new_c = panel->colorpicker.c;
+      double new_t = panel->colorpicker.t;
+      if (new_h < 0.0 || new_h > 360.0 || new_c < 0.0 || new_c > 100.0 || new_t < 0.0 || new_t > 100.0) {
+        (void)cogito_colorpicker_panel_read_hct(panel, &new_h, &new_c, &new_t);
       }
       bool changed = (owner->colorpicker.h != new_h ||
                       owner->colorpicker.c != new_c ||

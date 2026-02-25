@@ -13,6 +13,18 @@ typedef struct {
 static bool cogito_cam16_inited = false;
 static CogitoCam16Viewing cogito_cam16 = {0};
 static const double cogito_pi = 3.14159265358979323846;
+static bool cogito_srgb_lut_inited = false;
+static double cogito_srgb_to_linear_lut[256];
+static double cogito_srgb_to_linear(double c);
+
+static void cogito_srgb_lut_init(void) {
+  if (cogito_srgb_lut_inited) return;
+  for (int i = 0; i < 256; i++) {
+    double c = (double)i / 255.0;
+    cogito_srgb_to_linear_lut[i] = cogito_srgb_to_linear(c);
+  }
+  cogito_srgb_lut_inited = true;
+}
 
 static double cogito_lstar_from_y(double y) {
   double y_n = y / 100.0;
@@ -37,9 +49,10 @@ static double cogito_linear_to_srgb(double c) {
 }
 
 static void cogito_xyz_from_srgb(CogitoColor c, double* x, double* y, double* z) {
-  double r = cogito_srgb_to_linear((double)c.r / 255.0);
-  double g = cogito_srgb_to_linear((double)c.g / 255.0);
-  double b = cogito_srgb_to_linear((double)c.b / 255.0);
+  cogito_srgb_lut_init();
+  double r = cogito_srgb_to_linear_lut[(int)c.r];
+  double g = cogito_srgb_to_linear_lut[(int)c.g];
+  double b = cogito_srgb_to_linear_lut[(int)c.b];
   *x = 100.0 * (0.41233895 * r + 0.35762064 * g + 0.18051042 * b);
   *y = 100.0 * (0.2126 * r + 0.7152 * g + 0.0722 * b);
   *z = 100.0 * (0.01932141 * r + 0.11916382 * g + 0.95034478 * b);
@@ -193,7 +206,9 @@ static bool cogito_find_hct_color(double h, double c, double t, CogitoColor* out
   CogitoColor best = {0, 0, 0, 255};
   bool best_ok = false;
   double best_delta = 1e9;
-  for (int i = 0; i < 24; i++) {
+  const double j_eps = 0.02;
+  const double tone_eps = 0.02;
+  for (int i = 0; i < 14; i++) {
     double mid = (low + high) * 0.5;
     double x = 0.0, y = 0.0, z = 0.0;
     cogito_cam16_to_xyz(mid, c, h, &x, &y, &z);
@@ -207,9 +222,11 @@ static bool cogito_find_hct_color(double h, double c, double t, CogitoColor* out
         best_delta = delta;
         best_ok = true;
       }
+      if (delta <= tone_eps) break;
     }
     if (lstar < t) low = mid;
     else high = mid;
+    if ((high - low) <= j_eps) break;
   }
   if (!best_ok) return false;
   *out = best;
@@ -217,8 +234,8 @@ static bool cogito_find_hct_color(double h, double c, double t, CogitoColor* out
 }
 
 static CogitoColor cogito_hct_to_rgb(double h, double c, double t) {
-  if (t <= 0.0) t = 0.0;
-  if (t >= 100.0) t = 100.0;
+  if (t <= 0.0) return (CogitoColor){0, 0, 0, 255};
+  if (t >= 100.0) return (CogitoColor){255, 255, 255, 255};
   if (c < 1e-4) {
     double y = cogito_y_from_lstar(t);
     CogitoColor gray = {0, 0, 0, 255};
@@ -231,7 +248,8 @@ static CogitoColor cogito_hct_to_rgb(double h, double c, double t) {
   double min_c = 0.0;
   CogitoColor best = {0, 0, 0, 255};
   bool found = false;
-  for (int i = 0; i < 24; i++) {
+  const double c_eps = 0.02;
+  for (int i = 0; i < 16; i++) {
     double mid = (min_c + max_c) * 0.5;
     CogitoColor rgb = {0, 0, 0, 255};
     if (cogito_find_hct_color(h, mid, t, &rgb)) {
@@ -241,6 +259,7 @@ static CogitoColor cogito_hct_to_rgb(double h, double c, double t) {
     } else {
       max_c = mid;
     }
+    if ((max_c - min_c) <= c_eps) break;
   }
   if (!found) {
     double y = cogito_y_from_lstar(t);

@@ -43,6 +43,8 @@ static CogitoApp* cogito_app_new_obj(void) {
   app->app_id = NULL;
   app->app_name = NULL;
   app->accent_override = false;
+  app->dark_override = false;
+  app->dark_mode = false;
   app->accent_color = cogito_rgba(114, 222, 194, 255);
   app->accent_set = false;
   app->system_dark = false;
@@ -63,8 +65,9 @@ static CogitoColor cogito_app_effective_accent(ErgoVal appv) {
 
 static void cogito_app_update_theme(ErgoVal appv) {
   CogitoApp* app = (CogitoApp*)appv.as.p;
-  bool dark = app ? app->system_dark : false;
+  bool dark = app ? (app->dark_override ? app->dark_mode : app->system_dark) : false;
   CogitoColor accent = app ? cogito_app_effective_accent(appv) : cogito_rgba(114, 222, 194, 255);
+  cogito_theme_applied_last_update = false;
   if (getenv("COGITO_THEME_TRACE")) {
     fprintf(stderr,
             "cogito: app_update_theme dark=%d accent=#%02X%02X%02X override=%d accent_set=%d system_accent_set=%d\n",
@@ -74,11 +77,20 @@ static void cogito_app_update_theme(ErgoVal appv) {
             app ? (int)app->system_accent_set : 0);
     fflush(stderr);
   }
-  if (!cogito_theme_initialized ||
+  // During startup scripts, many theme setters run before a window exists.
+  // Defer expensive SUM rebuilds until the window is attached.
+  if (!cogito_active_window) {
+    cogito_theme_refresh_deferred = true;
+    return;
+  }
+  if (cogito_theme_refresh_deferred ||
+      !cogito_theme_initialized ||
       dark != cogito_theme_dark ||
       accent.r != cogito_theme_accent.r || accent.g != cogito_theme_accent.g ||
       accent.b != cogito_theme_accent.b) {
+    cogito_theme_refresh_deferred = false;
     cogito_apply_theme(dark, accent);
+    cogito_theme_applied_last_update = true;
   }
 }
 
@@ -101,7 +113,7 @@ static void cogito_update_system_theme(ErgoVal appv) {
   bool high_contrast = cogito_system_prefers_high_contrast();
   if (dark != app->system_dark) {
     app->system_dark = dark;
-    changed = true;
+    if (!app->dark_override) changed = true;
   }
   if (has_acc && (!app->system_accent_set ||
       acc.r != app->system_accent.r || acc.g != app->system_accent.g || acc.b != app->system_accent.b)) {
@@ -201,6 +213,24 @@ static void cogito_app_set_accent_color(ErgoVal appv, ErgoVal colorv, ErgoVal fo
       fflush(stderr);
     }
     if (temp && s) ergo_release_val(EV_STR(s));
+  }
+  cogito_app_update_theme(appv);
+}
+
+static void cogito_app_set_dark_mode(ErgoVal appv, ErgoVal darkv, ErgoVal follow_systemv) {
+  if (appv.tag != EVT_OBJ) ergo_trap("cogito.app_set_dark_mode expects app");
+  CogitoApp* app = (CogitoApp*)appv.as.p;
+  bool dark = ergo_as_bool(darkv);
+  bool follow_system = ergo_as_bool(follow_systemv);
+  bool prev_override = app->dark_override;
+  bool prev_dark = app->dark_mode;
+  app->dark_override = !follow_system;
+  if (!follow_system) {
+    app->dark_mode = dark;
+  }
+  if ((!follow_system && (prev_override != app->dark_override || prev_dark != app->dark_mode)) ||
+      (follow_system && prev_override != app->dark_override)) {
+    cogito_theme_request_window_reveal();
   }
   cogito_app_update_theme(appv);
 }

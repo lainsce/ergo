@@ -1440,6 +1440,7 @@ shape_stroke:
 
 static void cogito_draw_node(CogitoNode* n) {
   if (!n) return;
+  if (cogito_draw_count_enabled) cogito_draw_count_nodes++;
   // Use the cached main pointer position (set once per frame in the event loop)
   // instead of calling get_mouse_position per-node which is a backend API call.
   if (n->tooltip && n->tooltip->data && n->tooltip->data[

@@ -16,10 +16,13 @@ fun __cogito_about_window_set_website(aw = AboutWindow, url = string) (( -- )) {
 fun __cogito_about_window(name = string, version = string) (( AboutWindow )) { }
 fun __cogito_active_indicator() (( ActiveIndicator )) { }
 fun __cogito_app_get_icon(app = App) (( string )) { }
+fun __cogito_app_copy_to_clipboard(app = App, text = string) (( bool )) { }
 fun __cogito_app_set_accent_color(app = App, color = string, follow_system = bool) (( -- )) { }
+fun __cogito_app_set_dark_mode(app = App, dark = bool, follow_system = bool) (( -- )) { }
 fun __cogito_app_set_app_name(app = App, name = string) (( -- )) { }
 fun __cogito_app_set_appid(app = App, id = string) (( -- )) { }
 fun __cogito_app_set_ensor_variant(app = App, variant = num) (( -- )) { }
+fun __cogito_app_set_contrast(app = App, contrast = num) (( -- )) { }
 fun __cogito_app_set_icon(app = App, path = string) (( -- )) { }
 fun __cogito_app() (( App )) { }
 fun __cogito_appbar_add_button(appbar = AppBar, icon = string, handler = any) (( Button )) { }
@@ -81,6 +84,9 @@ fun __cogito_chip_set_selected(chip = Chip, selected = bool) (( -- )) { }
 fun __cogito_chip(text = string) (( Chip )) { }
 fun __cogito_colorpicker_on_change(cp = ColorPicker, handler = any) (( -- )) { }
 fun __cogito_colorpicker() (( ColorPicker )) { }
+fun __cogito_app_set_accent_from_image(app = App, path = string, follow_system = bool) (( any )) { }
+fun __cogito_colorpicker_set_hex(cp = ColorPicker, hex = string) (( -- )) { }
+fun __cogito_colorpicker_get_hex(cp = ColorPicker) (( string )) { }
 fun __cogito_container_add(parent = any, child = any) (( -- )) { }
 fun __cogito_container_set_align(node = any, align = num) (( -- )) { }
 fun __cogito_container_set_gap(node = any, gap = num) (( -- )) { }
@@ -353,8 +359,20 @@ class App {
         __cogito_app_set_accent_color(this, color, follow_system)
         return this.chain()
     }
+    fun set_dark_mode(this, dark = bool, follow_system = bool) (( App )) {
+        __cogito_app_set_dark_mode(this, dark, follow_system)
+        return this.chain()
+    }
+    fun set_accent_from_image(this, path = string, follow_system = bool) (( string )) {
+        let out = __cogito_app_set_accent_from_image(this, path, follow_system)
+        return if is_null(out) { @"" } else { str(out) }
+    }
     fun set_ensor_variant(this, variant = num) (( App )) {
         __cogito_app_set_ensor_variant(this, variant)
+        return this
+    }
+    fun set_contrast(this, contrast = num) (( App )) {
+        __cogito_app_set_contrast(this, contrast)
         return this
     }
     fun set_icon(this, path = string) (( App )) {
@@ -363,6 +381,9 @@ class App {
     }
     fun get_icon(this) (( string )) {
         return __cogito_app_get_icon(this)
+    }
+    fun copy_to_clipboard(this, text = string) (( bool )) {
+        return __cogito_app_copy_to_clipboard(this, text)
     }
 }
 
@@ -513,6 +534,14 @@ class Image {
     }
     fun set_align(this, align = num) (( Image )) {
         __cogito_container_set_align(this, align)
+        return this
+    }
+    fun halign(this, align = num) (( VStack )) {
+        __cogito_container_set_halign(this, align)
+        return this
+    }
+    fun valign(this, align = num) (( VStack )) {
+        __cogito_container_set_valign(this, align)
         return this
     }
     fun set_halign(this, align = num) (( Image )) {
@@ -872,7 +901,14 @@ class Fixed {
         __cogito_container_set_vexpand(this, expand)
         return this
     }
-
+    fun halign(this, align = num) (( VStack )) {
+        __cogito_container_set_halign(this, align)
+        return this
+    }
+    fun valign(this, align = num) (( VStack )) {
+        __cogito_container_set_valign(this, align)
+        return this
+    }
     fun set_disabled(this, on = bool) (( Fixed )) {
         __cogito_node_set_disabled(this, on)
         return this
@@ -912,7 +948,14 @@ class Scroller {
         __cogito_container_set_vexpand(this, expand)
         return this
     }
-
+    fun halign(this, align = num) (( VStack )) {
+        __cogito_container_set_halign(this, align)
+        return this
+    }
+    fun valign(this, align = num) (( VStack )) {
+        __cogito_container_set_valign(this, align)
+        return this
+    }
     fun set_disabled(this, on = bool) (( Scroller )) {
         __cogito_node_set_disabled(this, on)
         return this
@@ -1049,7 +1092,6 @@ class List {
         __cogito_container_set_vexpand(this, expand)
         return this
     }
-
     fun set_disabled(this, on = bool) (( List )) {
         __cogito_node_set_disabled(this, on)
         return this
@@ -1169,6 +1211,14 @@ class Label {
         __cogito_container_set_valign(this, align)
         return this
     }
+    fun halign(this, align = num) (( List )) {
+        __cogito_container_set_halign(this, align)
+        return this
+    }
+    fun valign(this, align = num) (( List )) {
+        __cogito_container_set_valign(this, align)
+        return this
+    }
     fun align_begin(this) (( Label )) {
         __cogito_container_set_align(this, 0)
         return this
@@ -1238,6 +1288,14 @@ class Button {
         return this
     }
     fun set_valign(this, align = num) (( Button )) {
+        __cogito_container_set_valign(this, align)
+        return this
+    }
+    fun halign(this, align = num) (( List )) {
+        __cogito_container_set_halign(this, align)
+        return this
+    }
+    fun valign(this, align = num) (( List )) {
         __cogito_container_set_valign(this, align)
         return this
     }
@@ -1376,6 +1434,14 @@ class IconButton {
         return this
     }
     fun set_valign(this, align = num) (( IconButton )) {
+        __cogito_container_set_valign(this, align)
+        return this
+    }
+    fun halign(this, align = num) (( List )) {
+        __cogito_container_set_halign(this, align)
+        return this
+    }
+    fun valign(this, align = num) (( List )) {
         __cogito_container_set_valign(this, align)
         return this
     }
@@ -2858,8 +2924,13 @@ class ColorPicker {
         __cogito_container_set_valign(this, align)
         return this
     }
-    fun set_hex(this, text = string) (( ColorPicker )) { }
-    fun hex(this) (( string )) { }
+    fun set_hex(this, text = string) (( ColorPicker )) {
+        __cogito_colorpicker_set_hex(this, text)
+        return this
+    }
+    fun hex(this) (( string )) {
+        return __cogito_colorpicker_get_hex(this)
+    }
     fun on_change(this, handler = any) (( ColorPicker )) {
         __cogito_colorpicker_on_change(this, handler)
         return this

@@ -7,6 +7,20 @@ enum {
   COGITO_COLORPICKER_PANEL_FOOTER_H  = 48,
 };
 
+static double cogito_colorpicker_clamp(double v, double lo, double hi) {
+  if (v < lo) return lo;
+  if (v > hi) return hi;
+  return v;
+}
+
+static bool cogito_colorpicker_hit_rect_min48_local(int x, int y, int rx, int ry, int rw, int rh) {
+  int hit_w = rw < 48 ? 48 : rw;
+  int hit_h = rh < 48 ? 48 : rh;
+  int hit_x = rx - (hit_w - rw) / 2;
+  int hit_y = ry - (hit_h - rh) / 2;
+  return cogito_hit_rect(x, y, hit_x, hit_y, hit_w, hit_h);
+}
+
 static void cogito_colorpicker_sync_hex(CogitoNode* n) {
   if (!n || n->kind != COGITO_COLORPICKER) return;
   CogitoColor c = cogito_hct_to_rgb(n->colorpicker.h, n->colorpicker.c, n->colorpicker.t);
@@ -103,6 +117,22 @@ static void cogito_colorpicker_panel_footer_layout(
 }
 
 static void cogito_colorpicker_slider_rect(CogitoNode* n, int idx, int* out_x, int* out_y, int* out_w, int* out_h) {
+  if (n && n->kind == COGITO_COLORPICKER && n->colorpicker.popover_panel) {
+    int row = 0;
+    for (size_t i = 0; i < n->len; i++) {
+      CogitoNode* c = n->children[i];
+      if (!c || c->kind != COGITO_SLIDER) continue;
+      if (row == idx) {
+        if (out_x) *out_x = c->x;
+        if (out_y) *out_y = c->y;
+        if (out_w) *out_w = c->w;
+        if (out_h) *out_h = c->h;
+        return;
+      }
+      row++;
+    }
+  }
+
   int pad_l = 0, pad_t = 0, pad_r = 0, label_w = 0, row_h = 0, slider_h = 0, gap = 0;
   cogito_colorpicker_layout(n, &pad_l, &pad_t, &pad_r, NULL, &label_w, &row_h, &slider_h, &gap, NULL, NULL, NULL, NULL);
   int row_y = n->y + pad_t + idx * (row_h + gap);
@@ -114,6 +144,107 @@ static void cogito_colorpicker_slider_rect(CogitoNode* n, int idx, int* out_x, i
   if (out_y) *out_y = y;
   if (out_w) *out_w = w;
   if (out_h) *out_h = slider_h;
+}
+
+// Collect up to the first 3 slider children sorted by visual row (top to bottom).
+static int cogito_colorpicker_panel_collect_sliders(CogitoNode* panel, CogitoNode* out_rows[3]) {
+  if (out_rows) {
+    out_rows[0] = NULL;
+    out_rows[1] = NULL;
+    out_rows[2] = NULL;
+  }
+  if (!panel || panel->kind != COGITO_COLORPICKER) return 0;
+
+  CogitoNode* r0 = NULL;
+  CogitoNode* r1 = NULL;
+  CogitoNode* r2 = NULL;
+  for (size_t i = 0; i < panel->len; i++) {
+    CogitoNode* c = panel->children[i];
+    if (!c || c->kind != COGITO_SLIDER) continue;
+
+    if (!r0 || c->y < r0->y) {
+      r2 = r1;
+      r1 = r0;
+      r0 = c;
+    } else if (!r1 || c->y < r1->y) {
+      r2 = r1;
+      r1 = c;
+    } else if (!r2 || c->y < r2->y) {
+      r2 = c;
+    }
+  }
+
+  int count = 0;
+  if (r0) {
+    if (out_rows) out_rows[count] = r0;
+    count++;
+  }
+  if (r1) {
+    if (out_rows) out_rows[count] = r1;
+    count++;
+  }
+  if (r2) {
+    if (out_rows) out_rows[count] = r2;
+    count++;
+  }
+  return count;
+}
+
+// Reads H/C/T from panel sliders by row order: top=H, middle=C, bottom=T.
+static bool cogito_colorpicker_panel_read_hct(CogitoNode* panel, double* out_h, double* out_c, double* out_t) {
+  CogitoNode* rows[3] = { NULL, NULL, NULL };
+  if (cogito_colorpicker_panel_collect_sliders(panel, rows) < 3) return false;
+  if (out_h) *out_h = rows[0]->slider.value;
+  if (out_c) *out_c = rows[1]->slider.value;
+  if (out_t) *out_t = rows[2]->slider.value;
+  return true;
+}
+
+// Returns slider channel by visual row: top=0(H), middle=1(C), bottom=2(T).
+static int cogito_colorpicker_panel_slider_channel(CogitoNode* panel, CogitoNode* slider) {
+  if (!panel || panel->kind != COGITO_COLORPICKER || !slider || slider->kind != COGITO_SLIDER) return -1;
+  CogitoNode* rows[3] = { NULL, NULL, NULL };
+  int count = cogito_colorpicker_panel_collect_sliders(panel, rows);
+  for (int i = 0; i < count && i < 3; i++) {
+    if (rows[i] == slider) return i;
+  }
+  return -1;
+}
+
+static void cogito_colorpicker_panel_apply_hct_to_sliders(CogitoNode* panel) {
+  if (!panel || panel->kind != COGITO_COLORPICKER) return;
+  CogitoNode* rows[3] = { NULL, NULL, NULL };
+  if (cogito_colorpicker_panel_collect_sliders(panel, rows) < 3) return;
+  rows[0]->slider.value = cogito_colorpicker_clamp(panel->colorpicker.h, rows[0]->slider.min, rows[0]->slider.max);
+  rows[0]->slider.value2 = rows[0]->slider.value;
+  rows[1]->slider.value = cogito_colorpicker_clamp(panel->colorpicker.c, rows[1]->slider.min, rows[1]->slider.max);
+  rows[1]->slider.value2 = rows[1]->slider.value;
+  rows[2]->slider.value = cogito_colorpicker_clamp(panel->colorpicker.t, rows[2]->slider.min, rows[2]->slider.max);
+  rows[2]->slider.value2 = rows[2]->slider.value;
+}
+
+// Sync panel H/C/T when one of its slider children changed via normal slider drag.
+static bool cogito_colorpicker_panel_sync_from_slider(CogitoNode* slider) {
+  if (!slider || slider->kind != COGITO_SLIDER || !slider->parent) return false;
+  CogitoNode* panel = slider->parent;
+  if (panel->kind != COGITO_COLORPICKER || !panel->colorpicker.popover_panel) return false;
+  int chan = cogito_colorpicker_panel_slider_channel(panel, slider);
+  if (chan == 0) panel->colorpicker.h = slider->slider.value;
+  else if (chan == 1) panel->colorpicker.c = slider->slider.value;
+  else if (chan == 2) panel->colorpicker.t = slider->slider.value;
+  else return false;
+  return true;
+}
+
+// Hit-test panel rows directly (fallback when slider child is not the click target).
+static int cogito_colorpicker_panel_hit_channel(CogitoNode* panel, int mx, int my) {
+  if (!panel || panel->kind != COGITO_COLORPICKER || !panel->colorpicker.popover_panel) return -1;
+  for (int chan = 0; chan < 3; chan++) {
+    int sx = 0, sy = 0, sw = 0, sh = 0;
+    cogito_colorpicker_slider_rect(panel, chan, &sx, &sy, &sw, &sh);
+    if (cogito_colorpicker_hit_rect_min48_local(mx, my, sx, sy, sw, sh)) return chan;
+  }
+  return -1;
 }
 
 // Mode-aware hex input rect — panel uses panel layout, trigger uses field layout

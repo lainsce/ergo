@@ -70,7 +70,7 @@ static void cogito_apply_theme(bool dark, CogitoColor accent);
 #define COGITO_ANIM_DURATION_LONG2 500
 #define COGITO_ANIM_DURATION_LONG3 550
 #define COGITO_ANIM_DURATION_LONG4 600
-#define COGITO_ACTIVE_LATCH_MS 90 // Keep pressed visual briefly to avoid click flash
+#define COGITO_ACTIVE_LATCH_MS 100 // Keep pressed visual briefly to avoid click flash
 #define COGITO_BOTTOM_SHEET_DEFAULT_RATIO 0.60f
 #define COGITO_BOTTOM_SHEET_TOP_INSET 56
 #define COGITO_BOTTOM_SHEET_HANDLE_TOUCH_H 32
@@ -198,6 +198,8 @@ typedef struct CogitoApp {
   ErgoStr* app_id;
   ErgoStr* app_name;
   bool accent_override;
+  bool dark_override;
+  bool dark_mode;
   CogitoColor accent_color;
   bool accent_set;
   bool system_dark;
@@ -763,6 +765,17 @@ typedef struct CogitoNode {
   float ripple_max_radius; // Pre-calculated max radius
   bool ripple_active; // Whether ripple is currently animating
 
+  // Window-only theme transition: radial reveal from interaction origin.
+  bool window_theme_reveal_active;
+  double window_theme_reveal_start;
+  double window_theme_reveal_duration;
+  int window_theme_reveal_origin_x;
+  int window_theme_reveal_origin_y;
+  float window_theme_reveal_radius;
+  float window_theme_reveal_max_radius;
+  CogitoColor window_theme_reveal_old_bg;
+  CogitoColor window_theme_reveal_new_bg;
+
   // Kind-specific data (anonymous union — only one member active per node)
   union {
     struct {
@@ -1067,6 +1080,20 @@ static double cogito_theme_roundness = 0.0;   // 0=unset, multiplier
 static int    cogito_theme_spacing = 0;        // 0=unset, 1=compact, 2=normal, 3=comfortable
 static bool cogito_prefers_reduced_motion = false;
 static bool cogito_prefers_high_contrast = false;
+static bool cogito_theme_window_reveal_pending = false;
+// If true, theme recompute is deferred until a window exists.
+static bool cogito_theme_refresh_deferred = false;
+// Set by cogito_app_update_theme() to let run() avoid duplicate style passes.
+static bool cogito_theme_applied_last_update = false;
+static int cogito_theme_action_origin_x = 0;
+static int cogito_theme_action_origin_y = 0;
+static bool cogito_theme_action_origin_valid = false;
+static double cogito_theme_action_origin_time = 0.0;
+// Set during layout when an image acquires real intrinsic dimensions.
+static bool cogito_layout_image_loaded_this_pass = false;
+// Optional startup profiling helpers.
+static bool cogito_draw_count_enabled = false;
+static size_t cogito_draw_count_nodes = 0;
 static CogitoColor cogito_theme_accent = {
   0,
   0,
@@ -1336,6 +1363,72 @@ static inline bool cogito_pointer_query(int* out_x, int* out_y,
   if (out_pressed) *out_pressed = pressed;
   return true;
 }
+
+static inline void cogito_theme_mark_action_origin(int x, int y) {
+  cogito_theme_action_origin_x = x;
+  cogito_theme_action_origin_y = y;
+  cogito_theme_action_origin_valid = true;
+  cogito_theme_action_origin_time = cogito_now();
+}
+
+static inline bool cogito_theme_take_action_origin(int* out_x, int* out_y) {
+  if (!cogito_theme_action_origin_valid) return false;
+  double now = cogito_now();
+  if (now - cogito_theme_action_origin_time > 0.8) {
+    cogito_theme_action_origin_valid = false;
+    return false;
+  }
+  if (out_x) *out_x = cogito_theme_action_origin_x;
+  if (out_y) *out_y = cogito_theme_action_origin_y;
+  cogito_theme_action_origin_valid = false;
+  return true;
+}
+
+static inline void cogito_theme_request_window_reveal(void) {
+  cogito_theme_window_reveal_pending = true;
+}
+
+static float cogito_window_theme_reveal_max_radius(const CogitoNode* win, int ox, int oy) {
+  if (!win || win->w <= 0 || win->h <= 0) return 0.0f;
+  int x0 = win->x;
+  int y0 = win->y;
+  int x1 = win->x + win->w;
+  int y1 = win->y + win->h;
+  float d0 = hypotf((float)(ox - x0), (float)(oy - y0));
+  float d1 = hypotf((float)(ox - x1), (float)(oy - y0));
+  float d2 = hypotf((float)(ox - x0), (float)(oy - y1));
+  float d3 = hypotf((float)(ox - x1), (float)(oy - y1));
+  float max_d = d0;
+  if (d1 > max_d) max_d = d1;
+  if (d2 > max_d) max_d = d2;
+  if (d3 > max_d) max_d = d3;
+  return max_d;
+}
+
+static void cogito_window_theme_reveal_start(CogitoNode* win, int origin_x, int origin_y, CogitoColor old_bg, CogitoColor new_bg) {
+  if (!win || win->kind != COGITO_WINDOW || win->w <= 0 || win->h <= 0) return;
+  if (cogito_prefers_reduced_motion) {
+    win->window_theme_reveal_active = false;
+    return;
+  }
+  if (origin_x < win->x) origin_x = win->x;
+  if (origin_x > win->x + win->w) origin_x = win->x + win->w;
+  if (origin_y < win->y) origin_y = win->y;
+  if (origin_y > win->y + win->h) origin_y = win->y + win->h;
+
+  win->window_theme_reveal_active = true;
+  win->window_theme_reveal_start = cogito_now();
+  win->window_theme_reveal_duration = 0.52;
+  win->window_theme_reveal_origin_x = origin_x;
+  win->window_theme_reveal_origin_y = origin_y;
+  win->window_theme_reveal_radius = 0.0f;
+  win->window_theme_reveal_max_radius = cogito_window_theme_reveal_max_radius(win, origin_x, origin_y);
+  win->window_theme_reveal_old_bg = old_bg;
+  win->window_theme_reveal_new_bg = new_bg;
+
+  double end_time = win->window_theme_reveal_start + win->window_theme_reveal_duration;
+  if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
+}
 #define COGITO_INSPECTOR_MAX_NODES 2048
 static CogitoNode* cogito_inspector_nodes[COGITO_INSPECTOR_MAX_NODES
 ];
@@ -1520,24 +1613,53 @@ static bool cogito_font_family_eq(const char* a, const char* b) {
   return *a == '\0' && *b == '\0';
 }
 
+static int cogito_font_size(void);
+static int cogito_font_weight_normal(void);
+static bool cogito_load_font_file(CogitoFont** out, const char* path, int size, int weight);
+
 static CogitoFont* cogito_font_for_node(const CogitoNode* n) {
-  if (n && n->font_mono && cogito_font_mono_ready) {
-    return cogito_font_mono;
+  if (n && n->font_mono) {
+    if (!cogito_font_mono_ready &&
+        cogito_font_mono_from_env &&
+        cogito_font_mono_path_active &&
+        cogito_font_mono_path_active[0]) {
+      if (cogito_load_font_file(&cogito_font_mono, cogito_font_mono_path_active,
+                                cogito_font_size(), cogito_font_weight_normal())) {
+        cogito_font_mono_ready = true;
+        cogito_font_mono_loaded_size = cogito_font_size();
+      }
+    }
+    if (cogito_font_mono_ready) return cogito_font_mono;
   }
   if (n && n->font_family_set && n->font_family[
     0
   ]) {
-    if ((cogito_font_family_eq(n->font_family,
-    "monospace") ||
-         cogito_font_family_eq(n->font_family,
-    "mono")) &&
-        cogito_font_mono_ready) {
-      return cogito_font_mono;
+    if (cogito_font_family_eq(n->font_family, "monospace") ||
+        cogito_font_family_eq(n->font_family, "mono")) {
+      if (!cogito_font_mono_ready &&
+          cogito_font_mono_from_env &&
+          cogito_font_mono_path_active &&
+          cogito_font_mono_path_active[0]) {
+        if (cogito_load_font_file(&cogito_font_mono, cogito_font_mono_path_active,
+                                  cogito_font_size(), cogito_font_weight_normal())) {
+          cogito_font_mono_ready = true;
+          cogito_font_mono_loaded_size = cogito_font_size();
+        }
+      }
+      if (cogito_font_mono_ready) return cogito_font_mono;
     }
-    if (cogito_font_family_eq(n->font_family,
-    "serif") &&
-        cogito_font_serif_ready) {
-      return cogito_font_serif;
+    if (cogito_font_family_eq(n->font_family, "serif")) {
+      if (!cogito_font_serif_ready &&
+          cogito_font_serif_from_env &&
+          cogito_font_serif_path_active &&
+          cogito_font_serif_path_active[0]) {
+        if (cogito_load_font_file(&cogito_font_serif, cogito_font_serif_path_active,
+                                  cogito_font_size(), cogito_font_weight_normal())) {
+          cogito_font_serif_ready = true;
+          cogito_font_serif_loaded_size = cogito_font_size();
+        }
+      }
+      if (cogito_font_serif_ready) return cogito_font_serif;
     }
   }
   return cogito_font;

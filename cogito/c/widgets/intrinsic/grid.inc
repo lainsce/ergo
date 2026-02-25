@@ -4,8 +4,8 @@ case COGITO_GRID: {
       int gap_y = n->grid.gap_y;
       size_t count = n->len;
       if (count == 0) {
-        w = 160;
-        h = 120;
+        w = 0;
+        h = 0;
         break;
       }
 
@@ -18,8 +18,8 @@ case COGITO_GRID: {
         free(cols_out);
         free(span_x);
         free(span_y);
-        w = 160;
-        h = 120;
+        w = 0;
+        h = 0;
         break;
       }
 
@@ -31,15 +31,15 @@ case COGITO_GRID: {
         free(cols_out);
         free(span_x);
         free(span_y);
-        w = 160;
-        h = 120;
+        w = 0;
+        h = 0;
         break;
       }
 
       for (size_t i = 0; i < count; i++) {
         CogitoNode* c = n->children[i];
-        int cs = c->grid_span_x > 0 ? c->grid_span_x : 1;
-        int rs = c->grid_span_y > 0 ? c->grid_span_y : 1;
+        int cs = c->grid_span_x > 0 ? c->grid_span_x : 0;
+        int rs = c->grid_span_y > 0 ? c->grid_span_y : 0;
         if (cs > cols) cs = cols;
         int r = 0;
         int ccol = 0;
@@ -93,8 +93,8 @@ case COGITO_GRID: {
         free(occ);
         free(row_heights);
         free(col_widths);
-        w = 160;
-        h = 120;
+        w = 0;
+        h = 0;
         break;
       }
 
@@ -103,8 +103,8 @@ case COGITO_GRID: {
         int iw = 0;
         int ih = 0;
         cogito_intrinsic_size(c, &iw, &ih);
-        int cs = span_x[i] > 0 ? span_x[i] : 1;
-        int rs = span_y[i] > 0 ? span_y[i] : 1;
+        int cs = span_x[i] > 0 ? span_x[i] : 0;
+        int rs = span_y[i] > 0 ? span_y[i] : 0;
         int per_col = cs > 0 ? (iw + cs - 1) / cs : iw;
         int per_row = rs > 0 ? (ih + rs - 1) / rs : ih;
 
@@ -130,8 +130,8 @@ case COGITO_GRID: {
 
       w = sum_w + total_gap_w;
       h = sum_h + total_gap_h;
-      if (w < 160) w = 160;
-      if (h < 120) h = 120;
+      if (w < 0) w = 0;
+      if (h < 0) h = 0;
 
       free(rows);
       free(cols_out);

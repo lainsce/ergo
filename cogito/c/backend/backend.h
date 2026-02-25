@@ -90,6 +90,7 @@ typedef struct CogitoBackend {
   bool (*window_set_icon)(CogitoWindow *window, const char *path);
   uint32_t (*window_get_id)(CogitoWindow *window);
   bool (*open_url)(const char *url);
+  bool (*set_clipboard_text)(const char *text);
 
   // Frame rendering
   void (*begin_frame)(CogitoWindow *window);

@@ -368,6 +368,58 @@ static bool cogito_fab_menu_keyboard_handle(CogitoNode* win) {
   return false;
 }
 
+static bool cogito_env_enabled(const char* name) {
+  const char* v = getenv(name);
+  return v && v[0] && v[0] != '0';
+}
+
+static inline double cogito_startup_now(void) {
+#if defined(CLOCK_MONOTONIC)
+  struct timespec ts;
+  if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0) {
+    return (double)ts.tv_sec + (double)ts.tv_nsec / 1000000000.0;
+  }
+#endif
+#if defined(TIME_UTC)
+  struct timespec ts_utc;
+  if (timespec_get(&ts_utc, TIME_UTC) == TIME_UTC) {
+    return (double)ts_utc.tv_sec + (double)ts_utc.tv_nsec / 1000000000.0;
+  }
+#endif
+  return 0.0;
+}
+
+static bool cogito_apply_window_icon(CogitoWindow* window, CogitoApp* app) {
+  if (!window || !cogito_backend || !cogito_backend->window_set_icon) return false;
+
+  const char* icon_path = cogito_app_get_icon_path(app);
+  char resolved_icon[PATH_MAX];
+  bool icon_set = false;
+  if (icon_path) {
+    if (cogito_image_resolve_path(icon_path, resolved_icon, sizeof(resolved_icon))) {
+      icon_set = cogito_backend->window_set_icon(window, resolved_icon);
+    }
+  }
+  if (!icon_set && cogito_script_dir[0]) {
+    // Auto-detect icon file in script directory
+    static const char* icon_names[] = {
+      "icon.png",
+      "icon.svg",
+      "icon.jpg",
+      "icon.bmp", NULL
+    };
+    for (int i = 0; icon_names[i]; i++) {
+      if (cogito_image_resolve_path(icon_names[i], resolved_icon, sizeof(resolved_icon))) {
+        if (cogito_backend->window_set_icon(window, resolved_icon)) {
+          icon_set = true;
+          break;
+        }
+      }
+    }
+  }
+  return icon_set;
+}
+
 static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (appv.tag != EVT_OBJ) ergo_trap("cogito.run expects app");
   if (winv.tag != EVT_OBJ) ergo_trap("cogito.run expects window");
@@ -375,6 +427,22 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   cogito_timer_clear_all_internal();
   CogitoApp* app = (CogitoApp*)appv.as.p;
   CogitoNode* win = (CogitoNode*)winv.as.p;
+  bool startup_profile = cogito_env_enabled("COGITO_STARTUP_PROFILE");
+  bool startup_exit = cogito_env_enabled("COGITO_STARTUP_EXIT");
+  double startup_t0 = cogito_startup_now();
+  double startup_t_after_theme_system = startup_t0;
+  double startup_t_after_theme_apply = startup_t0;
+  double startup_t_after_theme = startup_t0;
+  double startup_t_after_window_meta = startup_t0;
+  double startup_t_after_window_backend = startup_t0;
+  double startup_t_after_window_create = startup_t0;
+  double startup_t_after_window_platform = startup_t0;
+  double startup_t_after_window = startup_t0;
+  double startup_t_after_fonts = startup_t0;
+  double startup_t_after_layout = startup_t0;
+  double startup_window_icon_ms = 0.0;
+  size_t startup_draw_nodes = 0;
+  int startup_layout_passes = 0;
   const char* title = (win->text && win->text->data && win->text->data[
     0
   ]) ? win->text->data : COGITO_USER_VERSION;
@@ -387,8 +455,13 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   cogito_active_window = win;
   cogito_active_app = app;
   cogito_update_system_theme(appv);
+  startup_t_after_theme_system = cogito_startup_now();
   cogito_app_update_theme(appv);
-  cogito_apply_style_tree(win);
+  startup_t_after_theme_apply = cogito_startup_now();
+  if (!cogito_theme_applied_last_update) {
+    cogito_apply_style_tree(win);
+  }
+  startup_t_after_theme = cogito_startup_now();
   if (cogito_debug_style_enabled_internal()) {
     cogito_style_dump_tree_internal(win,
     0);
@@ -403,6 +476,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
 #if defined(__APPLE__)
   cogito_macos_set_process_name(app_name);
 #endif
+  startup_t_after_window_meta = cogito_startup_now();
   
   // Initialize SDL3 backend
   if (!cogito_backend) {
@@ -411,6 +485,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (!cogito_backend || !cogito_backend->init()) {
     ergo_trap("Failed to initialize SDL3 backend");
   }
+  startup_t_after_window_backend = cogito_startup_now();
   
   if (win->auto_size) {
     int dw = 0;
@@ -433,38 +508,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   if (!window) {
     ergo_trap("Failed to create window");
   }
+  startup_t_after_window_create = cogito_startup_now();
   cogito_active_backend_window = window;
-
-  // Set window icon: explicit app icon or auto-detect from script dir
-  if (cogito_backend->window_set_icon) {
-    const char* icon_path = cogito_app_get_icon_path(app);
-    char resolved_icon[PATH_MAX
-    ];
-    bool icon_set = false;
-    if (icon_path) {
-      if (cogito_image_resolve_path(icon_path, resolved_icon, sizeof(resolved_icon))) {
-        icon_set = cogito_backend->window_set_icon(window, resolved_icon);
-      }
-    }
-    if (!icon_set && cogito_script_dir[
-      0
-    ]) {
-      // Auto-detect icon file in script directory
-      static const char* icon_names[] = {
-        "icon.png",
-        "icon.svg",
-        "icon.jpg",
-        "icon.bmp", NULL
-      };
-      for (int i = 0; icon_names[i
-      ]; i++) {
-        if (cogito_image_resolve_path(icon_names[i
-        ], resolved_icon, sizeof(resolved_icon))) {
-          if (cogito_backend->window_set_icon(window, resolved_icon)) break;
-        }
-      }
-    }
-  }
 
   cogito_backend_ready = true;
   {
@@ -489,6 +534,8 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   bool macos_app_name_pending = false;
 #endif
   cogito_apply_window_a11y_label(win);
+  startup_t_after_window_platform = cogito_startup_now();
+  startup_t_after_window = startup_t_after_window_platform;
 
   const char* font_path = getenv("COGITO_FONT");
   if (!font_path || !font_path[
@@ -528,19 +575,17 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   ]) {
     serif_font_path = cogito_guess_serif_font_path(font_path);
   }
-  if (serif_font_path && serif_font_path[
-    0
-  ]) {
-    if (cogito_load_font_file(&cogito_font_serif, serif_font_path, cogito_font_size(), cogito_font_weight_normal())) {
-      cogito_font_serif_ready = true;
-      cogito_font_serif_loaded_size = cogito_font_size();
-      cogito_font_serif_from_env = true;
-      cogito_font_serif_path_active = serif_font_path;
-    }
-  }
-  if (!cogito_font_serif_ready) {
+  if (serif_font_path && serif_font_path[0]) {
+    // Defer loading until a serif node is actually drawn.
+    cogito_font_serif_from_env = true;
+    cogito_font_serif_path_active = serif_font_path;
+    cogito_font_serif_ready = false;
+    cogito_font_serif_loaded_size = 0;
+  } else {
     cogito_font_serif_from_env = false;
     cogito_font_serif_path_active = NULL;
+    cogito_font_serif_ready = false;
+    cogito_font_serif_loaded_size = 0;
   }
   // Mono font
   const char* mono_font_path = getenv("COGITO_FONT_MONO");
@@ -549,15 +594,17 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
   ]) {
     mono_font_path = cogito_guess_mono_font_path(font_path);
   }
-  if (mono_font_path && mono_font_path[
-    0
-  ]) {
-    if (cogito_load_font_file(&cogito_font_mono, mono_font_path, cogito_font_size(), cogito_font_weight_normal())) {
-      cogito_font_mono_ready = true;
-      cogito_font_mono_loaded_size = cogito_font_size();
-      cogito_font_mono_from_env = true;
-      cogito_font_mono_path_active = mono_font_path;
-    }
+  if (mono_font_path && mono_font_path[0]) {
+    // Defer loading until a monospace node is actually drawn.
+    cogito_font_mono_from_env = true;
+    cogito_font_mono_path_active = mono_font_path;
+    cogito_font_mono_ready = false;
+    cogito_font_mono_loaded_size = 0;
+  } else {
+    cogito_font_mono_from_env = false;
+    cogito_font_mono_path_active = NULL;
+    cogito_font_mono_ready = false;
+    cogito_font_mono_loaded_size = 0;
   }
   // Bold font
   const char* bold_font_path = getenv("COGITO_FONT_BOLD");
@@ -591,6 +638,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       cogito_font_bold_path_active = bold_font_path;
     }
   }
+  startup_t_after_fonts = cogito_startup_now();
 
   if (win->auto_size) {
     int dw = 0;
@@ -602,12 +650,17 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       cogito_backend->window_set_size(window, dw, dh);
     }
   }
+  cogito_layout_image_loaded_this_pass = false;
   cogito_layout_window(win);
-  // Second layout pass: images loaded during the first pass now have their
-  // real dimensions available for intrinsic sizing.  This replaces the old
-  // recursive cogito_window_relayout calls that used to happen inside the
-  // layout pass (one per image), collapsing O(N) nested passes into two.
-  cogito_layout_window(win);
+  startup_layout_passes = 1;
+  // A second pass is only needed if an image acquired intrinsic dimensions
+  // during the first layout pass.
+  if (cogito_layout_image_loaded_this_pass) {
+    cogito_layout_image_loaded_this_pass = false;
+    cogito_layout_window(win);
+    startup_layout_passes = 2;
+  }
+  startup_t_after_layout = cogito_startup_now();
   CogitoWindow* inspector_window = NULL;
   const int inspector_w = 520;
   const int inspector_h = 680;
@@ -691,11 +744,51 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
     cogito_icon_cache_frame_start(); // Initialize icon cache frame counter
     cogito_image_cache_frame_start();
     cogito_backend->clear(win_bg);
+    if (startup_profile) {
+      cogito_draw_count_nodes = 0;
+      cogito_draw_count_enabled = true;
+    }
     cogito_draw_node(win);
+    if (startup_profile) {
+      cogito_draw_count_enabled = false;
+      startup_draw_nodes = cogito_draw_count_nodes;
+    }
     cogito_backend->end_frame(window);
     cogito_backend->present(window);
   }
+  double startup_t_done = cogito_startup_now();
   cogito_backend->window_show(window);
+  {
+    double icon_t0 = cogito_startup_now();
+    (void)cogito_apply_window_icon(window, app);
+    startup_window_icon_ms = (cogito_startup_now() - icon_t0) * 1000.0;
+  }
+  if (startup_profile) {
+    double startup_t_done_with_icon = cogito_startup_now();
+    double ms_total = (startup_t_done - startup_t0) * 1000.0;
+    double ms_total_with_icon = (startup_t_done_with_icon - startup_t0) * 1000.0;
+    double ms_theme = (startup_t_after_theme - startup_t0) * 1000.0;
+    double ms_theme_system = (startup_t_after_theme_system - startup_t0) * 1000.0;
+    double ms_theme_apply = (startup_t_after_theme_apply - startup_t_after_theme_system) * 1000.0;
+    double ms_theme_style = (startup_t_after_theme - startup_t_after_theme_apply) * 1000.0;
+    double ms_window = (startup_t_after_window - startup_t_after_theme) * 1000.0;
+    double ms_window_meta = (startup_t_after_window_meta - startup_t_after_theme) * 1000.0;
+    double ms_window_backend = (startup_t_after_window_backend - startup_t_after_window_meta) * 1000.0;
+    double ms_window_create = (startup_t_after_window_create - startup_t_after_window_backend) * 1000.0;
+    double ms_window_platform = (startup_t_after_window_platform - startup_t_after_window_create) * 1000.0;
+    double ms_fonts = (startup_t_after_fonts - startup_t_after_window) * 1000.0;
+    double ms_layout = (startup_t_after_layout - startup_t_after_fonts) * 1000.0;
+    double ms_draw = (startup_t_done - startup_t_after_layout) * 1000.0;
+    fprintf(stderr,
+            "[cogito-startup] total=%.2fms total_with_icon=%.2fms theme=%.2fms theme_system=%.2fms theme_apply=%.2fms theme_style=%.2fms window=%.2fms window_meta=%.2fms window_backend=%.2fms window_create=%.2fms window_platform=%.2fms fonts=%.2fms layout=%.2fms draw=%.2fms icon=%.2fms layout_passes=%d drawn_nodes=%zu\n",
+            ms_total, ms_total_with_icon, ms_theme, ms_theme_system,
+            ms_theme_apply, ms_theme_style, ms_window, ms_window_meta,
+            ms_window_backend, ms_window_create, ms_window_platform, ms_fonts,
+            ms_layout, ms_draw, startup_window_icon_ms,
+            startup_layout_passes, startup_draw_nodes);
+    fflush(stderr);
+  }
+  if (startup_exit) win->should_close = true;
 
   bool prev_main_pointer_valid = false;
   int prev_main_mx = 0;
@@ -1169,7 +1262,10 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         dir = 1;
       }
       if (dir != 0) {
-        if (cogito_keyboard_adjust_slider(cogito_focused, dir)) relayout = true;
+        if (cogito_keyboard_adjust_slider(cogito_focused, dir)) {
+          (void)cogito_colorpicker_panel_sync_from_slider(cogito_focused);
+          relayout = true;
+        }
         else if (cogito_keyboard_adjust_stepper(cogito_focused, dir)) relayout = true;
         else if (cogito_keyboard_move_indexed_selection(cogito_focused, dir)) relayout = true;
       }
@@ -1180,6 +1276,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       if (activate) {
         int cx = cogito_focused->x + cogito_focused->w / 2;
         int cy = cogito_focused->y + cogito_focused->h / 2;
+        cogito_theme_mark_action_origin(cx, cy);
         if (cogito_keyboard_activate_focus(cogito_focused, cx, cy)) relayout = true;
       }
 
@@ -1358,6 +1455,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
           }
         }
         if (changed) {
+          (void)cogito_colorpicker_panel_sync_from_slider(sld);
           cogito_invoke_change(sld);
           cogito_window_relayout(win);
         }
@@ -1563,7 +1661,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
         int chan = cogito_colorpicker_channel;
         if (chan >= 0) {
           if (cogito_colorpicker_set_from_mouse(cp, chan, mx)) {
-            cogito_invoke_change(cp);
+            cogito_colorpicker_panel_apply_hct_to_sliders(cp);
             cogito_window_relayout(win);
           }
         }
@@ -1835,6 +1933,7 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
       click = false;
     }
     if (click) {
+      cogito_theme_mark_action_origin(mx, my);
       static int cogito_debug_hit = -1;
       if (cogito_debug_hit < 0) {
         const char* env = getenv("COGITO_DEBUG_HIT");
@@ -2224,8 +2323,20 @@ static void cogito_run(ErgoVal appv, ErgoVal winv) {
             cogito_datepicker_click(hit, mx, my);
           } else if (hit->kind == COGITO_COLORPICKER) {
             if (hit->colorpicker.popover_panel) {
-              // Panel: handle footer (Cancel/OK); slider children handle their own drag
-              cogito_colorpicker_hit_panel(hit, mx, my);
+              // Panel: handle footer first, then allow row-based drag as a fallback.
+              if (!cogito_colorpicker_hit_panel(hit, mx, my)) {
+                int chan = cogito_colorpicker_panel_hit_channel(hit, mx, my);
+                if (chan >= 0) {
+                  cogito_colorpicker_active = hit;
+                  cogito_colorpicker_channel = chan;
+                  cogito_pointer_capture = hit;
+                  hit->colorpicker.hex_editing = false;
+                  if (cogito_colorpicker_set_from_mouse(hit, chan, mx)) {
+                    cogito_colorpicker_panel_apply_hct_to_sliders(hit);
+                    cogito_window_relayout(win);
+                  }
+                }
+              }
             } else {
               // Trigger: open popover (icon zone) or enter hex edit (handled by focus block)
               cogito_colorpicker_click(hit, mx, my);

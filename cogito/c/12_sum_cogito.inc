@@ -1169,9 +1169,9 @@ static void cogito_load_sum_file(const char* path) {
   }
   if (cogito_user_sum) free(cogito_user_sum);
   cogito_user_sum = src;
-  cogito_apply_theme(cogito_theme_dark, cogito_theme_accent);
   extern CogitoNode* cogito_active_window;
   if (cogito_active_window) {
+    cogito_apply_theme(cogito_theme_dark, cogito_theme_accent);
     if (cogito_active_window->auto_size) {
       int dw = 0;
       int dh = 0;
@@ -1185,6 +1185,8 @@ static void cogito_load_sum_file(const char* path) {
       }
     }
     cogito_window_relayout(cogito_active_window);
+  } else {
+    cogito_theme_refresh_deferred = true;
   }
 }
 
@@ -1201,7 +1203,11 @@ static void cogito_load_sum(ErgoVal pathv) {
     if (src) {
       if (cogito_user_sum) free(cogito_user_sum);
       cogito_user_sum = src;
-      cogito_apply_theme(cogito_theme_dark, cogito_theme_accent);
+      if (cogito_active_window) {
+        cogito_apply_theme(cogito_theme_dark, cogito_theme_accent);
+      } else {
+        cogito_theme_refresh_deferred = true;
+      }
     }
   }
   if (ps) ergo_release_val(EV_STR(ps));
@@ -1216,31 +1222,140 @@ static void cogito_load_sum_source(const char* src) {
   copy[len] = '\0';
   if (cogito_user_sum) free(cogito_user_sum);
   cogito_user_sum = copy;
-  cogito_apply_theme(cogito_theme_dark, cogito_theme_accent);
+  if (cogito_active_window) {
+    cogito_apply_theme(cogito_theme_dark, cogito_theme_accent);
+  } else {
+    cogito_theme_refresh_deferred = true;
+  }
+}
+
+static inline double cogito_sum_profile_now(void) {
+#if defined(CLOCK_MONOTONIC)
+  struct timespec ts;
+  if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0) {
+    return (double)ts.tv_sec + (double)ts.tv_nsec / 1000000000.0;
+  }
+#endif
+#if defined(TIME_UTC)
+  struct timespec ts_utc;
+  if (timespec_get(&ts_utc, TIME_UTC) == TIME_UTC) {
+    return (double)ts_utc.tv_sec + (double)ts_utc.tv_nsec / 1000000000.0;
+  }
+#endif
+  return 0.0;
 }
 
 static void cogito_apply_theme(bool dark, CogitoColor accent) {
+  const char* theme_profile_env = getenv("COGITO_THEME_PROFILE");
+  bool theme_profile = theme_profile_env && theme_profile_env[0] && theme_profile_env[0] != '0';
+  if (!theme_profile) {
+    const char* startup_profile_env = getenv("COGITO_STARTUP_PROFILE");
+    theme_profile = startup_profile_env && startup_profile_env[0] && startup_profile_env[0] != '0';
+  }
+  double tp0 = theme_profile ? cogito_sum_profile_now() : 0.0;
+  double tp_after_defaults = tp0;
+  double tp_after_default_sum = tp0;
+  double tp_after_dark_sum = tp0;
+  double tp_after_dynamic_build = tp0;
+  double tp_after_dynamic_parse = tp0;
+  double tp_after_user_sum = tp0;
+  double tp_after_style_tree = tp0;
+  bool had_prev_theme = cogito_theme_initialized;
+  bool reveal_requested = cogito_theme_window_reveal_pending;
+  cogito_theme_window_reveal_pending = false;
+  int reveal_x = 0;
+  int reveal_y = 0;
+  CogitoColor reveal_old_bg = {0, 0, 0, 0};
+  CogitoColor reveal_old_variant_bg = {0, 0, 0, 0};
+  bool start_reveal = false;
+  extern CogitoNode* cogito_active_window;
+  CogitoNode* reveal_win = cogito_active_window;
+  if (had_prev_theme && reveal_requested && reveal_win &&
+      reveal_win->kind == COGITO_WINDOW && reveal_win->w > 0 && reveal_win->h > 0) {
+    reveal_old_bg = reveal_win->bg;
+    {
+      CogitoStyle old_button = cogito_theme_resolve(COGITO_BUTTON);
+      reveal_old_variant_bg = old_button.has_bg ? old_button.bg : reveal_old_bg;
+    }
+    if (!cogito_theme_take_action_origin(&reveal_x, &reveal_y)) {
+      if (!cogito_pointer_query(&reveal_x, &reveal_y, NULL, NULL)) {
+        reveal_x = reveal_win->x + reveal_win->w / 2;
+        reveal_y = reveal_win->y + reveal_win->h / 2;
+      }
+    }
+    start_reveal = true;
+  } else if (reveal_requested) {
+    // Drop stale origin when there is no drawable window for reveal.
+    (void)cogito_theme_take_action_origin(NULL, NULL);
+  }
+
   cogito_theme_initialized = true;
   cogito_sum_default_loaded = true;
   cogito_theme_set_defaults();
+  tp_after_defaults = theme_profile ? cogito_sum_profile_now() : tp_after_defaults;
   cogito_apply_default_sum();
+  tp_after_default_sum = theme_profile ? cogito_sum_profile_now() : tp_after_default_sum;
   if (dark) {
     cogito_apply_sum_file_inline(sum_dark_path());
   }
+  tp_after_dark_sum = theme_profile ? cogito_sum_profile_now() : tp_after_dark_sum;
   char dyn[65536];
   sum_build_dynamic(dark, accent, dyn, sizeof(dyn));
+  tp_after_dynamic_build = theme_profile ? cogito_sum_profile_now() : tp_after_dynamic_build;
   if (getenv("COGITO_THEME_DEBUG")) {
     fprintf(stderr, "Cogito dynamic SUM:\\n%s\\n", dyn);
   }
   cogito_apply_sum_inline(dyn);
+  tp_after_dynamic_parse = theme_profile ? cogito_sum_profile_now() : tp_after_dynamic_parse;
   if (cogito_user_sum && cogito_user_sum[0]) {
     cogito_apply_sum_inline(cogito_user_sum);
   }
+  tp_after_user_sum = theme_profile ? cogito_sum_profile_now() : tp_after_user_sum;
   cogito_theme_dark = dark;
   cogito_theme_accent = accent;
-  extern CogitoNode* cogito_active_window;
   if (cogito_active_window) {
     cogito_apply_style_tree(cogito_active_window);
+    tp_after_style_tree = theme_profile ? cogito_sum_profile_now() : tp_after_style_tree;
+    if (start_reveal && reveal_win == cogito_active_window) {
+      CogitoColor new_bg = cogito_active_window->bg;
+      CogitoColor new_variant_bg = new_bg;
+      {
+        CogitoStyle new_button = cogito_theme_resolve(COGITO_BUTTON);
+        if (new_button.has_bg) new_variant_bg = new_button.bg;
+      }
+      CogitoColor reveal_from = reveal_old_bg;
+      CogitoColor reveal_to = new_bg;
+      int bg_delta =
+          abs((int)new_bg.r - (int)reveal_old_bg.r) +
+          abs((int)new_bg.g - (int)reveal_old_bg.g) +
+          abs((int)new_bg.b - (int)reveal_old_bg.b) +
+          abs((int)new_bg.a - (int)reveal_old_bg.a);
+      if (bg_delta < 24) {
+        reveal_from = reveal_old_variant_bg;
+        reveal_to = new_variant_bg;
+      }
+      if (reveal_from.r != reveal_to.r || reveal_from.g != reveal_to.g ||
+          reveal_from.b != reveal_to.b || reveal_from.a != reveal_to.a) {
+        cogito_window_theme_reveal_start(cogito_active_window, reveal_x, reveal_y, reveal_from, reveal_to);
+      }
+    }
     cogito_window_relayout(cogito_active_window);
+  }
+  if (theme_profile) {
+    double t_end = cogito_sum_profile_now();
+    double ms_total = (t_end - tp0) * 1000.0;
+    double ms_defaults = (tp_after_defaults - tp0) * 1000.0;
+    double ms_default_sum = (tp_after_default_sum - tp_after_defaults) * 1000.0;
+    double ms_dark_sum = (tp_after_dark_sum - tp_after_default_sum) * 1000.0;
+    double ms_dynamic_build = (tp_after_dynamic_build - tp_after_dark_sum) * 1000.0;
+    double ms_dynamic_parse = (tp_after_dynamic_parse - tp_after_dynamic_build) * 1000.0;
+    double ms_user_sum = (tp_after_user_sum - tp_after_dynamic_parse) * 1000.0;
+    double ms_style_tree = (tp_after_style_tree - tp_after_user_sum) * 1000.0;
+    double ms_post_style = (t_end - tp_after_style_tree) * 1000.0;
+    fprintf(stderr,
+            "[cogito-theme] total=%.2fms defaults=%.2fms default_sum=%.2fms dark_sum=%.2fms dynamic_build=%.2fms dynamic_parse=%.2fms user_sum=%.2fms style_tree=%.2fms post_style=%.2fms\n",
+            ms_total, ms_defaults, ms_default_sum, ms_dark_sum, ms_dynamic_build,
+            ms_dynamic_parse, ms_user_sum, ms_style_tree, ms_post_style);
+    fflush(stderr);
   }
 }

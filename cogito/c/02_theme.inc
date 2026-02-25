@@ -171,16 +171,19 @@ static void cogito_theme_set_defaults(void) {
   cogito_style_clear(&cogito_theme.content_list_item_middle);
   cogito_style_clear(&cogito_theme.content_list_item_single);
   cogito_style_clear(&cogito_theme.content_list_label);
-
-  CogitoStyle* list = &cogito_theme.per_kind[COGITO_LIST
-  ];
-  CogitoStyle* grid = &cogito_theme.per_kind[COGITO_GRID
-  ];
-  *grid = *list;
 }
 
 static void cogito_theme_init(void) {
   if (!cogito_theme_initialized) {
+    // During widget construction (before run), avoid the heavy dynamic theme
+    // build. Initialize an empty baseline and defer full theme materialization
+    // until a window is attached.
+    if (!cogito_active_window) {
+      cogito_theme_set_defaults();
+      cogito_theme_initialized = true;
+      cogito_theme_refresh_deferred = true;
+      return;
+    }
     // Use the layered theme pipeline (default sum + dynamic + optional user sum)
     // instead of directly loading a hardcoded file path.
     CogitoColor accent = cogito_theme_accent;

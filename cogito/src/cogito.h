@@ -116,7 +116,13 @@ void cogito_app_set_appid(cogito_app *app, const char *rdnn);
 void cogito_app_set_app_name(cogito_app *app, const char *name);
 void cogito_app_set_accent_color(cogito_app *app, const char *hex,
                                  bool follow_system);
+void cogito_app_set_dark_mode(cogito_app *app, bool dark, bool follow_system);
+// Loads an image and extracts an Ensor accent, then applies it as app accent.
+// Returns the applied #RRGGBB string, or NULL on failure.
+const char *cogito_app_set_accent_from_image(cogito_app *app, const char *path,
+                                             bool follow_system);
 void cogito_app_set_ensor_variant(cogito_app *app, int variant);
+void cogito_app_set_contrast(cogito_app *app, double contrast);
 // Extract up to 4 accent colors from a pixel buffer (RGB or RGBA).
 // out_argb receives up to 4 packed 0xRRGGBB values. Returns count written (1..4).
 int cogito_accent_from_pixels(const unsigned char *pixels, int n_bytes,
@@ -124,6 +130,7 @@ int cogito_accent_from_pixels(const unsigned char *pixels, int n_bytes,
 void cogito_app_set_icon(cogito_app *app, const char *path);
 const char *cogito_app_get_icon(cogito_app *app);
 bool cogito_open_url(const char *url);
+bool cogito_app_copy_to_clipboard(cogito_app *app, const char *text);
 cogito_timer_id cogito_timer_set_timeout(uint32_t delay_ms,
                                          cogito_timer_fn fn, void *user);
 cogito_timer_id cogito_timer_set_interval(uint32_t interval_ms,
@@ -549,6 +556,8 @@ void cogito_datepicker_on_change(cogito_node *datepicker, cogito_node_fn fn,
                                  void *user);
 void cogito_colorpicker_on_change(cogito_node *colorpicker, cogito_node_fn fn,
                                   void *user);
+void cogito_colorpicker_set_hex(cogito_node *colorpicker, const char *hex);
+const char *cogito_colorpicker_get_hex(cogito_node *colorpicker);
 
 void cogito_list_on_select(cogito_node *list, cogito_index_fn fn, void *user);
 void cogito_list_on_activate(cogito_node *list, cogito_index_fn fn, void *user);

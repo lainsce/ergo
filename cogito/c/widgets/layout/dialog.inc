@@ -86,6 +86,41 @@ case COGITO_DIALOG: {
       int avail_content_h = avail_h - total_margins - total_gaps;
       if (avail_content_h < 0) avail_content_h = 0;
       cogito_distribute_axis_sizes(count, intrinsic_h, expand, avail_content_h, assigned_h);
+      // Keep appbar height fixed; overflow reduction comes from other sections first.
+      int appbar_restore = 0;
+      for (size_t i = 0; i < count; i++) {
+        CogitoNode* c = n->children[i];
+        if (!c || c->kind != COGITO_APPBAR) continue;
+        if (assigned_h[i] < intrinsic_h[i]) {
+          appbar_restore += (intrinsic_h[i] - assigned_h[i]);
+          assigned_h[i] = intrinsic_h[i];
+        }
+      }
+      while (appbar_restore > 0) {
+        size_t shrinkable = 0;
+        for (size_t i = 0; i < count; i++) {
+          CogitoNode* c = n->children[i];
+          if (!c || c->kind == COGITO_APPBAR) continue;
+          if (assigned_h[i] > 0) shrinkable++;
+        }
+        if (shrinkable == 0) break;
+        int per = appbar_restore / (int)shrinkable;
+        if (per < 1) per = 1;
+        int rem = (per > 1) ? appbar_restore % (int)shrinkable : 0;
+        int removed = 0;
+        int r = 0;
+        for (size_t i = 0; i < count && removed < appbar_restore; i++) {
+          CogitoNode* c = n->children[i];
+          if (!c || c->kind == COGITO_APPBAR || assigned_h[i] <= 0) continue;
+          int take = per + (r < rem ? 1 : 0);
+          r++;
+          if (take > assigned_h[i]) take = assigned_h[i];
+          assigned_h[i] -= take;
+          removed += take;
+        }
+        if (removed == 0) break;
+        appbar_restore -= removed;
+      }
 
       int child_y = y + content_top;
       for (size_t i = 0; i < count; i++) {

@@ -11,9 +11,13 @@
 #undef cogito_app_get_icon
 #undef cogito_app_new
 #undef cogito_app_run
+#undef cogito_app_copy_to_clipboard
 #undef cogito_app_set_accent_color
+#undef cogito_app_set_dark_mode
+#undef cogito_app_set_accent_from_image
 #undef cogito_app_set_app_name
 #undef cogito_app_set_appid
+#undef cogito_app_set_contrast
 #undef cogito_app_set_ensor_variant
 #undef cogito_app_set_icon
 #undef cogito_appbar_add_button
@@ -37,6 +41,8 @@
 #undef cogito_checkbox_set_checked
 #undef cogito_colorpicker_new
 #undef cogito_colorpicker_on_change
+#undef cogito_colorpicker_set_hex
+#undef cogito_colorpicker_get_hex
 #undef cogito_content_list_new
 #undef cogito_datepicker_new
 #undef cogito_datepicker_on_change
@@ -575,10 +581,35 @@ static void __cogito_app_set_accent_color(ErgoVal appv, ErgoVal colorv, ErgoVal 
   if (tmp) ergo_release_val(EV_STR(tmp));
 }
 
+static void __cogito_app_set_dark_mode(ErgoVal appv, ErgoVal darkv, ErgoVal follow_systemv) {
+  cogito_app* app = cogito_app_from_val(appv);
+  bool dark = darkv.tag == EVT_BOOL ? darkv.as.b : ergo_as_bool(darkv);
+  bool follow_system = follow_systemv.tag == EVT_BOOL ? follow_systemv.as.b : false;
+  if (app) cogito_app_set_dark_mode(app, dark, follow_system);
+}
+
+static ErgoVal __cogito_app_set_accent_from_image(ErgoVal appv, ErgoVal pathv, ErgoVal follow_systemv) {
+  cogito_app* app = cogito_app_from_val(appv);
+  ErgoStr* tmp = NULL;
+  const char* path = cogito_optional_cstr(pathv, &tmp);
+  bool follow_system = follow_systemv.tag == EVT_BOOL ? follow_systemv.as.b : false;
+  const char* hex = (app && path && path[0]) ? cogito_app_set_accent_from_image(app, path, follow_system) : NULL;
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  if (!hex || !hex[0]) return EV_NULLV;
+  return EV_STR(stdr_str_lit(hex));
+}
+
 static void __cogito_app_set_ensor_variant(ErgoVal appv, ErgoVal variantv) {
   cogito_app* app = cogito_app_from_val(appv);
   if (app) {
     cogito_app_set_ensor_variant(app, (int)ergo_as_int(variantv));
+  }
+}
+
+static void __cogito_app_set_contrast(ErgoVal appv, ErgoVal contrastv) {
+  cogito_app* app = cogito_app_from_val(appv);
+  if (app) {
+    cogito_app_set_contrast(app, ergo_as_float(contrastv));
   }
 }
 
@@ -594,6 +625,16 @@ static ErgoVal __cogito_app_get_icon(ErgoVal appv) {
   cogito_app* app = cogito_app_from_val(appv);
   const char* path = cogito_app_get_icon(app);
   return EV_STR(stdr_str_lit(path ? path : ""));
+}
+
+static ErgoVal __cogito_app_copy_to_clipboard(ErgoVal appv, ErgoVal textv) {
+  cogito_app* app = cogito_app_from_val(appv);
+  ErgoStr* tmp = NULL;
+  const char* text = cogito_optional_cstr(textv, &tmp);
+  bool ok = false;
+  if (app && text) ok = cogito_app_copy_to_clipboard(app, text);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+  return EV_BOOL(ok);
 }
 
 static ErgoVal __cogito_window(ErgoVal titlev, ErgoVal wv, ErgoVal hv) {
@@ -1774,6 +1815,20 @@ static void __cogito_colorpicker_on_change(ErgoVal cpv, ErgoVal handler) {
   }
   cogito_set_handler(h, &h->on_change, handler);
   cogito_colorpicker_on_change(cp, cogito_cb_change, h);
+}
+
+static void __cogito_colorpicker_set_hex(ErgoVal cpv, ErgoVal hexv) {
+  cogito_node* cp = cogito_node_from_val(cpv);
+  ErgoStr* tmp = NULL;
+  const char* hex = cogito_optional_cstr(hexv, &tmp);
+  if (hex) cogito_colorpicker_set_hex(cp, hex);
+  if (tmp) ergo_release_val(EV_STR(tmp));
+}
+
+static ErgoVal __cogito_colorpicker_get_hex(ErgoVal cpv) {
+  cogito_node* cp = cogito_node_from_val(cpv);
+  const char* hex = cogito_colorpicker_get_hex(cp);
+  return EV_STR(stdr_str_lit(hex ? hex : ""));
 }
 
 static ErgoVal __cogito_toasts(void) {
@@ -3057,6 +3112,9 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_app_set_appid __cogito_app_set_appid
 #define cogito_app_set_app_name __cogito_app_set_app_name
 #define cogito_app_set_accent_color __cogito_app_set_accent_color
+#define cogito_app_set_dark_mode __cogito_app_set_dark_mode
+#define cogito_app_set_accent_from_image __cogito_app_set_accent_from_image
+#define cogito_app_set_contrast __cogito_app_set_contrast
 #define cogito_app_set_ensor_variant __cogito_app_set_ensor_variant
 #define cogito_app_set_icon __cogito_app_set_icon
 #define cogito_app_get_icon __cogito_app_get_icon
@@ -3091,6 +3149,8 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_progress_new __cogito_progress
 #define cogito_treeview_new __cogito_treeview
 #define cogito_colorpicker_new __cogito_colorpicker
+#define cogito_colorpicker_set_hex __cogito_colorpicker_set_hex
+#define cogito_colorpicker_get_hex __cogito_colorpicker_get_hex
 #define cogito_toasts_new __cogito_toasts
 #define cogito_toast_new __cogito_toast
 #define cogito_appbar_new __cogito_appbar
@@ -3141,6 +3201,9 @@ static ErgoVal __cogito_open_url(ErgoVal urlv) {
 #define cogito_app_set_appid __cogito_app_set_appid
 #define cogito_app_set_app_name __cogito_app_set_app_name
 #define cogito_app_set_accent_color __cogito_app_set_accent_color
+#define cogito_app_set_dark_mode __cogito_app_set_dark_mode
+#define cogito_app_set_accent_from_image __cogito_app_set_accent_from_image
+#define cogito_app_set_contrast __cogito_app_set_contrast
 #define cogito_app_set_ensor_variant __cogito_app_set_ensor_variant
 #define cogito_app_set_icon __cogito_app_set_icon
 #define cogito_app_get_icon __cogito_app_get_icon

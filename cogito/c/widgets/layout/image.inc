@@ -12,6 +12,7 @@ case COGITO_IMAGE:
             n->image.w = tw;
             n->image.h = th;
             n->image.loaded = true;
+            cogito_layout_image_loaded_this_pass = true;
             // Dimensions are now set; a subsequent layout pass will pick
             // them up via the intrinsic-size case.  We intentionally do NOT
             // call cogito_window_relayout here — doing so re-enters

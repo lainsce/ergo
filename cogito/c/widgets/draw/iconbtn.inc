@@ -50,18 +50,38 @@ case COGITO_ICONBTN: {
       }
       if (s.has_border) border = s.border;
       if (s.has_border_width) border_w = s.border_width;
-      // Effective shape: when toggle is active and checked, swap shape
+      // Effective shape:
+      // - Outside ButtonGroup: use the IconButton shape.
+      // - Inside ButtonGroup: use the group shape as baseline.
+      // - If toggle is active and checked: invert (circle <-> square).
       int eff_shape = n->button.icon_shape;
-      if (n->button.icon_toggle && n->checked) {
-        eff_shape = eff_shape ? 0 : 1; // circle↔square swap
+      if (in_buttongroup && n->parent && n->parent->kind == COGITO_BUTTON_GROUP) {
+        eff_shape = (n->parent->buttongroup.shape == 0) ? 0 : 1;
       }
+      if (n->button.icon_toggle && n->checked) eff_shape = eff_shape ? 0 : 1;
 
       // Only apply default radius logic if NOT in a ButtonGroup (let buttongroup handle radius)
       if (!in_buttongroup) {
         if (in_appbar && !n->radius_set) {
-          // AppBar IconBtn is always fully rounded (circle) by default
-          int min_dim = n->w < n->h ? n->w : n->h;
-          radius = min_dim / 2; // fully rounded = circle
+          // AppBar IconBtn default shape still follows effective toggle-aware shape.
+          if (eff_shape == 1) {
+            if (n->button.size == COGITO_BUTTON_SIZE_XS) {
+              radius = 12;
+            } else if (n->button.size == COGITO_BUTTON_SIZE_S) {
+              radius = 12;
+            } else if (n->button.size == COGITO_BUTTON_SIZE_M) {
+              radius = 16;
+            } else if (n->button.size == COGITO_BUTTON_SIZE_L) {
+              radius = 28;
+            } else if (n->button.size == COGITO_BUTTON_SIZE_XL) {
+              radius = 28;
+            } else {
+              radius = 16;
+            }
+          } else {
+            int min_dim = n->w < n->h ? n->w : n->h;
+            radius = min_dim / 2; // fully rounded = circle
+          }
         } else if (s.has_radius) {
           radius = s.radius;
         } else {
@@ -162,8 +182,7 @@ case COGITO_ICONBTN: {
         // Use buttongroup size/shape for radius if no explicit radius set
         if (!n->radius_set && !s.has_radius) {
           CogitoNode* buttongroup_node = n->parent;
-          bool is_rounded = (buttongroup_node->buttongroup.shape == 0); // 0 = rounded (circle), 1 = pill (square)
-          if (is_rounded) {
+          if (eff_shape == 0) {
             // Rounded = circle shape
             radius = n->h / 2;
           } else {

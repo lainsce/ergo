@@ -1,8 +1,51 @@
 case COGITO_WINDOW: {
-      CogitoColor bg = n->bg;
+      bool hover = false;
+      bool active = false;
+      cogito_node_hover_state(n, &hover, &active);
+      CogitoStyle s_win = cogito_theme_resolve_node_state(n, hover, active);
+      CogitoColor bg_target = s_win.has_bg ? s_win.bg : n->bg;
+
+      bool reveal_active = false;
+      float reveal_t = 1.0f;
+      double now = cogito_now();
+      if (n->window_theme_reveal_active && n->window_theme_reveal_duration > 0.0 &&
+          n->window_theme_reveal_max_radius > 0.0f) {
+        double t = (now - n->window_theme_reveal_start) / n->window_theme_reveal_duration;
+        if (t >= 1.0) {
+          n->window_theme_reveal_active = false;
+          n->window_theme_reveal_radius = 0.0f;
+        } else if (t >= 0.0) {
+          float tf = (float)t;
+          float eased = 1.0f - (1.0f - tf) * (1.0f - tf) * (1.0f - tf);
+          n->window_theme_reveal_radius = eased * n->window_theme_reveal_max_radius;
+          reveal_t = tf;
+          reveal_active = true;
+          double end_time = now + 0.032;
+          if (end_time > cogito_anim_end_time) cogito_anim_end_time = end_time;
+        }
+      }
+      CogitoColor bg = bg_target;
+      cogito_anim_apply(n, &s_win, &bg, NULL, NULL, NULL);
       cogito_draw_rect(n->x, n->y, n->w, n->h, bg, 0);
       for (size_t i = 0; i < n->len; i++) {
         cogito_draw_node(n->children[i]);
+      }
+      if (reveal_active) {
+        float overlay_fade = 1.0f - reveal_t;
+        int overlay_alpha_i = (int)roundf(120.0f * overlay_fade);
+        if (overlay_alpha_i > 0) {
+          if (overlay_alpha_i > 255) overlay_alpha_i = 255;
+          CogitoColor from = n->window_theme_reveal_old_bg;
+          CogitoColor to = n->window_theme_reveal_new_bg;
+          from.a = (uint8_t)overlay_alpha_i;
+          to.a = (uint8_t)overlay_alpha_i;
+          cogito_draw_rect(n->x, n->y, n->w, n->h, from, 0);
+          cogito_draw_circle_clipped(n->window_theme_reveal_origin_x,
+                                     n->window_theme_reveal_origin_y,
+                                     n->window_theme_reveal_radius,
+                                     n->x, n->y, n->w, n->h,
+                                     to);
+        }
       }
       if (n->kind == COGITO_WINDOW && n->dialog) {
         if (n->dialog->kind == COGITO_DIALOG_SLOT) {

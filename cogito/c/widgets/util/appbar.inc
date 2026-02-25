@@ -264,9 +264,9 @@ static void cogito_appbar_row_positions(
   const int h = cursor_y - n->y;
 
   if (out_buttons_y)  *out_buttons_y  = y_buttons;
-  if (out_title_y)    *out_title_y    = y_title;     // 0 if no title
-  if (out_subtitle_y) *out_subtitle_y = y_subtitle;  // 0 if no subtitle
-  if (out_child_y)    *out_child_y    = y_child;     // 0 if no children
+  if (out_title_y)    *out_title_y    = y_title ? y_title : 0;     // 0 if no title
+  if (out_subtitle_y) *out_subtitle_y = y_subtitle ? y_subtitle : 0;  // 0 if no subtitle
+  if (out_child_y)    *out_child_y    = y_child ? y_child : 0;     // 0 if no children
   if (out_appbar_h)   *out_appbar_h   = h;
 }
 
