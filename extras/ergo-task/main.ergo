@@ -238,7 +238,6 @@ entry() (( -- )) {
     cogito.load_sum(@"ergotask.sum")
 
     let win = cogito.window_size(@"ErgoTask", 460, 720)
-    .set_autosize(false)
     .set_resizable(true)
     .build((w = cogito.Window) => {
         build_window(w)

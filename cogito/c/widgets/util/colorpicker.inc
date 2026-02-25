@@ -233,6 +233,9 @@ static bool cogito_colorpicker_panel_sync_from_slider(CogitoNode* slider) {
   else if (chan == 1) panel->colorpicker.c = slider->slider.value;
   else if (chan == 2) panel->colorpicker.t = slider->slider.value;
   else return false;
+  if (!panel->colorpicker.hex_editing) {
+    cogito_colorpicker_sync_hex(panel);
+  }
   return true;
 }
 

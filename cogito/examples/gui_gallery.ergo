@@ -2372,7 +2372,6 @@ entry () (( -- )) {
     let main_win = cogito.window_size(@"Cogito Gallery", 800, 700)
     .build(build_ui)
     .set_a11y_label(@"Cogito Gallery")
-    .set_autosize(false)
     .set_resizable(true)
 
     app.run(main_win)

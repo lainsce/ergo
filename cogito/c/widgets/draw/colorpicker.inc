@@ -74,6 +74,18 @@ case COGITO_COLORPICKER: {
         // ---- Trigger mode: compact field with swatch + editable hex + palette icon ----
         CogitoNode* win = cogito_node_window(n);
         bool open = (win && win->popover_open && win->popover_anchor == n);
+        CogitoNode* live = n;
+        if (open && !n->colorpicker.hex_editing && win && win->popover) {
+          for (size_t i = 0; i < win->popover->len; i++) {
+            CogitoNode* c = win->popover->children[i];
+            if (c && c->kind == COGITO_COLORPICKER &&
+                c->colorpicker.popover_panel &&
+                c->colorpicker.owner == n) {
+              live = c;
+              break;
+            }
+          }
+        }
 
         if (open) {
           border = accent;
@@ -88,8 +100,8 @@ case COGITO_COLORPICKER: {
           cogito_draw_rect_lines_node(n, &s, n->x, n->y, n->w, n->h, border, radius, border_w);
         }
 
-        if (!n->text || !n->text->data || !n->text->data[0] || !n->colorpicker.hex_editing) {
-          cogito_colorpicker_sync_hex(n);
+        if (!live->text || !live->text->data || !live->text->data[0] || !live->colorpicker.hex_editing) {
+          cogito_colorpicker_sync_hex(live);
         }
 
         int sw_x = 0, sw_y = 0, sw_w = 0, sw_h = 0;
@@ -101,7 +113,7 @@ case COGITO_COLORPICKER: {
           &ix, &iy, &iw, &ih);
 
         // Color swatch
-        CogitoColor swatch_color = cogito_hct_to_rgb(n->colorpicker.h, n->colorpicker.c, n->colorpicker.t);
+        CogitoColor swatch_color = cogito_hct_to_rgb(live->colorpicker.h, live->colorpicker.c, live->colorpicker.t);
         cogito_draw_rect(sw_x, sw_y, sw_w, sw_h, swatch_color, 6);
         CogitoColor swatch_border = text_col;
         swatch_border.a = 60;
@@ -111,7 +123,7 @@ case COGITO_COLORPICKER: {
         int size = cogito_node_font_size(n);
         int pad = 8;
         char hex_buf[8];
-        const char* hex = n->text ? n->text->data : NULL;
+        const char* hex = live->text ? live->text->data : NULL;
         if (!hex || !hex[0]) {
           cogito_color_to_hex(swatch_color, hex_buf);
           hex = hex_buf;

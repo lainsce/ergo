@@ -145,7 +145,6 @@ entry() (( -- )) {
     cogito.load_sum(@"ergotexteditor.sum")
 
     let win = cogito.window_size(@"ErgoText", 900, 640)
-    .set_autosize(false)
     .set_resizable(true)
 
     let root = cogito.vstack()

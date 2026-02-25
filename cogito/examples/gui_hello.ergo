@@ -40,7 +40,6 @@ entry () (( -- )) {
 
     let win = cogito.window_title(@"Minimal Cogito Demo", 800, 800)
     .build(build_ui)
-    .set_autosize(false)
     .set_resizable(false)
     app.run(win)
 }
