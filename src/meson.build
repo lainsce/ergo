@@ -4,21 +4,21 @@ project('ergo', 'c',
 )
 
 ergo_c_sources = files(
-  'src/main.c',
-  'src/lexer.c',
-  'src/parser.c',
-  'src/project.c',
-  'src/sum_validate.c',
-  'src/codegen.c',
-  'src/typecheck.c',
-  'src/file.c',
-  'src/platform.c',
-  'src/arena.c',
-  'src/str.c',
-  'src/diag.c',
+  'main.c',
+  'lexer.c',
+  'parser.c',
+  'project.c',
+  'sum_validate.c',
+  'codegen.c',
+  'typecheck.c',
+  'file.c',
+  'platform.c',
+  'arena.c',
+  'str.c',
+  'diag.c',
 )
 
-ergo_c_includes = include_directories('src')
+ergo_c_includes = include_directories('.')
 
 ergo_exe = executable(
   'ergo',
@@ -29,7 +29,7 @@ ergo_exe = executable(
 
 # Install stdlib files
 install_data(
-  'src/stdlib/stdr.ergo',
-  'src/stdlib/math.ergo',
+  'stdlib/stdr.ergo',
+  'stdlib/math.ergo',
   install_dir : get_option('datadir') / 'ergo' / 'stdlib'
 )
