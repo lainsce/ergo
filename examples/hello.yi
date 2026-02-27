@@ -1,8 +1,6 @@
 cask hello
-
--- Yis Example: Hello World
-
 bring stdr
+-- Yis Example: Hello World
 
 entry () (( -- )) {
     write("Hello, Yis World!\n")

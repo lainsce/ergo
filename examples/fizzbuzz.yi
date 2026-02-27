@@ -1,20 +1,18 @@
 cask fizzbuzz
-
 bring stdr
-
 -- Yis Example: FizzBuzz
 
-macro divisible_by(divisor = num) (( bool )) {
+macro mod(divisor = num) (( bool )) {
     this % divisor == 0
 }
 
 fun fizzbuzz(n = num) (( -- )) {
     for (let ?i = 1; i <= n; i += 1) {
         let ?flag = false
-        if i !divisible_by 3 {
+        if i !mod 3 {
             write("Fizz")
             flag = true
-        } elif i !divisible_by 5 {
+        } elif i !mod 5 {
             write("Buzz")
             flag = true
         } elif !flag {
