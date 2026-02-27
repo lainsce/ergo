@@ -6,6 +6,9 @@ macro is_none() (( bool )) {
   this == null
 }
 
+-- Internal output primitive (compiler intrinsic)
+fun __write(x = any) (( -- )) { }
+
 -- Internal formatted output primitive (compiler intrinsic)
 fun __writef(fmt = string, args = any) (( -- )) { }
 
@@ -34,7 +37,7 @@ pub fun readf(fmt = string, args = any) (( string, any )) {
 
 -- Print a value
 pub fun write(x = any) (( -- )) {
-  writef(@"{}", x)
+  __write(x)
 }
 
 -- Check if a value is null

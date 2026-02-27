@@ -24,7 +24,8 @@ int fileno(FILE*);
 
 static int yis_stdout_isatty = 0;
 
-static bool cogito_debug_enabled(void);
+#define COGITO_DEFINED_COGITO_DEBUG_ENABLED
+static bool cogito_debug_enabled(void) { return false; }
 static const char* cogito_font_path_active = NULL;
 
 static void yis_runtime_init(void) {

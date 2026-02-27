@@ -49,19 +49,32 @@ Current reserved words:
 
 ### 3.3 String Forms
 
-1. Plain string: `"text"`
-   - No interpolation.
-   - Escapes are processed: `\n`, `\t`, `\r`, `\\`, `\"`, `\$`, and `\u{...}`.
-2. Interpolated string: `@"text $name"`
-   - Supports interpolation expressions beginning with `$`.
-   - The interpolation parser accepts:
-     - `$ident`
-     - `$ident.member`
-     - `$ident(args...)`
-     - `$ident.member(args...)`
-     - `$ident[index]`
-     - and postfix combinations, e.g. `$obj.get_y()`, `$list.at(0).to_string()`
-   - Supports escapes like `\n`, `\t`, `\r`, `\\`, `\"`, `\$`, and `\u{...}`.
+All double-quoted strings support interpolation using angle bracket placeholders:
+
+1. String with interpolation: `"Hello <name>!"`
+   - Placeholders use `<...>` syntax.
+   - Format: `<identifier>`, `<obj.member>`, `<arr[index]>`, or `<value:format>`.
+   - Format specifiers follow the format string conventions (e.g., `<num:0.2>` for 2 decimal places).
+   - Escaped characters: `\n`, `\t`, `\r`, `\\`, `\"`, `\<`, `\>`, and `\u{...}`.
+   - Literal `<` or `>` inside strings must be escaped as `\<` and `\>`.
+
+Placeholder grammar:
+```
+path       := identifier ( "." identifier | "[" index "]" )*
+placeholder := "<" path (":" format_spec)? ">"
+```
+
+Allowed in placeholders:
+- Simple identifiers
+- Member access: `<obj.field>`
+- Indexing: `<arr[0]>`, `<dict["key"]>`
+- Optional format suffix: `<value:0.2>`, `<name:*^10>`
+
+Disallowed in placeholders (produces error):
+- Boolean operators: `<a > b>`, `<x == y>`, `<a && b>`
+- Comparisons, arithmetic, assignments
+- Control flow: `if`, `match`, lambdas
+- Any general expression that isn't a simple path
 
 ## 4. Modules and Imports
 
@@ -117,7 +130,7 @@ Allowed top-level declarations:
 Macro declaration form:
 
 ```yis
-macro plussy(arg = num) (( num )) {
+macro plus(arg = num) (( num )) {
     this + arg
 }
 ```
@@ -322,7 +335,7 @@ Element type:
 - Member: `a.b`
 - Index: `a[i]`
 - Object construction: `new Class(...)`
-- Receiver macro call sugar: `x !plussy 2` (lowers to member call form `x.plussy(2)` for macro expansion)
+- Receiver macro call sugar: `x !plus 2` (lowers to member call form `x.plus(2)` for macro expansion)
 - Named-argument constructor form: `Class(field: value, ...)` (constructor shorthand)
 - Match: `match x: pat => expr, ...` or block-arm form
 - If-expression:

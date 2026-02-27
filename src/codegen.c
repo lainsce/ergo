@@ -2435,6 +2435,19 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__write")) {
+                        GenExpr arg;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &arg, err)) return false;
+                        w_line(&cg->w, "stdr_write(%s);", arg.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", arg.tmp);
+                        gen_expr_release_except(cg, &arg, arg.tmp);
+                        gen_expr_free(&arg);
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = YV_NULLV;", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__writef")) {
                         GenExpr fmt;
                         GenExpr args;
@@ -3295,6 +3308,7 @@ static void codegen_free(Codegen *cg) {
 }
 
 static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
+    cg->uses_cogito = uses_cogito;
     codegen_collect_lambdas(cg);
 
     const char *runtime_override = getenv("YIS_RUNTIME");
@@ -3441,6 +3455,7 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
             free(exe_cogito_bindings_path);
             return cg_set_err(err, (Str){0}, "program imports cogito but cogito bindings file was not found");
         }
+        // Cogito bindings will check COGITO_DEFINED_COGITO_DEBUG_ENABLED (defined in runtime.inc)
         sb_append_n(&cg->out, cogito_bindings_src, cogito_bindings_len);
         if (cogito_bindings_src[cogito_bindings_len - 1] != '\n') {
             sb_append_char(&cg->out, '\n');
@@ -3757,8 +3772,8 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
     w_line(&cg->w, "@autoreleasepool {");
     cg->w.indent++;
     w_line(&cg->w, "yis_runtime_init();");
-    // Always set script directory when entry_path is available
-    if (cg->entry_path.data && cg->entry_path.len > 0) {
+    // Set script directory when entry_path is available AND using cogito
+    if (cg->uses_cogito && cg->entry_path.data && cg->entry_path.len > 0) {
         // Find the directory of the entry script
         const char *path = cg->entry_path.data;
         size_t len = cg->entry_path.len;
@@ -3783,8 +3798,8 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
     w_line(&cg->w, "}");
     w_line(&cg->w, "#else");
     w_line(&cg->w, "yis_runtime_init();");
-    // Always set script directory when entry_path is available
-    if (cg->entry_path.data && cg->entry_path.len > 0) {
+    // Set script directory when entry_path is available AND using cogito
+    if (cg->uses_cogito && cg->entry_path.data && cg->entry_path.len > 0) {
         const char *path = cg->entry_path.data;
         size_t len = cg->entry_path.len;
         const char *last_slash = NULL;

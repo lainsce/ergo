@@ -12,20 +12,20 @@ fun fizzbuzz(n = num) (( -- )) {
     for (let ?i = 1; i <= n; i += 1) {
         let ?flag = false
         if i !divisible_by 3 {
-            write(@"Fizz")
+            write("Fizz")
             flag = true
         } elif i !divisible_by 5 {
-            write(@"Buzz")
+            write("Buzz")
             flag = true
         } elif !flag {
-            writef(@"{}", i)
+            writef("<i>")
         }
-        write(@"\n")
+        write("\n")
     }
 }
 
 entry () (( -- )) {
-    write(@"== FizzBuzz Example ==\n")
+    write("== FizzBuzz Example ==\n")
     fizzbuzz(20)
-    write(@"== Done ==\n")
+    write("== Done ==\n")
 }

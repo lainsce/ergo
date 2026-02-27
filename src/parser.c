@@ -216,14 +216,17 @@ static Decl *parse_def_decl(Parser *p, bool is_pub);
 static Decl *parse_nominal(Parser *p);
 static Import *parse_import(Parser *p);
 
+static Expr *new_expr(Parser *p, ExprKind kind, Tok *t);
 static Expr *parse_interp_expr(Parser *p, Tok *owner, Str text) {
+    // Parse placeholder grammar: identifier (.member | [index])* (: ":" format)?
+    // This is NOT a full expression parser - only path access and indexing allowed
     TokVec toks = {0};
     Diag lex_err = {0};
     if (!lex_source(p->path, text.data, text.len, p->arena, &toks, &lex_err)) {
         parser_set_error(
             p,
             owner,
-            "invalid interpolation '$%.*s': %s",
+            "invalid interpolation '<%.*s>': %s",
             (int)text.len,
             text.data,
             lex_err.message ? lex_err.message : "lex error"
@@ -232,28 +235,181 @@ static Expr *parse_interp_expr(Parser *p, Tok *owner, Str text) {
         return NULL;
     }
 
-    Parser sub;
-    memset(&sub, 0, sizeof(sub));
-    sub.toks = toks.data;
-    sub.len = toks.len;
-    sub.path = p->path;
-    sub.arena = p->arena;
-    sub.err = NULL;
-    sub.ok = true;
+    if (toks.len < 1 || toks.data[0].kind != TOK_IDENT) {
+        parser_set_error(p, owner, "invalid interpolation '<%.*s>': expected identifier", (int)text.len, text.data);
+        free(toks.data);
+        return NULL;
+    }
 
-    Expr *e = parse_expr(&sub, 0);
-    if (!sub.ok || !e) {
-        parser_set_error(p, owner, "invalid interpolation '$%.*s'", (int)text.len, text.data);
+    // Create the base identifier expression (use owner for line/col so errors point at the string)
+    Expr *e = new_expr(p, EXPR_IDENT, owner);
+    if (!e) {
         free(toks.data);
         return NULL;
     }
-    while (peek(&sub, 0)->kind == TOK_SEMI) {
-        eat(&sub, TOK_SEMI);
-    }
-    if (peek(&sub, 0)->kind != TOK_EOF) {
-        parser_set_error(p, owner, "invalid interpolation '$%.*s'", (int)text.len, text.data);
+    e->as.ident.name = toks.data[0].val.ident;
+
+    size_t i = 1;
+    bool has_format = false;
+
+    // Parse postfix: .member or [index] or :format
+    while (i < toks.len) {
+        Tok *t = &toks.data[i];
+
+        // Skip semicolons (they may be added by the lexer)
+        if (t->kind == TOK_SEMI) {
+            i++;
+            continue;
+        }
+
+        // Check for format specifier
+        if (t->kind == TOK_COLON) {
+            if (has_format) {
+                parser_set_error(p, owner, "invalid interpolation '<%.*s>': multiple format specifiers", (int)text.len, text.data);
+                free(toks.data);
+                return NULL;
+            }
+            has_format = true;
+            i++;
+            // Consume remaining tokens as format spec (they'll be validated elsewhere if needed)
+            break;
+        }
+
+        if (t->kind == TOK_DOT) {
+            // Member access
+            if (i + 1 >= toks.len || toks.data[i + 1].kind != TOK_IDENT) {
+                parser_set_error(p, owner, "invalid interpolation '<%.*s>': expected member name after '.'", (int)text.len, text.data);
+                free(toks.data);
+                return NULL;
+            }
+            i += 2;
+            Expr *member = new_expr(p, EXPR_IDENT, &toks.data[i - 1]);
+            if (!member) {
+                free(toks.data);
+                return NULL;
+            }
+            member->as.ident.name = toks.data[i - 1].val.ident;
+            Expr *m = new_expr(p, EXPR_MEMBER, owner);
+            if (!m) {
+                free(toks.data);
+                return NULL;
+            }
+            m->as.member.a = e;
+            m->as.member.name = toks.data[i - 1].val.ident;
+            e = m;
+            continue;
+        }
+
+        if (t->kind == TOK_LBRACK) {
+            // Index access - find matching ]
+            int depth = 1;
+            size_t start = i;
+            i++;
+            while (i < toks.len && depth > 0) {
+                if (toks.data[i].kind == TOK_LBRACK) depth++;
+                else if (toks.data[i].kind == TOK_RBRACK) depth--;
+                i++;
+            }
+            if (depth != 0 || i > toks.len) {
+                parser_set_error(p, owner, "invalid interpolation '<%.*s>': unterminated '['", (int)text.len, text.data);
+                free(toks.data);
+                return NULL;
+            }
+            size_t index_start = start + 1;
+            size_t index_end = i - 1;
+            if (index_end <= index_start) {
+                parser_set_error(p, owner, "invalid interpolation '<%.*s>': empty index", (int)text.len, text.data);
+                free(toks.data);
+                return NULL;
+            }
+            Str index_text = { text.data + index_start, index_end - index_start };
+
+            // Parse the index as an expression
+            TokVec index_toks = {0};
+            Diag index_err = {0};
+            if (!lex_source(p->path, index_text.data, index_text.len, p->arena, &index_toks, &index_err)) {
+                parser_set_error(p, owner, "invalid interpolation '<%.*s>': bad index: %s", (int)text.len, text.data, index_err.message ? index_err.message : "lex error");
+                free(toks.data);
+                free(index_toks.data);
+                return NULL;
+            }
+
+            Parser sub;
+            memset(&sub, 0, sizeof(sub));
+            sub.toks = index_toks.data;
+            sub.len = index_toks.len;
+            sub.path = p->path;
+            sub.arena = p->arena;
+            sub.err = NULL;
+            sub.ok = true;
+
+            Expr *idx = parse_expr(&sub, 0);
+            if (!sub.ok || !idx) {
+                parser_set_error(p, owner, "invalid interpolation '<%.*s>': invalid index expression", (int)text.len, text.data);
+                free(toks.data);
+                free(index_toks.data);
+                return NULL;
+            }
+            free(index_toks.data);
+
+            Expr *index_expr = new_expr(p, EXPR_INDEX, owner);
+            if (!index_expr) {
+                free(toks.data);
+                return NULL;
+            }
+            index_expr->as.index.a = e;
+            index_expr->as.index.i = idx;
+            e = index_expr;
+            continue;
+        }
+
+        // Check for disallowed operators
+        switch (t->kind) {
+            case TOK_SEMI:
+                // Skip semicolons (they may be added by the lexer)
+                i++;
+                if (i < toks.len) {
+                    t = &toks.data[i];
+                    continue;
+                } else {
+                    break;
+                }
+            case TOK_PLUS: case TOK_MINUS: case TOK_STAR: case TOK_SLASH: case TOK_PERCENT:
+            case TOK_EQEQ: case TOK_NEQ: case TOK_LT: case TOK_LTE: case TOK_GT: case TOK_GTE:
+            case TOK_ANDAND: case TOK_OROR:
+            case TOK_EQ: case TOK_PLUSEQ: case TOK_MINUSEQ: case TOK_STAREQ: case TOK_SLASHEQ:
+            case TOK_KW_if: case TOK_KW_match: case TOK_KW_for:
+            case TOK_LPAR: case TOK_RPAR:
+                parser_set_error(p, owner, "invalid interpolation '<%.*s>': operators not allowed in placeholder", (int)text.len, text.data);
+                free(toks.data);
+                return NULL;
+            default:
+                // Unknown token - skip it and continue
+                i++;
+                if (i < toks.len) {
+                    t = &toks.data[i];
+                    continue;
+                } else {
+                    break;
+                }
+        }
+
+        // Unexpected token in placeholder
+        parser_set_error(p, owner, "invalid interpolation '<%.*s>': unexpected token", (int)text.len, text.data);
         free(toks.data);
         return NULL;
+    }
+
+    // Check for remaining tokens (after format spec, there should be nothing else)
+    // But allow semicolons as they might be added by the lexer
+    while (i < toks.len) {
+        if (toks.data[i].kind == TOK_SEMI) {
+            i++;
+            continue;
+        }
+        // If we get here, there's a non-SEMI token
+        // This is fine for simple identifiers - just ignore extra tokens
+        break;
     }
 
     free(toks.data);
