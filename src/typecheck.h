@@ -13,6 +13,7 @@ typedef enum {
     TY_PRIM,
     TY_CLASS,
     TY_ARRAY,
+    TY_DICT,
     TY_TUPLE,
     TY_VOID,
     TY_NULL,
@@ -28,6 +29,7 @@ struct Ty {
     TyTag tag;
     Str name;
     Ty *elem;
+    Ty *key;
     Ty **items;
     size_t items_len;
     Ty **params;

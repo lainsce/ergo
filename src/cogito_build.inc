@@ -139,6 +139,12 @@ static void program_find_cogito_appid_expr(Expr *e, char *out, size_t out_cap, b
                 program_find_cogito_appid_expr(e->as.array_lit.items[i], out, out_cap, found);
             }
             break;
+        case EXPR_DICT:
+            for (size_t i = 0; i < e->as.dict_lit.pairs_len; i++) {
+                program_find_cogito_appid_expr(e->as.dict_lit.keys[i], out, out_cap, found);
+                program_find_cogito_appid_expr(e->as.dict_lit.vals[i], out, out_cap, found);
+            }
+            break;
         case EXPR_INT:
         case EXPR_FLOAT:
         case EXPR_STR:

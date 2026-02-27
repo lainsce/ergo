@@ -51,9 +51,41 @@ pub fun str(x = any) (( string )) { }
 -- Internal length primitive (compiler intrinsic)
 fun __len(x = any) (( num )) { }
 
+-- Coerce any to num (int/bool/float/parseable string → int; null/other → 0)
+fun __num(x = any) (( num )) { }
+
 -- Get the length of an array or string
 pub fun len(x = any) (( num )) {
   return __len(x)
+}
+
+-- Coerce value to num for comparisons and arithmetic (e.g. array index from any)
+pub fun num(x = any) (( num )) {
+  return __num(x)
+}
+
+-- Substring: slice(s, start, end) is s[start..end), 0-based; indices clamped
+fun __slice(s = string, start = num, end = num) (( string )) { }
+pub fun slice(s = string, start = num, end = num) (( string )) {
+  return __slice(s, start, end)
+}
+
+-- Concatenate two arrays; both must be arrays
+fun __concat(a = any, b = any) (( any )) { }
+pub fun concat(a = any, b = any) (( any )) {
+  return __concat(a, b)
+}
+
+-- Concatenate two values as strings (returns string)
+fun __str_concat(a = any, b = any) (( string )) { }
+pub fun str_concat(a = any, b = any) (( string )) {
+  return __str_concat(a, b)
+}
+
+-- ASCII code of first character of string (0 if empty)
+fun __char_code(c = string) (( num )) { }
+pub fun char_code(c = string) (( num )) {
+  return __char_code(c)
 }
 
 -- Read text file contents; returns null when file cannot be read
@@ -64,6 +96,19 @@ pub fun read_text_file(path = string) (( any )) {
 -- Write text to a file; returns true on success
 pub fun write_text_file(path = string, text = string) (( bool )) {
   return __write_text_file(path, text)
+}
+
+-- Run a shell command; returns (exit_code, stdout) as (num, string)
+fun __run_command(cmd = string) (( num, string )) { }
+
+pub fun run_command(cmd = string) (( num, string )) {
+  return __run_command(cmd)
+}
+
+-- Command-line arguments (argv as array of strings)
+fun __args() (( [string] )) { }
+pub fun args() (( [string] )) {
+  return __args()
 }
 
 -- Open native file picker and return selected path or null

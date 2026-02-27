@@ -581,7 +581,34 @@ static int64_t yis_as_int(YisVal v) {
   if (v.tag == EVT_INT) return v.as.i;
   if (v.tag == EVT_BOOL) return v.as.b ? 1 : 0;
   if (v.tag == EVT_FLOAT) return (int64_t)v.as.f;
-  yis_trap("type mismatch: expected int");
+  if (v.tag == EVT_STR) {
+    YisStr *s = (YisStr*)v.as.p;
+    if (s && s->len > 0 && s->len < 32) {
+      char buf[32];
+      memcpy(buf, s->data, s->len);
+      buf[s->len] = '\0';
+      char *end = NULL;
+      long x = strtol(buf, &end, 10);
+      if (end && end == buf + (ptrdiff_t)s->len)
+        return (int64_t)x;
+    }
+    return 0;
+  }
+  {
+    const char *tag_name = "?";
+    switch (v.tag) {
+      case EVT_NULL: tag_name = "null"; break;
+      case EVT_STR: tag_name = "string"; break;
+      case EVT_ARR: tag_name = "array"; break;
+      case EVT_DICT: tag_name = "dict"; break;
+      case EVT_OBJ: tag_name = "object"; break;
+      case EVT_FN: tag_name = "function"; break;
+      default: tag_name = "unknown"; break;
+    }
+    char buf[80];
+    snprintf(buf, sizeof(buf), "type mismatch: expected int (got %s)", tag_name);
+    yis_trap(buf);
+  }
   return 0;
 }
 
@@ -684,9 +711,20 @@ static YisVal yis_arr_get(YisArr* a, int64_t idx) {
 }
 
 static void yis_arr_set(YisArr* a, int64_t idx, YisVal v) {
-  if (idx < 0 || (size_t)idx >= a->len) return;
-  yis_release_val(a->items[idx]);
-  a->items[idx] = v;
+  if (idx < 0) return;
+  size_t uidx = (size_t)idx;
+  if (uidx >= a->len) {
+    if (uidx >= a->cap) {
+      size_t new_cap = a->cap ? a->cap : 4;
+      while (new_cap <= uidx) new_cap *= 2;
+      a->items = (YisVal*)realloc(a->items, sizeof(YisVal) * new_cap);
+      a->cap = new_cap;
+    }
+    for (size_t i = a->len; i < uidx; i++) a->items[i] = YV_NULLV;
+    a->len = uidx + 1;
+  }
+  yis_release_val(a->items[uidx]);
+  a->items[uidx] = v;
 }
 
 static YisVal yis_arr_remove(YisArr* a, int64_t idx) {

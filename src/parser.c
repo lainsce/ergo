@@ -591,11 +591,28 @@ static TypeRef *parse_type(Parser *p) {
     Tok *t = peek(p, 0);
     if (at(p, TOK_LBRACK)) {
         eat(p, TOK_LBRACK);
-        TypeRef *elem = parse_type(p);
+        TypeRef *first = parse_type(p);
+        if (!p->ok) return NULL;
+        if (maybe(p, TOK_ARROW)) {
+            TypeRef *second = parse_type(p);
+            if (!p->ok) return NULL;
+            eat(p, TOK_RBRACK);
+            TypeRef *ty = (TypeRef *)ast_alloc(p->arena, sizeof(TypeRef));
+            if (!ty) {
+                parser_set_oom(p);
+                return NULL;
+            }
+            ty->kind = TYPE_DICT;
+            ty->line = t->line;
+            ty->col = t->col;
+            ty->as.dict.key_typ = first;
+            ty->as.dict.val_typ = second;
+            return ty;
+        }
         eat(p, TOK_RBRACK);
         TypeRef *ty = new_type(p, TYPE_ARRAY, t);
         if (!ty) return NULL;
-        ty->as.elem = elem;
+        ty->as.elem = first;
         return ty;
     }
     Tok *name_tok = eat(p, TOK_IDENT);
@@ -1693,17 +1710,73 @@ static Expr *parse_new(Parser *p) {
 static Expr *parse_array_lit(Parser *p) {
     Tok *t = eat(p, TOK_LBRACK);
     PtrVec items = {0};
+    PtrVec keys = {0};
+    PtrVec vals = {0};
+    bool is_dict = false;
     if (!at(p, TOK_RBRACK)) {
         Expr *first = parse_expr(p, 0);
         if (!p->ok) return NULL;
-        ptrvec_push(p, &items, first);
-        while (maybe(p, TOK_COMMA)) {
-            Expr *item = parse_expr(p, 0);
+        if (at(p, TOK_ARROW)) {
+            is_dict = true;
+            eat(p, TOK_ARROW);
+            Expr *val = parse_expr(p, 0);
             if (!p->ok) return NULL;
-            ptrvec_push(p, &items, item);
+            ptrvec_push(p, &keys, first);
+            ptrvec_push(p, &vals, val);
+            while (maybe(p, TOK_COMMA)) {
+                Expr *k = parse_expr(p, 0);
+                if (!p->ok) return NULL;
+                eat(p, TOK_ARROW);
+                if (!p->ok) return NULL;
+                Expr *v = parse_expr(p, 0);
+                if (!p->ok) return NULL;
+                ptrvec_push(p, &keys, k);
+                ptrvec_push(p, &vals, v);
+            }
+        } else {
+            ptrvec_push(p, &items, first);
+            while (maybe(p, TOK_COMMA)) {
+                Expr *item = parse_expr(p, 0);
+                if (!p->ok) return NULL;
+                ptrvec_push(p, &items, item);
+            }
         }
     }
     eat(p, TOK_RBRACK);
+    if (is_dict) {
+        size_t n = keys.len;
+        Expr *e = new_expr(p, EXPR_DICT, t);
+        if (!e) return NULL;
+        e->as.dict_lit.keys = (Expr **)ptrvec_finalize(p, &keys);
+        e->as.dict_lit.vals = (Expr **)ptrvec_finalize(p, &vals);
+        e->as.dict_lit.pairs_len = n;
+        e->as.dict_lit.annot = NULL;
+        if (at(p, TOK_COLON)) {
+            eat(p, TOK_COLON);
+            e->as.dict_lit.annot = parse_type(p);
+        }
+        return e;
+    }
+    if (items.len == 0 && at(p, TOK_COLON)) {
+        eat(p, TOK_COLON);
+        TypeRef *annot = parse_type(p);
+        if (!p->ok) return NULL;
+        if (annot && annot->kind == TYPE_DICT) {
+            Expr *e = new_expr(p, EXPR_DICT, t);
+            if (!e) return NULL;
+            e->as.dict_lit.keys = NULL;
+            e->as.dict_lit.vals = NULL;
+            e->as.dict_lit.pairs_len = 0;
+            e->as.dict_lit.annot = annot;
+            return e;
+        }
+        Expr *e = new_expr(p, EXPR_ARRAY, t);
+        if (!e) return NULL;
+        e->as.array_lit.items = NULL;
+        e->as.array_lit.items_len = 0;
+        e->as.array_lit.annot = annot;
+        return e;
+    }
     Expr *e = new_expr(p, EXPR_ARRAY, t);
     if (!e) return NULL;
     e->as.array_lit.items = (Expr **)ptrvec_finalize(p, &items);

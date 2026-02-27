@@ -85,6 +85,20 @@ static int run_binary(const char *path) {
     return system(cmd);
 }
 
+/* Run binary with optional arguments (e.g. for self-hosted compiler). */
+static int run_binary_with_args(const char *path, int argc, char **argv) {
+    if (!path) return 1;
+    char cmd[8192];
+    int n = snprintf(cmd, sizeof(cmd), "\"%s\"", path);
+    if (n < 0 || (size_t)n >= sizeof(cmd)) return 1;
+    for (int i = 0; i < argc && argv && argv[i]; i++) {
+        size_t cur = (size_t)n;
+        n += snprintf(cmd + cur, sizeof(cmd) - cur, " \"%s\"", argv[i]);
+        if (n < 0 || (size_t)n >= sizeof(cmd)) return 1;
+    }
+    return system(cmd);
+}
+
 #if defined(__APPLE__)
 static bool write_text_file(const char *path, const char *text) {
     if (!path || !text) return false;
@@ -453,7 +467,14 @@ int main(int argc, char **argv) {
 
     if (is_flag(argv[1], "run")) {
         const char *entry = NULL;
+        int run_argc = 0;
+        char **run_argv = NULL;
         for (int i = 2; i < argc; i++) {
+            if (strcmp(argv[i], "--") == 0) {
+                run_argc = argc - i - 1;
+                run_argv = run_argc > 0 ? &argv[i + 1] : NULL;
+                break;
+            }
             if (argv[i][0] == '-') {
                 fprintf(stderr, "error: unknown option %s\n", argv[i]);
                 return 2;
@@ -599,7 +620,7 @@ int main(int argc, char **argv) {
         }
 
         if (cache_enabled && cache_bin && path_is_file(cache_bin)) {
-            int rc = run_binary(cache_bin);
+            int rc = run_binary_with_args(cache_bin, run_argc, run_argv);
             free(cache_base);
             free(cache_dir);
             free(cache_c);
@@ -623,7 +644,7 @@ int main(int argc, char **argv) {
 #else
                 snprintf(run_cmd_buf, sizeof(run_cmd_buf), "./%s", unique_bin_name);
 #endif
-                int rc = run_binary(run_cmd_buf);
+                int rc = run_binary_with_args(run_cmd_buf, run_argc, run_argv);
                 arena_free(&arena);
                 return rc == 0 ? 0 : 1;
             }
@@ -702,6 +723,36 @@ int main(int argc, char **argv) {
             arena_free(&arena);
             return rc;
         }
+        const char *emit_c_to = getenv("YIS_EMIT_C_TO");
+        if (emit_c_to && emit_c_to[0]) {
+            if (!path_is_file(c_path)) {
+                fprintf(stderr, "error: C file was not written\n");
+                return 1;
+            }
+            // Copy to user-requested path for inspection (e.g. debugging codegen)
+            FILE *src = fopen(c_path, "rb");
+            FILE *dst = fopen(emit_c_to, "wb");
+            if (!src || !dst) {
+                if (src) fclose(src);
+                if (dst) fclose(dst);
+                fprintf(stderr, "error: cannot copy C to %s\n", emit_c_to);
+                return 1;
+            }
+            char buf[4096];
+            size_t n;
+            while ((n = fread(buf, 1, sizeof(buf), src)) > 0)
+                fwrite(buf, 1, n, dst);
+            fclose(src);
+            fclose(dst);
+            (void)remove(c_path);
+            arena_free(&arena);
+            free(cache_base);
+            free(cache_dir);
+            free(cache_c);
+            free(cache_bin);
+            fprintf(stderr, "Emitted C to %s (skip run)\n", emit_c_to);
+            return 0;
+        }
         const char *keep_c = getenv("YIS_KEEP_C");
         if (!(keep_c && keep_c[0] && keep_c[0] != '0')) {
             (void)remove(c_path);
@@ -709,7 +760,7 @@ int main(int argc, char **argv) {
         // Compile-time AST/type data is no longer needed after codegen/compile.
         // Release it before running user code to reduce peak RSS.
         arena_free(&arena);
-        rc = run_binary(run_cmd);
+        rc = run_binary_with_args(run_cmd, run_argc, run_argv);
         free(cache_base);
         free(cache_dir);
         free(cache_c);

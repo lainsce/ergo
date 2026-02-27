@@ -297,6 +297,7 @@ static char *c_escape(Arena *arena, Str s) {
         switch (c) {
             case '\\': sb_append(&b, "\\\\"); break;
             case '"': sb_append(&b, "\\\""); break;
+            case '%': sb_append(&b, "%%"); break;
             case '\n': sb_append(&b, "\\n"); break;
             case '\t': sb_append(&b, "\\t"); break;
             case '\r': sb_append(&b, "\\r"); break;
@@ -777,7 +778,7 @@ static ConstEntry *codegen_find_const(ModuleConsts *mc, Str name) {
 
 static bool is_stdr_prelude(Str name) {
     return str_eq_c(name, "write") || str_eq_c(name, "writef") || str_eq_c(name, "readf") ||
-           str_eq_c(name, "len") || str_eq_c(name, "is_null") || str_eq_c(name, "str");
+           str_eq_c(name, "len") || str_eq_c(name, "slice") || str_eq_c(name, "concat") || str_eq_c(name, "char_code") || str_eq_c(name, "is_null") || str_eq_c(name, "str");
 }
 
 static bool is_extern_stub_sig(FunSig *sig) {
@@ -1015,6 +1016,9 @@ static void collect_expr(Codegen *cg, Expr *e, Str path, bool allow_funval) {
             break;
         case EXPR_MEMBER:
             collect_expr(cg, e->as.member.a, path, true);
+            if (e->as.member.a->kind == EXPR_IDENT && codegen_cask_in_scope(cg, e->as.member.a->as.ident.name)) {
+                codegen_add_funval(cg, e->as.member.a->as.ident.name, e->as.member.name);
+            }
             break;
         case EXPR_PAREN:
             collect_expr(cg, e->as.paren.x, path, true);
@@ -1030,6 +1034,12 @@ static void collect_expr(Codegen *cg, Expr *e, Str path, bool allow_funval) {
         case EXPR_ARRAY:
             for (size_t i = 0; i < e->as.array_lit.items_len; i++) {
                 collect_expr(cg, e->as.array_lit.items[i], path, true);
+            }
+            break;
+        case EXPR_DICT:
+            for (size_t i = 0; i < e->as.dict_lit.pairs_len; i++) {
+                collect_expr(cg, e->as.dict_lit.keys[i], path, true);
+                collect_expr(cg, e->as.dict_lit.vals[i], path, true);
             }
             break;
         case EXPR_TUPLE:
@@ -1194,6 +1204,12 @@ static void fv_expr(Expr *e, StrVec *defined, StrVec *free_vars) {
             break;
         case EXPR_ARRAY:
             for (size_t i = 0; i < e->as.array_lit.items_len; i++) fv_expr(e->as.array_lit.items[i], defined, free_vars);
+            break;
+        case EXPR_DICT:
+            for (size_t i = 0; i < e->as.dict_lit.pairs_len; i++) {
+                fv_expr(e->as.dict_lit.keys[i], defined, free_vars);
+                fv_expr(e->as.dict_lit.vals[i], defined, free_vars);
+            }
             break;
         default: break;
     }
@@ -1502,9 +1518,32 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             for (size_t i = 0; i < e->as.array_lit.items_len; i++) {
                 GenExpr ge;
                 if (!gen_expr(cg, path, e->as.array_lit.items[i], &ge, err)) return false;
+                w_line(&cg->w, "yis_retain_val(%s);", ge.tmp);
                 w_line(&cg->w, "yis_arr_add(%s, %s);", arrsym, ge.tmp);
                 gen_expr_release_except(cg, &ge, ge.tmp);
                 gen_expr_free(&ge);
+            }
+            gen_expr_add(out, t);
+            out->tmp = t;
+            return true;
+        }
+        case EXPR_DICT: {
+            cg->arr_id++;
+            char *dictsym = arena_printf(cg->arena, "__d%d", cg->arr_id);
+            char *t = codegen_new_tmp(cg);
+            w_line(&cg->w, "YisDict* %s = stdr_dict_new();", dictsym);
+            w_line(&cg->w, "YisVal %s = YV_DICT(%s);", t, dictsym);
+            for (size_t i = 0; i < e->as.dict_lit.pairs_len; i++) {
+                GenExpr ke, ve;
+                if (!gen_expr(cg, path, e->as.dict_lit.keys[i], &ke, err)) return false;
+                if (!gen_expr(cg, path, e->as.dict_lit.vals[i], &ve, err)) { gen_expr_free(&ke); return false; }
+                w_line(&cg->w, "yis_dict_set(%s, %s, %s);", dictsym, ke.tmp, ve.tmp);
+                w_line(&cg->w, "yis_release_val(%s);", ke.tmp);
+                w_line(&cg->w, "yis_release_val(%s);", ve.tmp);
+                gen_expr_release_except(cg, &ke, ke.tmp);
+                gen_expr_release_except(cg, &ve, ve.tmp);
+                gen_expr_free(&ke);
+                gen_expr_free(&ve);
             }
             gen_expr_add(out, t);
             out->tmp = t;
@@ -2020,8 +2059,12 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             char *t = codegen_new_tmp(cg);
             if (base_ty->tag == TY_PRIM && str_eq_c(base_ty->name, "string")) {
                 w_line(&cg->w, "YisVal %s = stdr_str_at(%s, yis_as_int(%s));", t, at.tmp, it.tmp);
+            } else if (base_ty->tag == TY_DICT) {
+                w_line(&cg->w, "YisVal %s = yis_dict_get((YisDict*)%s.as.p, %s);", t, at.tmp, it.tmp);
             } else {
-                w_line(&cg->w, "YisVal %s = yis_arr_get((YisArr*)%s.as.p, yis_as_int(%s));", t, at.tmp, it.tmp);
+                w_line(&cg->w, "YisVal %s = YV_NULLV;", t);
+                w_line(&cg->w, "if (%s.tag == EVT_ARR) %s = yis_arr_get((YisArr*)%s.as.p, yis_as_int(%s));", at.tmp, t, at.tmp, it.tmp);
+                w_line(&cg->w, "else if (%s.tag == EVT_DICT) %s = yis_dict_get((YisDict*)%s.as.p, %s);", at.tmp, t, at.tmp, it.tmp);
             }
             w_line(&cg->w, "yis_release_val(%s);", at.tmp);
             w_line(&cg->w, "yis_release_val(%s);", it.tmp);
@@ -2092,7 +2135,12 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         gen_expr_free(&vt);
                         return false;
                     }
-                    w_line(&cg->w, "yis_arr_set((YisArr*)%s.as.p, yis_as_int(%s), %s);", at.tmp, it.tmp, vt.tmp);
+                    Ty *base_ty_idx = cg_tc_expr(cg, path, e->as.assign.target->as.index.a, err);
+                    if (base_ty_idx && base_ty_idx->tag == TY_DICT) {
+                        w_line(&cg->w, "yis_dict_set((YisDict*)%s.as.p, %s, %s);", at.tmp, it.tmp, vt.tmp);
+                    } else {
+                        w_line(&cg->w, "yis_arr_set((YisArr*)%s.as.p, yis_as_int(%s), %s);", at.tmp, it.tmp, vt.tmp);
+                    }
                     w_line(&cg->w, "yis_release_val(%s);", at.tmp);
                     w_line(&cg->w, "yis_release_val(%s);", it.tmp);
                     gen_expr_release_except(cg, &at, at.tmp);
@@ -2162,10 +2210,17 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         gen_expr_free(&vt);
                         return cg_set_err(err, path, "out of memory");
                     }
-                    w_line(&cg->w, "YisVal %s = yis_arr_get((YisArr*)%s.as.p, yis_as_int(%s));", cur, at.tmp, it.tmp);
-                    w_line(&cg->w, "YisVal %s = %s(%s, %s);", tret, opfn, cur, vt.tmp);
-                    w_line(&cg->w, "yis_retain_val(%s);", tret);
-                    w_line(&cg->w, "yis_arr_set((YisArr*)%s.as.p, yis_as_int(%s), %s);", at.tmp, it.tmp, tret);
+                    if (base_ty->tag == TY_DICT) {
+                        w_line(&cg->w, "YisVal %s = yis_dict_get((YisDict*)%s.as.p, %s);", cur, at.tmp, it.tmp);
+                        w_line(&cg->w, "YisVal %s = %s(%s, %s);", tret, opfn, cur, vt.tmp);
+                        w_line(&cg->w, "yis_retain_val(%s);", tret);
+                        w_line(&cg->w, "yis_dict_set((YisDict*)%s.as.p, %s, %s);", at.tmp, it.tmp, tret);
+                    } else {
+                        w_line(&cg->w, "YisVal %s = yis_arr_get((YisArr*)%s.as.p, yis_as_int(%s));", cur, at.tmp, it.tmp);
+                        w_line(&cg->w, "YisVal %s = %s(%s, %s);", tret, opfn, cur, vt.tmp);
+                        w_line(&cg->w, "yis_retain_val(%s);", tret);
+                        w_line(&cg->w, "yis_arr_set((YisArr*)%s.as.p, yis_as_int(%s), %s);", at.tmp, it.tmp, tret);
+                    }
                     w_line(&cg->w, "yis_release_val(%s);", cur);
                     w_line(&cg->w, "yis_release_val(%s);", at.tmp);
                     w_line(&cg->w, "yis_release_val(%s);", it.tmp);
@@ -2211,6 +2266,27 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                 Str mod = fn->as.member.a->as.ident.name;
                 if (codegen_cask_in_scope(cg, mod)) {
                     Str name = fn->as.member.name;
+                    /* Emit stdr.slice(s, start, end) as stdr_slice directly so arg order is guaranteed (avoids "expected int (got string)" from wrong wrapper). */
+                    if (str_eq_c(mod, "stdr") && str_eq_c(name, "slice") && e->as.call.args_len == 3) {
+                        GenExpr sv, startv, endv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &sv, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &startv, err)) { gen_expr_free(&sv); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[2], &endv, err)) { gen_expr_free(&sv); gen_expr_free(&startv); return false; }
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_slice(%s, yis_as_int(%s), yis_as_int(%s));", t, sv.tmp, startv.tmp, endv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", sv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", startv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", endv.tmp);
+                        gen_expr_release_except(cg, &sv, sv.tmp);
+                        gen_expr_release_except(cg, &startv, startv.tmp);
+                        gen_expr_release_except(cg, &endv, endv.tmp);
+                        gen_expr_free(&sv);
+                        gen_expr_free(&startv);
+                        gen_expr_free(&endv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     FunSig *sig = codegen_fun_sig(cg, mod, name);
                     if (!sig) {
                         return cg_set_errf(err, path, e->line, e->col, "unknown %.*s.%.*s", (int)mod.len, mod.data, (int)name.len, name.data);
@@ -2435,6 +2511,18 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__num")) {
+                        GenExpr at;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &at, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = YV_INT(stdr_num(%s));", t, at.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", at.tmp);
+                        gen_expr_release_except(cg, &at, at.tmp);
+                        gen_expr_free(&at);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__write")) {
                         GenExpr arg;
                         if (!gen_expr(cg, path, e->as.call.args[0], &arg, err)) return false;
@@ -2473,6 +2561,26 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__args")) {
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_args();", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__run_command")) {
+                        if (e->as.call.args_len != 1) return cg_set_err(err, path, "__run_command expects 1 arg");
+                        GenExpr cmdv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &cmdv, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_run_command(%s);", t, cmdv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", cmdv.tmp);
+                        gen_expr_release_except(cg, &cmdv, cmdv.tmp);
+                        gen_expr_free(&cmdv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__read_text_file")) {
                         if (e->as.call.args_len != 1) return cg_set_err(err, path, "__read_text_file expects 1 arg");
                         GenExpr pathv;
@@ -2482,6 +2590,74 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         w_line(&cg->w, "yis_release_val(%s);", pathv.tmp);
                         gen_expr_release_except(cg, &pathv, pathv.tmp);
                         gen_expr_free(&pathv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__slice")) {
+                        if (e->as.call.args_len != 3) return cg_set_err(err, path, "__slice expects 3 args");
+                        GenExpr sv, startv, endv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &sv, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &startv, err)) { gen_expr_free(&sv); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[2], &endv, err)) { gen_expr_free(&sv); gen_expr_free(&startv); return false; }
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_slice(%s, yis_as_int(%s), yis_as_int(%s));", t, sv.tmp, startv.tmp, endv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", sv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", startv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", endv.tmp);
+                        gen_expr_release_except(cg, &sv, sv.tmp);
+                        gen_expr_release_except(cg, &startv, startv.tmp);
+                        gen_expr_release_except(cg, &endv, endv.tmp);
+                        gen_expr_free(&sv);
+                        gen_expr_free(&startv);
+                        gen_expr_free(&endv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__concat")) {
+                        if (e->as.call.args_len != 2) return cg_set_err(err, path, "__concat expects 2 args");
+                        GenExpr av, bv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &av, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &bv, err)) { gen_expr_free(&av); return false; }
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_array_concat(%s, %s);", t, av.tmp, bv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", av.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", bv.tmp);
+                        gen_expr_release_except(cg, &av, av.tmp);
+                        gen_expr_release_except(cg, &bv, bv.tmp);
+                        gen_expr_free(&av);
+                        gen_expr_free(&bv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__str_concat")) {
+                        if (e->as.call.args_len != 2) return cg_set_err(err, path, "__str_concat expects 2 args");
+                        GenExpr av, bv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &av, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &bv, err)) { gen_expr_free(&av); return false; }
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_str_concat(%s, %s);", t, av.tmp, bv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", av.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", bv.tmp);
+                        gen_expr_release_except(cg, &av, av.tmp);
+                        gen_expr_release_except(cg, &bv, bv.tmp);
+                        gen_expr_free(&av);
+                        gen_expr_free(&bv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__char_code")) {
+                        if (e->as.call.args_len != 1) return cg_set_err(err, path, "__char_code expects 1 arg");
+                        GenExpr cv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &cv, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = YV_INT(stdr_char_code(%s));", t, cv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", cv.tmp);
+                        gen_expr_release_except(cg, &cv, cv.tmp);
+                        gen_expr_free(&cv);
                         gen_expr_add(out, t);
                         out->tmp = t;
                         return true;
@@ -3766,8 +3942,9 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
     }
     w_line(&cg->w, "");
 
-    w_line(&cg->w, "int main(void) {");
+    w_line(&cg->w, "int main(int argc, char **argv) {");
     cg->w.indent++;
+    w_line(&cg->w, "yis_set_args(argc, argv);");
     w_line(&cg->w, "#ifdef __OBJC__");
     w_line(&cg->w, "@autoreleasepool {");
     cg->w.indent++;

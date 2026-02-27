@@ -156,6 +156,7 @@ Current macro behavior:
 ### 6.2 Composite Types
 
 - Arrays: `[T]`
+- Dicts: `[K => V]` (key type must be `string`; e.g. `[string => num]`). Literal: `[ "a" => 1, "b" => 2 ]`. Empty: `[]: [string => T]`.
 - Tuples: expression tuples `(a, b, c)` and multi-return tuples
 - Classes: `ClassName` or `mod.ClassName`
 
@@ -461,11 +462,12 @@ Current core functions:
 - `writef(fmt, ...)`
 - `readf(fmt, ...hints)` -> `(string, any)`
 - `write(x)`
-- `len(x)` -> `num`
+- `len(x)` -> `num` (arrays, strings, dicts)
 - `is_null(x)` -> `bool`
 - `str(x)` -> `string`
 - `read_text_file(path)` -> `any` (`null` on failure)
 - `write_text_file(path, text)` -> `bool`
+- `run_command(cmd)` -> `(num, string)` (exit code and stdout)
 - `open_file_dialog(prompt, extension)` -> `any`
 - `save_file_dialog(prompt, default_name, extension)` -> `any`
 

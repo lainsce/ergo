@@ -12,7 +12,8 @@
 
 typedef enum {
     TYPE_NAME,
-    TYPE_ARRAY
+    TYPE_ARRAY,
+    TYPE_DICT
 } TypeKind;
 
 typedef struct TypeRef TypeRef;
@@ -24,6 +25,7 @@ struct TypeRef {
     union {
         Str name;
         TypeRef *elem;
+        struct { TypeRef *key_typ; TypeRef *val_typ; } dict;
     } as;
 };
 
@@ -66,7 +68,8 @@ typedef enum {
     EXPR_NEW,
     EXPR_IF,
     EXPR_TERNARY,
-    EXPR_MOVE
+    EXPR_MOVE,
+    EXPR_DICT
 } ExprKind;
 
 typedef struct Expr Expr;
@@ -197,6 +200,13 @@ typedef struct {
     Expr *x;
 } ExprMove;
 
+typedef struct {
+    Expr **keys;
+    Expr **vals;
+    size_t pairs_len;
+    TypeRef *annot;
+} ExprDict;
+
 struct Expr {
     ExprKind kind;
     int line;
@@ -223,6 +233,7 @@ struct Expr {
         ExprIf if_expr;
         ExprTernary ternary;
         ExprMove move;
+        ExprDict dict_lit;
     } as;
 };
 

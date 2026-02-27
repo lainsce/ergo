@@ -276,6 +276,13 @@ static Expr *clone_expr_with_binds(Arena *arena, Expr *e, MacroBind *binds, size
             out->as.array_lit.items = clone_expr_list_with_binds(arena, e->as.array_lit.items, e->as.array_lit.items_len, binds, binds_len, err);
             out->as.array_lit.annot = e->as.array_lit.annot;
             return out;
+        case EXPR_DICT: {
+            out->as.dict_lit.pairs_len = e->as.dict_lit.pairs_len;
+            out->as.dict_lit.keys = clone_expr_list_with_binds(arena, e->as.dict_lit.keys, e->as.dict_lit.pairs_len, binds, binds_len, err);
+            out->as.dict_lit.vals = clone_expr_list_with_binds(arena, e->as.dict_lit.vals, e->as.dict_lit.pairs_len, binds, binds_len, err);
+            out->as.dict_lit.annot = e->as.dict_lit.annot;
+            return out;
+        }
         case EXPR_TUPLE:
             out->as.tuple_lit.items_len = e->as.tuple_lit.items_len;
             out->as.tuple_lit.items = clone_expr_list_with_binds(arena, e->as.tuple_lit.items, e->as.tuple_lit.items_len, binds, binds_len, err);
@@ -642,6 +649,17 @@ static Expr *lower_expr(Arena *arena, Expr *e, Diag *err) {
             arr->as.array_lit.items_len = e->as.array_lit.items_len;
             arr->as.array_lit.annot = e->as.array_lit.annot;
             return arr;
+        }
+        case EXPR_DICT: {
+            Expr **keys = lower_expr_list(arena, e->as.dict_lit.keys, e->as.dict_lit.pairs_len, err);
+            Expr **vals = lower_expr_list(arena, e->as.dict_lit.vals, e->as.dict_lit.pairs_len, err);
+            Expr *d = new_expr_like(arena, e, EXPR_DICT, err);
+            if (!d) return NULL;
+            d->as.dict_lit.keys = keys;
+            d->as.dict_lit.vals = vals;
+            d->as.dict_lit.pairs_len = e->as.dict_lit.pairs_len;
+            d->as.dict_lit.annot = e->as.dict_lit.annot;
+            return d;
         }
         case EXPR_TUPLE: {
             Expr **items = lower_expr_list(arena, e->as.tuple_lit.items, e->as.tuple_lit.items_len, err);
@@ -1312,6 +1330,14 @@ static Ty *ty_array(Arena *arena, Ty *elem) {
     return t;
 }
 
+static Ty *ty_dict(Arena *arena, Ty *key, Ty *val) {
+    Ty *t = ty_new(arena, TY_DICT);
+    if (!t) return NULL;
+    t->key = key;
+    t->elem = val;
+    return t;
+}
+
 static Ty *ty_tuple(Arena *arena, Ty **items, size_t len) {
     Ty *t = ty_new(arena, TY_TUPLE);
     if (!t) return NULL;
@@ -1381,6 +1407,9 @@ static void ty_desc(Ty *t, char *buf, size_t cap) {
             return;
         case TY_ARRAY:
             snprintf(buf, cap, "array");
+            return;
+        case TY_DICT:
+            snprintf(buf, cap, "dict");
             return;
         case TY_TUPLE:
             snprintf(buf, cap, "tuple");
@@ -1832,6 +1861,12 @@ static Ty *ty_from_type_ref(GlobalEnv *env, TypeRef *tref, Str ctx_mod, Str *imp
     if (tref->kind == TYPE_ARRAY) {
         Ty *elem = ty_from_type_ref(env, tref->as.elem, ctx_mod, imports, imports_len, err);
         return ty_array(env->arena, elem);
+    }
+    if (tref->kind == TYPE_DICT) {
+        Ty *key = ty_from_type_ref(env, tref->as.dict.key_typ, ctx_mod, imports, imports_len, err);
+        Ty *val = ty_from_type_ref(env, tref->as.dict.val_typ, ctx_mod, imports, imports_len, err);
+        if (!key || !val) return NULL;
+        return ty_dict(env->arena, key, val);
     }
     Str n = tref->as.name;
     if (str_eq_c(n, "str")) {
@@ -2508,7 +2543,7 @@ static bool is_mut_lvalue(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env) {
 }
 
 static bool is_stdr_prelude(Str name) {
-    return str_eq_c(name, "write") || str_eq_c(name, "writef") || str_eq_c(name, "readf") || str_eq_c(name, "len") || str_eq_c(name, "is_null") || str_eq_c(name, "str");
+    return str_eq_c(name, "write") || str_eq_c(name, "writef") || str_eq_c(name, "readf") || str_eq_c(name, "len") || str_eq_c(name, "slice") || str_eq_c(name, "concat") || str_eq_c(name, "str_concat") || str_eq_c(name, "char_code") || str_eq_c(name, "is_null") || str_eq_c(name, "str");
 }
 
 static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *err);
@@ -2986,6 +3021,41 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
             }
             return ty_array(env->arena, t0);
         }
+        case EXPR_DICT: {
+            Ty *key_ty = ty_prim(env->arena, "string");
+            if (e->as.dict_lit.pairs_len == 0) {
+                if (!e->as.dict_lit.annot) {
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: cannot infer type of empty dict []", (int)ctx->cask_path.len, ctx->cask_path.data);
+                    return NULL;
+                }
+                Ty *annot = ty_from_type_ref(env, e->as.dict_lit.annot, ctx->cask_name, ctx->imports, ctx->imports_len, err);
+                if (!annot) return NULL;
+                if (annot->tag != TY_DICT || !annot->key || !annot->elem) {
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: empty dict annotation must be dict type like [string -> num]", (int)ctx->cask_path.len, ctx->cask_path.data);
+                    return NULL;
+                }
+                return annot;
+            }
+            Ty *val_ty = tc_expr_inner(e->as.dict_lit.vals[0], ctx, loc, env, err);
+            for (size_t i = 0; i < e->as.dict_lit.pairs_len; i++) {
+                Ty *kt = tc_expr_inner(e->as.dict_lit.keys[i], ctx, loc, env, err);
+                unify(env->arena, kt, key_ty, ctx->cask_path, "dict key", NULL, err);
+                if (i > 0) {
+                    Ty *vt = tc_expr_inner(e->as.dict_lit.vals[i], ctx, loc, env, err);
+                    val_ty = unify(env->arena, val_ty, vt, ctx->cask_path, "dict literal", NULL, err);
+                }
+            }
+            if (e->as.dict_lit.annot) {
+                Ty *annot = ty_from_type_ref(env, e->as.dict_lit.annot, ctx->cask_name, ctx->imports, ctx->imports_len, err);
+                if (!annot) return NULL;
+                if (annot->tag != TY_DICT || !annot->elem) {
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: dict annotation must be dict type like [string -> num]", (int)ctx->cask_path.len, ctx->cask_path.data);
+                    return NULL;
+                }
+                val_ty = unify(env->arena, val_ty, annot->elem, ctx->cask_path, "dict annotation", NULL, err);
+            }
+            return ty_dict(env->arena, key_ty, val_ty);
+        }
         case EXPR_UNARY: {
             Ty *tx = tc_expr_inner(e->as.unary.x, ctx, loc, env, err);
             if (e->as.unary.op == TOK_BANG) {
@@ -3227,13 +3297,26 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
         case EXPR_INDEX: {
             Ty *ta = tc_expr_inner(e->as.index.a, ctx, loc, env, err);
             Ty *ti = tc_expr_inner(e->as.index.i, ctx, loc, env, err);
-            unify(env->arena, ti, ty_prim(env->arena, "num"), ctx->cask_path, "index", NULL, err);
+            if (!ta || !ti) return NULL;
             if (ty_is_nullable(ta)) {
                 set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: indexing nullable value", (int)ctx->cask_path.len, ctx->cask_path.data);
                 return NULL;
             }
             ta = ty_strip_nullable(ta);
+            if (!ta) return NULL;
+            if (ta->tag == TY_DICT) {
+                unify(env->arena, ti, ty_prim(env->arena, "string"), ctx->cask_path, "dict index", NULL, err);
+            } else if (ta->tag != TY_PRIM || !str_eq_c(ta->name, "any")) {
+                unify(env->arena, ti, ty_prim(env->arena, "num"), ctx->cask_path, "index", NULL, err);
+            }
+            if (ty_is_nullable(ta)) {
+                set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: indexing nullable value", (int)ctx->cask_path.len, ctx->cask_path.data);
+                return NULL;
+            }
+            ta = ty_strip_nullable(ta);
+            if (!ta) return NULL;
             if (ta->tag == TY_ARRAY && ta->elem) return ty_nullable(env->arena, ta->elem);
+            if (ta->tag == TY_DICT && ta->elem) return ty_nullable(env->arena, ta->elem);
             if (ta->tag == TY_TUPLE && ta->items) {
                 if (e->as.index.i->kind == EXPR_INT) {
                     long long idx = e->as.index.i->as.int_lit.v;
@@ -3247,7 +3330,8 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                 return NULL;
             }
             if (ta->tag == TY_PRIM && str_eq_c(ta->name, "string")) return ty_prim(env->arena, "string");
-            set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: indexing requires array or string", (int)ctx->cask_path.len, ctx->cask_path.data);
+            if (ta->tag == TY_PRIM && str_eq_c(ta->name, "any")) return ty_prim(env->arena, "any");
+            set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: indexing requires array, dict, or string", (int)ctx->cask_path.len, ctx->cask_path.data);
             return NULL;
         }
         case EXPR_TERNARY: {
@@ -4042,6 +4126,12 @@ static void lint_expr(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, LintState 
         case EXPR_ARRAY:
             for (size_t i = 0; i < e->as.array_lit.items_len; i++) {
                 lint_expr(e->as.array_lit.items[i], ctx, loc, env, ls);
+            }
+            return;
+        case EXPR_DICT:
+            for (size_t i = 0; i < e->as.dict_lit.pairs_len; i++) {
+                lint_expr(e->as.dict_lit.keys[i], ctx, loc, env, ls);
+                lint_expr(e->as.dict_lit.vals[i], ctx, loc, env, ls);
             }
             return;
         default:

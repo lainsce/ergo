@@ -24,6 +24,14 @@ int fileno(FILE*);
 
 static int yis_stdout_isatty = 0;
 
+static int yis_argc = 0;
+static char **yis_argv = NULL;
+
+void yis_set_args(int argc, char **argv) {
+  yis_argc = argc;
+  yis_argv = argv;
+}
+
 #define COGITO_DEFINED_COGITO_DEBUG_ENABLED
 static bool cogito_debug_enabled(void) { return false; }
 static const char* cogito_font_path_active = NULL;
@@ -52,6 +60,7 @@ typedef enum {
   EVT_BOOL,
   EVT_STR,
   EVT_ARR,
+  EVT_DICT,
   EVT_OBJ,
   EVT_FN
 } YisTag;
@@ -71,6 +80,28 @@ typedef struct YisArr {
   YisVal* items;
 } YisArr;
 
+struct YisVal {
+  YisTag tag;
+  union {
+    int64_t i;
+    double f;
+    bool b;
+    void* p;
+  } as;
+};
+
+typedef struct YisDictEnt {
+  YisStr* key;
+  YisVal val;
+} YisDictEnt;
+
+typedef struct YisDict {
+  int ref;
+  size_t len;
+  size_t cap;
+  YisDictEnt* entries;
+} YisDict;
+
 typedef struct YisObj {
   int ref;
   void (*drop)(struct YisObj*);
@@ -84,22 +115,13 @@ typedef struct YisFn {
   int env_size;
 } YisFn;
 
-struct YisVal {
-  YisTag tag;
-  union {
-    int64_t i;
-    double f;
-    bool b;
-    void* p;
-  } as;
-};
-
 #define YV_NULLV ((YisVal){.tag=EVT_NULL})
 #define YV_INT(x) ((YisVal){.tag=EVT_INT, .as.i=(int64_t)(x)})
 #define YV_FLOAT(x) ((YisVal){.tag=EVT_FLOAT, .as.f=(double)(x)})
 #define YV_BOOL(x) ((YisVal){.tag=EVT_BOOL, .as.b=(x)?true:false})
 #define YV_STR(x) ((YisVal){.tag=EVT_STR, .as.p=(x)})
 #define YV_ARR(x) ((YisVal){.tag=EVT_ARR, .as.p=(x)})
+#define YV_DICT(x) ((YisVal){.tag=EVT_DICT, .as.p=(x)})
 #define YV_OBJ(x) ((YisVal){.tag=EVT_OBJ, .as.p=(x)})
 #define YV_FN(x) ((YisVal){.tag=EVT_FN, .as.p=(x)})
 
@@ -111,6 +133,7 @@ static void yis_trap(const char* msg) {
 
 static void yis_retain_val(YisVal v);
 static void yis_release_val(YisVal v);
+static int64_t yis_as_int(YisVal v);
 
 // Static constant strings (ref=INT32_MAX means never freed)
 static YisStr yis_static_empty    = { INT32_MAX, 0, "" };
@@ -118,6 +141,7 @@ static YisStr yis_static_null     = { INT32_MAX, 4, "null" };
 static YisStr yis_static_true     = { INT32_MAX, 4, "true" };
 static YisStr yis_static_false    = { INT32_MAX, 5, "false" };
 static YisStr yis_static_array    = { INT32_MAX, 7, "[array]" };
+static YisStr yis_static_dict     = { INT32_MAX, 6, "[dict]" };
 static YisStr yis_static_object   = { INT32_MAX, 8, "[object]" };
 static YisStr yis_static_function = { INT32_MAX, 10, "[function]" };
 static YisStr yis_static_unknown  = { INT32_MAX, 3, "<?>" };
@@ -141,6 +165,11 @@ static YisVal yis_arr_get(YisArr* a, int64_t idx);
 static void yis_arr_set(YisArr* a, int64_t idx, YisVal v);
 static YisVal yis_arr_remove(YisArr* a, int64_t idx);
 
+static YisDict* stdr_dict_new(void);
+static void yis_dict_set(YisDict* d, YisVal key, YisVal val);
+static YisVal yis_dict_get(YisDict* d, YisVal key);
+static int yis_dict_len(YisDict* d);
+
 static YisVal stdr_str_at(YisVal v, int64_t idx) {
   if (v.tag != EVT_STR) yis_trap("str_at expects string");
   YisStr* s = (YisStr*)v.as.p;
@@ -148,10 +177,40 @@ static YisVal stdr_str_at(YisVal v, int64_t idx) {
   return YV_STR(stdr_str_from_slice(s->data + idx, 1));
 }
 
+static YisVal stdr_slice(YisVal sv, int64_t start, int64_t end) {
+  if (sv.tag != EVT_STR) yis_trap("slice expects string");
+  YisStr* s = (YisStr*)sv.as.p;
+  size_t len = s->len;
+  if (start < 0) start = 0;
+  if ((size_t)start > len) start = (int64_t)len;
+  if (end < start) end = start;
+  if ((size_t)end > len) end = (int64_t)len;
+  size_t n = (size_t)(end - start);
+  if (n == 0) return YV_STR(&yis_static_empty);
+  return YV_STR(stdr_str_from_slice(s->data + start, n));
+}
+
+static YisVal stdr_str_concat(YisVal a, YisVal b) {
+  YisVal parts[2] = { a, b };
+  return YV_STR(stdr_str_from_parts(2, parts));
+}
+
+static int64_t stdr_char_code(YisVal cv) {
+  if (cv.tag != EVT_STR) yis_trap("char_code expects string");
+  YisStr* s = (YisStr*)cv.as.p;
+  if (s->len == 0) return 0;
+  return (unsigned char)s->data[0];
+}
+
 static int stdr_len(YisVal v) {
   if (v.tag == EVT_STR) return (int)((YisStr*)v.as.p)->len;
   if (v.tag == EVT_ARR) return (int)((YisArr*)v.as.p)->len;
+  if (v.tag == EVT_DICT) return (int)((YisDict*)v.as.p)->len;
   return 0;
+}
+
+static int64_t stdr_num(YisVal v) {
+  return yis_as_int(v);
 }
 
 static bool stdr_is_null(YisVal v) { return v.tag == EVT_NULL; }
@@ -159,7 +218,7 @@ static bool stdr_is_null(YisVal v) { return v.tag == EVT_NULL; }
 static void stdr_write(YisVal v) {
   YisStr* s = stdr_to_string(v);
   fwrite(s->data, 1, s->len, stdout);
-  if (yis_stdout_isatty) fflush(stdout);
+  fflush(stdout);
   yis_release_val(YV_STR(s));
 }
 
@@ -271,6 +330,63 @@ static YisVal stdr_write_text_file(YisVal pathv, YisVal textv) {
   return YV_BOOL(ok);
 }
 
+static YisVal stdr_run_command(YisVal cmdv) {
+  if (cmdv.tag != EVT_STR) yis_trap("run_command expects string");
+  YisStr* cmd = (YisStr*)cmdv.as.p;
+#if defined(_WIN32)
+  FILE* p = _popen(cmd->data, "r");
+#else
+  FILE* p = popen(cmd->data, "r");
+#endif
+  if (!p) {
+    YisArr* out = stdr_arr_new(2);
+    yis_arr_add(out, YV_INT(-1));
+    yis_arr_add(out, YV_STR(stdr_str_lit("")));
+    return YV_ARR(out);
+  }
+  size_t cap = 4096;
+  size_t len = 0;
+  char* buf = (char*)malloc(cap);
+  if (!buf) {
+#if defined(_WIN32)
+    _pclose(p);
+#else
+    pclose(p);
+#endif
+    yis_trap("out of memory");
+  }
+  int c;
+  while ((c = fgetc(p)) != EOF) {
+    if (len + 1 >= cap) {
+      cap *= 2;
+      char* n = (char*)realloc(buf, cap);
+      if (!n) {
+        free(buf);
+#if defined(_WIN32)
+        _pclose(p);
+#else
+        pclose(p);
+#endif
+        yis_trap("out of memory");
+      }
+      buf = n;
+    }
+    buf[len++] = (char)c;
+  }
+  buf[len] = '\0';
+#if defined(_WIN32)
+  int status = _pclose(p);
+#else
+  int status = pclose(p);
+#endif
+  YisStr* out_str = stdr_str_from_slice(buf, len);
+  free(buf);
+  YisArr* out = stdr_arr_new(2);
+  yis_arr_add(out, YV_INT(status));
+  yis_arr_add(out, YV_STR(out_str));
+  return YV_ARR(out);
+}
+
 static YisVal stdr_capture_shell_first_line(const char* cmd) {
   if (!cmd || !cmd[0]) return YV_NULLV;
 #if defined(_WIN32)
@@ -367,6 +483,16 @@ static YisStr* stdr_str_from_slice(const char* s, size_t len) {
   if (len > 0) memcpy(st->data, s, len);
   st->data[len] = 0;
   return st;
+}
+
+static YisVal stdr_args(void) {
+  YisArr* a = stdr_arr_new(yis_argc > 0 ? yis_argc : 1);
+  for (int i = 0; i < yis_argc; i++) {
+    const char* s = yis_argv && yis_argv[i] ? yis_argv[i] : "";
+    size_t len = strlen(s);
+    yis_arr_add(a, YV_STR(stdr_str_from_slice(s, len)));
+  }
+  return YV_ARR(a);
 }
 
 static int64_t stdr_parse_int_slice(const char* s, size_t len) {
@@ -521,6 +647,7 @@ static YisStr* stdr_to_string(YisVal v) {
     return (YisStr*)v.as.p;
   }
   if (v.tag == EVT_ARR) return &yis_static_array;
+  if (v.tag == EVT_DICT) return &yis_static_dict;
   if (v.tag == EVT_OBJ) return &yis_static_object;
   if (v.tag == EVT_FN) return &yis_static_function;
   return &yis_static_unknown;
@@ -552,6 +679,7 @@ static YisStr* stdr_str_from_parts(int n, YisVal* parts) {
 static void yis_retain_val(YisVal v) {
   if (v.tag == EVT_STR) { int* r = &((YisStr*)v.as.p)->ref; if (*r != INT32_MAX) (*r)++; }
   else if (v.tag == EVT_ARR) ((YisArr*)v.as.p)->ref++;
+  else if (v.tag == EVT_DICT) ((YisDict*)v.as.p)->ref++;
   else if (v.tag == EVT_OBJ) ((YisObj*)v.as.p)->ref++;
   else if (v.tag == EVT_FN) ((YisFn*)v.as.p)->ref++;
 }
@@ -570,6 +698,16 @@ static void yis_release_val(YisVal v) {
       for (size_t i = 0; i < a->len; i++) yis_release_val(a->items[i]);
       free(a->items);
       free(a);
+    }
+  } else if (v.tag == EVT_DICT) {
+    YisDict* d = (YisDict*)v.as.p;
+    if (--d->ref == 0) {
+      for (size_t i = 0; i < d->len; i++) {
+        yis_release_val(YV_STR(d->entries[i].key));
+        yis_release_val(d->entries[i].val);
+      }
+      free(d->entries);
+      free(d);
     }
   } else if (v.tag == EVT_OBJ) {
     YisObj* o = (YisObj*)v.as.p;
@@ -605,7 +743,35 @@ static int64_t yis_as_int(YisVal v) {
   if (v.tag == EVT_INT) return v.as.i;
   if (v.tag == EVT_BOOL) return v.as.b ? 1 : 0;
   if (v.tag == EVT_FLOAT) return (int64_t)v.as.f;
-  yis_trap("type mismatch: expected int");
+  if (v.tag == EVT_STR) {
+    /* Coerce string to int when possible; otherwise 0 (avoids trap until codegen is fully audited) */
+    YisStr *s = (YisStr*)v.as.p;
+    if (s && s->len > 0 && s->len < 32) {
+      char buf[32];
+      memcpy(buf, s->data, s->len);
+      buf[s->len] = '\0';
+      char *end = NULL;
+      long x = strtol(buf, &end, 10);
+      if (end && end == buf + (ptrdiff_t)s->len)
+        return (int64_t)x;
+    }
+    return 0;
+  }
+  {
+    const char *tag_name = "?";
+    switch (v.tag) {
+      case EVT_NULL: tag_name = "null"; break;
+      case EVT_STR: tag_name = "string"; break;
+      case EVT_ARR: tag_name = "array"; break;
+      case EVT_DICT: tag_name = "dict"; break;
+      case EVT_OBJ: tag_name = "object"; break;
+      case EVT_FN: tag_name = "function"; break;
+      default: tag_name = "unknown"; break;
+    }
+    char buf[80];
+    snprintf(buf, sizeof(buf), "type mismatch: expected int (got %s)", tag_name);
+    yis_trap(buf);
+  }
   return 0;
 }
 
@@ -623,6 +789,7 @@ static bool yis_as_bool(YisVal v) {
   if (v.tag == EVT_FLOAT) return v.as.f != 0.0;
   if (v.tag == EVT_STR) return ((YisStr*)v.as.p)->len != 0;
   if (v.tag == EVT_ARR) return ((YisArr*)v.as.p)->len != 0;
+  if (v.tag == EVT_DICT) return ((YisDict*)v.as.p)->len != 0;
   return true;
 }
 
@@ -700,7 +867,24 @@ static void yis_arr_add(YisArr* a, YisVal v) {
   a->items[a->len++] = v;
 }
 
+static YisVal stdr_array_concat(YisVal av, YisVal bv) {
+  if (av.tag != EVT_ARR || bv.tag != EVT_ARR) yis_trap("concat expects two arrays");
+  YisArr* a = (YisArr*)av.as.p;
+  YisArr* b = (YisArr*)bv.as.p;
+  YisArr* out = stdr_arr_new((int)(a->len + b->len));
+  for (size_t i = 0; i < a->len; i++) {
+    yis_retain_val(a->items[i]);
+    yis_arr_add(out, a->items[i]);
+  }
+  for (size_t i = 0; i < b->len; i++) {
+    yis_retain_val(b->items[i]);
+    yis_arr_add(out, b->items[i]);
+  }
+  return YV_ARR(out);
+}
+
 static YisVal yis_arr_get(YisArr* a, int64_t idx) {
+  if (!a) yis_trap("array index on null");
   if (idx < 0 || (size_t)idx >= a->len) return YV_NULLV;
   YisVal v = a->items[idx];
   yis_retain_val(v);
@@ -708,9 +892,20 @@ static YisVal yis_arr_get(YisArr* a, int64_t idx) {
 }
 
 static void yis_arr_set(YisArr* a, int64_t idx, YisVal v) {
-  if (idx < 0 || (size_t)idx >= a->len) return;
-  yis_release_val(a->items[idx]);
-  a->items[idx] = v;
+  if (idx < 0) return;
+  size_t uidx = (size_t)idx;
+  if (uidx >= a->len) {
+    if (uidx >= a->cap) {
+      size_t new_cap = a->cap ? a->cap : 4;
+      while (new_cap <= uidx) new_cap *= 2;
+      a->items = (YisVal*)realloc(a->items, sizeof(YisVal) * new_cap);
+      a->cap = new_cap;
+    }
+    for (size_t i = a->len; i < uidx; i++) a->items[i] = YV_NULLV;
+    a->len = uidx + 1;
+  }
+  yis_release_val(a->items[uidx]);
+  a->items[uidx] = v;
 }
 
 static YisVal yis_arr_remove(YisArr* a, int64_t idx) {
@@ -721,6 +916,58 @@ static YisVal yis_arr_remove(YisArr* a, int64_t idx) {
   }
   a->len--;
   return v;
+}
+
+static int yis_str_cmp(YisStr* a, YisStr* b) {
+  if (a->len != b->len) return (a->len > b->len) ? 1 : -1;
+  return memcmp(a->data, b->data, a->len);
+}
+
+static YisDict* stdr_dict_new(void) {
+  YisDict* d = (YisDict*)malloc(sizeof(YisDict));
+  d->ref = 1;
+  d->len = 0;
+  d->cap = 8;
+  d->entries = (YisDictEnt*)malloc(sizeof(YisDictEnt) * d->cap);
+  return d;
+}
+
+static void yis_dict_set(YisDict* d, YisVal key, YisVal val) {
+  if (key.tag != EVT_STR) yis_trap("dict key must be string");
+  YisStr* k = (YisStr*)key.as.p;
+  for (size_t i = 0; i < d->len; i++) {
+    if (yis_str_cmp(d->entries[i].key, k) == 0) {
+      yis_release_val(d->entries[i].val);
+      d->entries[i].val = val;
+      return;
+    }
+  }
+  if (d->len >= d->cap) {
+    d->cap *= 2;
+    d->entries = (YisDictEnt*)realloc(d->entries, sizeof(YisDictEnt) * d->cap);
+  }
+  yis_retain_val(key);
+  yis_retain_val(val);
+  d->entries[d->len].key = k;
+  d->entries[d->len].val = val;
+  d->len++;
+}
+
+static YisVal yis_dict_get(YisDict* d, YisVal key) {
+  if (key.tag != EVT_STR) yis_trap("dict key must be string");
+  YisStr* k = (YisStr*)key.as.p;
+  for (size_t i = 0; i < d->len; i++) {
+    if (yis_str_cmp(d->entries[i].key, k) == 0) {
+      YisVal v = d->entries[i].val;
+      yis_retain_val(v);
+      return v;
+    }
+  }
+  return YV_NULLV;
+}
+
+static int yis_dict_len(YisDict* d) {
+  return (int)d->len;
 }
 
 static YisObj* yis_obj_new(size_t size, void (*drop)(YisObj*)) {
