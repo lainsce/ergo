@@ -3093,6 +3093,9 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
         case EXPR_BINARY: {
             Ty *ta = tc_expr_inner(e->as.binary.a, ctx, loc, env, err);
             Ty *tb = tc_expr_inner(e->as.binary.b, ctx, loc, env, err);
+            if (!ta || !tb) {
+                return NULL;
+            }
             TokKind op = e->as.binary.op;
             if (op == TOK_QQ) {
                 if (ty_is_void(ta) || ty_is_void(tb)) {
@@ -3118,7 +3121,12 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                     return NULL;
                 }
                 if (!ty_is_numeric(ty_strip_nullable(ta)) || !ty_is_numeric(ty_strip_nullable(tb))) {
-                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: comparison expects numeric types", (int)ctx->cask_path.len, ctx->cask_path.data);
+                    char da[64];
+                    char db[64];
+                    ty_desc(ta, da, sizeof(da));
+                    ty_desc(tb, db, sizeof(db));
+                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: comparison expects numeric types (left: %s, right: %s)",
+                             (int)ctx->cask_path.len, ctx->cask_path.data, da, db);
                     return NULL;
                 }
                 return ty_prim(env->arena, "bool");
