@@ -2940,7 +2940,7 @@ static void __cogito_list_on_select(YisVal listv, YisVal handler) {
   cogito_list_on_select(list, cogito_cb_select, h);
 }
 
-static void __cogito_list_on_activate(YisVal listv, YisVal handler) {
+static void __cogito_content_list_on_activate(YisVal listv, YisVal handler) {
   cogito_node* list = cogito_node_from_val(listv);
   CogitoHandle* h = (CogitoHandle*)listv.as.p;
   if (handler.tag != EVT_FN) {
@@ -3297,7 +3297,7 @@ static YisVal __cogito_open_url(YisVal urlv) {
 #define cogito_checkbox_on_change __cogito_checkbox_on_change
 #define cogito_switch_on_change __cogito_switch_on_change
 #define cogito_list_on_select __cogito_list_on_select
-#define cogito_list_on_activate __cogito_list_on_activate
+#define cogito_list_on_activate __cogito_content_list_on_activate
 #define cogito_grid_on_select __cogito_grid_on_select
 #define cogito_grid_on_activate __cogito_grid_on_activate
 void __cogito_button_on_click(YisVal btn, YisVal handler);
