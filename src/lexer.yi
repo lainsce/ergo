@@ -14,7 +14,7 @@ fun tok(kind = string, line = num, col = num, text = string, int_val = num, str_
   t[k_line] = line
   t[k_col] = col
   if stdr.len(text) > 0 { t[k_text] = text }
-  if int_val != 0 || kind == "int" { t[k_int_val] = int_val }
+  if int_val != 0 || kind == "int" || kind == "float" { t[k_int_val] = int_val }
   if stdr.len(str_val) > 0 || kind == "str" { t[k_str_val] = str_val }
   return t
 }
@@ -195,7 +195,23 @@ fun lex_one(source = string, i = num, line = num, col = num) (( any )) {
       if !is_digit(ch) { break }
       j = j + 1
     }
+    let ?is_float = false
+    if j < n {
+      let d = stdr.slice(source, j, j + 1)
+      if d == "." && j + 1 < n && is_digit(stdr.slice(source, j + 1, j + 2)) {
+        is_float = true
+        j = j + 1
+        for (; j < n; ) {
+          let fh = stdr.slice(source, j, j + 1)
+          if !is_digit(fh) { break }
+          j = j + 1
+        }
+      }
+    }
     let raw = stdr.slice(source, i, j)
+    if is_float {
+      return [tok("float", line, col, raw, 0, ""), j, line, col + (j - i)]
+    }
     return [tok("int", line, col, raw, 0, ""), j, line, col + (j - i)]
   }
   if is_ident_start(c) {

@@ -3199,11 +3199,17 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
         }
         case EXPR_MEMBER: {
             Ty *ta = tc_expr_inner(e->as.member.a, ctx, loc, env, err);
+            if (!ta) {
+                return NULL;
+            }
             if (ty_is_nullable(ta)) {
                 set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: member access on nullable value", (int)ctx->cask_path.len, ctx->cask_path.data);
                 return NULL;
             }
             ta = ty_strip_nullable(ta);
+            if (!ta) {
+                return NULL;
+            }
             if (ta->tag == TY_MOD) {
                 ModuleConsts *mc = find_cask_consts(env, ta->name);
                 if (mc) {

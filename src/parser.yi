@@ -13,6 +13,13 @@ fun pair(a = any, b = any) (( any )) {
   return p
 }
 
+fun mk_return_stmt(v = any) (( any )) {
+  let ?n = []: [string => any]
+  n["tag"] = "return"
+  n["value"] = v
+  return n
+}
+
 -- Peek at token i (returns eof token if past end).
 fun peek(toks = any, i = num) (( any )) {
   let n = stdr.len(toks)
@@ -81,6 +88,14 @@ fun parse_primary(toks = any, i = num) (( any )) {
     return pair(i + 1, n)
   }
 
+  -- Float literal
+  if tk == "float" {
+    let ?n = []: [string => any]; n[tag] = "float"
+    let vk = "value"
+    n[vk] = t[text] ?? "0.0"
+    return pair(i + 1, n)
+  }
+
   -- String literal
   if tk == "str" {
     let ?n = []: [string => any]; n[tag] = "str"
@@ -142,6 +157,55 @@ fun parse_primary(toks = any, i = num) (( any )) {
       -- This shouldn't appear as an expression primary; treat as error/null
       return pair(i, null)
     }
+
+    -- Lambda expression: only when matching ')' is followed by =>
+    let ?scan = i + 1
+    let ?depth = 1
+    let ?close_i = -1
+    for (; true; ) {
+      let ts = peek(toks, scan)
+      let sk = ts[kind] ?? ""
+      if sk == "eof" { break }
+      if sk == "lpar" { depth = depth + 1 }
+      if sk == "rpar" {
+        depth = depth - 1
+        if depth == 0 {
+          close_i = scan
+          break
+        }
+      }
+      scan = scan + 1
+    }
+
+    if close_i > i {
+      let ta = peek(toks, close_i + 1)
+      if ta[kind] == "arrow" {
+        let params_res = parse_params(toks, i)
+        let pj = stdr.num(params_res[0] ?? i)
+        if pj == close_i + 1 {
+          let params = params_res[1] ?? []: [any]
+          let ?j = pj + 1
+          let ?body = []: [any]
+          let ?eres = null
+          let tb = peek(toks, j)
+          if tb[kind] == "lbrace" {
+            let br = parse_block(toks, j)
+            j = stdr.num(br[0] ?? j)
+            body = br[1] ?? []: [any]
+          } else {
+            eres = parse_expr(toks, j, 0)
+            j = stdr.num(eres[0] ?? j)
+            body = [mk_return_stmt(eres[1])]
+          }
+          let ?ln = []: [string => any]
+          ln[tag] = "lambda"
+          ln["params"] = params
+          ln["body"] = body
+          return pair(j, ln)
+        }
+      }
+    }
+
     let res = parse_expr(toks, i + 1, 0)
     let ?next = stdr.num(res[0] ?? (i + 1))
     let inner = res[1]

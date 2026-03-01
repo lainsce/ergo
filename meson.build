@@ -36,7 +36,7 @@ yis_target = custom_target(
   command : [
     'sh',
     '-c',
-    'ROOT="$3" && rm -f "$ROOT/.yi_out" "$ROOT/.yi_compile_out.c" "$2" && cd "$ROOT" && YIS_STDLIB="$ROOT/src/stdlib" "$1" run "$ROOT/src/init.yi" -- "$ROOT/src/init.yi" && mv "$ROOT/.yi_out" "$2" && rm -f "$ROOT/.yi_out" "$ROOT/.yi_compile_out.c"',
+    'ROOT="$3" && rm -f "$ROOT/init" "$ROOT/init.c" "$2" && cd "$ROOT" && YIS_STDLIB="$ROOT/src/stdlib" "$1" run "$ROOT/src/init.yi" -- "$ROOT/src/init.yi" && mv "$ROOT/init" "$2" && rm -f "$ROOT/init" "$ROOT/init.c"',
     'sh',
     yis_bootstrap,
     meson.current_build_dir() / 'yis',
@@ -46,6 +46,13 @@ yis_target = custom_target(
   depends : yis_bootstrap,
   install : true,
   install_dir : get_option('bindir')
+)
+
+install_data(
+  'src/runtime.inc',
+  'src/stdlib/stdr.yi',
+  'src/stdlib/math.yi',
+  install_dir : get_option('datadir') / 'yis'
 )
 
 install_data(

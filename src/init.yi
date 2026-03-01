@@ -16,6 +16,15 @@ def ?g_all_funs = []: [string => any]
 -- Module cache: resolved paths and parsed ASTs (avoid re-reading/re-parsing)
 def ?g_path_cache = []: [string => any]
 def ?g_ast_cache = []: [string => any]
+def ?g_opt_ast_cache = []: [string => any]
+def ?g_inline_map = []: [string => any]
+def ?g_scope_names = []: [string => any]
+def ?g_scope_order = []: [any]
+def ?g_global_def_names = []: [string => any]
+def ?g_def_types = []: [string => any]
+def ?g_lambda_meta = []: [string => any]
+def ?g_lambda_ids = []: [any]
+def ?g_next_lambda_id = 1
 
 -- ============================================================
 -- C code emitter: walks AST and produces C using the Yis runtime.
@@ -70,6 +79,348 @@ fun join_parts(parts = any) (( string )) {
   return out
 }
 
+fun pair(a = any, b = any) (( any )) {
+  let ?p = []: [any]
+  p[0] = a
+  p[1] = b
+  return p
+}
+
+fun is_capture_excluded(name = string) (( bool )) {
+  if name == "" { return true }
+  if name == "stdr" || name == "math" || name == "cogito" { return true }
+  return false
+}
+
+fun arr_contains(xs = any, v = any) (( bool )) {
+  let n = stdr.len(xs)
+  let ?i = 0
+  for (; i < n; i = i + 1) {
+    if xs[i] == v { return true }
+  }
+  return false
+}
+
+fun arr_add_unique(xs = any, v = any) (( any )) {
+  if arr_contains(xs, v) { return xs }
+  return stdr.concat(xs, [v])
+}
+
+fun scope_mark(name = string) (( -- )) {
+  if stdr.len(name) == 0 { return }
+  if stdr.is_null(g_scope_names[name]) {
+    g_scope_order = stdr.concat(g_scope_order, [name])
+  }
+  g_scope_names[name] = true
+}
+
+fun collect_used_expr_lambda(e = any, used = any) (( any )) {
+  let ?u = used
+  if stdr.is_null(e) { return u }
+  let et = e["tag"] ?? ""
+
+  if et == "ident" {
+    let name = e["name"] ?? ""
+    if !is_capture_excluded(name) {
+      u = arr_add_unique(u, name)
+    }
+    return u
+  }
+
+  if et == "unary" {
+    return collect_used_expr_lambda(e["operand"], u)
+  }
+
+  if et == "binop" {
+    u = collect_used_expr_lambda(e["left"], u)
+    u = collect_used_expr_lambda(e["right"], u)
+    return u
+  }
+
+  if et == "assign" {
+    u = collect_used_expr_lambda(e["lhs"], u)
+    u = collect_used_expr_lambda(e["rhs"], u)
+    return u
+  }
+
+  if et == "call" {
+    let fn = e["func"]
+    let ftag = fn["tag"] ?? ""
+    if ftag == "member" {
+      u = collect_used_expr_lambda(fn["obj"], u)
+    } elif ftag != "ident" {
+      u = collect_used_expr_lambda(fn, u)
+    }
+    let args = e["args"] ?? []: [any]
+    let ?i = 0
+    let ?n = stdr.len(args)
+    for (; i < n; i = i + 1) {
+      u = collect_used_expr_lambda(args[i], u)
+    }
+    return u
+  }
+
+  if et == "bang_call" {
+    u = collect_used_expr_lambda(e["recv"], u)
+    let args = e["args"] ?? []: [any]
+    let ?i = 0
+    let n = stdr.len(args)
+    for (; i < n; i = i + 1) {
+      u = collect_used_expr_lambda(args[i], u)
+    }
+    return u
+  }
+
+  if et == "member" {
+    return collect_used_expr_lambda(e["obj"], u)
+  }
+
+  if et == "index" {
+    u = collect_used_expr_lambda(e["obj"], u)
+    u = collect_used_expr_lambda(e["idx"], u)
+    return u
+  }
+
+  if et == "array" {
+    let elems = e["elems"] ?? []: [any]
+    let ?i = 0
+    let ?n = stdr.len(elems)
+    for (; i < n; i = i + 1) {
+      u = collect_used_expr_lambda(elems[i], u)
+    }
+    return u
+  }
+
+  if et == "dict" {
+    let ents = e["entries"] ?? []: [any]
+    let ?i = 0
+    let ?n = stdr.len(ents)
+    for (; i < n; i = i + 1) {
+      let ent = ents[i]
+      u = collect_used_expr_lambda(ent["key"], u)
+      u = collect_used_expr_lambda(ent["value"], u)
+    }
+    return u
+  }
+
+  if et == "if_expr" {
+    u = collect_used_expr_lambda(e["cond"], u)
+    u = collect_used_expr_lambda(e["then"], u)
+    u = collect_used_expr_lambda(e["else"], u)
+    return u
+  }
+
+  if et == "match" {
+    u = collect_used_expr_lambda(e["scrut"], u)
+    let arms = e["arms"] ?? []: [any]
+    let ?i = 0
+    let ?n = stdr.len(arms)
+    for (; i < n; i = i + 1) {
+      let arm = arms[i]
+      u = collect_used_expr_lambda(arm["expr"], u)
+    }
+    return u
+  }
+
+  if et == "lambda" {
+    return u
+  }
+
+  return u
+}
+
+fun collect_used_stmt_lambda(s = any, used = any) (( any )) {
+  let ?u = used
+  if stdr.is_null(s) { return u }
+  let st = s["tag"] ?? ""
+  if st == "let" || st == "const" {
+    return collect_used_expr_lambda(s["init"], u)
+  }
+  if st == "return" || st == "expr_stmt" {
+    return collect_used_expr_lambda(s["value"] ?? s["expr"], u)
+  }
+  if st == "if" {
+    u = collect_used_expr_lambda(s["cond"], u)
+    let then_s = s["then"] ?? []: [any]
+    let else_s = s["else"] ?? []: [any]
+    let ?i = 0
+    let ?n = stdr.len(then_s)
+    for (; i < n; i = i + 1) { u = collect_used_stmt_lambda(then_s[i], u) }
+    i = 0
+    n = stdr.len(else_s)
+    for (; i < n; i = i + 1) { u = collect_used_stmt_lambda(else_s[i], u) }
+    return u
+  }
+  if st == "for" {
+    u = collect_used_expr_lambda(s["init"], u)
+    u = collect_used_stmt_lambda(s["init_stmt"], u)
+    u = collect_used_expr_lambda(s["cond"], u)
+    u = collect_used_expr_lambda(s["step"], u)
+    let body = s["body"] ?? []: [any]
+    let ?i = 0
+    let ?n = stdr.len(body)
+    for (; i < n; i = i + 1) { u = collect_used_stmt_lambda(body[i], u) }
+    return u
+  }
+  if st == "foreach" {
+    u = collect_used_expr_lambda(s["iter"], u)
+    let body = s["body"] ?? []: [any]
+    let ?i = 0
+    let ?n = stdr.len(body)
+    for (; i < n; i = i + 1) { u = collect_used_stmt_lambda(body[i], u) }
+    return u
+  }
+  return u
+}
+
+fun collect_declared_stmt_lambda(s = any, decl = any) (( any )) {
+  let ?d = decl
+  if stdr.is_null(s) { return d }
+  let st = s["tag"] ?? ""
+  if st == "let" || st == "const" {
+    let name = s["name"] ?? ""
+    if stdr.len(name) > 0 { d[name] = true }
+    return d
+  }
+  if st == "foreach" {
+    let it = s["item"] ?? ""
+    if stdr.len(it) > 0 { d[it] = true }
+    let body = s["body"] ?? []: [any]
+    let ?i = 0
+    let ?n = stdr.len(body)
+    for (; i < n; i = i + 1) {
+      d = collect_declared_stmt_lambda(body[i], d)
+    }
+    return d
+  }
+  if st == "for" {
+    d = collect_declared_stmt_lambda(s["init_stmt"], d)
+    let body = s["body"] ?? []: [any]
+    let ?i = 0
+    let ?n = stdr.len(body)
+    for (; i < n; i = i + 1) {
+      d = collect_declared_stmt_lambda(body[i], d)
+    }
+    return d
+  }
+  if st == "if" {
+    let then_s = s["then"] ?? []: [any]
+    let else_s = s["else"] ?? []: [any]
+    let ?i = 0
+    let ?n = stdr.len(then_s)
+    for (; i < n; i = i + 1) { d = collect_declared_stmt_lambda(then_s[i], d) }
+    i = 0
+    n = stdr.len(else_s)
+    for (; i < n; i = i + 1) { d = collect_declared_stmt_lambda(else_s[i], d) }
+    return d
+  }
+  return d
+}
+
+fun lambda_capture_names(e = any) (( any )) {
+  let params = e["params"] ?? []: [any]
+  let ?param_names = []: [string => any]
+  let ?i = 0
+  let ?n = stdr.len(params)
+  for (; i < n; i = i + 1) {
+    let p = params[i]
+    let pn = p["name"] ?? ""
+    if stdr.len(pn) > 0 { param_names[pn] = true }
+  }
+
+  let ?caps = []: [any]
+  i = 0
+  n = stdr.len(g_scope_order)
+  for (; i < n; i = i + 1) {
+    let name = g_scope_order[i] ?? ""
+    if param_names[name] { continue }
+    if is_capture_excluded(name) { continue }
+    if g_global_def_names[name] { continue }
+    if stdr.is_null(g_scope_names[name]) { continue }
+    caps = stdr.concat(caps, [name])
+  }
+  return caps
+}
+
+fun alloc_lambda_id() (( num )) {
+  let id = g_next_lambda_id
+  g_next_lambda_id = g_next_lambda_id + 1
+  return id
+}
+
+fun make_ident_expr(name = string) (( any )) {
+  let ?n = []: [string => any]
+  n["tag"] = "ident"
+  n["name"] = name
+  return n
+}
+
+fun ensure_lambda_meta(e = any, cask_name = string) (( any )) {
+  let id = alloc_lambda_id()
+  let key = stdr.str(id)
+  let ?meta = []: [string => any]
+  meta["id"] = id
+  meta["name"] = stdr.str_concat("__lambda_", stdr.str(id))
+  meta["params"] = e["params"] ?? []: [any]
+  meta["body"] = e["body"] ?? []: [any]
+  meta["captures"] = lambda_capture_names(e)
+  let caps = meta["captures"] ?? []: [any]
+  let ?cap_types = []: [string => any]
+  let ?ci = 0
+  let cn = stdr.len(caps)
+  for (; ci < cn; ci = ci + 1) {
+    let cname = caps[ci] ?? ""
+    let ctype = g_var_types[cname]
+    if !stdr.is_null(ctype) {
+      cap_types[cname] = ctype
+    }
+  }
+  meta["cap_types"] = cap_types
+  meta["cask"] = cask_name
+  g_lambda_meta[key] = meta
+  g_lambda_ids = stdr.concat(g_lambda_ids, [id])
+  return meta
+}
+
+fun emit_lambda_expr(e = any, cask_name = string) (( string )) {
+  let meta = ensure_lambda_meta(e, cask_name)
+  let lname = meta["name"] ?? "__lambda_0"
+  let params = meta["params"] ?? []: [any]
+  let caps = meta["captures"] ?? []: [any]
+  let arity = stdr.len(params)
+  let capn = stdr.len(caps)
+
+  let ?r = "({ YisVal "
+  r = stdr.str_concat(r, lname)
+  r = stdr.str_concat(r, "(void*,int,YisVal*); YisVal* __caps = NULL; ")
+
+  if capn > 0 {
+    r = stdr.str_concat(r, "__caps = (YisVal*)calloc(")
+    r = stdr.str_concat(r, stdr.str(capn))
+    r = stdr.str_concat(r, ", sizeof(YisVal)); ")
+    let ?i = 0
+    for (; i < capn; i = i + 1) {
+      let name = caps[i] ?? ""
+      r = stdr.str_concat(r, "__caps[")
+      r = stdr.str_concat(r, stdr.str(i))
+      r = stdr.str_concat(r, "] = ")
+      r = stdr.str_concat(r, emit_expr(make_ident_expr(name), cask_name))
+      r = stdr.str_concat(r, "; yis_retain_val(__caps[")
+      r = stdr.str_concat(r, stdr.str(i))
+      r = stdr.str_concat(r, "]); ")
+    }
+  }
+
+  r = stdr.str_concat(r, "YV_FN(yi_fn_new_with_env(")
+  r = stdr.str_concat(r, lname)
+  r = stdr.str_concat(r, ", ")
+  r = stdr.str_concat(r, stdr.str(arity))
+  r = stdr.str_concat(r, ", __caps, ")
+  r = stdr.str_concat(r, stdr.str(capn))
+  r = stdr.str_concat(r, ")); })")
+  return r
+}
+
 -- Build class info tables from a module's declarations.
 -- Populates g_classes, g_fun_rets, g_mod_funs, g_all_funs.
 fun build_class_info(decls = any, mod_name = string) (( -- )) {
@@ -87,12 +438,24 @@ fun build_class_info(decls = any, mod_name = string) (( -- )) {
       let methods_key = "methods"
       let methods = d[methods_key] ?? []: [any]
       let ?mdict = []: [string => any]
+      let mret_key = "ret"
       let ?j = 0
       let nm = stdr.len(methods)
       for (; j < nm; j = j + 1) {
         let m = methods[j]
         let mname = m[name_key] ?? ""
         mdict[mname] = true
+        let mret = m[mret_key] ?? ""
+        if stdr.len(mret) > 0 {
+          if mret != "any" && mret != "void" && mret != "--" && mret != "num" && mret != "string" && mret != "bool" {
+            let ?mkey = mod_name
+            mkey = stdr.str_concat(mkey, ".")
+            mkey = stdr.str_concat(mkey, cls_name)
+            mkey = stdr.str_concat(mkey, ".")
+            mkey = stdr.str_concat(mkey, mname)
+            g_fun_rets[mkey] = mret
+          }
+        }
       }
       let ?info = []: [string => any]
       info["methods"] = mdict
@@ -143,7 +506,9 @@ fun type_of_expr(e = any, cask_name = string) (( string )) {
   if et == "ident" {
     let nk = "name"
     let name = e[nk] ?? ""
-    return g_var_types[name] ?? ""
+    let t0 = g_var_types[name] ?? ""
+    if stdr.len(t0) > 0 { return t0 }
+    return g_def_types[name] ?? ""
   }
 
   if et == "call" {
@@ -160,15 +525,33 @@ fun type_of_expr(e = any, cask_name = string) (( string )) {
       if obj_tag == "ident" {
         let nk = "name"
         let obj_name = obj[nk] ?? ""
+        -- Variable.method() call: prefer variable type over module-name lookup.
+        let ?vtype = g_var_types[obj_name] ?? ""
+        if stdr.len(vtype) == 0 {
+          vtype = g_def_types[obj_name] ?? ""
+        }
+        if stdr.len(vtype) > 0 {
+          let cls_info = g_classes[vtype]
+          if !stdr.is_null(cls_info) && stdr.str(cls_info) == "[dict]" {
+            let cls_mod = dict_get_or(cls_info, "mod", "") ?? ""
+            if stdr.len(cls_mod) > 0 {
+              let ?mkey = cls_mod
+              mkey = stdr.str_concat(mkey, ".")
+              mkey = stdr.str_concat(mkey, vtype)
+              mkey = stdr.str_concat(mkey, ".")
+              mkey = stdr.str_concat(mkey, field)
+              let mret = g_fun_rets[mkey] ?? ""
+              if stdr.len(mret) > 0 { return mret }
+            }
+          }
+          if stdr.len(vtype) > 0 { return vtype }
+        }
         -- Module.function() call: look up return type
         let ?key = obj_name
         key = stdr.str_concat(key, ".")
         key = stdr.str_concat(key, field)
         let ret = g_fun_rets[key] ?? ""
         if stdr.len(ret) > 0 { return ret }
-        -- Variable.method() call: look up variable type (chaining returns same type)
-        let vtype = g_var_types[obj_name] ?? ""
-        if stdr.len(vtype) > 0 { return vtype }
       }
       -- Method call on expression: chain preserves type
       let obj_type = type_of_expr(obj, cask_name)
@@ -200,6 +583,15 @@ fun emit_expr(e = any, cask_name = string) (( string )) {
     let vk = "value"
     let v = e[vk] ?? "0"
     let ?r = "YV_INT("
+    r = stdr.str_concat(r, stdr.str(v))
+    r = stdr.str_concat(r, ")")
+    return r
+  }
+
+  if et == "float" {
+    let vk = "value"
+    let v = e[vk] ?? "0.0"
+    let ?r = "YV_FLOAT("
     r = stdr.str_concat(r, stdr.str(v))
     r = stdr.str_concat(r, ")")
     return r
@@ -265,6 +657,11 @@ fun emit_expr(e = any, cask_name = string) (( string )) {
   if et == "ident" {
     let nk = "name"
     let name = e[nk] ?? ""
+    if !stdr.is_null(g_scope_names[name]) || !stdr.is_null(g_def_types[name]) {
+      let ?r = "v_"
+      r = stdr.str_concat(r, name)
+      return r
+    }
     -- Check if this ident is a known function (used as a value, not called)
     let ?fkey = cask_name
     fkey = stdr.str_concat(fkey, ".")
@@ -285,6 +682,10 @@ fun emit_expr(e = any, cask_name = string) (( string )) {
     let ?r = "v_"
     r = stdr.str_concat(r, name)
     return r
+  }
+
+  if et == "lambda" {
+    return emit_lambda_expr(e, cask_name)
   }
 
   if et == "unary" {
@@ -376,6 +777,11 @@ fun emit_expr(e = any, cask_name = string) (( string )) {
     if func_tag == "ident" {
       let nk = "name"
       let fname = func[nk] ?? ""
+      if !stdr.is_null(g_scope_names[fname]) || !stdr.is_null(g_global_def_names[fname]) || !stdr.is_null(g_def_types[fname]) {
+        let ?fexpr = "v_"
+        fexpr = stdr.str_concat(fexpr, fname)
+        return emit_value_call(fexpr, args, cask_name)
+      }
       if fname == "write" {
         let ?r = "stdr_write("
         r = emit_args(args, r, cask_name)
@@ -784,6 +1190,11 @@ fun emit_member_call(member_func = any, args = any, cask_name = string) (( strin
     let vtype_any = dict_get_or(g_var_types, obj_name, "")
     let ?vtype = stdr.str(vtype_any ?? "")
     if stdr.is_null(vtype) { vtype = "" }
+    if stdr.len(vtype) == 0 {
+      let dvt_any = dict_get_or(g_def_types, obj_name, "")
+      vtype = stdr.str(dvt_any ?? "")
+      if stdr.is_null(vtype) { vtype = "" }
+    }
     if stdr.len(vtype) > 0 {
       let cls_any = dict_get_or(g_classes, vtype, null)
       if !stdr.is_null(cls_any) && stdr.str(cls_any) == "[dict]" {
@@ -909,6 +1320,35 @@ fun emit_args(args = any, r = string, cask_name = string) (( string )) {
   return out
 }
 
+-- Helper: call a function value expression via runtime yis_call.
+fun emit_value_call(func_expr = string, args = any, cask_name = string) (( string )) {
+  let ?n = 0
+  n = stdr.len(args)
+  if n == 0 {
+    let ?r0 = "yis_call("
+    r0 = stdr.str_concat(r0, func_expr)
+    r0 = stdr.str_concat(r0, ", 0, NULL)")
+    return r0
+  }
+  let ?r = "({ YisVal __argv["
+  r = stdr.str_concat(r, stdr.str(n))
+  r = stdr.str_concat(r, "]; ")
+  let ?k = 0
+  for (; k < n; k = k + 1) {
+    r = stdr.str_concat(r, "__argv[")
+    r = stdr.str_concat(r, stdr.str(k))
+    r = stdr.str_concat(r, "] = ")
+    r = stdr.str_concat(r, emit_expr(args[k], cask_name))
+    r = stdr.str_concat(r, "; ")
+  }
+  r = stdr.str_concat(r, "yis_call(")
+  r = stdr.str_concat(r, func_expr)
+  r = stdr.str_concat(r, ", ")
+  r = stdr.str_concat(r, stdr.str(n))
+  r = stdr.str_concat(r, ", __argv); })")
+  return r
+}
+
 -- Emit C statements from a list of stmt AST nodes.
 -- Returns a string of C code (indented).
 fun emit_stmts(stmts = any, indent = string, cask_name = string) (( string )) {
@@ -953,6 +1393,7 @@ fun emit_stmt(s = any, indent = string, cask_name = string) (( string )) {
     r = stdr.str_concat(r, "; yis_retain_val(v_")
     r = stdr.str_concat(r, name)
     r = stdr.str_concat(r, ");\n")
+    scope_mark(name)
     return r
   }
 
@@ -973,6 +1414,7 @@ fun emit_stmt(s = any, indent = string, cask_name = string) (( string )) {
     r = stdr.str_concat(r, "; yis_retain_val(v_")
     r = stdr.str_concat(r, name)
     r = stdr.str_concat(r, ");\n")
+    scope_mark(name)
     return r
   }
 
@@ -1013,6 +1455,8 @@ fun emit_stmt(s = any, indent = string, cask_name = string) (( string )) {
   }
 
   if st == "if" {
+    let prev_scope_names_if = g_scope_names
+    let prev_scope_order_if = g_scope_order
     let ck = "cond"
     let tk = "then"
     let ek = "else"
@@ -1056,10 +1500,14 @@ fun emit_stmt(s = any, indent = string, cask_name = string) (( string )) {
       }
     }
     r = stdr.str_concat(r, "\n")
+    g_scope_names = prev_scope_names_if
+    g_scope_order = prev_scope_order_if
     return r
   }
 
   if st == "for" {
+    let prev_scope_names_for = g_scope_names
+    let prev_scope_order_for = g_scope_order
     let ck = "cond"
     let bk = "body"
     let sk = "step"
@@ -1100,10 +1548,14 @@ fun emit_stmt(s = any, indent = string, cask_name = string) (( string )) {
       r = stdr.str_concat(r, " }")
     }
     r = stdr.str_concat(r, "\n")
+    g_scope_names = prev_scope_names_for
+    g_scope_order = prev_scope_order_for
     return r
   }
 
   if st == "foreach" {
+    let prev_scope_names_foreach = g_scope_names
+    let prev_scope_order_foreach = g_scope_order
     let ik = "item"
     let itk = "iter"
     let bk = "body"
@@ -1124,6 +1576,8 @@ fun emit_stmt(s = any, indent = string, cask_name = string) (( string )) {
     r = stdr.str_concat(r, emit_stmts(body, inner, cask_name))
     r = stdr.str_concat(r, indent)
     r = stdr.str_concat(r, "} }\n")
+    g_scope_names = prev_scope_names_foreach
+    g_scope_order = prev_scope_order_foreach
     return r
   }
 
@@ -1180,6 +1634,81 @@ fun emit_if_inline(s = any, indent = string, cask_name = string) (( string )) {
   return r
 }
 
+fun emit_lambda_wrapper(meta = any) (( string )) {
+  let lname = meta["name"] ?? "__lambda_0"
+  let params = meta["params"] ?? []: [any]
+  let body = meta["body"] ?? []: [any]
+  let caps = meta["captures"] ?? []: [any]
+  let cap_types = meta["cap_types"] ?? []: [string => any]
+  let cask_name = meta["cask"] ?? "init"
+  let capn = stdr.len(caps)
+
+  let prev_scope = g_scope_names
+  let prev_scope_order = g_scope_order
+  let prev_var_types = g_var_types
+  g_scope_names = []: [string => any]
+  g_scope_order = []: [any]
+  g_var_types = []: [string => any]
+
+  let ?out = "YisVal "
+  out = stdr.str_concat(out, lname)
+  out = stdr.str_concat(out, "(void* env, int argc, YisVal* argv) {\n")
+
+  out = stdr.str_concat(out, "  YisVal* __caps = (YisVal*)env;\n")
+  let ?i = 0
+  for (; i < capn; i = i + 1) {
+    let cname = caps[i] ?? ""
+    out = stdr.str_concat(out, "  YisVal v_")
+    out = stdr.str_concat(out, cname)
+    out = stdr.str_concat(out, " = ")
+    if capn > 0 {
+      out = stdr.str_concat(out, "__caps[")
+      out = stdr.str_concat(out, stdr.str(i))
+      out = stdr.str_concat(out, "]")
+    } else {
+      out = stdr.str_concat(out, "YV_NULLV")
+    }
+    out = stdr.str_concat(out, ";\n")
+    scope_mark(cname)
+    let cap_t = cap_types[cname]
+    if !stdr.is_null(cap_t) {
+      g_var_types[cname] = cap_t
+    }
+  }
+
+  let ?pi = 0
+  let pn = stdr.len(params)
+  for (; pi < pn; pi = pi + 1) {
+    let p = params[pi]
+    let pname = p["name"] ?? ""
+    out = stdr.str_concat(out, "  YisVal v_")
+    out = stdr.str_concat(out, pname)
+    out = stdr.str_concat(out, " = argc > ")
+    out = stdr.str_concat(out, stdr.str(pi))
+    out = stdr.str_concat(out, " ? argv[")
+    out = stdr.str_concat(out, stdr.str(pi))
+    out = stdr.str_concat(out, "] : YV_NULLV;\n")
+    scope_mark(pname)
+    let ptype = p["type"] ?? ""
+    if stdr.len(ptype) > 0 {
+      if !stdr.is_null(g_classes[ptype]) {
+        g_var_types[pname] = ptype
+      }
+    }
+  }
+
+  out = stdr.str_concat(out, emit_stmts(body, "  ", cask_name))
+  if !block_has_return(body) {
+    out = stdr.str_concat(out, "  return YV_NULLV;\n")
+  }
+  out = stdr.str_concat(out, "}\n\n")
+
+  g_scope_names = prev_scope
+  g_scope_order = prev_scope_order
+  g_var_types = prev_var_types
+  return out
+}
+
 -- Emit a function declaration.
 fun emit_fun(d = any, cask_name = string) (( string )) {
   let tag = "tag"
@@ -1195,7 +1724,11 @@ fun emit_fun(d = any, cask_name = string) (( string )) {
 
   -- Set up type tracking for this function
   let prev_var_types = g_var_types
+  let prev_scope_names = g_scope_names
+  let prev_scope_order = g_scope_order
   g_var_types = []: [string => any]
+  g_scope_names = []: [string => any]
+  g_scope_order = []: [any]
   let ?np = 0
   np = stdr.len(params)
   let ?pi = 0
@@ -1208,6 +1741,9 @@ fun emit_fun(d = any, cask_name = string) (( string )) {
       if !stdr.is_null(g_classes[pptype]) {
         g_var_types[ppname] = pptype
       }
+    }
+    if stdr.len(ppname) > 0 {
+      scope_mark(ppname)
     }
   }
 
@@ -1240,6 +1776,8 @@ fun emit_fun(d = any, cask_name = string) (( string )) {
   out = stdr.str_concat(out, "}\n\n")
 
   g_var_types = prev_var_types
+  g_scope_names = prev_scope_names
+  g_scope_order = prev_scope_order
   return out
 }
 
@@ -1336,8 +1874,13 @@ fun emit_class_method(d = any, cask_name = string, class_name = string) (( strin
 
   -- Track param types (this = current class)
   let prev_var_types = g_var_types
+  let prev_scope_names = g_scope_names
+  let prev_scope_order = g_scope_order
   g_var_types = []: [string => any]
+  g_scope_names = []: [string => any]
+  g_scope_order = []: [any]
   g_var_types["this"] = class_name
+  scope_mark("this")
   let ?pi = 0
   let nparams = stdr.len(params)
   for (; pi < nparams; pi = pi + 1) {
@@ -1350,6 +1893,7 @@ fun emit_class_method(d = any, cask_name = string, class_name = string) (( strin
         g_var_types[pname] = ptype
       }
     }
+    if stdr.len(pname) > 0 { scope_mark(pname) }
   }
 
   let ?out = ""
@@ -1378,6 +1922,8 @@ fun emit_class_method(d = any, cask_name = string, class_name = string) (( strin
   g_cur_class = prev_class
   g_cur_mod = prev_mod
   g_var_types = prev_var_types
+  g_scope_names = prev_scope_names
+  g_scope_order = prev_scope_order
   return out
 }
 
@@ -1474,6 +2020,9 @@ fun emit_unit(ast = any) (( string )) {
   let ?p = []: [any]
   let ret_key = "ret"
   let params_key = "params"
+
+  g_lambda_meta = []: [string => any]
+  g_lambda_ids = []: [any]
 
   -- Track top-level function names (for macro/function collision filtering)
   let ?fun_names = []: [string => any]
@@ -1596,11 +2145,21 @@ fun emit_unit(ast = any) (( string )) {
 
   -- Forward declarations: def globals
   let init_key = "init"
+  g_global_def_names = []: [string => any]
+  g_def_types = []: [string => any]
   i = 0
   for (; i < n; i = i + 1) {
     let d = decls[i]
     if d[tag] == "def" {
       let dname = d[name_key] ?? ""
+      g_global_def_names[dname] = true
+      let dinit = d[init_key]
+      if !stdr.is_null(dinit) {
+        let dtype = type_of_expr(dinit, cask_name)
+        if stdr.len(dtype) > 0 {
+          g_def_types[dname] = dtype
+        }
+      }
       stdr.push(p, "static YisVal v_")
       stdr.push(p, dname)
       stdr.push(p, " = YV_NULLV;\n")
@@ -1666,6 +2225,16 @@ fun emit_unit(ast = any) (( string )) {
     }
   }
 
+  -- Emit lambda wrappers collected while emitting function bodies
+  let ?li = 0
+  for (; li < stdr.len(g_lambda_ids); li = li + 1) {
+    let lid = g_lambda_ids[li]
+    let lmeta = g_lambda_meta[stdr.str(lid)]
+    if !stdr.is_null(lmeta) {
+      stdr.push(p, emit_lambda_wrapper(lmeta))
+    }
+  }
+
   -- Emit def init function if there are any defs
   let ?has_defs = false
   i = 0
@@ -1709,11 +2278,944 @@ fun dir_of(path = string) (( string )) {
   return ""
 }
 
+fun base_name(path = string) (( string )) {
+  let n = stdr.len(path)
+  let ?i = n - 1
+  for (; i >= 0; i = i - 1) {
+    let c = stdr.slice(path, i, i + 1)
+    if c == "/" { return stdr.slice(path, i + 1, n) }
+  }
+  return path
+}
+
+fun stem_name(path = string) (( string )) {
+  let b = base_name(path)
+  let n = stdr.len(b)
+  let ?i = n - 1
+  for (; i >= 0; i = i - 1) {
+    let c = stdr.slice(b, i, i + 1)
+    if c == "." { return stdr.slice(b, 0, i) }
+  }
+  return b
+}
+
+fun str_find(hay = string, needle = string) (( num )) {
+  let hn = stdr.len(hay)
+  let nn = stdr.len(needle)
+  if nn == 0 { return 0 }
+  if nn > hn { return -1 }
+  let ?i = 0
+  let lim = hn - nn
+  for (; i <= lim; i = i + 1) {
+    if stdr.slice(hay, i, i + nn) == needle { return i }
+  }
+  return -1
+}
+
+fun has_char(s = string, ch = string) (( bool )) {
+  let n = stdr.len(s)
+  let ?i = 0
+  for (; i < n; i = i + 1) {
+    if stdr.slice(s, i, i + 1) == ch { return true }
+  }
+  return false
+}
+
+fun is_ascii_alnum(code = num) (( bool )) {
+  if code >= 48 && code <= 57 { return true }
+  if code >= 65 && code <= 90 { return true }
+  if code >= 97 && code <= 122 { return true }
+  return false
+}
+
+fun sanitize_filename_component(src = string) (( string )) {
+  let ?out = ""
+  let n = stdr.len(src)
+  let ?i = 0
+  for (; i < n; i = i + 1) {
+    let c = stdr.slice(src, i, i + 1)
+    let code = stdr.char_code(c)
+    if is_ascii_alnum(code) || c == "." || c == "_" || c == "-" {
+      out = stdr.str_concat(out, c)
+    } elif c == " " || c == "\t" {
+      out = stdr.str_concat(out, "-")
+    } else {
+      out = stdr.str_concat(out, "_")
+    }
+  }
+
+  let ?m = stdr.len(out)
+  for (; m > 0; ) {
+    let last = stdr.slice(out, m - 1, m)
+    if last == "." || last == " " {
+      m = m - 1
+    } else {
+      break
+    }
+  }
+  out = stdr.slice(out, 0, m)
+  return out
+}
+
+fun trim_ws(s = string) (( string )) {
+  let n = stdr.len(s)
+  let ?a = 0
+  for (; a < n; a = a + 1) {
+    let c = stdr.slice(s, a, a + 1)
+    if c != " " && c != "\t" && c != "\n" && c != "\r" { break }
+  }
+  let ?b = n
+  for (; b > a; b = b - 1) {
+    let c = stdr.slice(s, b - 1, b)
+    if c != " " && c != "\t" && c != "\n" && c != "\r" { break }
+  }
+  return stdr.slice(s, a, b)
+}
+
+fun strip_line_comments(src = string) (( string )) {
+  let n = stdr.len(src)
+  let ?out = ""
+  let ?i = 0
+  let ?in_str = false
+  for (; i < n; i = i + 1) {
+    let c = stdr.slice(src, i, i + 1)
+    if in_str {
+      out = stdr.str_concat(out, c)
+      if c == "\\" {
+        if i + 1 < n {
+          out = stdr.str_concat(out, stdr.slice(src, i + 1, i + 2))
+          i = i + 1
+        }
+      } elif c == "\"" {
+        in_str = false
+      }
+      continue
+    }
+
+    if c == "\"" {
+      in_str = true
+      out = stdr.str_concat(out, c)
+      continue
+    }
+
+    if c == "-" && i + 1 < n && stdr.slice(src, i + 1, i + 2) == "-" {
+      -- Preserve return type marker: (( -- ))
+      let ?lp1 = -1
+      let ?lp2 = -1
+      let ?p = i - 1
+      for (; p >= 0; p = p - 1) {
+        let pc = stdr.slice(src, p, p + 1)
+        if pc == " " || pc == "\t" || pc == "\n" || pc == "\r" { continue }
+        lp1 = p
+        break
+      }
+      p = lp1 - 1
+      for (; p >= 0; p = p - 1) {
+        let pc = stdr.slice(src, p, p + 1)
+        if pc == " " || pc == "\t" || pc == "\n" || pc == "\r" { continue }
+        lp2 = p
+        break
+      }
+
+      let ?rp1 = -1
+      let ?rp2 = -1
+      let ?q = i + 2
+      for (; q < n; q = q + 1) {
+        let qc = stdr.slice(src, q, q + 1)
+        if qc == " " || qc == "\t" || qc == "\n" || qc == "\r" { continue }
+        rp1 = q
+        break
+      }
+      q = rp1 + 1
+      for (; q < n; q = q + 1) {
+        let qc = stdr.slice(src, q, q + 1)
+        if qc == " " || qc == "\t" || qc == "\n" || qc == "\r" { continue }
+        rp2 = q
+        break
+      }
+
+      if lp2 >= 0 && lp1 >= 0 && rp1 >= 0 && rp2 >= 0 {
+        if stdr.slice(src, lp2, lp2 + 1) == "(" && stdr.slice(src, lp1, lp1 + 1) == "(" && stdr.slice(src, rp1, rp1 + 1) == ")" && stdr.slice(src, rp2, rp2 + 1) == ")" {
+          out = stdr.str_concat(out, "--")
+          i = i + 1
+          continue
+        }
+      }
+
+      i = i + 2
+      for (; i < n; i = i + 1) {
+        let d = stdr.slice(src, i, i + 1)
+        if d == "\n" {
+          out = stdr.str_concat(out, "\n")
+          break
+        }
+      }
+      continue
+    }
+
+    out = stdr.str_concat(out, c)
+  }
+  return out
+}
+
+fun normalize_typed_lambda_params(src = string) (( string )) {
+  let n = stdr.len(src)
+  let ?out = ""
+  let ?i = 0
+  let ?in_str = false
+  for (; i < n; i = i + 1) {
+    let c = stdr.slice(src, i, i + 1)
+    if in_str {
+      out = stdr.str_concat(out, c)
+      if c == "\\" {
+        if i + 1 < n {
+          out = stdr.str_concat(out, stdr.slice(src, i + 1, i + 2))
+          i = i + 1
+        }
+      } elif c == "\"" {
+        in_str = false
+      }
+      continue
+    }
+    if c == "\"" {
+      in_str = true
+      out = stdr.str_concat(out, c)
+      continue
+    }
+
+    if c == "(" {
+      let ?j = i + 1
+      let ?depth = 1
+      let ?ok = false
+      for (; j < n; j = j + 1) {
+        let d = stdr.slice(src, j, j + 1)
+        if d == "\"" {
+          -- simple skip quoted text while scanning param segment
+          j = j + 1
+          for (; j < n; j = j + 1) {
+            let q = stdr.slice(src, j, j + 1)
+            if q == "\\" { j = j + 1; continue }
+            if q == "\"" { break }
+          }
+          continue
+        }
+        if d == "(" { depth = depth + 1 }
+        elif d == ")" {
+          depth = depth - 1
+          if depth == 0 { ok = true; break }
+        }
+      }
+      if ok {
+        let ?k = j + 1
+        for (; k < n; k = k + 1) {
+          let w = stdr.slice(src, k, k + 1)
+          if w == " " || w == "\t" || w == "\n" || w == "\r" { continue }
+          break
+        }
+        if k + 1 < n && stdr.slice(src, k, k + 2) == "=>" {
+          let inside = stdr.slice(src, i + 1, j)
+          let eq = str_find(inside, "=")
+          let comma = str_find(inside, ",")
+          if eq > 0 && comma < 0 {
+            let lhs = trim_ws(stdr.slice(inside, 0, eq))
+            out = stdr.str_concat(out, "(")
+            out = stdr.str_concat(out, lhs)
+            out = stdr.str_concat(out, ")")
+            i = j
+            continue
+          }
+        }
+      }
+    }
+
+    out = stdr.str_concat(out, c)
+  }
+  return out
+}
+
+fun preprocess_source(src = string) (( string )) {
+  let ?s = strip_line_comments(src)
+  return s
+}
+
+fun shell_quote_arg(arg = string) (( string )) {
+  let ?q = "\""
+  let n = stdr.len(arg)
+  let ?i = 0
+  for (; i < n; i = i + 1) {
+    let c = stdr.slice(arg, i, i + 1)
+    if c == "\\" || c == "\"" {
+      q = stdr.str_concat(q, "\\")
+    }
+    q = stdr.str_concat(q, c)
+  }
+  q = stdr.str_concat(q, "\"")
+  return q
+}
+
+fun find_bootstrap_compiler(argv = any) (( string )) {
+  let self_path = argv[0] ?? ""
+  let self_dir = dir_of(self_path)
+  if stdr.len(self_dir) > 0 {
+    let cand0 = stdr.str_concat(self_dir, "yis-bootstrap")
+    if file_exists(cand0) == 0 { return cand0 }
+  }
+
+  let cand1 = "build/yis-bootstrap"
+  if file_exists(cand1) == 0 { return cand1 }
+  let cand2 = "../Yis/build/yis-bootstrap"
+  if file_exists(cand2) == 0 { return cand2 }
+  let cand3 = "../../Yis/build/yis-bootstrap"
+  if file_exists(cand3) == 0 { return cand3 }
+
+  let which_res = stdr.run_command("command -v yis-bootstrap")
+  let code = which_res[0] ?? 1
+  let ?out = which_res[1] ?? ""
+  if code == 0 {
+    let n = stdr.len(out)
+    if n > 0 && stdr.slice(out, n - 1, n) == "\n" {
+      out = stdr.slice(out, 0, n - 1)
+    }
+    return out
+  }
+
+  return ""
+}
+
+fun contains_callback_lambda_arrow(src = string) (( bool )) {
+  let n = stdr.len(src)
+  let ?i = 0
+  let ?in_str = false
+  for (; i + 1 < n; i = i + 1) {
+    let c = stdr.slice(src, i, i + 1)
+    if in_str {
+      if c == "\\" {
+        i = i + 1
+        continue
+      }
+      if c == "\"" { in_str = false }
+      continue
+    }
+
+    if c == "\"" {
+      in_str = true
+      continue
+    }
+
+    if c == "=" && stdr.slice(src, i + 1, i + 2) == ">" {
+      let ?b = i - 1
+      for (; b >= 0; b = b - 1) {
+        let wb = stdr.slice(src, b, b + 1)
+        if wb == " " || wb == "\t" || wb == "\n" || wb == "\r" { continue }
+        break
+      }
+      if b >= 0 && stdr.slice(src, b, b + 1) == ")" {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+fun rm_file_quiet(path = string) (( -- )) {
+  if stdr.len(path) == 0 { return }
+  let ?cmd = "rm -f \""
+  cmd = stdr.str_concat(cmd, path)
+  cmd = stdr.str_concat(cmd, "\"")
+  stdr.run_command(cmd)
+}
+
+fun env_nonempty(name = string) (( bool )) {
+  if stdr.len(name) == 0 { return false }
+  let ?cmd = "printenv "
+  cmd = stdr.str_concat(cmd, name)
+  cmd = stdr.str_concat(cmd, " >/dev/null 2>&1 && echo y")
+  let res = stdr.run_command(cmd)
+  let code = res[0] ?? 1
+  return code == 0
+}
+
+fun cogito_run_c_artifact(entry_path = string, source_raw = string) (( string )) {
+  let ?app_name = sanitize_filename_component(stem_name(entry_path))
+  if stdr.len(app_name) == 0 { app_name = "main" }
+
+  -- Try to resolve custom app id from source (best effort)
+  let ?src = preprocess_source(source_raw)
+  let toks = lexer.lex(src)
+  let ast = parser.parse(toks)
+  if !stdr.is_null(ast) {
+    let appid_name = find_cogito_appid_name(ast)
+    if stdr.len(appid_name) > 0 {
+      app_name = appid_name
+    }
+  }
+
+  return stdr.str_concat(app_name, ".c")
+}
+
+fun expr_string_literal_as_filename(e = any) (( string )) {
+  if stdr.is_null(e) { return "" }
+  let et = e["tag"] ?? ""
+  if et != "str" { return "" }
+  let raw = e["value"] ?? ""
+  return sanitize_filename_component(raw)
+}
+
+fun find_cogito_appid_expr(e = any) (( string )) {
+  if stdr.is_null(e) { return "" }
+  let et = e["tag"] ?? ""
+
+  if et == "call" {
+    let fn = e["func"]
+    let args = e["args"] ?? []: [any]
+    let ?out = ""
+    let ftag = fn["tag"] ?? ""
+
+    if ftag == "member" {
+      let field = fn["field"] ?? ""
+      if field == "set_appid" && stdr.len(args) > 0 {
+        let cand = expr_string_literal_as_filename(args[0])
+        if stdr.len(cand) > 0 { out = cand }
+      }
+    } elif ftag == "ident" {
+      let fname = fn["name"] ?? ""
+      if fname == "__cogito_app_set_appid" && stdr.len(args) > 1 {
+        let cand = expr_string_literal_as_filename(args[1])
+        if stdr.len(cand) > 0 { out = cand }
+      }
+    }
+
+    let fscan = find_cogito_appid_expr(fn)
+    if stdr.len(fscan) > 0 { out = fscan }
+
+    let ?i = 0
+    let n = stdr.len(args)
+    for (; i < n; i = i + 1) {
+      let ascan = find_cogito_appid_expr(args[i])
+      if stdr.len(ascan) > 0 { out = ascan }
+    }
+    return out
+  }
+
+  if et == "unary" {
+    return find_cogito_appid_expr(e["operand"])
+  }
+  if et == "binop" {
+    let ?out = find_cogito_appid_expr(e["left"])
+    let r = find_cogito_appid_expr(e["right"])
+    if stdr.len(r) > 0 { out = r }
+    return out
+  }
+  if et == "assign" {
+    let ?out = find_cogito_appid_expr(e["lhs"])
+    let r = find_cogito_appid_expr(e["rhs"])
+    if stdr.len(r) > 0 { out = r }
+    return out
+  }
+  if et == "index" {
+    let ?out = find_cogito_appid_expr(e["obj"])
+    let r = find_cogito_appid_expr(e["idx"])
+    if stdr.len(r) > 0 { out = r }
+    return out
+  }
+  if et == "member" {
+    return find_cogito_appid_expr(e["obj"])
+  }
+  if et == "array" {
+    let elems = e["elems"] ?? []: [any]
+    let ?out = ""
+    let ?i = 0
+    let n = stdr.len(elems)
+    for (; i < n; i = i + 1) {
+      let r = find_cogito_appid_expr(elems[i])
+      if stdr.len(r) > 0 { out = r }
+    }
+    return out
+  }
+  if et == "dict" {
+    let entries = e["entries"] ?? []: [any]
+    let ?out = ""
+    let ?i = 0
+    let n = stdr.len(entries)
+    for (; i < n; i = i + 1) {
+      let ent = entries[i]
+      let rk = find_cogito_appid_expr(ent["key"])
+      if stdr.len(rk) > 0 { out = rk }
+      let rv = find_cogito_appid_expr(ent["value"])
+      if stdr.len(rv) > 0 { out = rv }
+    }
+    return out
+  }
+  if et == "if_expr" {
+    let ?out = find_cogito_appid_expr(e["cond"])
+    let t = find_cogito_appid_expr(e["then"])
+    if stdr.len(t) > 0 { out = t }
+    let el = find_cogito_appid_expr(e["else"])
+    if stdr.len(el) > 0 { out = el }
+    return out
+  }
+
+  return ""
+}
+
+fun find_cogito_appid_stmt(s = any) (( string )) {
+  if stdr.is_null(s) { return "" }
+  let st = s["tag"] ?? ""
+  if st == "let" || st == "const" {
+    return find_cogito_appid_expr(s["init"])
+  }
+  if st == "return" {
+    return find_cogito_appid_expr(s["value"])
+  }
+  if st == "expr_stmt" {
+    return find_cogito_appid_expr(s["expr"])
+  }
+  if st == "if" {
+    let ?out = find_cogito_appid_expr(s["cond"])
+    let then_stmts = s["then"] ?? []: [any]
+    let ?i = 0
+    let tn = stdr.len(then_stmts)
+    for (; i < tn; i = i + 1) {
+      let r = find_cogito_appid_stmt(then_stmts[i])
+      if stdr.len(r) > 0 { out = r }
+    }
+    let else_stmts = s["else"] ?? []: [any]
+    i = 0
+    let en = stdr.len(else_stmts)
+    for (; i < en; i = i + 1) {
+      let r = find_cogito_appid_stmt(else_stmts[i])
+      if stdr.len(r) > 0 { out = r }
+    }
+    return out
+  }
+  if st == "for" {
+    let ?out = ""
+    let init_stmt = s["init_stmt"]
+    if !stdr.is_null(init_stmt) {
+      let r = find_cogito_appid_stmt(init_stmt)
+      if stdr.len(r) > 0 { out = r }
+    }
+    let c = find_cogito_appid_expr(s["cond"])
+    if stdr.len(c) > 0 { out = c }
+    let step = find_cogito_appid_expr(s["step"])
+    if stdr.len(step) > 0 { out = step }
+    let body = s["body"] ?? []: [any]
+    let ?i = 0
+    let n = stdr.len(body)
+    for (; i < n; i = i + 1) {
+      let r2 = find_cogito_appid_stmt(body[i])
+      if stdr.len(r2) > 0 { out = r2 }
+    }
+    return out
+  }
+  if st == "foreach" {
+    let ?out = find_cogito_appid_expr(s["iter"])
+    let body = s["body"] ?? []: [any]
+    let ?i = 0
+    let n = stdr.len(body)
+    for (; i < n; i = i + 1) {
+      let r = find_cogito_appid_stmt(body[i])
+      if stdr.len(r) > 0 { out = r }
+    }
+    return out
+  }
+  return ""
+}
+
+fun find_cogito_appid_name(ast = any) (( string )) {
+  if stdr.is_null(ast) { return "" }
+  let decls = ast["decls"] ?? []: [any]
+  let ?out = ""
+  let ?i = 0
+  let n = stdr.len(decls)
+  for (; i < n; i = i + 1) {
+    let d = decls[i]
+    let dt = d["tag"] ?? ""
+    if dt == "entry" || dt == "fun" || dt == "macro" {
+      let body = d["body"] ?? []: [any]
+      let ?j = 0
+      let bn = stdr.len(body)
+      for (; j < bn; j = j + 1) {
+        let r = find_cogito_appid_stmt(body[j])
+        if stdr.len(r) > 0 { out = r }
+      }
+    } elif dt == "const" || dt == "def" {
+      let ?expr = d["init"]
+      if stdr.is_null(expr) { expr = d["value"] }
+      let r = find_cogito_appid_expr(expr)
+      if stdr.len(r) > 0 { out = r }
+    } elif dt == "class" {
+      let methods = d["methods"] ?? []: [any]
+      let ?k = 0
+      let mn = stdr.len(methods)
+      for (; k < mn; k = k + 1) {
+        let m = methods[k]
+        let body = m["body"] ?? []: [any]
+        let ?j = 0
+        let bn = stdr.len(body)
+        for (; j < bn; j = j + 1) {
+          let r = find_cogito_appid_stmt(body[j])
+          if stdr.len(r) > 0 { out = r }
+        }
+      }
+    }
+  }
+  return out
+}
+
+fun prepare_macos_app_bundle(exe_path = string, bundle_id = string, bundle_name = string) (( bool )) {
+  if stdr.len(exe_path) == 0 { return false }
+  if stdr.len(bundle_id) == 0 { return false }
+  if stdr.len(bundle_name) == 0 { return false }
+
+  let marker = "/Contents/MacOS/"
+  let m = str_find(exe_path, marker)
+  if m < 0 { return false }
+  let marker_n = stdr.len(marker)
+  let exe_n = stdr.len(exe_path)
+  let exec_name = stdr.slice(exe_path, m + marker_n, exe_n)
+  if stdr.len(exec_name) == 0 { return false }
+  if has_char(exec_name, "/") { return false }
+
+  let bundle_root = stdr.slice(exe_path, 0, m)
+  if stdr.len(bundle_root) == 0 { return false }
+  let contents_dir = stdr.str_concat(bundle_root, "/Contents")
+  let macos_dir = stdr.str_concat(contents_dir, "/MacOS")
+  let resources_dir = stdr.str_concat(contents_dir, "/Resources")
+  let plist_path = stdr.str_concat(contents_dir, "/Info.plist")
+
+  let ?mk = "mkdir -p \""
+  mk = stdr.str_concat(mk, bundle_root)
+  mk = stdr.str_concat(mk, "\" \"")
+  mk = stdr.str_concat(mk, contents_dir)
+  mk = stdr.str_concat(mk, "\" \"")
+  mk = stdr.str_concat(mk, macos_dir)
+  mk = stdr.str_concat(mk, "\" \"")
+  mk = stdr.str_concat(mk, resources_dir)
+  mk = stdr.str_concat(mk, "\"")
+  let mk_res = stdr.run_command(mk)
+  let mk_code = mk_res[0] ?? 1
+  if mk_code != 0 { return false }
+
+  let lt = "\<"
+  let gt = "\>"
+  let ?plist = ""
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "?xml version=\"1.0\" encoding=\"UTF-8\"?")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "\n")
+
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\"")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "\n")
+
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "plist version=\"1.0\"")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "\n")
+
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "dict")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "\n")
+
+  plist = stdr.str_concat(plist, "  ")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "key")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "CFBundleDevelopmentRegion")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "/key")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "string")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "en")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "/string")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "\n")
+
+  plist = stdr.str_concat(plist, "  ")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "key")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "CFBundleExecutable")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "/key")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "string")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, exec_name)
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "/string")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "\n")
+
+  plist = stdr.str_concat(plist, "  ")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "key")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "CFBundleIdentifier")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "/key")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "string")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, bundle_id)
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "/string")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "\n")
+
+  plist = stdr.str_concat(plist, "  ")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "key")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "CFBundleInfoDictionaryVersion")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "/key")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "string")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "6.0")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "/string")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "\n")
+
+  plist = stdr.str_concat(plist, "  ")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "key")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "CFBundleName")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "/key")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "string")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, bundle_name)
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "/string")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "\n")
+
+  plist = stdr.str_concat(plist, "  ")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "key")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "CFBundleDisplayName")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "/key")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "string")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, bundle_name)
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "/string")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "\n")
+
+  plist = stdr.str_concat(plist, "  ")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "key")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "CFBundlePackageType")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "/key")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "string")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "APPL")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "/string")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "\n")
+
+  plist = stdr.str_concat(plist, "  ")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "key")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "CFBundleShortVersionString")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "/key")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "string")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "1.0")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "/string")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "\n")
+
+  plist = stdr.str_concat(plist, "  ")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "key")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "CFBundleVersion")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "/key")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "string")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "1")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "/string")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "\n")
+
+  plist = stdr.str_concat(plist, "  ")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "key")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "NSHighResolutionCapable")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "/key")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "true/")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "\n")
+
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "/dict")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "\n")
+  plist = stdr.str_concat(plist, lt)
+  plist = stdr.str_concat(plist, "/plist")
+  plist = stdr.str_concat(plist, gt)
+  plist = stdr.str_concat(plist, "\n")
+
+  return stdr.write_text_file(plist_path, plist)
+}
+
 -- Resolve a bring name to a file path. Checks src_dir/<name>.yi
 fun file_exists(path = string) (( num )) {
   let cmd = stdr.str_concat(stdr.str_concat("test -f \"", path), "\"")
   let res = stdr.run_command(cmd)
   return res[0] ?? 1
+}
+
+fun find_runtime_src(argv = any) (( string )) {
+  let ?runtime_src = stdr.read_text_file("src/bootstrap/runtime.inc")
+  if !stdr.is_null(runtime_src) { return runtime_src }
+  runtime_src = stdr.read_text_file("src/runtime.inc")
+  if !stdr.is_null(runtime_src) { return runtime_src }
+
+  let ?exe0_in = argv[0] ?? ""
+  let ?exe_path = exe0_in
+  if stdr.len(exe0_in) > 0 && stdr.len(dir_of(exe0_in)) == 0 {
+    let ?which_cmd = stdr.str_concat("command -v \"", exe0_in)
+    which_cmd = stdr.str_concat(which_cmd, "\"")
+    let which_res = stdr.run_command(which_cmd)
+    let which_code = which_res[0] ?? 1
+    if which_code == 0 {
+      let ?p = which_res[1] ?? ""
+      let pn = stdr.len(p)
+      if pn > 0 && stdr.slice(p, pn - 1, pn) == "\n" {
+        p = stdr.slice(p, 0, pn - 1)
+      }
+      if stdr.len(p) > 0 { exe_path = p }
+    }
+  }
+
+  if stdr.len(exe_path) > 0 {
+    let exe_dir = dir_of(exe_path)
+    if stdr.len(exe_dir) > 0 {
+      let ?p = stdr.str_concat(exe_dir, "../src/bootstrap/runtime.inc")
+      if file_exists(p) == 0 {
+        runtime_src = stdr.read_text_file(p)
+        if !stdr.is_null(runtime_src) { return runtime_src }
+      }
+      p = stdr.str_concat(exe_dir, "../src/runtime.inc")
+      if file_exists(p) == 0 {
+        runtime_src = stdr.read_text_file(p)
+        if !stdr.is_null(runtime_src) { return runtime_src }
+      }
+      p = stdr.str_concat(exe_dir, "../../src/bootstrap/runtime.inc")
+      if file_exists(p) == 0 {
+        runtime_src = stdr.read_text_file(p)
+        if !stdr.is_null(runtime_src) { return runtime_src }
+      }
+      p = stdr.str_concat(exe_dir, "../../src/runtime.inc")
+      if file_exists(p) == 0 {
+        runtime_src = stdr.read_text_file(p)
+        if !stdr.is_null(runtime_src) { return runtime_src }
+      }
+      p = stdr.str_concat(exe_dir, "../share/yis/runtime.inc")
+      if file_exists(p) == 0 {
+        runtime_src = stdr.read_text_file(p)
+        if !stdr.is_null(runtime_src) { return runtime_src }
+      }
+    }
+  }
+
+  runtime_src = stdr.read_text_file("/opt/homebrew/share/yis/runtime.inc")
+  if !stdr.is_null(runtime_src) { return runtime_src }
+  runtime_src = stdr.read_text_file("/usr/local/share/yis/runtime.inc")
+  if !stdr.is_null(runtime_src) { return runtime_src }
+  runtime_src = stdr.read_text_file("/usr/share/yis/runtime.inc")
+  if !stdr.is_null(runtime_src) { return runtime_src }
+
+  return ""
+}
+
+fun runtime_dep_fresh(out_path = string, argv = any) (( bool )) {
+  let ?p = "src/bootstrap/runtime.inc"
+  if file_exists(p) == 0 { return output_newer_than(out_path, p) }
+  p = "src/runtime.inc"
+  if file_exists(p) == 0 { return output_newer_than(out_path, p) }
+
+  let ?exe0_in = argv[0] ?? ""
+  let ?exe_path = exe0_in
+  if stdr.len(exe0_in) > 0 && stdr.len(dir_of(exe0_in)) == 0 {
+    let ?which_cmd = stdr.str_concat("command -v \"", exe0_in)
+    which_cmd = stdr.str_concat(which_cmd, "\"")
+    let which_res = stdr.run_command(which_cmd)
+    let which_code = which_res[0] ?? 1
+    if which_code == 0 {
+      let ?wp = which_res[1] ?? ""
+      let wn = stdr.len(wp)
+      if wn > 0 && stdr.slice(wp, wn - 1, wn) == "\n" {
+        wp = stdr.slice(wp, 0, wn - 1)
+      }
+      if stdr.len(wp) > 0 { exe_path = wp }
+    }
+  }
+
+  if stdr.len(exe_path) > 0 {
+    let exe_dir = dir_of(exe_path)
+    if stdr.len(exe_dir) > 0 {
+      p = stdr.str_concat(exe_dir, "../src/bootstrap/runtime.inc")
+      if file_exists(p) == 0 { return output_newer_than(out_path, p) }
+      p = stdr.str_concat(exe_dir, "../src/runtime.inc")
+      if file_exists(p) == 0 { return output_newer_than(out_path, p) }
+      p = stdr.str_concat(exe_dir, "../../src/bootstrap/runtime.inc")
+      if file_exists(p) == 0 { return output_newer_than(out_path, p) }
+      p = stdr.str_concat(exe_dir, "../../src/runtime.inc")
+      if file_exists(p) == 0 { return output_newer_than(out_path, p) }
+      p = stdr.str_concat(exe_dir, "../share/yis/runtime.inc")
+      if file_exists(p) == 0 { return output_newer_than(out_path, p) }
+    }
+  }
+
+  p = "/opt/homebrew/share/yis/runtime.inc"
+  if file_exists(p) == 0 { return output_newer_than(out_path, p) }
+  p = "/usr/local/share/yis/runtime.inc"
+  if file_exists(p) == 0 { return output_newer_than(out_path, p) }
+  p = "/usr/share/yis/runtime.inc"
+  if file_exists(p) == 0 { return output_newer_than(out_path, p) }
+
+  return true
 }
 
 fun resolve_bring(bname = string, src_dir = string) (( string )) {
@@ -1755,6 +3257,872 @@ fun load_module(fpath = string) (( any )) {
   let ast = parser.parse(toks)
   g_ast_cache[fpath] = ast
   return ast
+}
+
+fun output_newer_than(out_path = string, dep_path = string) (( bool )) {
+  let ?cmd = "test \""
+  cmd = stdr.str_concat(cmd, out_path)
+  cmd = stdr.str_concat(cmd, "\" -nt \"")
+  cmd = stdr.str_concat(cmd, dep_path)
+  cmd = stdr.str_concat(cmd, "\"")
+  let res = stdr.run_command(cmd)
+  let code = res[0] ?? 1
+  return code == 0
+}
+
+fun output_fresh_for_module(out_path = string, fpath = string, seen = any) (( bool )) {
+  let ?seen_map = seen
+  if stdr.len(fpath) == 0 { return false }
+  if file_exists(fpath) != 0 { return false }
+  if !output_newer_than(out_path, fpath) { return false }
+
+  let was_seen = seen_map[fpath]
+  if !stdr.is_null(was_seen) { return true }
+  seen_map[fpath] = true
+
+  let ast = load_module(fpath)
+  if stdr.is_null(ast) { return false }
+
+  let decls = ast["decls"] ?? []: [any]
+  let src_dir = dir_of(fpath)
+  let ?i = 0
+  let n = stdr.len(decls)
+  for (; i < n; i = i + 1) {
+    let d = decls[i]
+    let dtag = d["tag"] ?? ""
+    if dtag != "bring" { continue }
+    let bname = d["name"] ?? ""
+    let dep = resolve_bring(bname, src_dir)
+    if !output_fresh_for_module(out_path, dep, seen_map) { return false }
+  }
+
+  return true
+}
+
+-- ============================================================
+-- Optimizer (Yis-level O3-ish pipeline)
+-- Phase 1: constant fold/propagate + DCE
+-- Phase 2: peephole simplification
+-- Phase 3: small-function inlining + loop simplifications
+-- ============================================================
+
+fun lit_int(v = any) (( any )) {
+  let ?n = []: [string => any]
+  n["tag"] = "int"
+  n["value"] = stdr.str(v)
+  return n
+}
+
+fun lit_bool(v = bool) (( any )) {
+  let ?n = []: [string => any]
+  n["tag"] = "bool"
+  n["value"] = v
+  return n
+}
+
+fun lit_null() (( any )) {
+  let ?n = []: [string => any]
+  n["tag"] = "null"
+  return n
+}
+
+fun is_lit(e = any) (( bool )) {
+  if stdr.is_null(e) { return false }
+  let t = e["tag"] ?? ""
+  return t == "int" || t == "bool" || t == "str" || t == "null"
+}
+
+fun is_non_null_lit(e = any) (( bool )) {
+  if stdr.is_null(e) { return false }
+  let t = e["tag"] ?? ""
+  return t == "int" || t == "bool" || t == "str" || t == "array" || t == "dict"
+}
+
+fun is_int_lit(e = any) (( bool )) {
+  if stdr.is_null(e) { return false }
+  return (e["tag"] ?? "") == "int"
+}
+
+fun int_lit_val(e = any) (( num )) {
+  return stdr.num(e["value"] ?? 0)
+}
+
+fun is_bool_lit(e = any) (( bool )) {
+  if stdr.is_null(e) { return false }
+  return (e["tag"] ?? "") == "bool"
+}
+
+fun bool_lit_val(e = any) (( bool )) {
+  return e["value"] ?? false
+}
+
+fun env_new() (( any )) {
+  return []: [any]
+}
+
+fun env_clone(env = any) (( any )) {
+  let ?out = []: [any]
+  let ?i = 0
+  let n = stdr.len(env)
+  for (; i < n; i = i + 1) {
+    out = stdr.concat(out, [env[i]])
+  }
+  return out
+}
+
+fun env_get(env = any, name = string) (( any )) {
+  let ?i = 0
+  let n = stdr.len(env)
+  for (; i < n; i = i + 1) {
+    let it = env[i]
+    let iname = it["name"] ?? ""
+    if iname == name {
+      return it["value"]
+    }
+  }
+  return null
+}
+
+fun env_set(env = any, name = string, value = any) (( any )) {
+  let ?out = []: [any]
+  let ?found = false
+  let ?i = 0
+  let n = stdr.len(env)
+  for (; i < n; i = i + 1) {
+    let it = env[i]
+    let iname = it["name"] ?? ""
+    if iname == name {
+      let ?it2 = []: [string => any]
+      it2["name"] = name
+      it2["value"] = value
+      out = stdr.concat(out, [it2])
+      found = true
+    } else {
+      out = stdr.concat(out, [it])
+    }
+  }
+  if !found {
+    let ?it3 = []: [string => any]
+    it3["name"] = name
+    it3["value"] = value
+    out = stdr.concat(out, [it3])
+  }
+  return out
+}
+
+fun env_kill(env = any, name = string) (( any )) {
+  return env_set(env, name, null)
+}
+
+fun expr_size(e = any) (( num )) {
+  if stdr.is_null(e) { return 0 }
+  let t = e["tag"] ?? ""
+  if t == "int" || t == "bool" || t == "str" || t == "null" || t == "ident" { return 1 }
+  if t == "unary" {
+    return 1 + expr_size(e["operand"])
+  }
+  if t == "binop" {
+    return 1 + expr_size(e["left"]) + expr_size(e["right"])
+  }
+  if t == "call" {
+    let ?s = 1 + expr_size(e["func"])
+    let args = e["args"] ?? []: [any]
+    let ?i = 0
+    let n = stdr.len(args)
+    for (; i < n; i = i + 1) {
+      s = s + expr_size(args[i])
+    }
+    return s
+  }
+  if t == "member" {
+    return 1 + expr_size(e["obj"])
+  }
+  if t == "index" {
+    return 1 + expr_size(e["obj"]) + expr_size(e["idx"])
+  }
+  return 8
+}
+
+fun expr_has_side_effect(e = any) (( bool )) {
+  if stdr.is_null(e) { return false }
+  let t = e["tag"] ?? ""
+  if t == "call" || t == "bang_call" || t == "assign" { return true }
+  if t == "unary" { return expr_has_side_effect(e["operand"]) }
+  if t == "binop" { return expr_has_side_effect(e["left"]) || expr_has_side_effect(e["right"]) }
+  if t == "member" { return expr_has_side_effect(e["obj"]) }
+  if t == "index" { return expr_has_side_effect(e["obj"]) || expr_has_side_effect(e["idx"]) }
+  if t == "array" {
+    let xs = e["elems"] ?? []: [any]
+    let ?i = 0
+    let n = stdr.len(xs)
+    for (; i < n; i = i + 1) { if expr_has_side_effect(xs[i]) { return true } }
+    return false
+  }
+  if t == "dict" {
+    let es = e["entries"] ?? []: [any]
+    let ?i = 0
+    let n = stdr.len(es)
+    for (; i < n; i = i + 1) {
+      let it = es[i]
+      if expr_has_side_effect(it["key"]) || expr_has_side_effect(it["value"]) { return true }
+    }
+    return false
+  }
+  if t == "if_expr" {
+    return expr_has_side_effect(e["cond"]) || expr_has_side_effect(e["then"]) || expr_has_side_effect(e["else"])
+  }
+  return false
+}
+
+fun subst_expr(e = any, binds = any) (( any )) {
+  if stdr.is_null(e) { return null }
+  let t = e["tag"] ?? ""
+  if t == "ident" {
+    let name = e["name"] ?? ""
+    let v = binds[name]
+    if !stdr.is_null(v) { return v }
+    return e
+  }
+  if t == "unary" {
+    let ?n = []: [string => any]
+    n["tag"] = "unary"
+    n["op"] = e["op"]
+    n["operand"] = subst_expr(e["operand"], binds)
+    return n
+  }
+  if t == "binop" {
+    let ?n = []: [string => any]
+    n["tag"] = "binop"
+    n["op"] = e["op"]
+    n["left"] = subst_expr(e["left"], binds)
+    n["right"] = subst_expr(e["right"], binds)
+    return n
+  }
+  if t == "call" {
+    let ?n = []: [string => any]
+    n["tag"] = "call"
+    n["func"] = subst_expr(e["func"], binds)
+    let args = e["args"] ?? []: [any]
+    let ?out = []: [any]
+    let ?i = 0
+    let an = stdr.len(args)
+    for (; i < an; i = i + 1) { out = stdr.concat(out, [subst_expr(args[i], binds)]) }
+    n["args"] = out
+    return n
+  }
+  if t == "member" {
+    let ?n = []: [string => any]
+    n["tag"] = "member"
+    n["obj"] = subst_expr(e["obj"], binds)
+    n["field"] = e["field"]
+    return n
+  }
+  if t == "index" {
+    let ?n = []: [string => any]
+    n["tag"] = "index"
+    n["obj"] = subst_expr(e["obj"], binds)
+    n["idx"] = subst_expr(e["idx"], binds)
+    return n
+  }
+  if t == "array" {
+    let xs = e["elems"] ?? []: [any]
+    let ?out = []: [any]
+    let ?i = 0
+    let n = stdr.len(xs)
+    for (; i < n; i = i + 1) { out = stdr.concat(out, [subst_expr(xs[i], binds)]) }
+    let ?r = []: [string => any]
+    r["tag"] = "array"
+    r["elems"] = out
+    return r
+  }
+  if t == "dict" {
+    let xs = e["entries"] ?? []: [any]
+    let ?out = []: [any]
+    let ?i = 0
+    let n = stdr.len(xs)
+    for (; i < n; i = i + 1) {
+      let it = xs[i]
+      let ?u = []: [string => any]
+      u["key"] = subst_expr(it["key"], binds)
+      u["value"] = subst_expr(it["value"], binds)
+      out = stdr.concat(out, [u])
+    }
+    let ?r = []: [string => any]
+    r["tag"] = "dict"
+    r["entries"] = out
+    return r
+  }
+  if t == "if_expr" {
+    let ?n = []: [string => any]
+    n["tag"] = "if_expr"
+    n["cond"] = subst_expr(e["cond"], binds)
+    n["then"] = subst_expr(e["then"], binds)
+    n["else"] = subst_expr(e["else"], binds)
+    return n
+  }
+  return e
+}
+
+fun build_inline_map(ast = any) (( -- )) {
+  g_inline_map = []: [string => any]
+  if stdr.is_null(ast) { return }
+  let decls = ast["decls"] ?? []: [any]
+  let ?i = 0
+  let n = stdr.len(decls)
+  for (; i < n; i = i + 1) {
+    let d = decls[i]
+    let dt = d["tag"] ?? ""
+    if dt != "fun" { continue }
+    let name = d["name"] ?? ""
+    let params = d["params"] ?? []: [any]
+    let ret = d["ret"] ?? "any"
+    let body = d["body"] ?? []: [any]
+    if ret == "void" || ret == "--" { continue }
+    if stdr.len(params) > 4 { continue }
+    if stdr.len(body) != 1 { continue }
+    let s = body[0]
+    let st = s["tag"] ?? ""
+    let ?expr = null
+    if st == "return" { expr = s["value"] }
+    elif st == "expr_stmt" { expr = s["expr"] }
+    if stdr.is_null(expr) { continue }
+    if expr_has_side_effect(expr) { continue }
+    if expr_size(expr) > 28 { continue }
+    let ?inl = []: [string => any]
+    inl["params"] = params
+    inl["expr"] = expr
+    g_inline_map[name] = inl
+  }
+}
+
+fun opt_expr(e = any, env = any) (( any )) {
+  if stdr.is_null(e) { return null }
+  let t = e["tag"] ?? ""
+
+  if t == "ident" {
+    let name = e["name"] ?? ""
+    let v = env_get(env, name)
+    if !stdr.is_null(v) { return v }
+    return e
+  }
+
+  if t == "unary" {
+    let op = e["op"] ?? ""
+    let x = opt_expr(e["operand"], env)
+    if op == "minus" && is_int_lit(x) { return lit_int(0 - int_lit_val(x)) }
+    if op == "bang" && is_bool_lit(x) {
+      if bool_lit_val(x) { return lit_bool(false) }
+      return lit_bool(true)
+    }
+    if op == "hash" {
+      let xt = x["tag"] ?? ""
+      if xt == "array" { return lit_int(stdr.len(x["elems"] ?? []: [any])) }
+      if xt == "str" { return lit_int(stdr.len(x["value"] ?? "")) }
+    }
+    let ?n = []: [string => any]
+    n["tag"] = "unary"
+    n["op"] = op
+    n["operand"] = x
+    return n
+  }
+
+  if t == "binop" {
+    let op = e["op"] ?? ""
+    let a = opt_expr(e["left"], env)
+    let b = opt_expr(e["right"], env)
+
+    if op == "qq" {
+      let at = a["tag"] ?? ""
+      if at == "null" { return b }
+      if is_non_null_lit(a) { return a }
+    }
+
+    if is_int_lit(a) && is_int_lit(b) {
+      let av = int_lit_val(a)
+      let bv = int_lit_val(b)
+      if op == "plus" { return lit_int(av + bv) }
+      if op == "minus" { return lit_int(av - bv) }
+      if op == "star" { return lit_int(av * bv) }
+      if op == "eqeq" { return lit_bool(av == bv) }
+      if op == "ne" { return lit_bool(av != bv) }
+      if op == "lt" { return lit_bool(av < bv) }
+      if op == "le" { return lit_bool(av <= bv) }
+      if op == "gt" { return lit_bool(av > bv) }
+      if op == "ge" { return lit_bool(av >= bv) }
+    }
+
+    if is_bool_lit(a) && is_bool_lit(b) {
+      let av = bool_lit_val(a)
+      let bv = bool_lit_val(b)
+      if op == "ampamp" { return lit_bool(av && bv) }
+      if op == "barbar" { return lit_bool(av || bv) }
+      if op == "eqeq" { return lit_bool(av == bv) }
+      if op == "ne" { return lit_bool(av != bv) }
+    }
+
+    if op == "plus" {
+      if is_int_lit(a) && int_lit_val(a) == 0 { return b }
+      if is_int_lit(b) && int_lit_val(b) == 0 { return a }
+    }
+    if op == "minus" {
+      if is_int_lit(b) && int_lit_val(b) == 0 { return a }
+    }
+    if op == "star" {
+      if is_int_lit(a) && int_lit_val(a) == 1 { return b }
+      if is_int_lit(b) && int_lit_val(b) == 1 { return a }
+      if is_int_lit(a) && int_lit_val(a) == 0 { return lit_int(0) }
+      if is_int_lit(b) && int_lit_val(b) == 0 { return lit_int(0) }
+    }
+    if op == "ampamp" {
+      if is_bool_lit(a) { if bool_lit_val(a) { return b } else { return lit_bool(false) } }
+      if is_bool_lit(b) { if bool_lit_val(b) { return a } else { return lit_bool(false) } }
+    }
+    if op == "barbar" {
+      if is_bool_lit(a) { if bool_lit_val(a) { return lit_bool(true) } else { return b } }
+      if is_bool_lit(b) { if bool_lit_val(b) { return lit_bool(true) } else { return a } }
+    }
+
+    let ?n = []: [string => any]
+    n["tag"] = "binop"
+    n["op"] = op
+    n["left"] = a
+    n["right"] = b
+    return n
+  }
+
+  if t == "call" {
+    let fn = opt_expr(e["func"], env)
+    let args = e["args"] ?? []: [any]
+    let ?out_args = []: [any]
+    let ?i = 0
+    let an = stdr.len(args)
+    for (; i < an; i = i + 1) { out_args = stdr.concat(out_args, [opt_expr(args[i], env)]) }
+
+    -- Phase 3: selective small-function inlining
+    let fnt = fn["tag"] ?? ""
+    if false && fnt == "ident" {
+      let fname = fn["name"] ?? ""
+      let inl = g_inline_map[fname]
+      if !stdr.is_null(inl) {
+        let params = dict_get_or(inl, "params", []: [any])
+        if stdr.len(params) == stdr.len(out_args) {
+          let ?binds = []: [string => any]
+          let ?pi = 0
+          let pn = stdr.len(params)
+          for (; pi < pn; pi = pi + 1) {
+            let p = params[pi]
+            let pname = p["name"] ?? ""
+            binds[pname] = out_args[pi]
+          }
+          let in_expr = subst_expr(dict_get_or(inl, "expr", null), binds)
+          return opt_expr(in_expr, env)
+        }
+      }
+    }
+
+    -- Phase 2: peepholes for stdr calls
+    if fnt == "member" {
+      let obj = fn["obj"]
+      let field = fn["field"] ?? ""
+      let objt = dict_get_or(obj, "tag", "")
+      let objn = dict_get_or(obj, "name", "")
+      if objt == "ident" && objn == "stdr" {
+        if field == "str" && stdr.len(out_args) == 1 {
+          let a0 = out_args[0]
+          let a0t = dict_get_or(a0, "tag", "")
+          if a0t == "str" { return a0 }
+        }
+        if field == "num" && stdr.len(out_args) == 1 {
+          let a0 = out_args[0]
+          let a0t = dict_get_or(a0, "tag", "")
+          if a0t == "int" { return a0 }
+        }
+        if field == "is_null" && stdr.len(out_args) == 1 {
+          let a0 = out_args[0]
+          let a0t = dict_get_or(a0, "tag", "")
+          if a0t == "null" { return lit_bool(true) }
+          if is_non_null_lit(a0) { return lit_bool(false) }
+        }
+        if field == "len" && stdr.len(out_args) == 1 {
+          let a0 = out_args[0]
+          let t0 = dict_get_or(a0, "tag", "")
+          if t0 == "array" { return lit_int(stdr.len(dict_get_or(a0, "elems", []: [any]))) }
+          if t0 == "str" { return lit_int(stdr.len(dict_get_or(a0, "value", ""))) }
+        }
+      }
+    }
+
+    let ?n = []: [string => any]
+    n["tag"] = "call"
+    n["func"] = fn
+    n["args"] = out_args
+    return n
+  }
+
+  if t == "member" {
+    let ?n = []: [string => any]
+    n["tag"] = "member"
+    n["obj"] = opt_expr(e["obj"], env)
+    n["field"] = e["field"]
+    return n
+  }
+
+  if t == "index" {
+    let ?n = []: [string => any]
+    n["tag"] = "index"
+    n["obj"] = opt_expr(e["obj"], env)
+    n["idx"] = opt_expr(e["idx"], env)
+    return n
+  }
+
+  if t == "assign" {
+    let lhs = opt_expr(e["lhs"], env)
+    let rhs = opt_expr(e["rhs"], env)
+    let lhst = lhs["tag"] ?? ""
+    if lhst == "ident" {
+      let nm = lhs["name"] ?? ""
+      if is_lit(rhs) { env_set(env, nm, rhs) }
+      else { env_kill(env, nm) }
+    }
+    let ?n = []: [string => any]
+    n["tag"] = "assign"
+    n["lhs"] = lhs
+    n["rhs"] = rhs
+    return n
+  }
+
+  if t == "array" {
+    let xs = e["elems"] ?? []: [any]
+    let ?out = []: [any]
+    let ?i = 0
+    let n = stdr.len(xs)
+    for (; i < n; i = i + 1) { out = stdr.concat(out, [opt_expr(xs[i], env)]) }
+    let ?r = []: [string => any]
+    r["tag"] = "array"
+    r["elems"] = out
+    return r
+  }
+
+  if t == "dict" {
+    let xs = e["entries"] ?? []: [any]
+    let ?out = []: [any]
+    let ?i = 0
+    let n = stdr.len(xs)
+    for (; i < n; i = i + 1) {
+      let it = xs[i]
+      let ?u = []: [string => any]
+      u["key"] = opt_expr(it["key"], env)
+      u["value"] = opt_expr(it["value"], env)
+      out = stdr.concat(out, [u])
+    }
+    let ?r = []: [string => any]
+    r["tag"] = "dict"
+    r["entries"] = out
+    return r
+  }
+
+  if t == "if_expr" {
+    let c = opt_expr(e["cond"], env)
+    let tv = opt_expr(e["then"], env)
+    let ev = opt_expr(e["else"], env)
+    if is_bool_lit(c) {
+      if bool_lit_val(c) { return tv }
+      return ev
+    }
+    let ?n = []: [string => any]
+    n["tag"] = "if_expr"
+    n["cond"] = c
+    n["then"] = tv
+    n["else"] = ev
+    return n
+  }
+
+  return e
+}
+
+fun splice_node(stmts = any) (( any )) {
+  let ?n = []: [string => any]
+  n["tag"] = "__splice"
+  n["stmts"] = stmts
+  return n
+}
+
+fun stmt_has_return(s = any) (( bool )) {
+  if stdr.is_null(s) { return false }
+  let st = s["tag"] ?? ""
+  if st == "return" { return true }
+  if st == "if" {
+    let tb = s["then"] ?? []: [any]
+    let eb = s["else"] ?? []: [any]
+    if block_has_return(tb) { return true }
+    if block_has_return(eb) { return true }
+    return false
+  }
+  if st == "for" || st == "foreach" {
+    return block_has_return(s["body"] ?? []: [any])
+  }
+  return false
+}
+
+fun block_has_return(stmts = any) (( bool )) {
+  let ?i = 0
+  let n = stdr.len(stmts)
+  for (; i < n; i = i + 1) {
+    if stmt_has_return(stmts[i]) { return true }
+  }
+  return false
+}
+
+fun opt_stmt(s = any, env = any) (( any )) {
+  if stdr.is_null(s) { return pair(null, env) }
+  let st = s["tag"] ?? ""
+
+  if st == "let" {
+    let name = s["name"] ?? ""
+    let mut = s["mutable"] ?? false
+    let init = opt_expr(s["init"], env)
+    let ?next_env = env
+    if !mut && is_lit(init) { next_env = env_set(env, name, init) }
+    else { next_env = env_kill(env, name) }
+    let ?n = []: [string => any]
+    n["tag"] = "let"
+    n["name"] = name
+    n["mutable"] = mut
+    n["init"] = init
+    return pair(n, next_env)
+  }
+
+  if st == "const" {
+    let name = s["name"] ?? ""
+    let init = opt_expr(s["init"], env)
+    let ?next_env = env
+    if is_lit(init) { next_env = env_set(env, name, init) }
+    else { next_env = env_kill(env, name) }
+    let ?n = []: [string => any]
+    n["tag"] = "const"
+    n["name"] = name
+    n["init"] = init
+    return pair(n, next_env)
+  }
+
+  if st == "return" {
+    let ?n = []: [string => any]
+    n["tag"] = "return"
+    n["value"] = opt_expr(s["value"], env)
+    return pair(n, env)
+  }
+
+  if st == "expr_stmt" {
+    let ex = opt_expr(s["expr"], env)
+    if !expr_has_side_effect(ex) { return pair(null, env) }
+    let ?n = []: [string => any]
+    n["tag"] = "expr_stmt"
+    n["expr"] = ex
+    return pair(n, env)
+  }
+
+  if st == "if" {
+    let c = opt_expr(s["cond"], env)
+    let then_env = env_clone(env)
+    let else_env = env_clone(env)
+    let then_b = opt_block(s["then"] ?? []: [any], then_env)
+    let else_b = opt_block(s["else"] ?? []: [any], else_env)
+    if is_bool_lit(c) {
+      if bool_lit_val(c) { return pair(splice_node(then_b), env) }
+      return pair(splice_node(else_b), env)
+    }
+    let ?n = []: [string => any]
+    n["tag"] = "if"
+    n["cond"] = c
+    n["then"] = then_b
+    n["else"] = else_b
+    return pair(n, env)
+  }
+
+  if st == "for" {
+    let init_s = s["init_stmt"]
+    let init_e = s["init"]
+    let cond = opt_expr(s["cond"], env)
+    let step = opt_expr(s["step"], env)
+    let body_env = env_clone(env)
+    let body = opt_block(s["body"] ?? []: [any], body_env)
+
+    -- Phase 3: loop simplifications
+    if is_bool_lit(cond) && !bool_lit_val(cond) {
+      let ?pre = []: [any]
+      if !stdr.is_null(init_s) {
+        let oi = opt_stmt(init_s, env)
+        let os = oi[0]
+        if !stdr.is_null(os) { pre = stdr.concat(pre, [os]) }
+      } elif !stdr.is_null(init_e) {
+        let ie = opt_expr(init_e, env)
+        if expr_has_side_effect(ie) {
+          let ?es = []: [string => any]
+          es["tag"] = "expr_stmt"
+          es["expr"] = ie
+          pre = stdr.concat(pre, [es])
+        }
+      }
+      return pair(splice_node(pre), env)
+    }
+
+    let ?n = []: [string => any]
+    n["tag"] = "for"
+    n["init"] = if stdr.is_null(init_e) { null } else { opt_expr(init_e, env) }
+    if is_bool_lit(cond) && bool_lit_val(cond) { n["cond"] = null } else { n["cond"] = cond }
+    if !stdr.is_null(step) && !expr_has_side_effect(step) { n["step"] = null } else { n["step"] = step }
+    n["body"] = body
+    if !stdr.is_null(init_s) {
+      let ip = opt_stmt(init_s, env)
+      n["init_stmt"] = ip[0]
+    }
+    return pair(n, env)
+  }
+
+  if st == "foreach" {
+    let iter = opt_expr(s["iter"], env)
+    let body_env = env_clone(env)
+    let body = opt_block(s["body"] ?? []: [any], body_env)
+    let itag = iter["tag"] ?? ""
+    if itag == "array" && stdr.len(iter["elems"] ?? []: [any]) == 0 { return pair(null, env) }
+    if itag == "str" && stdr.len(iter["value"] ?? "") == 0 { return pair(null, env) }
+    let ?n = []: [string => any]
+    n["tag"] = "foreach"
+    n["item"] = s["item"]
+    n["iter"] = iter
+    n["body"] = body
+    return pair(n, env)
+  }
+
+  return pair(s, env)
+}
+
+fun opt_block(stmts = any, env = any) (( any )) {
+  let ?out = []: [any]
+  let ?cur_env = env
+  let ?i = 0
+  let n = stdr.len(stmts)
+  for (; i < n; i = i + 1) {
+    let s = stmts[i]
+    let sp = opt_stmt(s, cur_env)
+    let os = sp[0]
+    cur_env = sp[1] ?? cur_env
+    if stdr.is_null(os) { continue }
+    let ot = os["tag"] ?? ""
+    if ot == "__splice" {
+      let xs = os["stmts"] ?? []: [any]
+      let ?k = 0
+      let xn = stdr.len(xs)
+      for (; k < xn; k = k + 1) {
+        let z = xs[k]
+        if !stdr.is_null(z) { out = stdr.concat(out, [z]) }
+        let zt = z["tag"] ?? ""
+        if zt == "return" || zt == "break" || zt == "continue" { return out }
+      }
+      continue
+    }
+    out = stdr.concat(out, [os])
+    if ot == "return" || ot == "break" || ot == "continue" { return out }
+  }
+  return out
+}
+
+fun opt_decl(d = any) (( any )) {
+  if stdr.is_null(d) { return d }
+  let t = d["tag"] ?? ""
+  if t == "fun" || t == "macro" {
+    let ?n = d
+    let ?env = env_new()
+    let params = n["params"] ?? []: [any]
+    let ?i = 0
+    let pn = stdr.len(params)
+    for (; i < pn; i = i + 1) {
+      let p = params[i]
+      env = env_kill(env, p["name"] ?? "")
+    }
+    let orig_body = n["body"] ?? []: [any]
+    let opt_body = opt_block(orig_body, env)
+    let ret = n["ret"] ?? "any"
+    if ret != "void" && ret != "--" {
+      if !block_has_return(opt_body) {
+        n["body"] = orig_body
+      } else {
+        n["body"] = opt_body
+      }
+    } else {
+      n["body"] = opt_body
+    }
+    return n
+  }
+  if t == "class" {
+    let ?n = d
+    let methods = n["methods"] ?? []: [any]
+    let ?out = []: [any]
+    let ?i = 0
+    let mn = stdr.len(methods)
+    for (; i < mn; i = i + 1) {
+      let ?m = methods[i]
+      let ?env = env_new()
+      let params = m["params"] ?? []: [any]
+      let ?pi = 0
+      let pn = stdr.len(params)
+      for (; pi < pn; pi = pi + 1) {
+        let p = params[pi]
+        env = env_kill(env, p["name"] ?? "")
+      }
+      let m_orig_body = m["body"] ?? []: [any]
+      let m_opt_body = opt_block(m_orig_body, env)
+      let mret = m["ret"] ?? "any"
+      if mret != "void" && mret != "--" {
+        if !block_has_return(m_opt_body) {
+          m["body"] = m_orig_body
+        } else {
+          m["body"] = m_opt_body
+        }
+      } else {
+        m["body"] = m_opt_body
+      }
+      out = stdr.concat(out, [m])
+    }
+    n["methods"] = out
+    return n
+  }
+  if t == "def" {
+    let ?n = d
+    n["init"] = opt_expr(n["init"], env_new())
+    return n
+  }
+  return d
+}
+
+fun optimize_program_once(ast = any) (( any )) {
+  if stdr.is_null(ast) { return ast }
+  let decls = ast["decls"] ?? []: [any]
+  let ?out = []: [any]
+  let ?i = 0
+  let n = stdr.len(decls)
+  for (; i < n; i = i + 1) {
+    out = stdr.concat(out, [opt_decl(decls[i])])
+  }
+  let ?p = []: [string => any]
+  p["tag"] = ast["tag"] ?? "program"
+  p["decls"] = out
+  return p
+}
+
+fun optimize_program(ast = any) (( any )) {
+  if stdr.is_null(ast) { return ast }
+  return optimize_program_once(ast)
+}
+
+fun load_module_opt(fpath = string) (( any )) {
+  let cached = g_opt_ast_cache[fpath]
+  if !stdr.is_null(cached) { return cached }
+  let ast = load_module(fpath)
+  if stdr.is_null(ast) { return null }
+  let o = optimize_program(ast)
+  g_opt_ast_cache[fpath] = o
+  return o
 }
 
 -- Emit a single brought module. Returns the emitted C code string.
@@ -1844,6 +4212,8 @@ fun emit_c(ast = any, runtime_src = string, src_dir = string) (( string )) {
   let decls_key = "decls"
   let decls = ast[decls_key]
   if stdr.is_null(decls) { return "int main(void) { return 0; }\n" }
+
+  g_next_lambda_id = 1
 
   let ?p = []: [any]
   if stdr.len(runtime_src) > 0 {
@@ -2022,26 +4392,88 @@ fun emit_c(ast = any, runtime_src = string, src_dir = string) (( string )) {
 
 entry() (( -- )) {
   let argv = stdr.args()
+  let ?is_run_mode = false
+  let ?run_arg_start = 0
   if stdr.len(argv) < 2 {
-    stdr.write("Usage: yis run compiler_yi/init.yi -- file.yi\n")
+    stdr.write("Usage: yis file.yi | yis run file.yi\n")
     return
   }
-  let entry_path = argv[1] ?? ""
+  let ?entry_path = argv[1] ?? ""
+  if entry_path == "run" {
+    is_run_mode = true
+    if stdr.len(argv) < 3 {
+      stdr.write("ERR: Missing file path after 'run'\n")
+      stdr.write("Usage: yis file.yi | yis run file.yi\n")
+      return
+    }
+    entry_path = argv[2] ?? ""
+    if stdr.len(argv) > 3 {
+      let arg3 = argv[3] ?? ""
+      if arg3 == "--" {
+        run_arg_start = 4
+      } else {
+        run_arg_start = 3
+      }
+    }
+  }
   if entry_path == "" {
     stdr.write("ERR: No entry path\n")
     return
   }
-  let source = stdr.read_text_file(entry_path)
-  if stdr.is_null(source) {
+  let ep_len = stdr.len(entry_path)
+  let ?is_self_host = false
+  if ep_len >= 11 {
+    let tail = stdr.slice(entry_path, ep_len - 11, ep_len)
+    if tail == "src/init.yi" { is_self_host = true }
+  }
+  let source_raw = stdr.read_text_file(entry_path)
+  if stdr.is_null(source_raw) {
     stdr.write("ERR: Cannot read file\n")
     return
   }
-  -- Read runtime for embedding in generated C
-  let ?runtime_src = stdr.read_text_file("src/bootstrap/runtime.inc")
-  if stdr.is_null(runtime_src) {
-    runtime_src = stdr.read_text_file("src/runtime.inc")
+
+  let ?fallback_cleanup_c = ""
+  if is_run_mode {
+    if str_find(source_raw, "bring cogito") >= 0 {
+      fallback_cleanup_c = cogito_run_c_artifact(entry_path, source_raw)
+    }
   }
-  if stdr.is_null(runtime_src) { runtime_src = "" }
+
+  let disable_boot_fallback = env_nonempty("YIS_DISABLE_BOOTSTRAP_FALLBACK")
+  if !disable_boot_fallback && !is_self_host && contains_callback_lambda_arrow(source_raw) {
+    let bootstrap_path = find_bootstrap_compiler(argv)
+    if stdr.len(bootstrap_path) > 0 {
+      let ?boot_cmd = shell_quote_arg(bootstrap_path)
+      let ?ai = 1
+      let an = stdr.len(argv)
+      for (; ai < an; ai = ai + 1) {
+        let a = argv[ai] ?? ""
+        boot_cmd = stdr.str_concat(boot_cmd, " ")
+        boot_cmd = stdr.str_concat(boot_cmd, shell_quote_arg(a))
+      }
+      boot_cmd = stdr.str_concat(boot_cmd, " 2>&1")
+      let boot_res = stdr.run_command(boot_cmd)
+      let boot_code = boot_res[0] ?? 1
+      let boot_out = boot_res[1] ?? ""
+      if stdr.len(boot_out) > 0 {
+        stdr.write(boot_out ?? "")
+      }
+      if boot_code != 0 {
+        stdr.write("ERR: bootstrap fallback failed\n")
+      }
+      if stdr.len(fallback_cleanup_c) > 0 {
+        rm_file_quiet(fallback_cleanup_c)
+      }
+      return
+    }
+  }
+
+  let ?source = source_raw
+  if !is_self_host {
+    source = preprocess_source(source_raw)
+  }
+  -- Read runtime for embedding in generated C
+  let runtime_src = find_runtime_src(argv)
 
   let toks = lexer.lex(source)
   let ast = parser.parse(toks)
@@ -2049,18 +4481,15 @@ entry() (( -- )) {
     stdr.write("ERR: Parse failed\n")
     return
   }
-  let src_dir = dir_of(entry_path)
-  let c_src_str = stdr.str(emit_c(ast, runtime_src, src_dir))
-  let c_path = ".yi_compile_out.c"
-  let ok = stdr.write_text_file(c_path, c_src_str)
-  if !ok {
-    stdr.write("ERR: Cannot write C output\n")
-    return
+  let ?opt_ast = ast
+  if !is_self_host && !is_run_mode {
+    opt_ast = optimize_program(ast)
   }
+
   -- Detect cogito usage by scanning AST for 'bring cogito'
   let ?uses_cogito = false
   let decls_key2 = "decls"
-  let ast_decls2 = ast[decls_key2] ?? []: [any]
+  let ast_decls2 = opt_ast[decls_key2] ?? []: [any]
   let ?di = 0
   let dn = stdr.len(ast_decls2)
   for (; di < dn; di = di + 1) {
@@ -2069,9 +4498,83 @@ entry() (( -- )) {
       if d2["name"] == "cogito" { uses_cogito = true }
     }
   }
+
+  let uname_res = stdr.run_command("uname")
+  let ?uname_out = uname_res[1] ?? ""
+  let ?is_macos = false
+  if stdr.len(uname_out) >= 6 {
+    if stdr.slice(uname_out, 0, 6) == "Darwin" { is_macos = true }
+  }
+
+  let ?app_name = sanitize_filename_component(stem_name(entry_path))
+  if stdr.len(app_name) == 0 { app_name = "main" }
+  if uses_cogito {
+    let appid_name = find_cogito_appid_name(opt_ast)
+    if stdr.len(appid_name) > 0 {
+      app_name = appid_name
+    }
+  }
+
+  let ?c_path = stdr.str_concat(app_name, ".c")
+
+  let ?out_path = app_name
+  let ?bundle_dir = ""
+  let ?macos_bundle_id = ""
+  if uses_cogito && is_macos {
+    bundle_dir = stdr.str_concat(app_name, ".app")
+    out_path = stdr.str_concat(bundle_dir, "/Contents/MacOS/")
+    out_path = stdr.str_concat(out_path, app_name)
+    if has_char(app_name, ".") {
+      macos_bundle_id = app_name
+    } else {
+      macos_bundle_id = stdr.str_concat("org.yi.", app_name)
+    }
+  }
+
+  let src_dir = dir_of(entry_path)
+  let c_src_str = stdr.str(emit_c(opt_ast, runtime_src, src_dir))
+  let ?need_compile = true
+  let ?stale_out = false
+  if is_run_mode {
+    if file_exists(out_path) == 0 {
+      let ?seen = []: [string => any]
+      if output_fresh_for_module(out_path, entry_path, seen) {
+        if runtime_dep_fresh(out_path, argv) {
+          need_compile = false
+        } else {
+          stale_out = true
+        }
+      } else {
+        stale_out = true
+      }
+    }
+  }
+
+  if stale_out {
+    let ?rm_cmd = "rm -f \""
+    rm_cmd = stdr.str_concat(rm_cmd, out_path)
+    rm_cmd = stdr.str_concat(rm_cmd, "\"")
+    stdr.run_command(rm_cmd)
+  }
+
+  if need_compile {
+    let ok = stdr.write_text_file(c_path, c_src_str)
+    if !ok {
+      stdr.write("ERR: Cannot write C output\n")
+      return
+    }
+  }
   -- Build cc command with cogito flags if needed
   -- Append stderr redirection so stdr.run_command captures compiler errors
-  let ?cc_cmd = "cc -o .yi_out .yi_compile_out.c -O3 -march=native -lm 2>&1"
+  let ?cc_opt_flags = "-O3 -march=native"
+  if is_run_mode { cc_opt_flags = "-O0" }
+  let ?cc_cmd = "cc -o \""
+  cc_cmd = stdr.str_concat(cc_cmd, out_path)
+  cc_cmd = stdr.str_concat(cc_cmd, "\" \"")
+  cc_cmd = stdr.str_concat(cc_cmd, c_path)
+  cc_cmd = stdr.str_concat(cc_cmd, "\" ")
+  cc_cmd = stdr.str_concat(cc_cmd, cc_opt_flags)
+  cc_cmd = stdr.str_concat(cc_cmd, " -lm 2>&1")
   if uses_cogito {
     -- Probe for cogito.h include path using test -f
     let ?cog_cflags = ""
@@ -2113,20 +4616,81 @@ entry() (( -- )) {
       cog_ldflags = stdr.str_concat(cog_ldflags, " -lcogito -Wl,-rpath,")
       cog_ldflags = stdr.str_concat(cog_ldflags, lib_abs)
     }
-    cc_cmd = "cc -o .yi_out .yi_compile_out.c -O3 -march=native -lm "
+    cc_cmd = "cc -o \""
+    cc_cmd = stdr.str_concat(cc_cmd, out_path)
+    cc_cmd = stdr.str_concat(cc_cmd, "\" \"")
+    cc_cmd = stdr.str_concat(cc_cmd, c_path)
+    cc_cmd = stdr.str_concat(cc_cmd, "\" ")
+    cc_cmd = stdr.str_concat(cc_cmd, cc_opt_flags)
+    cc_cmd = stdr.str_concat(cc_cmd, " -lm ")
     cc_cmd = stdr.str_concat(cc_cmd, cog_cflags)
     cc_cmd = stdr.str_concat(cc_cmd, " ")
     cc_cmd = stdr.str_concat(cc_cmd, cog_ldflags)
     cc_cmd = stdr.str_concat(cc_cmd, " 2>&1")
   }
-  let result = stdr.run_command(cc_cmd)
-  let code = result[0] ?? 1
-  let out = result[1] ?? ""
-  if code != 0 {
-    stdr.write("Compile FAIL!\n")
-    stdr.write(out ?? "")
-    stdr.write("\n")
-    return
+  if need_compile {
+    if uses_cogito && is_macos {
+      if !prepare_macos_app_bundle(out_path, macos_bundle_id, app_name) {
+        stdr.write("ERR: failed to prepare macOS app bundle\n")
+        return
+      }
+    }
+
+    let result = stdr.run_command(cc_cmd)
+    let code = result[0] ?? 1
+    let out = result[1] ?? ""
+    if code != 0 {
+      stdr.write("Compilation FAIL!\n")
+      stdr.write(out ?? "")
+      stdr.write("\n")
+      return
+    }
   }
-  stdr.write("OK: .yi_out\n")
+
+  if is_run_mode {
+    let pwd_res = stdr.run_command("pwd")
+    let ?cwd = pwd_res[1] ?? ""
+    let cwd_n = stdr.len(cwd)
+    if cwd_n > 0 && stdr.slice(cwd, cwd_n - 1, cwd_n) == "\n" {
+      cwd = stdr.slice(cwd, 0, cwd_n - 1)
+    }
+
+    let ?run_cmd = "\""
+    run_cmd = stdr.str_concat(run_cmd, cwd)
+    run_cmd = stdr.str_concat(run_cmd, "/")
+    run_cmd = stdr.str_concat(run_cmd, out_path)
+    run_cmd = stdr.str_concat(run_cmd, "\"")
+
+    let ?ri = run_arg_start
+    let rn = stdr.len(argv)
+    for (; ri < rn; ri = ri + 1) {
+      let a = argv[ri] ?? ""
+      run_cmd = stdr.str_concat(run_cmd, " \"")
+      run_cmd = stdr.str_concat(run_cmd, a)
+      run_cmd = stdr.str_concat(run_cmd, "\"")
+    }
+
+    let run_dir = dir_of(entry_path)
+    if stdr.len(run_dir) > 0 {
+      let ?pref = "cd \""
+      pref = stdr.str_concat(pref, run_dir)
+      pref = stdr.str_concat(pref, "\" && ")
+      run_cmd = stdr.str_concat(pref, run_cmd)
+    }
+    run_cmd = stdr.str_concat(run_cmd, " 2>&1")
+
+    let run_res = stdr.run_command(run_cmd)
+    let run_code = run_res[0] ?? 1
+    let run_out = run_res[1] ?? ""
+    if stdr.len(run_out) > 0 {
+      stdr.write(run_out ?? "")
+    }
+    if uses_cogito {
+      rm_file_quiet(c_path)
+    }
+    if run_code != 0 {
+      stdr.write("Run FAIL!\n")
+      return
+    }
+  }
 }
