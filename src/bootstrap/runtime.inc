@@ -115,6 +115,9 @@ typedef struct YisFn {
   int env_size;
 } YisFn;
 
+static int stdr_len(YisVal v);
+static int64_t stdr_num(YisVal v);
+
 #define YV_NULLV ((YisVal){.tag=EVT_NULL})
 #define YV_INT(x) ((YisVal){.tag=EVT_INT, .as.i=(int64_t)(x)})
 #define YV_FLOAT(x) ((YisVal){.tag=EVT_FLOAT, .as.f=(double)(x)})
@@ -867,6 +870,19 @@ static void yis_arr_add(YisArr* a, YisVal v) {
   a->items[a->len++] = v;
 }
 
+static void stdr_push(YisVal av, YisVal val) {
+  if (av.tag != EVT_ARR) yis_trap("push expects array");
+  YisArr* a = (YisArr*)av.as.p;
+  yis_retain_val(val);
+  yis_arr_add(a, val);
+}
+
+static YisVal stdr_join(YisVal av) {
+  if (av.tag != EVT_ARR) yis_trap("join expects array");
+  YisArr* a = (YisArr*)av.as.p;
+  return YV_STR(stdr_str_from_parts((int)a->len, a->items));
+}
+
 static YisVal stdr_array_concat(YisVal av, YisVal bv) {
   if (av.tag != EVT_ARR || bv.tag != EVT_ARR) yis_trap("concat expects two arrays");
   YisArr* a = (YisArr*)av.as.p;
@@ -901,10 +917,12 @@ static void yis_arr_set(YisArr* a, int64_t idx, YisVal v) {
       a->items = (YisVal*)realloc(a->items, sizeof(YisVal) * new_cap);
       a->cap = new_cap;
     }
-    for (size_t i = a->len; i < uidx; i++) a->items[i] = YV_NULLV;
+    for (size_t i = a->len; i <= uidx; i++) a->items[i] = YV_NULLV;
     a->len = uidx + 1;
+  } else {
+    yis_release_val(a->items[uidx]);
   }
-  yis_release_val(a->items[uidx]);
+  yis_retain_val(v);
   a->items[uidx] = v;
 }
 
@@ -954,8 +972,12 @@ static void yis_dict_set(YisDict* d, YisVal key, YisVal val) {
 }
 
 static YisVal yis_dict_get(YisDict* d, YisVal key) {
-  if (key.tag != EVT_STR) yis_trap("dict key must be string");
+  if (!d) return YV_NULLV;
+  if ((uintptr_t)d < 4096u) return YV_NULLV;
+  if (key.tag != EVT_STR) return YV_NULLV;
   YisStr* k = (YisStr*)key.as.p;
+  if (!k) return YV_NULLV;
+  if ((uintptr_t)k < 4096u) return YV_NULLV;
   for (size_t i = 0; i < d->len; i++) {
     if (yis_str_cmp(d->entries[i].key, k) == 0) {
       YisVal v = d->entries[i].val;

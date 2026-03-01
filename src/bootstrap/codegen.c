@@ -3494,10 +3494,15 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
     char *exe_cogito_bindings_path = NULL;  // heap-allocated, freed below
     if (!runtime_path) {
         const char *runtime_candidates[] = {
+            "src/bootstrap/runtime.inc",
             "src/runtime.inc",
+            "yis/src/bootstrap/runtime.inc",
             "yis/src/runtime.inc",
+            "../src/bootstrap/runtime.inc",
             "../src/runtime.inc",
+            "../yis/src/bootstrap/runtime.inc",
             "../yis/src/runtime.inc",
+            "../../yis/src/bootstrap/runtime.inc",
             "../../yis/src/runtime.inc",
         };
         runtime_path = NULL;
@@ -3508,13 +3513,15 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
             }
         }
         // If not found via cwd-relative paths, try relative to the executable.
-        // The binary is typically at <project>/yis/build/yis, so
-        // runtime.inc is at <exe_dir>/../src/runtime.inc.
+        // The binary is typically at <project>/yis/build/yis, so runtime is at
+        // <exe_dir>/../src/bootstrap/runtime.inc.
         if (!runtime_path) {
             char *exe_dir = yis_exe_dir();
             if (exe_dir) {
                 const char *exe_rel[] = {
+                    "../src/bootstrap/runtime.inc",
                     "../src/runtime.inc",
+                    "../../yis/src/bootstrap/runtime.inc",
                     "../../yis/src/runtime.inc",
                 };
                 for (size_t i = 0; i < sizeof(exe_rel) / sizeof(exe_rel[0]); i++) {

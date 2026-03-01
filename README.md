@@ -21,16 +21,16 @@ brew install meson ninja
 ## Build Yis
 
 ```sh
-meson setup yis/build yis
-meson compile -C yis/build
+meson setup build
+meson compile -C build
 ```
 
 Run the compiler from the build tree:
 
 ```sh
-./yis/build/yis --help
-./yis/build/yis yis/examples/hello.yi
-./yis/build/yis run yis/examples/hello.yi
+./build/yis --help
+./build/yis examples/hello.yi
+./build/yis run examples/hello.yi
 ```
 
 ## Optional Install
@@ -38,7 +38,7 @@ Run the compiler from the build tree:
 Install Yis and stdlib:
 
 ```sh
-meson install -C yis/build
+meson install -C build
 ```
 
 ## Useful Environment Variables

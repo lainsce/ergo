@@ -23,12 +23,12 @@ fun __open_file_dialog(prompt = string, extension = string) (( any )) { }
 fun __save_file_dialog(prompt = string, default_name = string, extension = string) (( any )) { }
 
 -- Print formatted output
-pub fun writef(fmt = string, args = any) (( -- )) {
+fun writef(fmt = string, args = any) (( -- )) {
   __writef(fmt, args)
 }
 
 -- Read formatted input (returns line and parsed values)
-pub fun readf(fmt = string, args = any) (( string, any )) {
+fun readf(fmt = string, args = any) (( string, any )) {
   __writef(fmt, args)
   let line = __read_line()
   let parsed = __readf_parse(fmt, line, args)
@@ -36,17 +36,17 @@ pub fun readf(fmt = string, args = any) (( string, any )) {
 }
 
 -- Print a value
-pub fun write(x = any) (( -- )) {
+fun write(x = any) (( -- )) {
   __write(x)
 }
 
 -- Check if a value is null
-pub fun is_null(x = any) (( bool )) {
+fun is_null(x = any) (( bool )) {
   return x.is_none()
 }
 
 -- Convert a value to a string (compiler intrinsic)
-pub fun str(x = any) (( string )) { }
+fun str(x = any) (( string )) { }
 
 -- Internal length primitive (compiler intrinsic)
 fun __len(x = any) (( num )) { }
@@ -55,29 +55,49 @@ fun __len(x = any) (( num )) { }
 fun __num(x = any) (( num )) { }
 
 -- Get the length of an array or string
-pub fun len(x = any) (( num )) {
+fun len(x = any) (( num )) {
   return __len(x)
 }
 
 -- Coerce value to num for comparisons and arithmetic (e.g. array index from any)
-pub fun num(x = any) (( num )) {
+fun num(x = any) (( num )) {
   return __num(x)
 }
 
 -- Substring: slice(s, start, end) is s[start..end), 0-based; indices clamped
 fun __slice(s = string, start = num, end = num) (( string )) { }
-pub fun slice(s = string, start = num, end = num) (( string )) {
+fun slice(s = string, start = num, end = num) (( string )) {
   return __slice(s, start, end)
 }
 
 -- Concatenate two arrays; both must be arrays
 fun __concat(a = any, b = any) (( any )) { }
-pub fun concat(a = any, b = any) (( any )) {
-  return __concat(a, b)
+fun concat(a = any, b = any) (( any )) {
+  let ?out = []: [any]
+  let ?i = 0
+  let n1 = len(a)
+  for (; i < n1; i = i + 1) {
+    let idx = len(out)
+    out[idx] = a[i]
+  }
+  i = 0
+  let n2 = len(b)
+  for (; i < n2; i = i + 1) {
+    let idx = len(out)
+    out[idx] = b[i]
+  }
+  return out
 }
 
--- Join an array of values into a string
-pub fun join(arr = any) (( string )) {
+-- Concatenate two values as strings (returns string)
+fun __str_concat(a = any, b = any) (( string )) { }
+fun str_concat(a = any, b = any) (( string )) {
+  return __str_concat(a, b)
+}
+
+-- Join an array of strings into one string (O(n) total length)
+fun __join(arr = any) (( string )) { }
+fun join(arr = any) (( string )) {
   let ?out = ""
   let ?i = 0
   let n = len(arr)
@@ -87,54 +107,49 @@ pub fun join(arr = any) (( string )) {
   return out
 }
 
--- Push a value onto the end of an array in-place
-pub fun push(arr = any, val = any) (( -- )) {
+-- Push a value onto the end of an array in-place (O(1) amortized)
+fun __push(arr = any, val = any) (( -- )) { }
+fun push(arr = any, val = any) (( -- )) {
   let ?a_ref = arr
   let idx = len(a_ref)
   a_ref[idx] = val
 }
 
--- Concatenate two values as strings (returns string)
-fun __str_concat(a = any, b = any) (( string )) { }
-pub fun str_concat(a = any, b = any) (( string )) {
-  return __str_concat(a, b)
-}
-
 -- ASCII code of first character of string (0 if empty)
 fun __char_code(c = string) (( num )) { }
-pub fun char_code(c = string) (( num )) {
+fun char_code(c = string) (( num )) {
   return __char_code(c)
 }
 
 -- Read text file contents; returns null when file cannot be read
-pub fun read_text_file(path = string) (( any )) {
+fun read_text_file(path = string) (( any )) {
   return __read_text_file(path)
 }
 
 -- Write text to a file; returns true on success
-pub fun write_text_file(path = string, text = string) (( bool )) {
+fun write_text_file(path = string, text = string) (( bool )) {
   return __write_text_file(path, text)
 }
 
 -- Run a shell command; returns (exit_code, stdout) as (num, string)
 fun __run_command(cmd = string) (( num, string )) { }
 
-pub fun run_command(cmd = string) (( num, string )) {
+fun run_command(cmd = string) (( num, string )) {
   return __run_command(cmd)
 }
 
 -- Command-line arguments (argv as array of strings)
 fun __args() (( [string] )) { }
-pub fun args() (( [string] )) {
+fun args() (( [string] )) {
   return __args()
 }
 
 -- Open native file picker and return selected path or null
-pub fun open_file_dialog(prompt = string, extension = string) (( any )) {
+fun open_file_dialog(prompt = string, extension = string) (( any )) {
   return __open_file_dialog(prompt, extension)
 }
 
 -- Open native save dialog and return selected path or null
-pub fun save_file_dialog(prompt = string, default_name = string, extension = string) (( any )) {
+fun save_file_dialog(prompt = string, default_name = string, extension = string) (( any )) {
   return __save_file_dialog(prompt, default_name, extension)
 }

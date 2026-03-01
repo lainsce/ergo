@@ -1,0 +1,2132 @@
+cask init
+
+-- Yis self-hosted compiler (driver): read .yi path from args, lex, parse, emit C from AST, run cc.
+bring stdr
+bring lexer
+bring parser
+
+-- Global type/class tracking state (populated during bring processing)
+def ?g_classes = []: [string => any]
+def ?g_fun_rets = []: [string => any]
+def ?g_var_types = []: [string => any]
+def ?g_cur_class = ""
+def ?g_cur_mod = ""
+def ?g_mod_funs = []: [string => any]
+def ?g_all_funs = []: [string => any]
+-- Module cache: resolved paths and parsed ASTs (avoid re-reading/re-parsing)
+def ?g_path_cache = []: [string => any]
+def ?g_ast_cache = []: [string => any]
+
+-- ============================================================
+-- C code emitter: walks AST and produces C using the Yis runtime.
+-- All values are YisVal. Uses stdr_* / yis_* runtime functions.
+-- ============================================================
+
+-- Track the cask name for name-mangling.
+fun mangle_name(cask_name = string, fun_name = string) (( string )) {
+  if stdr.len(cask_name) == 0 { return fun_name }
+  let ?r = "yis_"
+  r = stdr.str_concat(r, cask_name)
+  r = stdr.str_concat(r, "_")
+  r = stdr.str_concat(r, fun_name)
+  return r
+}
+
+-- Mangle a class method name: yis_m_<mod>_<class>_<method>
+fun mangle_method(mod_name = string, class_name = string, method_name = string) (( string )) {
+  -- Defensive: tolerate null/empty parts to avoid crashes when upstream names are missing
+  let ?m0 = stdr.str(mod_name)
+  if stdr.is_null(m0) { m0 = "" }
+  let ?m1 = stdr.str(class_name)
+  if stdr.is_null(m1) { m1 = "" }
+  let ?m2 = stdr.str(method_name)
+  if stdr.is_null(m2) { m2 = "" }
+
+  let ?r = "yis_m_"
+  r = stdr.str_concat(r, m0)
+  r = stdr.str_concat(r, "_")
+  r = stdr.str_concat(r, m1)
+  r = stdr.str_concat(r, "_")
+  r = stdr.str_concat(r, m2)
+  return r
+}
+
+fun dict_get_or(d = any, k = any, fallback = any) (( any )) {
+  if stdr.str(d) != "[dict]" { return fallback }
+  let ?ks = stdr.str(k ?? "")
+  if stdr.is_null(ks) { ks = "" }
+  let v = d[ks]
+  if stdr.is_null(v) { return fallback }
+  return v
+}
+
+fun join_parts(parts = any) (( string )) {
+  let ?out = ""
+  let ?i = 0
+  let n = stdr.len(parts)
+  for (; i < n; i = i + 1) {
+    out = stdr.str_concat(out, stdr.str(parts[i]))
+  }
+  return out
+}
+
+-- Build class info tables from a module's declarations.
+-- Populates g_classes, g_fun_rets, g_mod_funs, g_all_funs.
+fun build_class_info(decls = any, mod_name = string) (( -- )) {
+  let tag = "tag"
+  let name_key = "name"
+  let ret_key = "ret"
+  let n = stdr.len(decls)
+  let ?i = 0
+  for (; i < n; i = i + 1) {
+    let d = decls[i]
+    let dt = d[tag] ?? ""
+
+    if dt == "class" {
+      let cls_name = d[name_key] ?? ""
+      let methods_key = "methods"
+      let methods = d[methods_key] ?? []: [any]
+      let ?mdict = []: [string => any]
+      let ?j = 0
+      let nm = stdr.len(methods)
+      for (; j < nm; j = j + 1) {
+        let m = methods[j]
+        let mname = m[name_key] ?? ""
+        mdict[mname] = true
+      }
+      let ?info = []: [string => any]
+      info["methods"] = mdict
+      info["mod"] = mod_name
+      g_classes[cls_name] = info
+    }
+
+    if dt == "fun" {
+      let fname = d[name_key] ?? ""
+      let ret = d[ret_key] ?? ""
+      -- Track function return types for constructor resolution
+      if stdr.len(ret) > 0 {
+        if ret != "any" && ret != "void" && ret != "--" && ret != "num" && ret != "string" && ret != "bool" {
+          let ?key = mod_name
+          key = stdr.str_concat(key, ".")
+          key = stdr.str_concat(key, fname)
+          g_fun_rets[key] = ret
+        }
+      }
+      -- Track module functions
+      let ?mf = g_mod_funs[mod_name] ?? []: [string => any]
+      mf[fname] = true
+      g_mod_funs[mod_name] = mf
+      -- Track all functions with arity
+      let pk = "params"
+      let params = d[pk] ?? []: [any]
+      let ?fkey = mod_name
+      fkey = stdr.str_concat(fkey, ".")
+      fkey = stdr.str_concat(fkey, fname)
+      g_all_funs[fkey] = stdr.len(params)
+    }
+
+    if dt == "macro" {
+      let fname = d[name_key] ?? ""
+      let ?mf2 = g_mod_funs[mod_name] ?? []: [string => any]
+      mf2[fname] = true
+      g_mod_funs[mod_name] = mf2
+    }
+  }
+}
+
+-- Infer the class type of an expression. Returns class name or "".
+fun type_of_expr(e = any, cask_name = string) (( string )) {
+  if stdr.is_null(e) { return "" }
+  let tag = "tag"
+  let et = e[tag] ?? ""
+
+  if et == "ident" {
+    let nk = "name"
+    let name = e[nk] ?? ""
+    return g_var_types[name] ?? ""
+  }
+
+  if et == "call" {
+    let fk = "func"
+    let callee = e[fk]
+    if stdr.is_null(callee) { return "" }
+    let ct = callee[tag] ?? ""
+    if ct == "member" {
+      let ok = "obj"
+      let fldk = "field"
+      let obj = callee[ok]
+      let field = callee[fldk] ?? ""
+      let obj_tag = obj[tag] ?? ""
+      if obj_tag == "ident" {
+        let nk = "name"
+        let obj_name = obj[nk] ?? ""
+        -- Module.function() call: look up return type
+        let ?key = obj_name
+        key = stdr.str_concat(key, ".")
+        key = stdr.str_concat(key, field)
+        let ret = g_fun_rets[key] ?? ""
+        if stdr.len(ret) > 0 { return ret }
+        -- Variable.method() call: look up variable type (chaining returns same type)
+        let vtype = g_var_types[obj_name] ?? ""
+        if stdr.len(vtype) > 0 { return vtype }
+      }
+      -- Method call on expression: chain preserves type
+      let obj_type = type_of_expr(obj, cask_name)
+      if stdr.len(obj_type) > 0 { return obj_type }
+    }
+    if ct == "ident" {
+      -- Direct function call: look up return type
+      let nk = "name"
+      let fname = callee[nk] ?? ""
+      let ?key = cask_name
+      key = stdr.str_concat(key, ".")
+      key = stdr.str_concat(key, fname)
+      let ret = g_fun_rets[key] ?? ""
+      if stdr.len(ret) > 0 { return ret }
+    }
+  }
+
+  return ""
+}
+
+-- Emit a C expression string from an expr AST node.
+-- Returns a C expression string (of type YisVal).
+fun emit_expr(e = any, cask_name = string) (( string )) {
+  if stdr.is_null(e) { return "YV_NULLV" }
+  let tag = "tag"
+  let et = e[tag] ?? ""
+
+  if et == "int" {
+    let vk = "value"
+    let v = e[vk] ?? "0"
+    let ?r = "YV_INT("
+    r = stdr.str_concat(r, stdr.str(v))
+    r = stdr.str_concat(r, ")")
+    return r
+  }
+
+  if et == "bool" {
+    let vk = "value"
+    let v = e[vk]
+    if v { return "YV_BOOL(true)" }
+    return "YV_BOOL(false)"
+  }
+
+  if et == "null" {
+    return "YV_NULLV"
+  }
+
+  if et == "str" {
+    let vk = "value"
+    let v = e[vk] ?? ""
+    -- Emit YV_STR(stdr_str_lit("..."))
+    let ?r = "YV_STR(stdr_str_lit(\""
+    r = stdr.str_concat(r, v)
+    r = stdr.str_concat(r, "\"))")
+    return r
+  }
+
+  if et == "interp" {
+    -- Interpolated string: build from parts using stdr_str_from_parts
+    let partsk = "parts"
+    let iparts = e[partsk] ?? []: [any]
+    let ?np = stdr.len(iparts)
+    if np == 0 { return "YV_STR(stdr_str_lit(\"\"))" }
+    -- Use GCC statement expression to declare temp array
+    let ?r = "({ YisVal __ip["
+    r = stdr.str_concat(r, stdr.str(np))
+    r = stdr.str_concat(r, "]; ")
+    let ?pi = 0
+    for (; pi < np; pi = pi + 1) {
+      let part = iparts[pi]
+      let pkind = part["kind"] ?? ""
+      let pval = part["val"] ?? ""
+      r = stdr.str_concat(r, "__ip[")
+      r = stdr.str_concat(r, stdr.str(pi))
+      r = stdr.str_concat(r, "] = ")
+      if pkind == "text" {
+        r = stdr.str_concat(r, "YV_STR(stdr_str_lit(\"")
+        r = stdr.str_concat(r, pval)
+        r = stdr.str_concat(r, "\"))")
+      } else {
+        -- expr part: convert variable to string
+        r = stdr.str_concat(r, "YV_STR(stdr_to_string(v_")
+        r = stdr.str_concat(r, pval)
+        r = stdr.str_concat(r, "))")
+      }
+      r = stdr.str_concat(r, "; ")
+    }
+    r = stdr.str_concat(r, "YV_STR(stdr_str_from_parts(")
+    r = stdr.str_concat(r, stdr.str(np))
+    r = stdr.str_concat(r, ", __ip)); })")
+    return r
+  }
+
+  if et == "ident" {
+    let nk = "name"
+    let name = e[nk] ?? ""
+    -- Check if this ident is a known function (used as a value, not called)
+    let ?fkey = cask_name
+    fkey = stdr.str_concat(fkey, ".")
+    fkey = stdr.str_concat(fkey, name)
+    let fn_arity = g_all_funs[fkey]
+    if !stdr.is_null(fn_arity) {
+      -- Emit function value wrapper: YV_FN(yi_fn_new(__fnwrap_mod_name, arity))
+      let ?r = "YV_FN(yi_fn_new(__fnwrap_"
+      r = stdr.str_concat(r, cask_name)
+      r = stdr.str_concat(r, "_")
+      r = stdr.str_concat(r, name)
+      r = stdr.str_concat(r, ", ")
+      r = stdr.str_concat(r, stdr.str(fn_arity))
+      r = stdr.str_concat(r, "))")
+      return r
+    }
+    -- Local variable reference; the C name is v_<name>
+    let ?r = "v_"
+    r = stdr.str_concat(r, name)
+    return r
+  }
+
+  if et == "unary" {
+    let ok = "op"
+    let rk = "operand"
+    let op = e[ok] ?? ""
+    let operand = emit_expr(e[rk], cask_name)
+    if op == "bang" {
+      let ?r = "YV_BOOL(!yis_as_bool("
+      r = stdr.str_concat(r, operand)
+      r = stdr.str_concat(r, "))")
+      return r
+    }
+    if op == "minus" {
+      let ?r = "yis_neg("
+      r = stdr.str_concat(r, operand)
+      r = stdr.str_concat(r, ")")
+      return r
+    }
+    if op == "hash" {
+      let ?r = "YV_INT(stdr_len("
+      r = stdr.str_concat(r, operand)
+      r = stdr.str_concat(r, "))")
+      return r
+    }
+    return operand
+  }
+
+  if et == "binop" {
+    let ok = "op"
+    let lk = "left"
+    let rk = "right"
+    let op = e[ok] ?? ""
+    let left = emit_expr(e[lk], cask_name)
+    let right = emit_expr(e[rk], cask_name)
+    if op == "plus" { return emit_binop_call("yis_add", left, right) }
+    if op == "minus" { return emit_binop_call("yis_sub", left, right) }
+    if op == "star" { return emit_binop_call("yis_mul", left, right) }
+    if op == "slash" { return emit_binop_call("yis_div", left, right) }
+    if op == "percent" { return emit_binop_call("yis_mod", left, right) }
+    if op == "eqeq" { return emit_binop_call("yis_eq", left, right) }
+    if op == "ne" { return emit_binop_call("yis_ne", left, right) }
+    if op == "lt" { return emit_binop_call("yis_lt", left, right) }
+    if op == "le" { return emit_binop_call("yis_le", left, right) }
+    if op == "gt" { return emit_binop_call("yis_gt", left, right) }
+    if op == "ge" { return emit_binop_call("yis_ge", left, right) }
+    if op == "ampamp" {
+      -- Short-circuit &&
+      let ?r = "YV_BOOL(yis_as_bool("
+      r = stdr.str_concat(r, left)
+      r = stdr.str_concat(r, ") && yis_as_bool(")
+      r = stdr.str_concat(r, right)
+      r = stdr.str_concat(r, "))")
+      return r
+    }
+    if op == "barbar" {
+      let ?r = "YV_BOOL(yis_as_bool("
+      r = stdr.str_concat(r, left)
+      r = stdr.str_concat(r, ") || yis_as_bool(")
+      r = stdr.str_concat(r, right)
+      r = stdr.str_concat(r, "))")
+      return r
+    }
+    if op == "qq" {
+      -- Null-coalescing: a ?? b -> (a.tag == EVT_NULL) ? b : a
+      let ?r = "(("
+      r = stdr.str_concat(r, left)
+      r = stdr.str_concat(r, ").tag == EVT_NULL ? (")
+      r = stdr.str_concat(r, right)
+      r = stdr.str_concat(r, ") : (")
+      r = stdr.str_concat(r, left)
+      r = stdr.str_concat(r, "))")
+      return r
+    }
+    return "YV_NULLV"
+  }
+
+  if et == "call" {
+    let fk = "func"
+    let ak = "args"
+    let func = e[fk]
+    let args = e[ak] ?? []: [any]
+    let func_tag = func[tag] ?? ""
+    -- Check for member call: obj.method(args) -> e.g. stdr_write(args)
+    if func_tag == "member" {
+      return emit_member_call(func, args, cask_name)
+    }
+    -- Direct function call: name(args)
+    if func_tag == "ident" {
+      let nk = "name"
+      let fname = func[nk] ?? ""
+      if fname == "write" {
+        let ?r = "stdr_write("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, ")")
+        return r
+      }
+      if fname == "writef" {
+        let nwargs = stdr.len(args)
+        if nwargs == 1 {
+          -- Single arg writef: treat as write (interpolation already resolved)
+          let ?r = "stdr_write("
+          r = emit_args(args, r, cask_name)
+          r = stdr.str_concat(r, ")")
+          return r
+        }
+        let ?r = "stdr_writef_args("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, ")")
+        return r
+      }
+      if fname == "args" {
+        return "stdr_args()"
+      }
+      if fname == "read_line" {
+        return "YV_STR(stdr_read_line())"
+      }
+      if fname == "len" {
+        let ?r = "YV_INT(stdr_len("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, "))")
+        return r
+      }
+      if fname == "str" {
+        let ?r = "YV_STR(stdr_to_string("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, "))")
+        return r
+      }
+      if fname == "num" {
+        let ?r = "YV_INT(stdr_num("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, "))")
+        return r
+      }
+      if fname == "is_null" {
+        let ?r = "YV_BOOL(stdr_is_null("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, "))")
+        return r
+      }
+      if fname == "read_text_file" {
+        let ?r = "stdr_read_text_file("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, ")")
+        return r
+      }
+      if fname == "write_text_file" {
+        let ?r = "stdr_write_text_file("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, ")")
+        return r
+      }
+      if fname == "run_command" {
+        let ?r = "stdr_run_command("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, ")")
+        return r
+      }
+      -- Extern stub: __ prefix → call by raw name (no mangling)
+      if stdr.len(fname) >= 2 {
+        if stdr.slice(fname, 0, 2) == "__" {
+          let ?r = fname
+          r = stdr.str_concat(r, "(")
+          r = emit_args(args, r, cask_name)
+          r = stdr.str_concat(r, ")")
+          return r
+        }
+      }
+      let ?r = mangle_name(cask_name, fname)
+      r = stdr.str_concat(r, "(")
+      r = emit_args(args, r, cask_name)
+      r = stdr.str_concat(r, ")")
+      return r
+    }
+    return "YV_NULLV"
+  }
+
+  if et == "bang_call" {
+    -- Bang-method call: recv !method args -> yis_cask_method(recv, args...)
+    let rk = "recv"
+    let mnk = "name"
+    let ak = "args"
+    let recv_c = emit_expr(e[rk], cask_name)
+    let mname = e[mnk] ?? ""
+    let bargs = e[ak] ?? []: [any]
+    let ?r = mangle_name(cask_name, mname)
+    r = stdr.str_concat(r, "(")
+    r = stdr.str_concat(r, recv_c)
+    let ?nba = stdr.len(bargs)
+    let ?bi = 0
+    for (; bi < nba; bi = bi + 1) {
+      r = stdr.str_concat(r, ", ")
+      r = stdr.str_concat(r, emit_expr(bargs[bi], cask_name))
+    }
+    r = stdr.str_concat(r, ")")
+    return r
+  }
+
+  if et == "member" {
+    -- Member access without call: obj.field -> treat as dict get or struct field
+    let ok = "obj"
+    let fk = "field"
+    let obj_c = emit_expr(e[ok], cask_name)
+    let field = e[fk] ?? ""
+    let ?r = "yis_dict_get((YisDict*)("
+    r = stdr.str_concat(r, obj_c)
+    r = stdr.str_concat(r, ").as.p, stdr_str_lit(\"")
+    r = stdr.str_concat(r, field)
+    r = stdr.str_concat(r, "\"))")
+    return r
+  }
+
+  if et == "index" {
+    let ok = "obj"
+    let ik = "idx"
+    let obj_c = emit_expr(e[ok], cask_name)
+    let idx_c = emit_expr(e[ik], cask_name)
+    -- Runtime dispatch: if index is int -> array, if string -> dict
+    let ?r = "yis_index("
+    r = stdr.str_concat(r, obj_c)
+    r = stdr.str_concat(r, ", ")
+    r = stdr.str_concat(r, idx_c)
+    r = stdr.str_concat(r, ")")
+    return r
+  }
+
+  if et == "assign" {
+    let lk = "lhs"
+    let rk = "rhs"
+    let lhs = e[lk]
+    let rhs_c = emit_expr(e[rk], cask_name)
+    let lhs_tag = lhs[tag] ?? ""
+    if lhs_tag == "ident" {
+      let nk = "name"
+      let name = lhs[nk] ?? ""
+      let ?r = "(yis_move_into(&v_"
+      r = stdr.str_concat(r, name)
+      r = stdr.str_concat(r, ", ")
+      r = stdr.str_concat(r, rhs_c)
+      r = stdr.str_concat(r, "), v_")
+      r = stdr.str_concat(r, name)
+      r = stdr.str_concat(r, ")")
+      return r
+    }
+    if lhs_tag == "index" {
+      let ok = "obj"
+      let ik = "idx"
+      let obj_c = emit_expr(lhs[ok], cask_name)
+      let idx_c = emit_expr(lhs[ik], cask_name)
+      let ?r = "yis_index_set("
+      r = stdr.str_concat(r, obj_c)
+      r = stdr.str_concat(r, ", ")
+      r = stdr.str_concat(r, idx_c)
+      r = stdr.str_concat(r, ", ")
+      r = stdr.str_concat(r, rhs_c)
+      r = stdr.str_concat(r, ")")
+      return r
+    }
+    return rhs_c
+  }
+
+  if et == "array" {
+    let ek = "elems"
+    let elems = e[ek] ?? []: [any]
+    let ?n = 0
+    n = stdr.len(elems)
+    if n == 0 { return "yis_arr_lit(0)" }
+    let ?r = "yis_arr_lit("
+    r = stdr.str_concat(r, stdr.str(n))
+    let ?k = 0
+    for (; k < n; k = k + 1) {
+      r = stdr.str_concat(r, ", ")
+      r = stdr.str_concat(r, emit_expr(elems[k], cask_name))
+    }
+    r = stdr.str_concat(r, ")")
+    return r
+  }
+
+  if et == "dict" {
+    let ek = "entries"
+    let entries = e[ek] ?? []: [any]
+    let ?n = 0
+    n = stdr.len(entries)
+    if n == 0 { return "yis_dict_lit(0)" }
+    let ?r = "yis_dict_lit("
+    r = stdr.str_concat(r, stdr.str(n))
+    let ?k = 0
+    for (; k < n; k = k + 1) {
+      let ent = entries[k]
+      let kk = "key"
+      let vk = "value"
+      r = stdr.str_concat(r, ", ")
+      r = stdr.str_concat(r, emit_expr(ent[kk], cask_name))
+      r = stdr.str_concat(r, ", ")
+      r = stdr.str_concat(r, emit_expr(ent[vk], cask_name))
+    }
+    r = stdr.str_concat(r, ")")
+    return r
+  }
+
+  if et == "if_expr" {
+    let ck = "cond"
+    let tk = "then"
+    let ek = "else"
+    let cond_c = emit_expr(e[ck], cask_name)
+    let then_c = emit_expr(e[tk], cask_name)
+    let else_c = emit_expr(e[ek], cask_name)
+    let ?r = "(yis_as_bool("
+    r = stdr.str_concat(r, cond_c)
+    r = stdr.str_concat(r, ") ? (")
+    r = stdr.str_concat(r, then_c)
+    r = stdr.str_concat(r, ") : (")
+    r = stdr.str_concat(r, else_c)
+    r = stdr.str_concat(r, "))")
+    return r
+  }
+
+  if et == "match" {
+    let sk = "scrut"
+    let ak = "arms"
+    let scrut_c = emit_expr(e[sk], cask_name)
+    let arms = e[ak] ?? []: [any]
+    let narms = stdr.len(arms)
+    -- Use GCC statement expression: ({ ... })
+    let ?r = "({ YisVal __scrut = "
+    r = stdr.str_concat(r, scrut_c)
+    r = stdr.str_concat(r, "; YisVal __mres = YV_NULLV; int __matched = 0;\n")
+    let ?ai = 0
+    for (; ai < narms; ai = ai + 1) {
+      let arm = arms[ai]
+      let pat = arm["pat"]
+      let arm_expr = arm["expr"]
+      let ptag = pat[tag] ?? ""
+      if ptag == "pat_wild" {
+        r = stdr.str_concat(r, "  if (!__matched) { __matched = 1; __mres = ")
+        r = stdr.str_concat(r, emit_expr(arm_expr, cask_name))
+        r = stdr.str_concat(r, "; }\n")
+      } elif ptag == "pat_ident" {
+        let pname = pat["name"] ?? ""
+        r = stdr.str_concat(r, "  if (!__matched) { __matched = 1; YisVal v_")
+        r = stdr.str_concat(r, pname)
+        r = stdr.str_concat(r, " = __scrut; yis_retain_val(v_")
+        r = stdr.str_concat(r, pname)
+        r = stdr.str_concat(r, "); __mres = ")
+        r = stdr.str_concat(r, emit_expr(arm_expr, cask_name))
+        r = stdr.str_concat(r, "; yis_release_val(v_")
+        r = stdr.str_concat(r, pname)
+        r = stdr.str_concat(r, "); }\n")
+      } elif ptag == "pat_int" {
+        let pval = pat["value"] ?? "0"
+        r = stdr.str_concat(r, "  if (!__matched && yis_as_bool(yis_eq(__scrut, YV_INT(")
+        r = stdr.str_concat(r, pval)
+        r = stdr.str_concat(r, ")))) { __matched = 1; __mres = ")
+        r = stdr.str_concat(r, emit_expr(arm_expr, cask_name))
+        r = stdr.str_concat(r, "; }\n")
+      } elif ptag == "pat_str" {
+        let pval = pat["value"] ?? ""
+        r = stdr.str_concat(r, "  if (!__matched && yis_as_bool(yis_eq(__scrut, YV_STR(stdr_str_lit(\"")
+        r = stdr.str_concat(r, pval)
+        r = stdr.str_concat(r, "\"))))) { __matched = 1; __mres = ")
+        r = stdr.str_concat(r, emit_expr(arm_expr, cask_name))
+        r = stdr.str_concat(r, "; }\n")
+      } elif ptag == "pat_bool" {
+        let pval = pat["value"]
+        let ?bstr = "false"
+        if pval { bstr = "true" }
+        r = stdr.str_concat(r, "  if (!__matched && yis_as_bool(yis_eq(__scrut, YV_BOOL(")
+        r = stdr.str_concat(r, bstr)
+        r = stdr.str_concat(r, ")))) { __matched = 1; __mres = ")
+        r = stdr.str_concat(r, emit_expr(arm_expr, cask_name))
+        r = stdr.str_concat(r, "; }\n")
+      } elif ptag == "pat_null" {
+        r = stdr.str_concat(r, "  if (!__matched && __scrut.tag == EVT_NULL) { __matched = 1; __mres = ")
+        r = stdr.str_concat(r, emit_expr(arm_expr, cask_name))
+        r = stdr.str_concat(r, "; }\n")
+      }
+    }
+    r = stdr.str_concat(r, "  yis_release_val(__scrut); __mres; })")
+    return r
+  }
+
+  return "YV_NULLV"
+}
+
+-- Helper: emit member call with fallback for unary-wrapped receiver.
+fun emit_member_call(member_func = any, args = any, cask_name = string) (( string )) {
+  let obj = dict_get_or(member_func, "obj", null)
+  let ?field = stdr.str(dict_get_or(member_func, "field", "") ?? "")
+  if stdr.is_null(field) { field = "" }
+
+  let ?obj_tag = stdr.str(dict_get_or(obj, "tag", "") ?? "")
+  if stdr.is_null(obj_tag) { obj_tag = "" }
+
+  if obj_tag == "ident" {
+    let ?obj_name = stdr.str(dict_get_or(obj, "name", "") ?? "")
+    if stdr.is_null(obj_name) { obj_name = "" }
+
+    if obj_name == "stdr" {
+      if field == "str" {
+        let ?r = "YV_STR(stdr_to_string("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, "))")
+        return r
+      }
+      if field == "num" {
+        let ?r = "YV_INT(stdr_num("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, "))")
+        return r
+      }
+      if field == "len" {
+        let ?r = "YV_INT(stdr_len("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, "))")
+        return r
+      }
+      if field == "char_code" {
+        let ?r = "YV_INT(stdr_char_code("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, "))")
+        return r
+      }
+      if field == "is_null" {
+        let ?r = "YV_BOOL(stdr_is_null("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, "))")
+        return r
+      }
+      if field == "read_line" {
+        let ?r = "YV_STR(stdr_read_line("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, "))")
+        return r
+      }
+      if field == "concat" {
+        let ?r = "stdr_array_concat("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, ")")
+        return r
+      }
+      if field == "join" {
+        let ?r = "stdr_join("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, ")")
+        return r
+      }
+      if field == "push" {
+        let a0 = emit_expr(args[0], cask_name)
+        let a1 = emit_expr(args[1], cask_name)
+        let ?r = "stdr_push("
+        r = stdr.str_concat(r, a0)
+        r = stdr.str_concat(r, ", ")
+        r = stdr.str_concat(r, a1)
+        r = stdr.str_concat(r, ")")
+        return r
+      }
+      if field == "slice" {
+        let a0 = emit_expr(args[0], cask_name)
+        let a1 = emit_expr(args[1], cask_name)
+        let a2 = emit_expr(args[2], cask_name)
+        let ?r = "stdr_slice("
+        r = stdr.str_concat(r, a0)
+        r = stdr.str_concat(r, ", yis_as_int(")
+        r = stdr.str_concat(r, a1)
+        r = stdr.str_concat(r, "), yis_as_int(")
+        r = stdr.str_concat(r, a2)
+        r = stdr.str_concat(r, "))")
+        return r
+      }
+      if field == "str_at" {
+        let a0 = emit_expr(args[0], cask_name)
+        let a1 = emit_expr(args[1], cask_name)
+        let ?r = "stdr_str_at("
+        r = stdr.str_concat(r, a0)
+        r = stdr.str_concat(r, ", yis_as_int(")
+        r = stdr.str_concat(r, a1)
+        r = stdr.str_concat(r, "))")
+        return r
+      }
+      let ?r = "stdr_"
+      r = stdr.str_concat(r, field)
+      r = stdr.str_concat(r, "(")
+      r = emit_args(args, r, cask_name)
+      r = stdr.str_concat(r, ")")
+      return r
+    }
+
+    if obj_name == "cogito" {
+      let ?r = mangle_name("cogito", field)
+      r = stdr.str_concat(r, "(")
+      r = emit_args(args, r, cask_name)
+      r = stdr.str_concat(r, ")")
+      return r
+    }
+
+    let vtype_any = dict_get_or(g_var_types, obj_name, "")
+    let ?vtype = stdr.str(vtype_any ?? "")
+    if stdr.is_null(vtype) { vtype = "" }
+    if stdr.len(vtype) > 0 {
+      let cls_any = dict_get_or(g_classes, vtype, null)
+      if !stdr.is_null(cls_any) && stdr.str(cls_any) == "[dict]" {
+        let cls_mod_any = dict_get_or(cls_any, "mod", "")
+        let ?cls_mod = stdr.str(cls_mod_any ?? "")
+        if stdr.is_null(cls_mod) { cls_mod = "" }
+
+        let cls_methods = dict_get_or(cls_any, "methods", null)
+        if !stdr.is_null(dict_get_or(cls_methods, field, null)) {
+          let obj_c = emit_expr(obj, cask_name)
+          let ?r = mangle_method(cls_mod, vtype, field)
+          r = stdr.str_concat(r, "(")
+          r = stdr.str_concat(r, obj_c)
+          if stdr.len(args) > 0 {
+            r = stdr.str_concat(r, ", ")
+            r = emit_args(args, r, cask_name)
+          }
+          r = stdr.str_concat(r, ")")
+          return r
+        }
+
+        if stdr.len(cls_mod) > 0 {
+          let mod_funs = dict_get_or(g_mod_funs, cls_mod, null)
+          if !stdr.is_null(dict_get_or(mod_funs, field, null)) {
+            let obj_c = emit_expr(obj, cask_name)
+            let ?r = mangle_name(cls_mod, field)
+            r = stdr.str_concat(r, "(")
+            r = stdr.str_concat(r, obj_c)
+            if stdr.len(args) > 0 {
+              r = stdr.str_concat(r, ", ")
+              r = emit_args(args, r, cask_name)
+            }
+            r = stdr.str_concat(r, ")")
+            return r
+          }
+        }
+      }
+    }
+
+    let ?r = "yis_"
+    r = stdr.str_concat(r, obj_name)
+    r = stdr.str_concat(r, "_")
+    r = stdr.str_concat(r, field)
+    r = stdr.str_concat(r, "(")
+    r = emit_args(args, r, cask_name)
+    r = stdr.str_concat(r, ")")
+    return r
+  }
+
+  let expr_type = type_of_expr(obj, cask_name)
+  if stdr.len(expr_type) > 0 {
+    let cls_info = dict_get_or(g_classes, expr_type, null)
+    if !stdr.is_null(cls_info) && stdr.str(cls_info) == "[dict]" {
+      let cls_mod_any = dict_get_or(cls_info, "mod", "")
+      let ?cls_mod = stdr.str(cls_mod_any ?? "")
+      if stdr.is_null(cls_mod) { cls_mod = "" }
+
+      let cls_methods = dict_get_or(cls_info, "methods", null)
+      if !stdr.is_null(dict_get_or(cls_methods, field, null)) {
+        let obj_c = emit_expr(obj, cask_name)
+        let ?r = mangle_method(cls_mod, expr_type, field)
+        r = stdr.str_concat(r, "(")
+        r = stdr.str_concat(r, obj_c)
+        if stdr.len(args) > 0 {
+          r = stdr.str_concat(r, ", ")
+          r = emit_args(args, r, cask_name)
+        }
+        r = stdr.str_concat(r, ")")
+        return r
+      }
+
+      if stdr.len(cls_mod) > 0 {
+        let mod_funs = dict_get_or(g_mod_funs, cls_mod, null)
+        if !stdr.is_null(dict_get_or(mod_funs, field, null)) {
+          let obj_c = emit_expr(obj, cask_name)
+          let ?r = mangle_name(cls_mod, field)
+          r = stdr.str_concat(r, "(")
+          r = stdr.str_concat(r, obj_c)
+          if stdr.len(args) > 0 {
+            r = stdr.str_concat(r, ", ")
+            r = emit_args(args, r, cask_name)
+          }
+          r = stdr.str_concat(r, ")")
+          return r
+        }
+      }
+    }
+  }
+
+  let obj_c = emit_expr(obj, cask_name)
+  let ?r = mangle_name(cask_name, field)
+  r = stdr.str_concat(r, "(")
+  r = stdr.str_concat(r, obj_c)
+  if stdr.len(args) > 0 {
+    r = stdr.str_concat(r, ", ")
+    r = emit_args(args, r, cask_name)
+  }
+  r = stdr.str_concat(r, ")")
+  return r
+}
+
+-- Helper: emit a binary operation call "func(left, right)"
+fun emit_binop_call(func = string, left = string, right = string) (( string )) {
+  let ?r = func
+  r = stdr.str_concat(r, "(")
+  r = stdr.str_concat(r, left)
+  r = stdr.str_concat(r, ", ")
+  r = stdr.str_concat(r, right)
+  r = stdr.str_concat(r, ")")
+  return r
+}
+
+-- Helper: emit comma-separated args into string r.
+fun emit_args(args = any, r = string, cask_name = string) (( string )) {
+  let ?n = 0
+  n = stdr.len(args)
+  let ?out = r
+  let ?k = 0
+  for (; k < n; k = k + 1) {
+    if k > 0 { out = stdr.str_concat(out, ", ") }
+    out = stdr.str_concat(out, emit_expr(args[k], cask_name))
+  }
+  return out
+}
+
+-- Emit C statements from a list of stmt AST nodes.
+-- Returns a string of C code (indented).
+fun emit_stmts(stmts = any, indent = string, cask_name = string) (( string )) {
+  let ?n = 0
+  n = stdr.len(stmts)
+  let ?parts = []: [any]
+  let ?k = 0
+  for (; k < n; k = k + 1) {
+    let s = stmts[k]
+    stdr.push(parts, emit_stmt(s, indent, cask_name))
+  }
+  return join_parts(parts)
+}
+
+-- Emit one C statement from a stmt AST node.
+fun emit_stmt(s = any, indent = string, cask_name = string) (( string )) {
+  if stdr.is_null(s) { return "" }
+  let tag = "tag"
+  let st = s[tag] ?? ""
+
+  if st == "let" {
+    let nk = "name"
+    let ik = "init"
+    let name = s[nk] ?? ""
+    let init = s[ik]
+    -- Track type of this variable from its initializer
+    if !stdr.is_null(init) {
+      let init_type = type_of_expr(init, cask_name)
+      if stdr.len(init_type) > 0 {
+        g_var_types[name] = init_type
+      }
+    }
+    let ?r = indent
+    r = stdr.str_concat(r, "YisVal v_")
+    r = stdr.str_concat(r, name)
+    r = stdr.str_concat(r, " = ")
+    if stdr.is_null(init) {
+      r = stdr.str_concat(r, "YV_NULLV")
+    } else {
+      r = stdr.str_concat(r, emit_expr(init, cask_name))
+    }
+    r = stdr.str_concat(r, "; yis_retain_val(v_")
+    r = stdr.str_concat(r, name)
+    r = stdr.str_concat(r, ");\n")
+    return r
+  }
+
+  if st == "const" {
+    let nk = "name"
+    let ik = "init"
+    let name = s[nk] ?? ""
+    let init = s[ik]
+    let ?r = indent
+    r = stdr.str_concat(r, "YisVal v_")
+    r = stdr.str_concat(r, name)
+    r = stdr.str_concat(r, " = ")
+    if stdr.is_null(init) {
+      r = stdr.str_concat(r, "YV_NULLV")
+    } else {
+      r = stdr.str_concat(r, emit_expr(init, cask_name))
+    }
+    r = stdr.str_concat(r, "; yis_retain_val(v_")
+    r = stdr.str_concat(r, name)
+    r = stdr.str_concat(r, ");\n")
+    return r
+  }
+
+  if st == "return" {
+    let vk = "value"
+    let val = s[vk]
+    let ?r = indent
+    if stdr.is_null(val) {
+      r = stdr.str_concat(r, "return;\n")
+    } else {
+      r = stdr.str_concat(r, "return ")
+      r = stdr.str_concat(r, emit_expr(val, cask_name))
+      r = stdr.str_concat(r, ";\n")
+    }
+    return r
+  }
+
+  if st == "break" {
+    let ?r = indent
+    r = stdr.str_concat(r, "break;\n")
+    return r
+  }
+
+  if st == "continue" {
+    let ?r = indent
+    r = stdr.str_concat(r, "continue;\n")
+    return r
+  }
+
+  if st == "expr_stmt" {
+    let ek = "expr"
+    let expr_c = emit_expr(s[ek], cask_name)
+    let ?r = indent
+    r = stdr.str_concat(r, "(void)(")
+    r = stdr.str_concat(r, expr_c)
+    r = stdr.str_concat(r, ");\n")
+    return r
+  }
+
+  if st == "if" {
+    let ck = "cond"
+    let tk = "then"
+    let ek = "else"
+    let cond_c = emit_expr(s[ck], cask_name)
+    let then_stmts = s[tk] ?? []: [any]
+    let else_stmts = s[ek]
+    let inner = stdr.str_concat(indent, "  ")
+    let ?r = indent
+    r = stdr.str_concat(r, "if (yis_as_bool(")
+    r = stdr.str_concat(r, cond_c)
+    r = stdr.str_concat(r, ")) {\n")
+    r = stdr.str_concat(r, emit_stmts(then_stmts, inner, cask_name))
+    r = stdr.str_concat(r, indent)
+    r = stdr.str_concat(r, "}")
+    if !stdr.is_null(else_stmts) {
+      let ?else_len = 0
+      else_len = stdr.len(else_stmts)
+      if else_len > 0 {
+        -- Check if the else block is a single if-stmt (elif chain)
+        let first = else_stmts[0]
+        let first_tag = "tag"
+        if else_len == 1 {
+          if !stdr.is_null(first) {
+            if first[first_tag] == "if" {
+              r = stdr.str_concat(r, " else ")
+              -- Emit the nested if without extra indent wrapper
+              r = stdr.str_concat(r, emit_if_inline(first, indent, cask_name))
+            } else {
+              r = stdr.str_concat(r, " else {\n")
+              r = stdr.str_concat(r, emit_stmts(else_stmts, inner, cask_name))
+              r = stdr.str_concat(r, indent)
+              r = stdr.str_concat(r, "}")
+            }
+          }
+        } else {
+          r = stdr.str_concat(r, " else {\n")
+          r = stdr.str_concat(r, emit_stmts(else_stmts, inner, cask_name))
+          r = stdr.str_concat(r, indent)
+          r = stdr.str_concat(r, "}")
+        }
+      }
+    }
+    r = stdr.str_concat(r, "\n")
+    return r
+  }
+
+  if st == "for" {
+    let ck = "cond"
+    let bk = "body"
+    let sk = "step"
+    let initk = "init"
+    let isk = "init_stmt"
+    let cond = s[ck]
+    let body = s[bk] ?? []: [any]
+    let step = s[sk]
+    let init_stmt = s[isk]
+    let inner = stdr.str_concat(indent, "  ")
+    let ?r = indent
+    -- Wrap in block if there's an init_stmt (for scoping)
+    if !stdr.is_null(init_stmt) {
+      r = stdr.str_concat(r, "{ ")
+      r = stdr.str_concat(r, emit_stmt(init_stmt, "", cask_name))
+      r = stdr.str_concat(r, indent)
+    }
+    r = stdr.str_concat(r, "for (;")
+    -- condition
+    if !stdr.is_null(cond) {
+      r = stdr.str_concat(r, " yis_as_bool(")
+      r = stdr.str_concat(r, emit_expr(cond, cask_name))
+      r = stdr.str_concat(r, ")")
+    }
+    r = stdr.str_concat(r, ";")
+    -- step (in for-clause so continue reaches it)
+    if !stdr.is_null(step) {
+      r = stdr.str_concat(r, " (void)(")
+      r = stdr.str_concat(r, emit_expr(step, cask_name))
+      r = stdr.str_concat(r, ")")
+    }
+    r = stdr.str_concat(r, ") {\n")
+    -- body
+    r = stdr.str_concat(r, emit_stmts(body, inner, cask_name))
+    r = stdr.str_concat(r, indent)
+    r = stdr.str_concat(r, "}")
+    if !stdr.is_null(init_stmt) {
+      r = stdr.str_concat(r, " }")
+    }
+    r = stdr.str_concat(r, "\n")
+    return r
+  }
+
+  if st == "foreach" {
+    let ik = "item"
+    let itk = "iter"
+    let bk = "body"
+    let item = s[ik] ?? "it"
+    let iter_c = emit_expr(s[itk], cask_name)
+    let body = s[bk] ?? []: [any]
+    let inner = stdr.str_concat(indent, "  ")
+    let ?r = indent
+    r = stdr.str_concat(r, "{ YisVal __iter = ")
+    r = stdr.str_concat(r, iter_c)
+    r = stdr.str_concat(r, "; int64_t __len = stdr_len(__iter); for (int64_t __i = 0; __i ")
+    r = stdr.str_concat(r, "\<")
+    r = stdr.str_concat(r, " __len; __i++) {\n")
+    r = stdr.str_concat(r, inner)
+    r = stdr.str_concat(r, "YisVal v_")
+    r = stdr.str_concat(r, item)
+    r = stdr.str_concat(r, " = yis_index(__iter, YV_INT(__i));\n")
+    r = stdr.str_concat(r, emit_stmts(body, inner, cask_name))
+    r = stdr.str_concat(r, indent)
+    r = stdr.str_concat(r, "} }\n")
+    return r
+  }
+
+  -- Unknown statement type; emit as comment
+  let ?r = indent
+  r = stdr.str_concat(r, "/* unknown stmt: ")
+  r = stdr.str_concat(r, st)
+  r = stdr.str_concat(r, " */\n")
+  return r
+}
+
+-- Emit an if-statement inline (for elif chains), without leading indent.
+fun emit_if_inline(s = any, indent = string, cask_name = string) (( string )) {
+  let tag = "tag"
+  let ck = "cond"
+  let tk = "then"
+  let ek = "else"
+  let cond_c = emit_expr(s[ck], cask_name)
+  let then_stmts = s[tk] ?? []: [any]
+  let else_stmts = s[ek]
+  let inner = stdr.str_concat(indent, "  ")
+  let ?r = "if (yis_as_bool("
+  r = stdr.str_concat(r, cond_c)
+  r = stdr.str_concat(r, ")) {\n")
+  r = stdr.str_concat(r, emit_stmts(then_stmts, inner, cask_name))
+  r = stdr.str_concat(r, indent)
+  r = stdr.str_concat(r, "}")
+  if !stdr.is_null(else_stmts) {
+    let ?else_len2 = 0
+    else_len2 = stdr.len(else_stmts)
+    if else_len2 > 0 {
+      let first = else_stmts[0]
+      if else_len2 == 1 {
+        if !stdr.is_null(first) {
+          if first[tag] == "if" {
+            r = stdr.str_concat(r, " else ")
+            r = stdr.str_concat(r, emit_if_inline(first, indent, cask_name))
+          } else {
+            r = stdr.str_concat(r, " else {\n")
+            r = stdr.str_concat(r, emit_stmts(else_stmts, inner, cask_name))
+            r = stdr.str_concat(r, indent)
+            r = stdr.str_concat(r, "}")
+          }
+        }
+      } else {
+        r = stdr.str_concat(r, " else {\n")
+        r = stdr.str_concat(r, emit_stmts(else_stmts, inner, cask_name))
+        r = stdr.str_concat(r, indent)
+        r = stdr.str_concat(r, "}")
+      }
+    }
+  }
+  r = stdr.str_concat(r, "\n")
+  return r
+}
+
+-- Emit a function declaration.
+fun emit_fun(d = any, cask_name = string) (( string )) {
+  let tag = "tag"
+  let name_key = "name"
+  let pk = "params"
+  let rk = "ret"
+  let bk = "body"
+  let name = d[name_key] ?? ""
+  let params = d[pk] ?? []: [any]
+  let ret = d[rk] ?? "any"
+  let body = d[bk] ?? []: [any]
+  let is_void = ret == "void" || ret == "--"
+
+  -- Set up type tracking for this function
+  let prev_var_types = g_var_types
+  g_var_types = []: [string => any]
+  let ?np = 0
+  np = stdr.len(params)
+  let ?pi = 0
+  for (; pi < np; pi = pi + 1) {
+    let pp = params[pi]
+    let ppname = pp[name_key] ?? ""
+    let ptype_key = "type"
+    let pptype = pp[ptype_key] ?? ""
+    if stdr.len(pptype) > 0 {
+      if !stdr.is_null(g_classes[pptype]) {
+        g_var_types[ppname] = pptype
+      }
+    }
+  }
+
+  -- Function signature
+  let ?out = ""
+  if is_void {
+    out = stdr.str_concat(out, "static void ")
+  } else {
+    out = stdr.str_concat(out, "static YisVal ")
+  }
+  -- Mangled name
+  if name == "entry" {
+    out = stdr.str_concat(out, "yis_entry")
+  } else {
+    out = stdr.str_concat(out, mangle_name(cask_name, name))
+  }
+  out = stdr.str_concat(out, "(")
+  -- Parameters
+  let ?k = 0
+  for (; k < np; k = k + 1) {
+    if k > 0 { out = stdr.str_concat(out, ", ") }
+    let p = params[k]
+    let nk = "name"
+    out = stdr.str_concat(out, "YisVal v_")
+    out = stdr.str_concat(out, p[nk] ?? "")
+  }
+  if np == 0 { out = stdr.str_concat(out, "void") }
+  out = stdr.str_concat(out, ") {\n")
+  out = stdr.str_concat(out, emit_stmts(body, "  ", cask_name))
+  out = stdr.str_concat(out, "}\n\n")
+
+  g_var_types = prev_var_types
+  return out
+}
+
+-- Emit a macro as a C function with v_this as the first parameter.
+-- The macro body's last expression-statement becomes a return.
+fun emit_macro(d = any, cask_name = string) (( string )) {
+  let tag = "tag"
+  let name_key = "name"
+  let pk = "params"
+  let rk = "ret"
+  let bk = "body"
+  let mname = d[name_key] ?? ""
+  let params = d[pk] ?? []: [any]
+  let ret = d[rk] ?? "any"
+  let body = d[bk] ?? []: [any]
+  let is_void = ret == "void" || ret == "--"
+
+  -- Set up type tracking for macros: this = return type class if known
+  let prev_var_types_m = g_var_types
+  g_var_types = []: [string => any]
+  if stdr.len(ret) > 0 {
+    if !stdr.is_null(g_classes[ret]) {
+      g_var_types["this"] = ret
+    }
+  }
+
+  let ?out = ""
+  if is_void {
+    out = stdr.str_concat(out, "static void ")
+  } else {
+    out = stdr.str_concat(out, "static YisVal ")
+  }
+  out = stdr.str_concat(out, mangle_name(cask_name, mname))
+  out = stdr.str_concat(out, "(YisVal v_this")
+  let ?np = 0
+  np = stdr.len(params)
+  let ?k = 0
+  for (; k < np; k = k + 1) {
+    out = stdr.str_concat(out, ", YisVal v_")
+    let p = params[k]
+    let nk = "name"
+    out = stdr.str_concat(out, p[nk] ?? "")
+  }
+  out = stdr.str_concat(out, ") {\n")
+
+  -- For macro bodies, the last statement is typically an expression.
+  -- Wrap it in a return.
+  let nb = stdr.len(body)
+  if nb > 0 && !is_void {
+    -- Emit all but last
+    let ?bi = 0
+    for (; bi < nb - 1; bi = bi + 1) {
+      out = stdr.str_concat(out, emit_stmt(body[bi], "  ", cask_name))
+    }
+    -- Last statement: if it's an expr_stmt, make it a return
+    let last = body[nb - 1]
+    let ltag = last[tag] ?? ""
+    if ltag == "expr_stmt" {
+      let ek = "expr"
+      out = stdr.str_concat(out, "  return ")
+      out = stdr.str_concat(out, emit_expr(last[ek], cask_name))
+      out = stdr.str_concat(out, ";\n")
+    } else {
+      out = stdr.str_concat(out, emit_stmt(last, "  ", cask_name))
+    }
+  } else {
+    out = stdr.str_concat(out, emit_stmts(body, "  ", cask_name))
+  }
+
+  out = stdr.str_concat(out, "}\n\n")
+  g_var_types = prev_var_types_m
+  return out
+}
+
+-- Emit a class method as a C function.
+-- Mangling: yis_m_<mod>_<class>_<method>(YisVal self, ...)
+fun emit_class_method(d = any, cask_name = string, class_name = string) (( string )) {
+  let tag = "tag"
+  let name_key = "name"
+  let pk = "params"
+  let rk = "ret"
+  let bk = "body"
+  let name = d[name_key] ?? ""
+  let params = d[pk] ?? []: [any]
+  let ret = d[rk] ?? "any"
+  let body = d[bk] ?? []: [any]
+  let is_void = ret == "void" || ret == "--"
+
+  -- Set up type context for this method
+  let prev_class = g_cur_class
+  let prev_mod = g_cur_mod
+  g_cur_class = class_name
+  g_cur_mod = cask_name
+
+  -- Track param types (this = current class)
+  let prev_var_types = g_var_types
+  g_var_types = []: [string => any]
+  g_var_types["this"] = class_name
+  let ?pi = 0
+  let nparams = stdr.len(params)
+  for (; pi < nparams; pi = pi + 1) {
+    let p = params[pi]
+    let pname = p[name_key] ?? ""
+    let ptype_key = "type"
+    let ptype = p[ptype_key] ?? ""
+    if stdr.len(ptype) > 0 {
+      if !stdr.is_null(g_classes[ptype]) {
+        g_var_types[pname] = ptype
+      }
+    }
+  }
+
+  let ?out = ""
+  if is_void {
+    out = stdr.str_concat(out, "static void ")
+  } else {
+    out = stdr.str_concat(out, "static YisVal ")
+  }
+  out = stdr.str_concat(out, mangle_method(cask_name, class_name, name))
+  out = stdr.str_concat(out, "(")
+  -- All params use v_ prefix
+  let ?k = 0
+  for (; k < nparams; k = k + 1) {
+    if k > 0 { out = stdr.str_concat(out, ", ") }
+    let p = params[k]
+    let nk2 = "name"
+    out = stdr.str_concat(out, "YisVal v_")
+    out = stdr.str_concat(out, p[nk2] ?? "")
+  }
+  if nparams == 0 { out = stdr.str_concat(out, "void") }
+  out = stdr.str_concat(out, ") {\n")
+  out = stdr.str_concat(out, emit_stmts(body, "  ", cask_name))
+  out = stdr.str_concat(out, "}\n\n")
+
+  -- Restore context
+  g_cur_class = prev_class
+  g_cur_mod = prev_mod
+  g_var_types = prev_var_types
+  return out
+}
+
+-- Emit a function value wrapper for a given function.
+fun emit_fnwrap(d = any, cask_name = string) (( string )) {
+  let name_key = "name"
+  let pk = "params"
+  let rk = "ret"
+  let fname = d[name_key] ?? ""
+  let params = d[pk] ?? []: [any]
+  let ret = d[rk] ?? "any"
+  let is_void = ret == "void" || ret == "--"
+  let np = stdr.len(params)
+
+  -- Skip extern stubs
+  if stdr.len(fname) >= 2 {
+    if stdr.slice(fname, 0, 2) == "__" { return "" }
+  }
+
+  let ?out = "static YisVal __fnwrap_"
+  out = stdr.str_concat(out, cask_name)
+  out = stdr.str_concat(out, "_")
+  out = stdr.str_concat(out, fname)
+  out = stdr.str_concat(out, "(void* env, int argc, YisVal* argv) {\n")
+  out = stdr.str_concat(out, "  (void)env; (void)argc;\n")
+
+  -- Extract args from argv
+  let ?k = 0
+  for (; k < np; k = k + 1) {
+    out = stdr.str_concat(out, "  YisVal __a")
+    out = stdr.str_concat(out, stdr.str(k))
+    out = stdr.str_concat(out, " = argc > ")
+    out = stdr.str_concat(out, stdr.str(k))
+    out = stdr.str_concat(out, " ? argv[")
+    out = stdr.str_concat(out, stdr.str(k))
+    out = stdr.str_concat(out, "] : YV_NULLV;\n")
+  }
+
+  -- Call actual function
+  if is_void {
+    out = stdr.str_concat(out, "  ")
+    if fname == "entry" {
+      out = stdr.str_concat(out, "yis_entry")
+    } else {
+      out = stdr.str_concat(out, mangle_name(cask_name, fname))
+    }
+    out = stdr.str_concat(out, "(")
+    k = 0
+    for (; k < np; k = k + 1) {
+      if k > 0 { out = stdr.str_concat(out, ", ") }
+      out = stdr.str_concat(out, "__a")
+      out = stdr.str_concat(out, stdr.str(k))
+    }
+    out = stdr.str_concat(out, ");\n")
+    out = stdr.str_concat(out, "  return YV_NULLV;\n")
+  } else {
+    out = stdr.str_concat(out, "  return ")
+    if fname == "entry" {
+      out = stdr.str_concat(out, "yis_entry")
+    } else {
+      out = stdr.str_concat(out, mangle_name(cask_name, fname))
+    }
+    out = stdr.str_concat(out, "(")
+    k = 0
+    for (; k < np; k = k + 1) {
+      if k > 0 { out = stdr.str_concat(out, ", ") }
+      out = stdr.str_concat(out, "__a")
+      out = stdr.str_concat(out, stdr.str(k))
+    }
+    out = stdr.str_concat(out, ");\n")
+  }
+  out = stdr.str_concat(out, "}\n\n")
+  return out
+}
+
+-- Emit a single translation unit body for one AST (no runtime includes, no main).
+fun emit_unit(ast = any) (( string )) {
+  let tag = "tag"
+  let name_key = "name"
+  let decls_key = "decls"
+  let decls = ast[decls_key]
+  if stdr.is_null(decls) { return "" }
+
+  let ?cask_name = "init"
+  let ?n = 0
+  n = stdr.len(decls)
+  let ?i = 0
+  for (; i < n; i = i + 1) {
+    let d = decls[i]
+    if d[tag] == "cask" { cask_name = d[name_key] ?? "init" }
+  }
+
+  -- Use array-based string builder for O(n) total performance
+  let ?p = []: [any]
+  let ret_key = "ret"
+  let params_key = "params"
+
+  -- Track top-level function names (for macro/function collision filtering)
+  let ?fun_names = []: [string => any]
+  i = 0
+  for (; i < n; i = i + 1) {
+    let d = decls[i]
+    if d[tag] == "fun" {
+      let fname0 = d[name_key] ?? ""
+      fun_names[fname0] = true
+    }
+  }
+
+  -- Forward declarations: functions (skip extern stubs: __prefix + empty body)
+  let body_key = "body"
+  let ?seen_fun_decls = []: [string => any]
+  i = 0
+  for (; i < n; i = i + 1) {
+    let d = decls[i]
+    if d[tag] == "fun" {
+      let fname = d[name_key] ?? ""
+      if !stdr.is_null(seen_fun_decls[fname]) { continue }
+      seen_fun_decls[fname] = true
+      let fbody = d[body_key] ?? []: [any]
+      if stdr.len(fname) >= 2 {
+        if stdr.slice(fname, 0, 2) == "__" {
+          if stdr.len(fbody) == 0 { continue }
+        }
+      }
+      let ret = d[ret_key] ?? "any"
+      let is_void = ret == "void" || ret == "--"
+      let params = d[params_key] ?? []: [any]
+      if is_void { stdr.push(p, "static void ") } else { stdr.push(p, "static YisVal ") }
+      if fname == "entry" { stdr.push(p, "yis_entry") } else { stdr.push(p, mangle_name(cask_name, fname)) }
+      stdr.push(p, "(")
+      let ?np = stdr.len(params)
+      let ?k = 0
+      for (; k < np; k = k + 1) {
+        if k > 0 { stdr.push(p, ", ") }
+        stdr.push(p, "YisVal")
+      }
+      if np == 0 { stdr.push(p, "void") }
+      stdr.push(p, ");\n")
+    }
+  }
+
+  -- Forward declarations: macros
+  i = 0
+  for (; i < n; i = i + 1) {
+    let d = decls[i]
+    if d[tag] == "macro" {
+      let mname = d[name_key] ?? ""
+      if !stdr.is_null(fun_names[mname]) { continue }
+      let ret = d[ret_key] ?? "any"
+      let is_void = ret == "void" || ret == "--"
+      let params = d[params_key] ?? []: [any]
+      if is_void { stdr.push(p, "static void ") } else { stdr.push(p, "static YisVal ") }
+      stdr.push(p, mangle_name(cask_name, mname))
+      stdr.push(p, "(YisVal v_this")
+      let ?np = stdr.len(params)
+      let ?k = 0
+      for (; k < np; k = k + 1) { stdr.push(p, ", YisVal") }
+      stdr.push(p, ");\n")
+    }
+  }
+
+  -- Forward declarations: class methods
+  let methods_key = "methods"
+  i = 0
+  for (; i < n; i = i + 1) {
+    let d = decls[i]
+    if d[tag] == "class" {
+      let cls_name = d[name_key] ?? ""
+      let methods = d[methods_key] ?? []: [any]
+      let ?mi = 0
+      let nm = stdr.len(methods)
+      for (; mi < nm; mi = mi + 1) {
+        let m = methods[mi]
+        let mname = m[name_key] ?? ""
+        let mret = m[ret_key] ?? "any"
+        let mis_void = mret == "void" || mret == "--"
+        let mparams = m[params_key] ?? []: [any]
+        if mis_void { stdr.push(p, "static void ") } else { stdr.push(p, "static YisVal ") }
+        stdr.push(p, mangle_method(cask_name, cls_name, mname))
+        stdr.push(p, "(")
+        let ?mnp = stdr.len(mparams)
+        let ?mk = 0
+        for (; mk < mnp; mk = mk + 1) {
+          if mk > 0 { stdr.push(p, ", ") }
+          stdr.push(p, "YisVal")
+        }
+        if mnp == 0 { stdr.push(p, "void") }
+        stdr.push(p, ");\n")
+      }
+    }
+  }
+
+  -- Forward declarations: function value wrappers
+  let ?seen_fnwrap_decls = []: [string => any]
+  i = 0
+  for (; i < n; i = i + 1) {
+    let d = decls[i]
+    if d[tag] == "fun" {
+      let fname = d[name_key] ?? ""
+      if !stdr.is_null(seen_fnwrap_decls[fname]) { continue }
+      seen_fnwrap_decls[fname] = true
+      let fbody = d[body_key] ?? []: [any]
+      if stdr.len(fname) >= 2 {
+        if stdr.slice(fname, 0, 2) == "__" {
+          if stdr.len(fbody) == 0 { continue }
+        }
+      }
+      if fname == "entry" { continue }
+      stdr.push(p, "static YisVal __fnwrap_")
+      stdr.push(p, cask_name)
+      stdr.push(p, "_")
+      stdr.push(p, fname)
+      stdr.push(p, "(void*,int,YisVal*);\n")
+    }
+  }
+
+  -- Forward declarations: def globals
+  let init_key = "init"
+  i = 0
+  for (; i < n; i = i + 1) {
+    let d = decls[i]
+    if d[tag] == "def" {
+      let dname = d[name_key] ?? ""
+      stdr.push(p, "static YisVal v_")
+      stdr.push(p, dname)
+      stdr.push(p, " = YV_NULLV;\n")
+    }
+  }
+  stdr.push(p, "\n")
+
+  -- Emit function bodies and comments
+  let ?seen_fun_bodies = []: [string => any]
+  i = 0
+  for (; i < n; i = i + 1) {
+    let d = decls[i]
+    if d[tag] == "cask" {
+      stdr.push(p, "// cask ")
+      stdr.push(p, d[name_key] ?? "")
+      stdr.push(p, "\n")
+    }
+    if d[tag] == "bring" {
+      stdr.push(p, "// bring ")
+      stdr.push(p, d[name_key] ?? "")
+      stdr.push(p, "\n")
+    }
+    if d[tag] == "fun" {
+      let fname = d[name_key] ?? ""
+      if !stdr.is_null(seen_fun_bodies[fname]) { continue }
+      seen_fun_bodies[fname] = true
+      let fbody = d[body_key] ?? []: [any]
+      if stdr.len(fname) >= 2 {
+        if stdr.slice(fname, 0, 2) == "__" {
+          if stdr.len(fbody) == 0 { continue }
+        }
+      }
+      stdr.push(p, emit_fun(d, cask_name))
+    }
+    if d[tag] == "macro" {
+      let mname = d[name_key] ?? ""
+      if !stdr.is_null(fun_names[mname]) { continue }
+      stdr.push(p, emit_macro(d, cask_name))
+    }
+    if d[tag] == "class" {
+      let cls_name = d[name_key] ?? ""
+      let cls_methods = d[methods_key] ?? []: [any]
+      let ?ci = 0
+      let ncm = stdr.len(cls_methods)
+      for (; ci < ncm; ci = ci + 1) {
+        let cm = cls_methods[ci]
+        stdr.push(p, emit_class_method(cm, cask_name, cls_name))
+      }
+    }
+  }
+
+  -- Emit function value wrappers
+  let ?seen_fnwrap_bodies = []: [string => any]
+  i = 0
+  for (; i < n; i = i + 1) {
+    let d = decls[i]
+    if d[tag] == "fun" {
+      let fname = d[name_key] ?? ""
+      if !stdr.is_null(seen_fnwrap_bodies[fname]) { continue }
+      seen_fnwrap_bodies[fname] = true
+      if fname == "entry" { continue }
+      stdr.push(p, emit_fnwrap(d, cask_name))
+    }
+  }
+
+  -- Emit def init function if there are any defs
+  let ?has_defs = false
+  i = 0
+  for (; i < n; i = i + 1) {
+    let d = decls[i]
+    if d[tag] == "def" { has_defs = true }
+  }
+  if has_defs {
+    stdr.push(p, "static void __yis_")
+    stdr.push(p, cask_name)
+    stdr.push(p, "_init(void) {\n")
+    i = 0
+    for (; i < n; i = i + 1) {
+      let d = decls[i]
+      if d[tag] == "def" {
+        let dname = d[name_key] ?? ""
+        let dinit = d[init_key]
+        if !stdr.is_null(dinit) {
+          stdr.push(p, "  yis_move_into(&v_")
+          stdr.push(p, dname)
+          stdr.push(p, ", ")
+          stdr.push(p, emit_expr(dinit, cask_name))
+          stdr.push(p, ");\n")
+        }
+      }
+    }
+    stdr.push(p, "}\n\n")
+  }
+
+  return join_parts(p)
+}
+
+-- Extract directory from a file path (everything before the last /)
+fun dir_of(path = string) (( string )) {
+  let n = stdr.len(path)
+  let ?i = n - 1
+  for (; i >= 0; i = i - 1) {
+    let c = stdr.slice(path, i, i + 1)
+    if c == "/" { return stdr.slice(path, 0, i + 1) }
+  }
+  return ""
+}
+
+-- Resolve a bring name to a file path. Checks src_dir/<name>.yi
+fun file_exists(path = string) (( num )) {
+  let cmd = stdr.str_concat(stdr.str_concat("test -f \"", path), "\"")
+  let res = stdr.run_command(cmd)
+  return res[0] ?? 1
+}
+
+fun resolve_bring(bname = string, src_dir = string) (( string )) {
+  -- Check cache first
+  let cache_key = stdr.str_concat(stdr.str_concat(bname, ":"), src_dir)
+  let cached = g_path_cache[cache_key]
+  if !stdr.is_null(cached) { return cached ?? "" }
+  -- First try: same directory as the source file
+  let ?p = stdr.str_concat(stdr.str_concat(src_dir, bname), ".yi")
+  if file_exists(p) == 0 { g_path_cache[cache_key] = p; return p }
+  -- Second try: parent directory of source
+  p = stdr.str_concat(stdr.str_concat(stdr.str_concat(src_dir, "../"), bname), ".yi")
+  if file_exists(p) == 0 { g_path_cache[cache_key] = p; return p }
+  -- Third try: stdlib under source tree
+  p = stdr.str_concat(stdr.str_concat("src/stdlib/", bname), ".yi")
+  if file_exists(p) == 0 { g_path_cache[cache_key] = p; return p }
+  -- Fourth try: stdlib under bootstrap tree
+  p = stdr.str_concat(stdr.str_concat("src/bootstrap/stdlib/", bname), ".yi")
+  if file_exists(p) == 0 { g_path_cache[cache_key] = p; return p }
+  -- Fifth try: cwd-relative paths for cogito
+  if bname == "cogito" {
+    if file_exists("../cogito/src/cogito.yi") == 0 { g_path_cache[cache_key] = "../cogito/src/cogito.yi"; return "../cogito/src/cogito.yi" }
+    if file_exists("../cogito/cogito.yi") == 0 { g_path_cache[cache_key] = "../cogito/cogito.yi"; return "../cogito/cogito.yi" }
+    if file_exists("../../cogito/src/cogito.yi") == 0 { g_path_cache[cache_key] = "../../cogito/src/cogito.yi"; return "../../cogito/src/cogito.yi" }
+  }
+  -- Fallback to original behavior
+  p = stdr.str_concat(stdr.str_concat(src_dir, bname), ".yi")
+  g_path_cache[cache_key] = p
+  return p
+}
+
+-- Load and parse a module, with caching
+fun load_module(fpath = string) (( any )) {
+  let cached = g_ast_cache[fpath]
+  if !stdr.is_null(cached) { return cached }
+  let src = stdr.read_text_file(fpath)
+  if stdr.is_null(src) { return null }
+  let toks = lexer.lex(src)
+  let ast = parser.parse(toks)
+  g_ast_cache[fpath] = ast
+  return ast
+}
+
+-- Emit a single brought module. Returns the emitted C code string.
+fun emit_one_bring(bname = string, src_dir = string) (( string )) {
+  let decls_key = "decls"
+  let fpath = resolve_bring(bname, src_dir)
+  let mod_ast = load_module(fpath)
+  if stdr.is_null(mod_ast) { return "" }
+  let mod_c = emit_unit(mod_ast)
+  let ?out = "\n/* begin embedded module: "
+  out = stdr.str_concat(out, bname)
+  out = stdr.str_concat(out, " */\n")
+  out = stdr.str_concat(out, mod_c)
+  out = stdr.str_concat(out, "/* end embedded module: ")
+  out = stdr.str_concat(out, bname)
+  out = stdr.str_concat(out, " */\n")
+  return out
+}
+
+-- Collect all bring names from a decl list (non-builtin)
+fun collect_brings(decls = any, src_dir = string) (( any )) {
+  let tag = "tag"
+  let name_key = "name"
+  let decls_key = "decls"
+  let n = stdr.len(decls)
+  let ?result = []: [any]
+  let ?seen = []: [string => any]
+  let ?i = 0
+  for (; i < n; i = i + 1) {
+    let d = decls[i]
+    if d[tag] == "bring" {
+      let bname = d[name_key] ?? ""
+      if bname == "stdr" || bname == "math" { continue }
+      if !stdr.is_null(seen[bname]) { continue }
+      seen[bname] = true
+      -- Also check transitive brings
+      let fpath = resolve_bring(bname, src_dir)
+      let mod_ast2 = load_module(fpath)
+      if !stdr.is_null(mod_ast2) {
+        let mod_decls = mod_ast2[decls_key] ?? []: [any]
+        let mod_dir = dir_of(fpath)
+        -- Add transitive brings first (depth-first)
+        let ?j = 0
+        let mn = stdr.len(mod_decls)
+        for (; j < mn; j = j + 1) {
+          let dd = mod_decls[j]
+          if dd[tag] == "bring" {
+            let sub_name = dd[name_key] ?? ""
+            if sub_name == "stdr" || sub_name == "math" || sub_name == "cogito" { continue }
+            if !stdr.is_null(seen[sub_name]) { continue }
+            seen[sub_name] = true
+            result = stdr.concat(result, [[sub_name, mod_dir]])
+          }
+        }
+      }
+      result = stdr.concat(result, [[bname, src_dir]])
+    }
+  }
+  return result
+}
+
+-- Collect all cask names that have defs from an AST's decls
+fun collect_def_inits(decls = any) (( any )) {
+  let tag = "tag"
+  let name_key = "name"
+  let n = stdr.len(decls)
+  let ?i = 0
+  let ?cname = "init"
+  let ?has_defs = false
+  for (; i < n; i = i + 1) {
+    let d = decls[i]
+    if d[tag] == "cask" { cname = d[name_key] ?? "init" }
+    if d[tag] == "def" { has_defs = true }
+  }
+  let ?r = []: [string => any]
+  let ck = "cask"
+  let dk = "has_defs"
+  r[ck] = cname
+  r[dk] = has_defs
+  return r
+}
+
+-- Main emit_c: walks the full AST, emits modules, then current unit, and wraps with runtime+main.
+fun emit_c(ast = any, runtime_src = string, src_dir = string) (( string )) {
+  let tag = "tag"
+  let name_key = "name"
+  let decls_key = "decls"
+  let decls = ast[decls_key]
+  if stdr.is_null(decls) { return "int main(void) { return 0; }\n" }
+
+  let ?p = []: [any]
+  if stdr.len(runtime_src) > 0 {
+    stdr.push(p, runtime_src)
+    stdr.push(p, "\n")
+  } else {
+    stdr.push(p, "#include \"src/bootstrap/runtime.inc\"\n\n")
+  }
+  stdr.push(p, "/* inlined runtime helpers */\n")
+  stdr.push(p, "static YisVal yis_index(YisVal obj, YisVal idx) {\n")
+  stdr.push(p, "  if (obj.tag == EVT_ARR) return yis_arr_get((YisArr*)obj.as.p, yis_as_int(idx));\n")
+  stdr.push(p, "  if (obj.tag == EVT_DICT) return yis_dict_get((YisDict*)obj.as.p, idx);\n")
+  stdr.push(p, "  if (obj.tag == EVT_STR) return stdr_str_at(obj, yis_as_int(idx));\n")
+  stdr.push(p, "  return YV_NULLV;\n")
+  stdr.push(p, "}\n\n")
+  stdr.push(p, "static YisVal yis_index_set(YisVal obj, YisVal idx, YisVal val) {\n")
+  stdr.push(p, "  if (obj.tag == EVT_ARR) { yis_arr_set((YisArr*)obj.as.p, yis_as_int(idx), val); return val; }\n")
+  stdr.push(p, "  if (obj.tag == EVT_DICT) { yis_dict_set((YisDict*)obj.as.p, idx, val); return val; }\n")
+  stdr.push(p, "  return YV_NULLV;\n")
+  stdr.push(p, "}\n\n")
+  stdr.push(p, "static YisVal yis_arr_lit(int n, ...) {\n")
+  stdr.push(p, "  YisArr *a = stdr_arr_new(n);\n")
+  stdr.push(p, "  va_list ap; va_start(ap, n);\n")
+  stdr.push(p, "  for (int i = 0; i ")
+  stdr.push(p, "\<")
+  stdr.push(p, " n; i++) yis_arr_add(a, va_arg(ap, YisVal));\n")
+  stdr.push(p, "  va_end(ap);\n")
+  stdr.push(p, "  YisVal av; av.tag = EVT_ARR; av.as.p = a;\n")
+  stdr.push(p, "  return av;\n")
+  stdr.push(p, "}\n\n")
+  stdr.push(p, "static YisVal yis_dict_lit(int n, ...) {\n")
+  stdr.push(p, "  YisDict *d = stdr_dict_new();\n")
+  stdr.push(p, "  va_list ap; va_start(ap, n);\n")
+  stdr.push(p, "  for (int i = 0; i ")
+  stdr.push(p, "\<")
+  stdr.push(p, " n; i++) {\n")
+  stdr.push(p, "    YisVal k = va_arg(ap, YisVal);\n")
+  stdr.push(p, "    YisVal v = va_arg(ap, YisVal);\n")
+  stdr.push(p, "    yis_dict_set(d, k, v);\n")
+  stdr.push(p, "  }\n")
+  stdr.push(p, "  va_end(ap);\n")
+  stdr.push(p, "  YisVal dv; dv.tag = EVT_DICT; dv.as.p = d;\n")
+  stdr.push(p, "  return dv;\n")
+  stdr.push(p, "}\n\n")
+
+  -- Build class info for all brought modules (before emitting code)
+  let ?n = 0
+  n = stdr.len(decls)
+  let ?i = 0
+  let ?has_entry = false
+  let ?has_cogito = false
+  let brings = collect_brings(decls, src_dir)
+  let nb = stdr.len(brings)
+  let ?bi = 0
+  for (; bi < nb; bi = bi + 1) {
+    let binfo = brings[bi]
+    let bname = binfo[0] ?? ""
+    let bdir = binfo[1] ?? ""
+    if bname == "cogito" {
+      has_cogito = true
+    }
+    -- Parse and build class info for this module
+    let mod_fpath = resolve_bring(bname, bdir)
+    let mod_ast3 = load_module(mod_fpath)
+    if !stdr.is_null(mod_ast3) {
+      let mod_decls = mod_ast3[decls_key] ?? []: [any]
+      -- Find module's cask name
+      let ?mod_cask = bname
+      let ?mi = 0
+      let mdn = stdr.len(mod_decls)
+      for (; mi < mdn; mi = mi + 1) {
+        let md2 = mod_decls[mi]
+        if md2[tag] == "cask" { mod_cask = md2[name_key] ?? bname }
+      }
+      build_class_info(mod_decls, mod_cask)
+    }
+  }
+  -- Build class info for main unit too
+  build_class_info(decls, "")
+
+  -- Include cogito bindings if needed
+  if has_cogito {
+    let ?cog_path = ""
+    if file_exists("../Cogito/yis/cogito_bindings.inc") == 0 { cog_path = "../Cogito/yis/cogito_bindings.inc" }
+    elif file_exists("../Cogito/src/yis/cogito_bindings.inc") == 0 { cog_path = "../Cogito/src/yis/cogito_bindings.inc" }
+    elif file_exists("../../Cogito/yis/cogito_bindings.inc") == 0 { cog_path = "../../Cogito/yis/cogito_bindings.inc" }
+    elif file_exists("../../Cogito/src/yis/cogito_bindings.inc") == 0 { cog_path = "../../Cogito/src/yis/cogito_bindings.inc" }
+    elif file_exists("../cogito/yis/cogito_bindings.inc") == 0 { cog_path = "../cogito/yis/cogito_bindings.inc" }
+    elif file_exists("../cogito/src/yis/cogito_bindings.inc") == 0 { cog_path = "../cogito/src/yis/cogito_bindings.inc" }
+    elif file_exists("../../cogito/yis/cogito_bindings.inc") == 0 { cog_path = "../../cogito/yis/cogito_bindings.inc" }
+    elif file_exists("../../cogito/src/yis/cogito_bindings.inc") == 0 { cog_path = "../../cogito/src/yis/cogito_bindings.inc" }
+    elif file_exists("src/bootstrap/cogito_bindings.inc") == 0 { cog_path = "src/bootstrap/cogito_bindings.inc" }
+    elif file_exists("src/cogito_bindings.inc") == 0 { cog_path = "src/cogito_bindings.inc" }
+    let cog_src = stdr.read_text_file(cog_path)
+    if !stdr.is_null(cog_src) {
+      stdr.push(p, "\n/* cogito bindings */\n")
+      stdr.push(p, cog_src)
+      stdr.push(p, "\n")
+    }
+  }
+
+  -- Embed all brought modules
+  bi = 0
+  for (; bi < nb; bi = bi + 1) {
+    let binfo = brings[bi]
+    let bname = binfo[0] ?? ""
+    let bdir = binfo[1] ?? ""
+    stdr.push(p, emit_one_bring(bname, bdir))
+  }
+
+  -- Check for entry in main unit
+  for (; i < n; i = i + 1) {
+    let d = decls[i]
+    if d[tag] == "fun" {
+      let fname = d[name_key] ?? ""
+      if fname == "entry" { has_entry = true }
+    }
+  }
+
+  -- Build class info for main unit with actual cask name
+  let ?main_cask = "init"
+  i = 0
+  for (; i < n; i = i + 1) {
+    let d = decls[i]
+    if d[tag] == "cask" { main_cask = d[name_key] ?? "init" }
+  }
+  build_class_info(decls, main_cask)
+
+  stdr.push(p, "\n/* begin main unit */\n")
+  stdr.push(p, emit_unit(ast))
+  stdr.push(p, "/* end main unit */\n\n")
+
+  -- Collect def init calls from all modules (main + brought)
+  let ?init_calls = []: [any]
+  -- Check brought modules for defs
+  i = 0
+  for (; i < n; i = i + 1) {
+    let d = decls[i]
+    if d[tag] == "bring" {
+      let bname = d[name_key] ?? ""
+      if bname == "stdr" || bname == "math" { continue }
+      let fpath = resolve_bring(bname, src_dir)
+      let mod_ast4 = load_module(fpath)
+      if !stdr.is_null(mod_ast4) {
+        let md = mod_ast4[decls_key] ?? []: [any]
+        let di = collect_def_inits(md)
+        if di["has_defs"] {
+          init_calls = stdr.concat(init_calls, [di["cask"] ?? bname])
+        }
+      }
+    }
+  }
+  -- Check main unit for defs
+  let main_di = collect_def_inits(decls)
+  if main_di["has_defs"] {
+    init_calls = stdr.concat(init_calls, [main_di["cask"] ?? "init"])
+  }
+
+  stdr.push(p, "int main(int argc, char **argv) {\n")
+  stdr.push(p, "  yis_set_args(argc, argv);\n")
+  stdr.push(p, "  yis_runtime_init();\n")
+  -- Call def init functions
+  let ?ci = 0
+  let cn = stdr.len(init_calls)
+  for (; ci < cn; ci = ci + 1) {
+    let cname = init_calls[ci] ?? ""
+    stdr.push(p, "  __yis_")
+    stdr.push(p, cname)
+    stdr.push(p, "_init();\n")
+  }
+  if has_entry { stdr.push(p, "  yis_entry();\n") }
+  stdr.push(p, "  return 0;\n")
+  stdr.push(p, "}\n")
+  return join_parts(p)
+}
+
+entry() (( -- )) {
+  let argv = stdr.args()
+  if stdr.len(argv) < 2 {
+    stdr.write("Usage: yis run compiler_yi/init.yi -- file.yi\n")
+    return
+  }
+  let entry_path = argv[1] ?? ""
+  if entry_path == "" {
+    stdr.write("ERR: No entry path\n")
+    return
+  }
+  let source = stdr.read_text_file(entry_path)
+  if stdr.is_null(source) {
+    stdr.write("ERR: Cannot read file\n")
+    return
+  }
+  -- Read runtime for embedding in generated C
+  let ?runtime_src = stdr.read_text_file("src/bootstrap/runtime.inc")
+  if stdr.is_null(runtime_src) {
+    runtime_src = stdr.read_text_file("src/runtime.inc")
+  }
+  if stdr.is_null(runtime_src) { runtime_src = "" }
+
+  let toks = lexer.lex(source)
+  let ast = parser.parse(toks)
+  if stdr.is_null(ast) {
+    stdr.write("ERR: Parse failed\n")
+    return
+  }
+  let src_dir = dir_of(entry_path)
+  let c_src_str = stdr.str(emit_c(ast, runtime_src, src_dir))
+  let c_path = ".yi_compile_out.c"
+  let ok = stdr.write_text_file(c_path, c_src_str)
+  if !ok {
+    stdr.write("ERR: Cannot write C output\n")
+    return
+  }
+  -- Detect cogito usage by scanning AST for 'bring cogito'
+  let ?uses_cogito = false
+  let decls_key2 = "decls"
+  let ast_decls2 = ast[decls_key2] ?? []: [any]
+  let ?di = 0
+  let dn = stdr.len(ast_decls2)
+  for (; di < dn; di = di + 1) {
+    let d2 = ast_decls2[di]
+    if d2["tag"] == "bring" {
+      if d2["name"] == "cogito" { uses_cogito = true }
+    }
+  }
+  -- Build cc command with cogito flags if needed
+  -- Append stderr redirection so stdr.run_command captures compiler errors
+  let ?cc_cmd = "cc -o .yi_out .yi_compile_out.c -O3 -march=native -lm 2>&1"
+  if uses_cogito {
+    -- Probe for cogito.h include path using test -f
+    let ?cog_cflags = ""
+    let ?cog_ldflags = "-lcogito"
+    let p1 = stdr.run_command("test -f ../cogito/src/src/cogito.h && echo y")
+    let p1c = p1[0] ?? 1
+    let p2 = stdr.run_command("test -f ../cogito/src/cogito.h && echo y")
+    let p2c = p2[0] ?? 1
+    let p3 = stdr.run_command("test -f ../../cogito/src/src/cogito.h && echo y")
+    let p3c = p3[0] ?? 1
+    let p4 = stdr.run_command("test -f ../../cogito/src/cogito.h && echo y")
+    let p4c = p4[0] ?? 1
+    if p1c == 0 { cog_cflags = "-I../cogito/src/src" }
+    elif p2c == 0 { cog_cflags = "-I../cogito/src" }
+    elif p3c == 0 { cog_cflags = "-I../../cogito/src/src" }
+    elif p4c == 0 { cog_cflags = "-I../../cogito/src" }
+    -- Probe for libcogito.dylib
+    let l1 = stdr.run_command("test -f ../cogito/build/libcogito.dylib && cd ../cogito/build && pwd")
+    let l1c = l1[0] ?? 1
+    let l2 = stdr.run_command("test -f ../cogito/_build/libcogito.dylib && cd ../cogito/_build && pwd")
+    let l2c = l2[0] ?? 1
+    let l3 = stdr.run_command("test -f ../../cogito/build/libcogito.dylib && cd ../../cogito/build && pwd")
+    let l3c = l3[0] ?? 1
+    let l4 = stdr.run_command("test -f ../../cogito/_build/libcogito.dylib && cd ../../cogito/_build && pwd")
+    let l4c = l4[0] ?? 1
+    let ?lib_dir = ""
+    let ?lib_abs = ""
+    if l1c == 0 { lib_dir = "../cogito/build"; lib_abs = l1[1] ?? "" }
+    elif l2c == 0 { lib_dir = "../cogito/_build"; lib_abs = l2[1] ?? "" }
+    elif l3c == 0 { lib_dir = "../../cogito/build"; lib_abs = l3[1] ?? "" }
+    elif l4c == 0 { lib_dir = "../../cogito/_build"; lib_abs = l4[1] ?? "" }
+    if stdr.len(lib_abs) > 0 {
+      -- Trim trailing newline from pwd output
+      let la = stdr.len(lib_abs)
+      if stdr.slice(lib_abs, la - 1, la) == "\n" {
+        lib_abs = stdr.slice(lib_abs, 0, la - 1)
+      }
+      cog_ldflags = stdr.str_concat("-L", lib_dir)
+      cog_ldflags = stdr.str_concat(cog_ldflags, " -lcogito -Wl,-rpath,")
+      cog_ldflags = stdr.str_concat(cog_ldflags, lib_abs)
+    }
+    cc_cmd = "cc -o .yi_out .yi_compile_out.c -O3 -march=native -lm "
+    cc_cmd = stdr.str_concat(cc_cmd, cog_cflags)
+    cc_cmd = stdr.str_concat(cc_cmd, " ")
+    cc_cmd = stdr.str_concat(cc_cmd, cog_ldflags)
+    cc_cmd = stdr.str_concat(cc_cmd, " 2>&1")
+  }
+  let result = stdr.run_command(cc_cmd)
+  let code = result[0] ?? 1
+  let out = result[1] ?? ""
+  if code != 0 {
+    stdr.write("Compile FAIL!\n")
+    stdr.write(out ?? "")
+    stdr.write("\n")
+    return
+  }
+  stdr.write("OK: .yi_out\n")
+}
