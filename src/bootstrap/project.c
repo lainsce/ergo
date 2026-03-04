@@ -273,6 +273,34 @@ static Module *load_file(const char *path,
             free(p);
             continue;
         }
+        if (str_eq_c(imp->name, "net")) {
+            char *p = path_join(stdlib_dir, "net.yi");
+            if (!p || !path_is_file(p)) {
+                set_err(err, abs_path, "net.yi not found in stdlib");
+                free(p);
+                return NULL;
+            }
+            if (!load_file(p, root_dir, stdlib_dir, arena, visited, hash, err)) {
+                free(p);
+                return NULL;
+            }
+            free(p);
+            continue;
+        }
+        if (str_eq_c(imp->name, "json")) {
+            char *p = path_join(stdlib_dir, "json.yi");
+            if (!p || !path_is_file(p)) {
+                set_err(err, abs_path, "json.yi not found in stdlib");
+                free(p);
+                return NULL;
+            }
+            if (!load_file(p, root_dir, stdlib_dir, arena, visited, hash, err)) {
+                free(p);
+                return NULL;
+            }
+            free(p);
+            continue;
+        }
         // Cogito module resolution (yis-local copy)
 #include "cogito_resolve.inc"
         char *name = str_to_c(imp->name);

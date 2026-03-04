@@ -86,9 +86,199 @@ fun pair(a = any, b = any) (( any )) {
   return p
 }
 
+fun unescape_interp_expr(text = string) (( string )) {
+  let ?out = ""
+  let ?i = 0
+  let n = stdr.len(text)
+  for (; i < n; i = i + 1) {
+    let c = stdr.slice(text, i, i + 1)
+    if c == "\\" && i + 1 < n {
+      out = stdr.str_concat(out, stdr.slice(text, i + 1, i + 2))
+      i = i + 1
+      continue
+    }
+    out = stdr.str_concat(out, c)
+  }
+  return out
+}
+
+fun _is_ident_start_char(ch = string) (( bool )) {
+  let c = stdr.char_code(ch)
+  return (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c == 95
+}
+
+fun _is_ident_mid_char(ch = string) (( bool )) {
+  let c = stdr.char_code(ch)
+  return _is_ident_start_char(ch) || (c >= 48 && c <= 57)
+}
+
+fun _is_int_text(text = string) (( bool )) {
+  let n = stdr.len(text)
+  if n == 0 { return false }
+  let ?i = 0
+  if stdr.slice(text, 0, 1) == "-" {
+    if n == 1 { return false }
+    i = 1
+  }
+  for (; i < n; i = i + 1) {
+    let c = stdr.char_code(stdr.slice(text, i, i + 1))
+    if c < 48 || c > 57 { return false }
+  }
+  return true
+}
+
+fun _c_quote(text = string) (( string )) {
+  let hex = "0123456789ABCDEF"
+  let ?q = "\""
+  let n = stdr.len(text)
+  let ?i = 0
+  for (; i < n; i = i + 1) {
+    let c = stdr.slice(text, i, i + 1)
+    let code = stdr.char_code(c)
+    if code == 10 {
+      q = stdr.str_concat(q, "\\n")
+    } elif code == 9 {
+      q = stdr.str_concat(q, "\\t")
+    } elif code == 13 {
+      q = stdr.str_concat(q, "\\r")
+    } elif code == 7 {
+      q = stdr.str_concat(q, "\\a")
+    } elif code == 8 {
+      q = stdr.str_concat(q, "\\b")
+    } elif code == 11 {
+      q = stdr.str_concat(q, "\\v")
+    } elif code == 12 {
+      q = stdr.str_concat(q, "\\f")
+    } elif code == 27 {
+      q = stdr.str_concat(q, "\\x1B")
+    } elif code < 32 || code == 127 {
+      let ?hi = 0
+      let ?lo = code
+      for (; lo >= 16; ) {
+        hi = hi + 1
+        lo = lo - 16
+      }
+      q = stdr.str_concat(q, "\\x")
+      q = stdr.str_concat(q, stdr.slice(hex, hi, hi + 1))
+      q = stdr.str_concat(q, stdr.slice(hex, lo, lo + 1))
+    } else {
+      if c == "\\" || c == "\"" {
+        q = stdr.str_concat(q, "\\")
+      }
+      q = stdr.str_concat(q, c)
+    }
+  }
+  q = stdr.str_concat(q, "\"")
+  return q
+}
+
+fun _trim(text = string) (( string )) {
+  let n = stdr.len(text)
+  let ?a = 0
+  let ?b = n
+  for (; a < n; a = a + 1) {
+    let c = stdr.slice(text, a, a + 1)
+    if c != " " && c != "\t" && c != "\n" && c != "\r" { break }
+  }
+  for (; b > a; b = b - 1) {
+    let c = stdr.slice(text, b - 1, b)
+    if c != " " && c != "\t" && c != "\n" && c != "\r" { break }
+  }
+  return stdr.slice(text, a, b)
+}
+
+fun interp_path_to_c(raw = string) (( any )) {
+  let s = _trim(unescape_interp_expr(raw))
+  let n = stdr.len(s)
+  if n == 0 { return null }
+
+  let ?i = 0
+  let c0 = stdr.slice(s, 0, 1)
+  if !_is_ident_start_char(c0) { return null }
+
+  let ?j = 1
+  for (; j < n; j = j + 1) {
+    if !_is_ident_mid_char(stdr.slice(s, j, j + 1)) { break }
+  }
+  let head = stdr.slice(s, 0, j)
+  let ?out = stdr.str_concat("v_", head)
+  i = j
+
+  for (; i < n; ) {
+    let ch = stdr.slice(s, i, i + 1)
+    if ch == "." {
+      i = i + 1
+      if i >= n || !_is_ident_start_char(stdr.slice(s, i, i + 1)) { return null }
+      j = i + 1
+      for (; j < n; j = j + 1) {
+        if !_is_ident_mid_char(stdr.slice(s, j, j + 1)) { break }
+      }
+      let field = stdr.slice(s, i, j)
+      let ?next = "yis_get_field(((YisObj*)("
+      next = stdr.str_concat(next, out)
+      next = stdr.str_concat(next, ").as.p), stdr_str_lit(")
+      next = stdr.str_concat(next, _c_quote(field))
+      next = stdr.str_concat(next, "))")
+      out = next
+      i = j
+      continue
+    }
+    if ch == "[" {
+      let ?k = i + 1
+      let ?depth = 1
+      for (; k < n; k = k + 1) {
+        let kc = stdr.slice(s, k, k + 1)
+        if kc == "[" {
+          depth = depth + 1
+        } elif kc == "]" {
+          depth = depth - 1
+          if depth == 0 { break }
+        }
+      }
+      if k >= n || depth != 0 { return null }
+      let inner = _trim(stdr.slice(s, i + 1, k))
+      let ?idxc = ""
+      let in_n = stdr.len(inner)
+      if in_n >= 2 {
+        let a = stdr.slice(inner, 0, 1)
+        let b = stdr.slice(inner, in_n - 1, in_n)
+        if a == "\"" && b == "\"" {
+          let key = stdr.slice(inner, 1, in_n - 1)
+          idxc = stdr.str_concat("YV_STR(stdr_str_lit(", _c_quote(key))
+          idxc = stdr.str_concat(idxc, "))")
+        } elif a == "'" && b == "'" {
+          let key = stdr.slice(inner, 1, in_n - 1)
+          idxc = stdr.str_concat("YV_STR(stdr_str_lit(", _c_quote(key))
+          idxc = stdr.str_concat(idxc, "))")
+        }
+      }
+      if stdr.len(idxc) == 0 {
+        if _is_int_text(inner) {
+          idxc = stdr.str_concat("YV_INT(", inner)
+          idxc = stdr.str_concat(idxc, ")")
+        } else {
+          if stdr.is_null(interp_path_to_c(inner)) { return null }
+          idxc = interp_path_to_c(inner)
+        }
+      }
+      let ?next = "yis_index("
+      next = stdr.str_concat(next, out)
+      next = stdr.str_concat(next, ", ")
+      next = stdr.str_concat(next, idxc)
+      next = stdr.str_concat(next, ")")
+      out = next
+      i = k + 1
+      continue
+    }
+    return null
+  }
+
+  return out
+}
+
 fun is_capture_excluded(name = string) (( bool )) {
   if name == "" { return true }
-  if name == "stdr" || name == "math" || name == "cogito" { return true }
+  if name == "stdr" || name == "math" || name == "net" || name == "json" || name == "cogito" { return true }
   return false
 }
 
@@ -612,9 +802,9 @@ fun emit_expr(e = any, cask_name = string) (( string )) {
     let vk = "value"
     let v = e[vk] ?? ""
     -- Emit YV_STR(stdr_str_lit("..."))
-    let ?r = "YV_STR(stdr_str_lit(\""
-    r = stdr.str_concat(r, v)
-    r = stdr.str_concat(r, "\"))")
+    let ?r = "YV_STR(stdr_str_lit("
+    r = stdr.str_concat(r, _c_quote(v))
+    r = stdr.str_concat(r, "))")
     return r
   }
 
@@ -637,14 +827,20 @@ fun emit_expr(e = any, cask_name = string) (( string )) {
       r = stdr.str_concat(r, stdr.str(pi))
       r = stdr.str_concat(r, "] = ")
       if pkind == "text" {
-        r = stdr.str_concat(r, "YV_STR(stdr_str_lit(\"")
-        r = stdr.str_concat(r, pval)
-        r = stdr.str_concat(r, "\"))")
+        r = stdr.str_concat(r, "YV_STR(stdr_str_lit(")
+        r = stdr.str_concat(r, _c_quote(pval))
+        r = stdr.str_concat(r, "))")
       } else {
         -- expr part: convert variable to string
-        r = stdr.str_concat(r, "YV_STR(stdr_to_string(v_")
-        r = stdr.str_concat(r, pval)
-        r = stdr.str_concat(r, "))")
+        if stdr.is_null(interp_path_to_c(pval)) {
+          r = stdr.str_concat(r, "YV_STR(stdr_to_string(v_")
+          r = stdr.str_concat(r, unescape_interp_expr(pval))
+          r = stdr.str_concat(r, "))")
+        } else {
+          r = stdr.str_concat(r, "YV_STR(stdr_to_string(")
+          r = stdr.str_concat(r, interp_path_to_c(pval))
+          r = stdr.str_concat(r, "))")
+        }
       }
       r = stdr.str_concat(r, "; ")
     }
@@ -2625,6 +2821,14 @@ fun rm_file_quiet(path = string) (( -- )) {
   stdr.run_command(cmd)
 }
 
+fun rm_tree_quiet(path = string) (( -- )) {
+  if stdr.len(path) == 0 { return }
+  let ?cmd = "rm -rf \""
+  cmd = stdr.str_concat(cmd, path)
+  cmd = stdr.str_concat(cmd, "\"")
+  stdr.run_command(cmd)
+}
+
 fun env_nonempty(name = string) (( bool )) {
   if stdr.len(name) == 0 { return false }
   let ?cmd = "printenv "
@@ -2641,7 +2845,7 @@ fun cogito_run_c_artifact(entry_path = string, source_raw = string) (( string ))
 
   -- Try to resolve custom app id from source (best effort)
   let ?src = preprocess_source(source_raw)
-  let toks = lexer.lex(src)
+  let toks = lexer.lex_with_escapes(src, should_decode_escapes(entry_path))
   let ast = parser.parse(toks)
   if !stdr.is_null(ast) {
     let appid_name = find_cogito_appid_name(ast)
@@ -2651,6 +2855,10 @@ fun cogito_run_c_artifact(entry_path = string, source_raw = string) (( string ))
   }
 
   return stdr.str_concat(app_name, ".c")
+}
+
+fun should_decode_escapes(path = string) (( bool )) {
+  return true
 }
 
 fun expr_string_literal_as_filename(e = any) (( string )) {
@@ -3218,6 +3426,65 @@ fun runtime_dep_fresh(out_path = string, argv = any) (( bool )) {
   return true
 }
 
+fun _chomp_newline(text = string) (( string )) {
+  let n = stdr.len(text)
+  if n > 0 && stdr.slice(text, n - 1, n) == "\n" {
+    return stdr.slice(text, 0, n - 1)
+  }
+  return text
+}
+
+fun _env_value(name = string) (( string )) {
+  let ?cmd = "printenv "
+  cmd = stdr.str_concat(cmd, name)
+  cmd = stdr.str_concat(cmd, " 2>/dev/null")
+  let res = stdr.run_command(cmd)
+  let code = res[0] ?? 1
+  if code != 0 { return "" }
+  let out = res[1] ?? ""
+  return _chomp_newline(out)
+}
+
+fun resolve_stdlib_module_path(bname = string) (( string )) {
+  let ?p = ""
+
+  let stdlib_env = _env_value("YIS_STDLIB")
+  if stdr.len(stdlib_env) > 0 {
+    p = stdr.str_concat(stdr.str_concat(stdlib_env, "/"), bname)
+    p = stdr.str_concat(p, ".yi")
+    if file_exists(p) == 0 { return p }
+  }
+
+  p = stdr.str_concat(stdr.str_concat("src/stdlib/", bname), ".yi")
+  if file_exists(p) == 0 { return p }
+  p = stdr.str_concat(stdr.str_concat("src/bootstrap/stdlib/", bname), ".yi")
+  if file_exists(p) == 0 { return p }
+
+  p = stdr.str_concat(stdr.str_concat("yis/src/stdlib/", bname), ".yi")
+  if file_exists(p) == 0 { return p }
+  p = stdr.str_concat(stdr.str_concat("../Yis/src/stdlib/", bname), ".yi")
+  if file_exists(p) == 0 { return p }
+  p = stdr.str_concat(stdr.str_concat("../../Yis/src/stdlib/", bname), ".yi")
+  if file_exists(p) == 0 { return p }
+  p = stdr.str_concat(stdr.str_concat("../../../Yis/src/stdlib/", bname), ".yi")
+  if file_exists(p) == 0 { return p }
+  p = stdr.str_concat(stdr.str_concat("../yis/src/stdlib/", bname), ".yi")
+  if file_exists(p) == 0 { return p }
+  p = stdr.str_concat(stdr.str_concat("../../yis/src/stdlib/", bname), ".yi")
+  if file_exists(p) == 0 { return p }
+  p = stdr.str_concat(stdr.str_concat("../../../yis/src/stdlib/", bname), ".yi")
+  if file_exists(p) == 0 { return p }
+
+  p = stdr.str_concat(stdr.str_concat("/opt/homebrew/share/yis/stdlib/", bname), ".yi")
+  if file_exists(p) == 0 { return p }
+  p = stdr.str_concat(stdr.str_concat("/usr/local/share/yis/stdlib/", bname), ".yi")
+  if file_exists(p) == 0 { return p }
+  p = stdr.str_concat(stdr.str_concat("/usr/share/yis/stdlib/", bname), ".yi")
+  if file_exists(p) == 0 { return p }
+
+  return ""
+}
+
 fun resolve_bring(bname = string, src_dir = string) (( string )) {
   -- Check cache first
   let cache_key = stdr.str_concat(stdr.str_concat(bname, ":"), src_dir)
@@ -3229,12 +3496,16 @@ fun resolve_bring(bname = string, src_dir = string) (( string )) {
   -- Second try: parent directory of source
   p = stdr.str_concat(stdr.str_concat(stdr.str_concat(src_dir, "../"), bname), ".yi")
   if file_exists(p) == 0 { g_path_cache[cache_key] = p; return p }
-  -- Third try: stdlib under source tree
-  p = stdr.str_concat(stdr.str_concat("src/stdlib/", bname), ".yi")
+  -- Third try: project src tree from cwd
+  p = stdr.str_concat(stdr.str_concat("src/", bname), ".yi")
   if file_exists(p) == 0 { g_path_cache[cache_key] = p; return p }
-  -- Fourth try: stdlib under bootstrap tree
-  p = stdr.str_concat(stdr.str_concat("src/bootstrap/stdlib/", bname), ".yi")
+  p = stdr.str_concat(stdr.str_concat("../src/", bname), ".yi")
   if file_exists(p) == 0 { g_path_cache[cache_key] = p; return p }
+  p = stdr.str_concat(stdr.str_concat("../../src/", bname), ".yi")
+  if file_exists(p) == 0 { g_path_cache[cache_key] = p; return p }
+  -- Fourth try: stdlib search (env/install/dev paths)
+  p = resolve_stdlib_module_path(bname)
+  if stdr.len(p) > 0 { g_path_cache[cache_key] = p; return p }
   -- Fifth try: cwd-relative paths for cogito
   if bname == "cogito" {
     if file_exists("../cogito/src/cogito.yi") == 0 { g_path_cache[cache_key] = "../cogito/src/cogito.yi"; return "../cogito/src/cogito.yi" }
@@ -3253,7 +3524,7 @@ fun load_module(fpath = string) (( any )) {
   if !stdr.is_null(cached) { return cached }
   let src = stdr.read_text_file(fpath)
   if stdr.is_null(src) { return null }
-  let toks = lexer.lex(src)
+  let toks = lexer.lex_with_escapes(src, should_decode_escapes(fpath))
   let ast = parser.parse(toks)
   g_ast_cache[fpath] = ast
   return ast
@@ -4297,6 +4568,10 @@ fun emit_c(ast = any, runtime_src = string, src_dir = string) (( string )) {
   -- Include cogito bindings if needed
   if has_cogito {
     let ?cog_path = ""
+    if file_exists("src/yis/cogito_bindings.inc") == 0 { cog_path = "src/yis/cogito_bindings.inc" }
+    elif file_exists("../src/yis/cogito_bindings.inc") == 0 { cog_path = "../src/yis/cogito_bindings.inc" }
+    elif file_exists("../../src/yis/cogito_bindings.inc") == 0 { cog_path = "../../src/yis/cogito_bindings.inc" }
+    elif file_exists("Cogito/src/yis/cogito_bindings.inc") == 0 { cog_path = "Cogito/src/yis/cogito_bindings.inc" }
     if file_exists("../Cogito/yis/cogito_bindings.inc") == 0 { cog_path = "../Cogito/yis/cogito_bindings.inc" }
     elif file_exists("../Cogito/src/yis/cogito_bindings.inc") == 0 { cog_path = "../Cogito/src/yis/cogito_bindings.inc" }
     elif file_exists("../../Cogito/yis/cogito_bindings.inc") == 0 { cog_path = "../../Cogito/yis/cogito_bindings.inc" }
@@ -4307,11 +4582,13 @@ fun emit_c(ast = any, runtime_src = string, src_dir = string) (( string )) {
     elif file_exists("../../cogito/src/yis/cogito_bindings.inc") == 0 { cog_path = "../../cogito/src/yis/cogito_bindings.inc" }
     elif file_exists("src/bootstrap/cogito_bindings.inc") == 0 { cog_path = "src/bootstrap/cogito_bindings.inc" }
     elif file_exists("src/cogito_bindings.inc") == 0 { cog_path = "src/cogito_bindings.inc" }
-    let cog_src = stdr.read_text_file(cog_path)
-    if !stdr.is_null(cog_src) {
-      stdr.push(p, "\n/* cogito bindings */\n")
-      stdr.push(p, cog_src)
-      stdr.push(p, "\n")
+    if cog_path != "" {
+      let cog_src = stdr.read_text_file(cog_path)
+      if !stdr.is_null(cog_src) {
+        stdr.push(p, "\n/* cogito bindings */\n")
+        stdr.push(p, cog_src)
+        stdr.push(p, "\n")
+      }
     }
   }
 
@@ -4407,6 +4684,7 @@ entry() (( -- )) {
       return
     }
     entry_path = argv[2] ?? ""
+    run_arg_start = 3
     if stdr.len(argv) > 3 {
       let arg3 = argv[3] ?? ""
       if arg3 == "--" {
@@ -4440,7 +4718,7 @@ entry() (( -- )) {
   }
 
   let disable_boot_fallback = env_nonempty("YIS_DISABLE_BOOTSTRAP_FALLBACK")
-  if !disable_boot_fallback && !is_self_host && contains_callback_lambda_arrow(source_raw) {
+  if !disable_boot_fallback && !is_self_host && !is_run_mode && contains_callback_lambda_arrow(source_raw) {
     let bootstrap_path = find_bootstrap_compiler(argv)
     if stdr.len(bootstrap_path) > 0 {
       let ?boot_cmd = shell_quote_arg(bootstrap_path)
@@ -4475,7 +4753,7 @@ entry() (( -- )) {
   -- Read runtime for embedding in generated C
   let runtime_src = find_runtime_src(argv)
 
-  let toks = lexer.lex(source)
+  let toks = lexer.lex_with_escapes(source, should_decode_escapes(entry_path))
   let ast = parser.parse(toks)
   if stdr.is_null(ast) {
     stdr.write("ERR: Parse failed\n")
@@ -4540,7 +4818,17 @@ entry() (( -- )) {
       let ?seen = []: [string => any]
       if output_fresh_for_module(out_path, entry_path, seen) {
         if runtime_dep_fresh(out_path, argv) {
-          need_compile = false
+          let ?compiler_path = argv[0] ?? ""
+          if stdr.len(compiler_path) > 0 && file_exists(compiler_path) == 0 {
+            if !output_newer_than(out_path, compiler_path) {
+              stale_out = true
+            }
+          }
+          if stale_out {
+            need_compile = true
+          } else {
+            need_compile = false
+          }
         } else {
           stale_out = true
         }
@@ -4555,6 +4843,9 @@ entry() (( -- )) {
     rm_cmd = stdr.str_concat(rm_cmd, out_path)
     rm_cmd = stdr.str_concat(rm_cmd, "\"")
     stdr.run_command(rm_cmd)
+    if uses_cogito && is_macos && stdr.len(bundle_dir) > 0 {
+      rm_tree_quiet(bundle_dir)
+    }
   }
 
   if need_compile {

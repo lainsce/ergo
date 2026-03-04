@@ -73,6 +73,12 @@
 #undef cogito_iconbtn_new
 #undef cogito_image_new
 #undef cogito_image_set_icon
+#undef cogito_webview_new
+#undef cogito_webview_set_url
+#undef cogito_webview_get_url
+#undef cogito_webview_set_open_external_on_click
+#undef cogito_webview_get_open_external_on_click
+#undef cogito_webview_open
 #undef cogito_drawing_area_new
 #undef cogito_drawing_area_on_press
 #undef cogito_drawing_area_on_drag
@@ -163,6 +169,7 @@
 #undef cogito_progress_set_wavy
 #undef cogito_rebuild_active_window
 #undef cogito_scroller_set_axes
+#undef cogito_scroller_set_sync
 #undef cogito_searchfield_get_text
 #undef cogito_searchfield_new
 #undef cogito_searchfield_on_change
@@ -1462,6 +1469,43 @@ static void __cogito_image_set_alt_text(YisVal imgv, YisVal altv) {
   if (tmp) yis_release_val(YV_STR(tmp));
 }
 
+static YisVal __cogito_webview(YisVal urlv) {
+  YisStr* tmp = NULL;
+  const char* url = cogito_required_cstr(urlv, &tmp);
+  cogito_node* n = cogito_webview_new(url);
+  if (tmp) yis_release_val(YV_STR(tmp));
+  return cogito_wrap_node(n, COGITO_HANDLE_NODE);
+}
+
+static void __cogito_webview_set_url(YisVal wvv, YisVal urlv) {
+  cogito_node* n = cogito_node_from_val(wvv);
+  YisStr* tmp = NULL;
+  const char* url = cogito_required_cstr(urlv, &tmp);
+  cogito_webview_set_url(n, url);
+  if (tmp) yis_release_val(YV_STR(tmp));
+}
+
+static YisVal __cogito_webview_get_url(YisVal wvv) {
+  cogito_node* n = cogito_node_from_val(wvv);
+  const char* url = cogito_webview_get_url(n);
+  return YV_STR(stdr_str_lit(url ? url : ""));
+}
+
+static void __cogito_webview_set_open_external_on_click(YisVal wvv, YisVal onv) {
+  cogito_node* n = cogito_node_from_val(wvv);
+  cogito_webview_set_open_external_on_click(n, yis_as_bool(onv));
+}
+
+static YisVal __cogito_webview_get_open_external_on_click(YisVal wvv) {
+  cogito_node* n = cogito_node_from_val(wvv);
+  return YV_BOOL(cogito_webview_get_open_external_on_click(n));
+}
+
+static YisVal __cogito_webview_open(YisVal wvv) {
+  cogito_node* n = cogito_node_from_val(wvv);
+  return YV_BOOL(cogito_webview_open(n));
+}
+
 static YisVal __cogito_appbar(YisVal titlev, YisVal subtitlev) {
   YisStr* ttmp = NULL;
   YisStr* stmp = NULL;
@@ -1992,6 +2036,15 @@ static void __cogito_scroller_set_axes(YisVal scv, YisVal hv, YisVal vv) {
   bool h = hv.tag == EVT_BOOL ? hv.as.b : false;
   bool v = vv.tag == EVT_BOOL ? vv.as.b : false;
   cogito_scroller_set_axes(sc, h, v);
+}
+
+static void __cogito_scroller_set_sync(YisVal scv, YisVal otherv) {
+  cogito_node* sc = cogito_node_from_val(scv);
+  cogito_node* other = NULL;
+  if (otherv.tag == EVT_OBJ && otherv.as.p) {
+    other = cogito_node_from_val(otherv);
+  }
+  cogito_scroller_set_sync(sc, other);
 }
 
 static void __cogito_grid_set_gap(YisVal gridv, YisVal xv, YisVal yv) {
@@ -2740,6 +2793,11 @@ static void __cogito_nav_rail_set_toggle(YisVal railv, YisVal onv) {
   cogito_nav_rail_set_toggle(rail, yis_as_bool(onv));
 }
 
+static void __cogito_nav_rail_set_divider(YisVal railv, YisVal onv) {
+  cogito_node* rail = cogito_node_from_val(railv);
+  cogito_nav_rail_set_divider(rail, yis_as_bool(onv));
+}
+
 static void __cogito_nav_rail_set_selected(YisVal railv, YisVal idxv) {
   cogito_node* rail = cogito_node_from_val(railv);
   cogito_nav_rail_set_selected(rail, (int)yis_as_int(idxv));
@@ -3179,6 +3237,7 @@ static YisVal __cogito_open_url(YisVal urlv) {
 #define cogito_container_set_padding __cogito_container_set_padding
 #define cogito_fixed_set_pos __cogito_fixed_set_pos
 #define cogito_scroller_set_axes __cogito_scroller_set_axes
+#define cogito_scroller_set_sync __cogito_scroller_set_sync
 #define cogito_grid_set_gap __cogito_grid_set_gap
 #define cogito_grid_set_span __cogito_grid_set_span
 #define cogito_grid_set_align __cogito_grid_set_align
@@ -3246,6 +3305,7 @@ static YisVal __cogito_open_url(YisVal urlv) {
 #define cogito_nav_rail_set_items __cogito_nav_rail_set_items
 #define cogito_nav_rail_set_badges __cogito_nav_rail_set_badges
 #define cogito_nav_rail_set_toggle __cogito_nav_rail_set_toggle
+#define cogito_nav_rail_set_divider __cogito_nav_rail_set_divider
 #define cogito_nav_rail_set_selected __cogito_nav_rail_set_selected
 #define cogito_nav_rail_get_selected __cogito_nav_rail_get_selected
 #define cogito_nav_rail_on_change __cogito_nav_rail_on_change
@@ -3290,6 +3350,14 @@ static YisVal __cogito_open_url(YisVal urlv) {
 #define cogito_image_set_size __cogito_image_set_size
 #define cogito_image_set_radius __cogito_image_set_radius
 #define cogito_image_set_alt_text __cogito_image_set_alt_text
+#define cogito_webview_new __cogito_webview
+#define cogito_webview_set_url __cogito_webview_set_url
+#define cogito_webview_get_url __cogito_webview_get_url
+#define cogito_webview_set_open_external_on_click                            \
+  __cogito_webview_set_open_external_on_click
+#define cogito_webview_get_open_external_on_click                            \
+  __cogito_webview_get_open_external_on_click
+#define cogito_webview_open __cogito_webview_open
 #define cogito_checkbox_set_checked __cogito_checkbox_set_checked
 #define cogito_checkbox_get_checked __cogito_checkbox_get_checked
 #define cogito_switch_set_checked __cogito_switch_set_checked

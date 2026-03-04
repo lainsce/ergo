@@ -797,6 +797,7 @@ static bool yis_as_bool(YisVal v) {
 }
 
 static YisVal yis_add(YisVal a, YisVal b) {
+  if (a.tag == EVT_STR || b.tag == EVT_STR) return stdr_str_concat(a, b);
   if (a.tag == EVT_FLOAT || b.tag == EVT_FLOAT) return YV_FLOAT(yis_as_float(a) + yis_as_float(b));
   return YV_INT(yis_as_int(a) + yis_as_int(b));
 }

@@ -52,11 +52,15 @@ install_data(
   'src/runtime.inc',
   'src/stdlib/stdr.yi',
   'src/stdlib/math.yi',
+  'src/stdlib/net.yi',
+  'src/stdlib/json.yi',
   install_dir : get_option('datadir') / 'yis'
 )
 
 install_data(
   'src/stdlib/stdr.yi',
   'src/stdlib/math.yi',
+  'src/stdlib/net.yi',
+  'src/stdlib/json.yi',
   install_dir : get_option('datadir') / 'yis' / 'stdlib'
 )

@@ -1,0 +1,236 @@
+cask net
+
+bring stdr
+
+-- Yis Standard Library: net.yi
+-- HTTP utilities backed by curl via stdr.run_command
+
+fun _hex_digit(n = num) (( string )) {
+  let digits = "0123456789ABCDEF"
+  return stdr.slice(digits, n, n + 1)
+}
+
+fun _is_alpha_num(code = num) (( bool )) {
+  if code >= 48 && code <= 57 { return true }
+  if code >= 65 && code <= 90 { return true }
+  if code >= 97 && code <= 122 { return true }
+  return false
+}
+
+fun _is_unreserved(code = num) (( bool )) {
+  if _is_alpha_num(code) { return true }
+  if code == 45 || code == 46 || code == 95 || code == 126 { return true }
+  return false
+}
+
+fun _shell_quote(text = string) (( string )) {
+  let ?out = "'"
+  let ?i = 0
+  let n = stdr.len(text)
+  for (; i < n; i = i + 1) {
+    let ch = stdr.slice(text, i, i + 1)
+    if ch == "'" {
+      out = stdr.str_concat(out, "'\"'\"'")
+    } else {
+      out = stdr.str_concat(out, ch)
+    }
+  }
+  out = stdr.str_concat(out, "'")
+  return out
+}
+
+fun _contains(text = string, needle = string) (( bool )) {
+  let tn = stdr.len(text)
+  let nn = stdr.len(needle)
+  if nn == 0 { return true }
+  if nn > tn { return false }
+  let ?i = 0
+  let end = tn - nn
+  for (; i <= end; i = i + 1) {
+    if stdr.slice(text, i, i + nn) == needle { return true }
+  }
+  return false
+}
+
+fun _last_index_of(text = string, needle = string) (( num )) {
+  let tn = stdr.len(text)
+  let nn = stdr.len(needle)
+  if nn == 0 || nn > tn { return -1 }
+  let ?pos = -1
+  let ?i = 0
+  let end = tn - nn
+  for (; i <= end; i = i + 1) {
+    if stdr.slice(text, i, i + nn) == needle {
+      pos = i
+    }
+  }
+  return pos
+}
+
+fun _parse_int(text = string) (( num )) {
+  let ?v = 0
+  let ?i = 0
+  let n = stdr.len(text)
+  for (; i < n; i = i + 1) {
+    let ch = stdr.slice(text, i, i + 1)
+    let code = stdr.char_code(ch)
+    if code < 48 || code > 57 { break }
+    v = v * 10 + (code - 48)
+  }
+  return v
+}
+
+fun _pair_key(pair = any) (( string )) {
+  if stdr.len(pair) >= 1 { return stdr.str(pair[0]) }
+  return ""
+}
+
+fun _pair_val(pair = any) (( string )) {
+  if stdr.len(pair) >= 2 { return stdr.str(pair[1]) }
+  return ""
+}
+
+pub fun encode_component(text = string) (( string )) {
+  let ?out = ""
+  let ?i = 0
+  let n = stdr.len(text)
+  for (; i < n; i = i + 1) {
+    let ch = stdr.slice(text, i, i + 1)
+    let code = stdr.char_code(ch)
+    if _is_unreserved(code) {
+      out = stdr.str_concat(out, ch)
+    } else {
+      let hi = code / 16
+      let lo = code - hi * 16
+      out = stdr.str_concat(out, "%")
+      out = stdr.str_concat(out, _hex_digit(hi))
+      out = stdr.str_concat(out, _hex_digit(lo))
+    }
+  }
+  return out
+}
+
+pub fun build_query(params = any) (( string )) {
+  let ?out = ""
+  let ?i = 0
+  let n = stdr.len(params)
+  for (; i < n; i = i + 1) {
+    let pair = params[i]
+    let k = encode_component(_pair_key(pair))
+    let v = encode_component(_pair_val(pair))
+    if stdr.len(out) > 0 {
+      out = stdr.str_concat(out, "&")
+    }
+    out = stdr.str_concat(out, k)
+    out = stdr.str_concat(out, "=")
+    out = stdr.str_concat(out, v)
+  }
+  return out
+}
+
+pub fun with_query(url = string, params = any) (( string )) {
+  let q = build_query(params)
+  if stdr.len(q) == 0 { return url }
+  if _contains(url, "?") {
+    return stdr.str_concat(stdr.str_concat(url, "&"), q)
+  }
+  return stdr.str_concat(stdr.str_concat(url, "?"), q)
+}
+
+fun _parse_status_payload(raw = string) (( any )) {
+  let marker = "__YIS_HTTP_STATUS__:"
+  let end_marker = "__YIS_HTTP_END__"
+  let idx = _last_index_of(raw, marker)
+
+  let ?result = []: [string => any]
+  result["status"] = 0
+  result["body"] = raw
+
+  if idx < 0 { return result }
+
+  let from = idx + stdr.len(marker)
+  let end = _last_index_of(raw, end_marker)
+  if end < from { return result }
+
+  let status_text = stdr.slice(raw, from, end)
+  result["status"] = _parse_int(status_text)
+  result["body"] = stdr.slice(raw, 0, idx)
+  return result
+}
+
+pub fun request(method = string, url = string, body = any, headers = any, params = any, timeout_secs = num, follow_redirects = bool) (( any )) {
+  let request_url = with_query(url, params)
+  let ?cmd = "curl -sS"
+
+  if follow_redirects {
+    cmd = stdr.str_concat(cmd, " -L")
+  }
+
+  if timeout_secs > 0 {
+    cmd = stdr.str_concat(cmd, " --max-time ")
+    cmd = stdr.str_concat(cmd, stdr.str(timeout_secs))
+  }
+
+  cmd = stdr.str_concat(cmd, " -X ")
+  cmd = stdr.str_concat(cmd, _shell_quote(method))
+
+  let ?i = 0
+  let hn = stdr.len(headers)
+  for (; i < hn; i = i + 1) {
+    let pair = headers[i]
+    let hk = _pair_key(pair)
+    let hv = _pair_val(pair)
+    if stdr.len(hk) == 0 { continue }
+    let hline = stdr.str_concat(stdr.str_concat(hk, ": "), hv)
+    cmd = stdr.str_concat(cmd, " -H ")
+    cmd = stdr.str_concat(cmd, _shell_quote(hline))
+  }
+
+  if !stdr.is_null(body) {
+    cmd = stdr.str_concat(cmd, " --data-binary ")
+    cmd = stdr.str_concat(cmd, _shell_quote(stdr.str(body)))
+  }
+
+  cmd = stdr.str_concat(cmd, " ")
+  cmd = stdr.str_concat(cmd, _shell_quote(request_url))
+  cmd = stdr.str_concat(cmd, " -w '__YIS_HTTP_STATUS__:%{http_code}__YIS_HTTP_END__'")
+  cmd = stdr.str_concat(cmd, " 2>&1")
+
+  let run = stdr.run_command(cmd)
+  let curl_exit = run[0] ?? 1
+  let raw = run[1] ?? ""
+  let parsed = _parse_status_payload(raw)
+  let status = parsed["status"] ?? 0
+  let text = parsed["body"] ?? ""
+
+  let ?resp = []: [string => any]
+  resp["method"] = method
+  resp["url"] = url
+  resp["request_url"] = request_url
+  resp["status"] = status
+  resp["body"] = text
+  resp["curl_exit"] = curl_exit
+  resp["ok"] = curl_exit == 0 && status >= 200 && status < 300
+
+  if curl_exit != 0 {
+    resp["error"] = text
+  } else {
+    resp["error"] = null
+  }
+
+  return resp
+}
+
+pub fun get(url = string, params = any, headers = any, timeout_secs = num) (( any )) {
+  return request("GET", url, null, headers, params, timeout_secs, true)
+}
+
+pub fun post(url = string, body = string, headers = any, params = any, timeout_secs = num) (( any )) {
+  return request("POST", url, body, headers, params, timeout_secs, true)
+}
+
+pub fun post_json(url = string, json_text = string, headers = any, params = any, timeout_secs = num) (( any )) {
+  let ?hs = headers
+  hs = stdr.concat(hs, [["Content-Type", "application/json"]])
+  return request("POST", url, json_text, hs, params, timeout_secs, true)
+}

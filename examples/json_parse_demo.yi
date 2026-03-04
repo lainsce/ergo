@@ -1,0 +1,30 @@
+cask json_parse_demo
+
+bring stdr
+bring json
+
+-- Yis Example: JSON parsing with objects, arrays, bools, numbers
+
+entry() (( -- )) {
+    let src = "{\"name\":\"Yis\",\"ok\":true,\"nums\":[1,2,3],\"meta\":{\"lang\":\"yi\"}}"
+
+    let r = json.parse_result(src)
+    if !(r["ok"] ?? false) {
+        let err_msg = r["error"] ?? "unknown"
+        write("Parse error: $$err_msg$$\n")
+        return
+    }
+
+    let root = r["value"]
+    let name = json.get(root, "name", "")
+    let ok = json.get(root, "ok", false)
+    let nums = json.get(root, "nums", []: [any])
+    let meta = json.get(root, "meta", []: [string => any])
+    let lang = json.get(meta, "lang", "")
+    let nums_len = len(nums)
+
+    write("name=$$name$$ ok=$$ok$$ nums_len=$$nums_len$$ lang=$$lang$$\n")
+
+    let bee = "B" + "ee"
+    write("$$bee$$\n")
+}

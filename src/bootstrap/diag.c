@@ -128,8 +128,14 @@ static const char *get_error_tip(const char *msg) {
     if (strstr(msg, "bad \\\\u{...} escape")) {
         return "Unicode escapes must be valid hex values within braces, e.g., \\\\u{41} for 'A'.";
     }
+    if (strstr(msg, "bad \\\\xHH escape")) {
+        return "Hex escapes must be exactly two hex digits, e.g., \\\\x41 for 'A'.";
+    }
+    if (strstr(msg, "bad \\\\ooo escape")) {
+        return "Octal escapes use up to 3 digits (0-7), e.g., \\\\101 for 'A'.";
+    }
     if (strstr(msg, "unknown escape")) {
-        return "Valid escapes are: \\n, \\t, \\r, \\\\, \\u{...}, and \\$";
+        return "Valid escapes are: \\a, \\b, \\e, \\f, \\n, \\r, \\t, \\v, \\\\, \\\", \\', \\<, \\>, \\$, \\?, \\xHH, \\ooo, and \\u{...}.";
     }
     
     // Parser errors

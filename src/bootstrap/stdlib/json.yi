@@ -1,0 +1,455 @@
+cask json
+
+bring stdr
+
+pub fun escape(text = string) (( string )) {
+  let ?out = ""
+  let ?i = 0
+  let n = stdr.len(text)
+  for (; i < n; i += 1) {
+    let ch = stdr.slice(text, i, i + 1)
+    if ch == "\\" {
+      out = stdr.str_concat(out, "\\\\")
+    } elif ch == "\"" {
+      out = stdr.str_concat(out, "\\\"")
+    } elif ch == "\n" {
+      out = stdr.str_concat(out, "\\n")
+    } elif ch == "\r" {
+      out = stdr.str_concat(out, "\\r")
+    } elif ch == "\t" {
+      out = stdr.str_concat(out, "\\t")
+    } else {
+      out = stdr.str_concat(out, ch)
+    }
+  }
+  return out
+}
+
+-- Yis Standard Library: json.yi
+-- JSON parse helpers (object/array/string/number/bool/null)
+
+fun _state_new(src = string) (( any )) {
+  let ?s = []: [string => any]
+  s["src"] = src
+  s["i"] = 0
+  s["n"] = stdr.len(src)
+  s["ok"] = true
+  s["error"] = ""
+  return s
+}
+
+fun _fail(s = any, msg = string) (( -- )) {
+  let ?st = s
+  if st["ok"] ?? false {
+    st["ok"] = false
+    st["error"] = msg
+  }
+}
+
+fun _peek(s = any) (( string )) {
+  let i = stdr.num(s["i"] ?? 0)
+  let n = stdr.num(s["n"] ?? 0)
+  if i >= n { return "" }
+  let src = s["src"] ?? ""
+  return stdr.slice(src, i, i + 1)
+}
+
+fun _next(s = any) (( string )) {
+  let ?st = s
+  let ch = _peek(s)
+  let i = stdr.num(st["i"] ?? 0)
+  if i < stdr.num(st["n"] ?? 0) {
+    st["i"] = i + 1
+  }
+  return ch
+}
+
+fun _is_ws(ch = string) (( bool )) {
+  return ch == " " || ch == "\t" || ch == "\n" || ch == "\r"
+}
+
+fun _skip_ws(s = any) (( -- )) {
+  for (; true; ) {
+    let ch = _peek(s)
+    if !_is_ws(ch) { break }
+    _next(s)
+  }
+}
+
+fun _is_digit(ch = string) (( bool )) {
+  let c = stdr.char_code(ch)
+  return c >= 48 && c <= 57
+}
+
+fun _is_hex(ch = string) (( bool )) {
+  let c = stdr.char_code(ch)
+  if c >= 48 && c <= 57 { return true }
+  if c >= 65 && c <= 70 { return true }
+  if c >= 97 && c <= 102 { return true }
+  return false
+}
+
+fun _expect(s = any, want = string) (( bool )) {
+  let ch = _next(s)
+  if ch != want {
+    _fail(s, "unexpected token")
+    return false
+  }
+  return true
+}
+
+fun _read_lit(s = any, lit = string) (( bool )) {
+  let ?i = 0
+  let n = stdr.len(lit)
+  for (; i < n; i += 1) {
+    if _next(s) != stdr.slice(lit, i, i + 1) {
+      _fail(s, "invalid literal")
+      return false
+    }
+  }
+  return true
+}
+
+fun _pow10(exp = num) (( num )) {
+  let ?p = 1.0
+  let ?i = 0
+  for (; i < exp; i += 1) {
+    p = p * 10.0
+  }
+  return p
+}
+
+fun _parse_num_text(text = string) (( num )) {
+  let ?i = 0
+  let n = stdr.len(text)
+  let ?sign = 1.0
+
+  if i < n && stdr.slice(text, i, i + 1) == "-" {
+    sign = -1.0
+    i += 1
+  }
+
+  let ?int_part = 0.0
+  for (; i < n; i += 1) {
+    let ch = stdr.slice(text, i, i + 1)
+    if !_is_digit(ch) { break }
+    int_part = int_part * 10.0 + (stdr.char_code(ch) - 48)
+  }
+
+  let ?frac_part = 0.0
+  let ?frac_len = 0
+  if i < n && stdr.slice(text, i, i + 1) == "." {
+    i += 1
+    for (; i < n; i += 1) {
+      let ch = stdr.slice(text, i, i + 1)
+      if !_is_digit(ch) { break }
+      frac_part = frac_part * 10.0 + (stdr.char_code(ch) - 48)
+      frac_len += 1
+    }
+  }
+
+  let ?exp_sign = 1.0
+  let ?exp_val = 0
+  if i < n {
+    let ech = stdr.slice(text, i, i + 1)
+    if ech == "e" || ech == "E" {
+      i += 1
+      if i < n {
+        let sch = stdr.slice(text, i, i + 1)
+        if sch == "-" {
+          exp_sign = -1.0
+          i += 1
+        } elif sch == "+" {
+          i += 1
+        }
+      }
+      for (; i < n; i += 1) {
+        let ch = stdr.slice(text, i, i + 1)
+        if !_is_digit(ch) { break }
+        exp_val = exp_val * 10 + (stdr.char_code(ch) - 48)
+      }
+    }
+  }
+
+  let ?v = int_part
+  if frac_len > 0 {
+    v = v + (frac_part / _pow10(frac_len))
+  }
+
+  if exp_val > 0 {
+    let p = _pow10(exp_val)
+    if exp_sign > 0.0 {
+      v = v * p
+    } else {
+      v = v / p
+    }
+  }
+
+  return v * sign
+}
+
+fun _parse_string(s = any) (( any )) {
+  if !_expect(s, "\"") { return null }
+  let ?out = ""
+
+  for (; true; ) {
+    let ch = _next(s)
+    if ch == "" {
+      _fail(s, "unterminated string")
+      return null
+    }
+    if ch == "\"" {
+      return out
+    }
+    if ch == "\\" {
+      let esc = _next(s)
+      if esc == "" {
+        _fail(s, "unterminated escape")
+        return null
+      }
+      if esc == "\"" || esc == "\\" || esc == "/" {
+        out = stdr.str_concat(out, esc)
+      } elif esc == "b" {
+        out = stdr.str_concat(out, "\b")
+      } elif esc == "f" {
+        out = stdr.str_concat(out, "\f")
+      } elif esc == "n" {
+        out = stdr.str_concat(out, "\n")
+      } elif esc == "r" {
+        out = stdr.str_concat(out, "\r")
+      } elif esc == "t" {
+        out = stdr.str_concat(out, "\t")
+      } elif esc == "u" {
+        let ?k = 0
+        for (; k < 4; k += 1) {
+          let h = _next(s)
+          if !_is_hex(h) {
+            _fail(s, "invalid unicode escape")
+            return null
+          }
+        }
+        out = stdr.str_concat(out, "?")
+      } else {
+        _fail(s, "invalid escape")
+        return null
+      }
+      continue
+    }
+    out = stdr.str_concat(out, ch)
+  }
+  return null
+}
+
+fun _parse_number(s = any) (( any )) {
+  let src = s["src"] ?? ""
+  let start = stdr.num(s["i"] ?? 0)
+  let n = stdr.num(s["n"] ?? 0)
+
+  if _peek(s) == "-" {
+    _next(s)
+  }
+
+  let ?digits = 0
+  if _peek(s) == "0" {
+    _next(s)
+    digits = 1
+  } else {
+    for (; true; ) {
+      let ch = _peek(s)
+      if !_is_digit(ch) { break }
+      _next(s)
+      digits += 1
+    }
+  }
+
+  if digits == 0 {
+    _fail(s, "invalid number")
+    return null
+  }
+
+  if _peek(s) == "." {
+    _next(s)
+    let ?frac_digits = 0
+    for (; true; ) {
+      let ch = _peek(s)
+      if !_is_digit(ch) { break }
+      _next(s)
+      frac_digits += 1
+    }
+    if frac_digits == 0 {
+      _fail(s, "invalid number")
+      return null
+    }
+  }
+
+  let ech = _peek(s)
+  if ech == "e" || ech == "E" {
+    _next(s)
+    let sch = _peek(s)
+    if sch == "+" || sch == "-" {
+      _next(s)
+    }
+    let ?exp_digits = 0
+    for (; true; ) {
+      let ch = _peek(s)
+      if !_is_digit(ch) { break }
+      _next(s)
+      exp_digits += 1
+    }
+    if exp_digits == 0 {
+      _fail(s, "invalid number")
+      return null
+    }
+  }
+
+  let end = stdr.num(s["i"] ?? start)
+  if end <= start || end > n {
+    _fail(s, "invalid number")
+    return null
+  }
+
+  let text = stdr.slice(src, start, end)
+  return _parse_num_text(text)
+}
+
+fun _parse_value(s = any) (( any )) {
+  _skip_ws(s)
+  let ch = _peek(s)
+
+  if ch == "\"" { return _parse_string(s) }
+  if ch == "{" { return _parse_object(s) }
+  if ch == "[" { return _parse_array(s) }
+  if ch == "t" {
+    if _read_lit(s, "true") { return true }
+    return null
+  }
+  if ch == "f" {
+    if _read_lit(s, "false") { return false }
+    return null
+  }
+  if ch == "n" {
+    if _read_lit(s, "null") { return null }
+    return null
+  }
+  if ch == "-" || _is_digit(ch) {
+    return _parse_number(s)
+  }
+
+  _fail(s, "invalid value")
+  return null
+}
+
+fun _parse_array(s = any) (( any )) {
+  if !_expect(s, "[") { return null }
+  let ?arr = []: [any]
+
+  _skip_ws(s)
+  if _peek(s) == "]" {
+    _next(s)
+    return arr
+  }
+
+  for (; true; ) {
+    let v = _parse_value(s)
+    if !(s["ok"] ?? false) { return null }
+    stdr.push(arr, v)
+
+    _skip_ws(s)
+    let sep = _peek(s)
+    if sep == "," {
+      _next(s)
+      continue
+    }
+    if sep == "]" {
+      _next(s)
+      return arr
+    }
+    _fail(s, "expected ',' or ']' in array")
+    return null
+  }
+  return null
+}
+
+fun _parse_object(s = any) (( any )) {
+  if !_expect(s, "{") { return null }
+  let ?obj = []: [string => any]
+
+  _skip_ws(s)
+  if _peek(s) == "}" {
+    _next(s)
+    return obj
+  }
+
+  for (; true; ) {
+    _skip_ws(s)
+    if _peek(s) != "\"" {
+      _fail(s, "object key must be string")
+      return null
+    }
+    let key = _parse_string(s)
+    if !(s["ok"] ?? false) { return null }
+
+    _skip_ws(s)
+    if !_expect(s, ":") { return null }
+
+    let value = _parse_value(s)
+    if !(s["ok"] ?? false) { return null }
+    obj[key] = value
+
+    _skip_ws(s)
+    let sep = _peek(s)
+    if sep == "," {
+      _next(s)
+      continue
+    }
+    if sep == "}" {
+      _next(s)
+      return obj
+    }
+    _fail(s, "expected ',' or '}' in object")
+    return null
+  }
+  return null
+}
+
+pub fun parse_result(src = string) (( any )) {
+  let s = _state_new(src)
+  let value = _parse_value(s)
+  if s["ok"] ?? false {
+    _skip_ws(s)
+    let cur_i = stdr.num(s["i"] ?? 0)
+    let total_n = stdr.num(s["n"] ?? 0)
+    if cur_i != total_n {
+      _fail(s, "trailing characters")
+    }
+  }
+
+  let ?r = []: [string => any]
+  r["ok"] = s["ok"] ?? false
+  r["value"] = value
+  r["error"] = s["error"] ?? ""
+  return r
+}
+
+pub fun parse(src = string) (( any )) {
+  let r = parse_result(src)
+  if r["ok"] ?? false {
+    return r["value"]
+  }
+  return null
+}
+
+pub fun is_object(v = any) (( bool )) {
+  return stdr.str(v) == "[dict]"
+}
+
+pub fun is_array(v = any) (( bool )) {
+  return stdr.str(v) == "[array]"
+}
+
+pub fun get(obj = any, key = string, fallback = any) (( any )) {
+  if !is_object(obj) { return fallback }
+  let v = obj[key]
+  if stdr.is_null(v) { return fallback }
+  return v
+}

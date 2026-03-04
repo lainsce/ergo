@@ -1388,6 +1388,10 @@ static bool ty_is_numeric(Ty *t) {
     return t && t->tag == TY_PRIM && str_eq_c(t->name, "num");
 }
 
+static bool ty_is_string(Ty *t) {
+    return t && t->tag == TY_PRIM && str_eq_c(t->name, "string");
+}
+
 static bool ty_is_any(Ty *t) {
     return t && t->tag == TY_PRIM && str_eq_c(t->name, "any");
 }
@@ -2017,8 +2021,27 @@ static bool eval_const_expr(GlobalEnv *env, Expr *e, ConstVal *out, Diag *err) {
         ConstVal b = {0};
         if (!eval_const_expr(env, e->as.binary.a, &a, err)) return false;
         if (!eval_const_expr(env, e->as.binary.b, &b, err)) return false;
+        if (e->as.binary.op == TOK_PLUS && ty_is_string(a.ty) && ty_is_string(b.ty)) {
+            size_t total = a.s.len + b.s.len;
+            Str s = arena_str_copy(env->arena, "", 0);
+            if (total > 0) {
+                char *buf = (char *)arena_alloc(env->arena, total + 1);
+                if (!buf) {
+                    set_err(err, "out of memory");
+                    return false;
+                }
+                memcpy(buf, a.s.data, a.s.len);
+                memcpy(buf + a.s.len, b.s.data, b.s.len);
+                buf[total] = '\0';
+                s.data = buf;
+                s.len = total;
+            }
+            out->ty = ty_prim(env->arena, "string");
+            out->s = s;
+            return true;
+        }
         if (!a.ty || !b.ty || a.ty->tag != TY_PRIM || b.ty->tag != TY_PRIM || !str_eq_c(a.ty->name, "num") || !str_eq_c(b.ty->name, "num")) {
-            set_err(err, "const numeric op expects numeric literals");
+            set_err(err, "const op expects numeric literals (or string + string)");
             return false;
         }
         bool a_float = a.is_float;
@@ -2559,6 +2582,17 @@ static Ty *numeric_result(Arena *arena, Ty *a, Ty *b, Str path, int line, int co
     return ty_prim(arena, "num");
 }
 
+static Ty *plus_result(Arena *arena, Ty *a, Ty *b, Str path, int line, int col, const char *op, Diag *err) {
+    if (ty_is_string(a) || ty_is_string(b)) {
+        if (ty_is_void(a) || ty_is_void(b)) {
+            set_errf(err, path, line, col, "operator %s does not accept void", op);
+            return NULL;
+        }
+        return ty_prim(arena, "string");
+    }
+    return numeric_result(arena, a, b, path, line, col, op, err);
+}
+
 static bool is_assign_op(TokKind op) {
     switch (op) {
         case TOK_EQ:
@@ -2596,7 +2630,12 @@ static Ty *tc_assignment_result(Arena *arena, Ty *lhs, Ty *rhs, TokKind op, Str 
         set_errf(err, path, line, col, "operator on nullable value");
         return NULL;
     }
-    Ty *nr = numeric_result(arena, ty_strip_nullable(lhs), ty_strip_nullable(rhs), path, line, col, tok_kind_name(op), err);
+    Ty *nr = NULL;
+    if (op == TOK_PLUSEQ) {
+        nr = plus_result(arena, ty_strip_nullable(lhs), ty_strip_nullable(rhs), path, line, col, tok_kind_name(op), err);
+    } else {
+        nr = numeric_result(arena, ty_strip_nullable(lhs), ty_strip_nullable(rhs), path, line, col, tok_kind_name(op), err);
+    }
     if (!nr) {
         return NULL;
     }
@@ -3112,6 +3151,9 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                 if (ty_is_nullable(ta) || ty_is_nullable(tb)) {
                     set_errf(err, ctx->cask_path, e->line, e->col, "operator on nullable value");
                     return NULL;
+                }
+                if (op == TOK_PLUS) {
+                    return plus_result(env->arena, ty_strip_nullable(ta), ty_strip_nullable(tb), ctx->cask_path, e->line, e->col, tok_kind_name(op), err);
                 }
                 return numeric_result(env->arena, ty_strip_nullable(ta), ty_strip_nullable(tb), ctx->cask_path, e->line, e->col, tok_kind_name(op), err);
             }

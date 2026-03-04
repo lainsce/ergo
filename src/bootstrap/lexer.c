@@ -516,6 +516,53 @@ static bool append_hex_code(Lexer *lx, CharVec *buf, const char *hex, size_t hex
     return append_utf8(buf, code, err, lx);
 }
 
+static int hex_value(char c) {
+    if (c >= '0' && c <= '9') {
+        return c - '0';
+    }
+    if (c >= 'a' && c <= 'f') {
+        return 10 + (c - 'a');
+    }
+    if (c >= 'A' && c <= 'F') {
+        return 10 + (c - 'A');
+    }
+    return -1;
+}
+
+static bool append_hex_escape(Lexer *lx, CharVec *buf, Diag *err, int line, int col) {
+    unsigned int value = 0;
+    for (int i = 0; i < 2; i++) {
+        int hv = hex_value(peek(lx, 0));
+        if (hv < 0) {
+            return set_error(lx, err, line, col, "bad \\xHH escape");
+        }
+        value = (value << 4) | (unsigned int)hv;
+        adv(lx, 1);
+    }
+    return append_utf8(buf, (uint32_t)value, err, lx);
+}
+
+static bool append_octal_escape(Lexer *lx, CharVec *buf, Diag *err, int line, int col) {
+    unsigned int value = 0;
+    int digits = 0;
+    while (digits < 3) {
+        char c = peek(lx, 0);
+        if (c < '0' || c > '7') {
+            break;
+        }
+        value = (value << 3) | (unsigned int)(c - '0');
+        adv(lx, 1);
+        digits++;
+    }
+    if (digits == 0) {
+        return set_error(lx, err, line, col, "bad \\ooo escape");
+    }
+    if (value > 0xFF) {
+        return set_error(lx, err, line, col, "bad \\ooo escape");
+    }
+    return append_utf8(buf, (uint32_t)value, err, lx);
+}
+
 static bool consume_interp_group(Lexer *lx, char open, char close, Diag *err, int line, int col) {
     int depth = 1;
     adv(lx, 1);
@@ -840,11 +887,26 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
                     if (e == 'n') {
                         if (!charvec_push(&buf, '\n', err, &lx)) { return false; }
                         adv(&lx, 1);
+                    } else if (e == 'a') {
+                        if (!charvec_push(&buf, '\a', err, &lx)) { return false; }
+                        adv(&lx, 1);
+                    } else if (e == 'b') {
+                        if (!charvec_push(&buf, '\b', err, &lx)) { return false; }
+                        adv(&lx, 1);
+                    } else if (e == 'e') {
+                        if (!charvec_push(&buf, 0x1B, err, &lx)) { return false; }
+                        adv(&lx, 1);
+                    } else if (e == 'f') {
+                        if (!charvec_push(&buf, '\f', err, &lx)) { return false; }
+                        adv(&lx, 1);
                     } else if (e == 't') {
                         if (!charvec_push(&buf, '\t', err, &lx)) { return false; }
                         adv(&lx, 1);
                     } else if (e == 'r') {
                         if (!charvec_push(&buf, '\r', err, &lx)) { return false; }
+                        adv(&lx, 1);
+                    } else if (e == 'v') {
+                        if (!charvec_push(&buf, '\v', err, &lx)) { return false; }
                         adv(&lx, 1);
                     } else if (e == '\\') {
                         if (!charvec_push(&buf, '\\', err, &lx)) { return false; }
@@ -852,12 +914,34 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
                     } else if (e == '"') {
                         if (!charvec_push(&buf, '"', err, &lx)) { return false; }
                         adv(&lx, 1);
+                    } else if (e == '\'') {
+                        if (!charvec_push(&buf, '\'', err, &lx)) { return false; }
+                        adv(&lx, 1);
                     } else if (e == '<') {
                         if (!charvec_push(&buf, '<', err, &lx)) { return false; }
                         adv(&lx, 1);
                     } else if (e == '>') {
                         if (!charvec_push(&buf, '>', err, &lx)) { return false; }
                         adv(&lx, 1);
+                    } else if (e == '$') {
+                        if (!charvec_push(&buf, '$', err, &lx)) { return false; }
+                        adv(&lx, 1);
+                    } else if (e == '?') {
+                        if (!charvec_push(&buf, '?', err, &lx)) { return false; }
+                        adv(&lx, 1);
+                    } else if (e == 'x') {
+                        adv(&lx, 1);
+                        if (!append_hex_escape(&lx, &buf, err, lx.line, lx.col)) {
+                            strpartvec_free(&parts);
+                            charvec_free(&buf);
+                            return false;
+                        }
+                    } else if (e >= '0' && e <= '7') {
+                        if (!append_octal_escape(&lx, &buf, err, lx.line, lx.col)) {
+                            strpartvec_free(&parts);
+                            charvec_free(&buf);
+                            return false;
+                        }
                     } else if (e == 'u' && peek(&lx, 1) == '{') {
                         adv(&lx, 2);
                         CharVec hexbuf = {0};
@@ -886,129 +970,41 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
                     }
                     continue;
                 }
-                if (c == '<') {
-                    // Start of interpolation placeholder
+                if (c == '$' && peek(&lx, 1) == '$') {
+                    // Start of $$...$$ interpolation placeholder
                     if (!flush_text_part(&lx, &buf, &parts, err)) {
                         strpartvec_free(&parts);
                         charvec_free(&buf);
                         return false;
                     }
-                    adv(&lx, 1);
-                    // Parse the placeholder: identifier, optionally followed by .member or [index]
-                    // and optionally :format
+                    adv(&lx, 2); // consume opening $$
                     size_t path_start = lx.i;
-                    
-                    // Must start with identifier
-                    if (!is_ident_start(peek(&lx, 0))) {
-                        strpartvec_free(&parts);
-                        charvec_free(&buf);
-                        return set_error(&lx, err, lx.line, lx.col, "expected identifier in placeholder");
-                    }
-                    
-                    // Consume identifier
-                    while (lx.i < lx.len && is_ident_mid(peek(&lx, 0))) {
-                        adv(&lx, 1);
-                    }
-                    
-                    // Check for format suffix (:format) before checking postfix operators
-                    bool has_format = false;
-                    if (peek(&lx, 0) == ':') {
-                        has_format = true;
-                        // Just consume up to the >, the parser will handle format validation
-                        while (lx.i < lx.len && peek(&lx, 0) != '>') {
-                            if (peek(&lx, 0) == '\n') {
-                                strpartvec_free(&parts);
-                                charvec_free(&buf);
-                                return set_error(&lx, err, start_line, start_col, "unterminated placeholder");
-                            }
-                            adv(&lx, 1);
-                        }
-                    }
-                    
-                    // Handle .member and [index] - only if no format suffix yet
-                    if (!has_format) {
-                        while (lx.i < lx.len) {
-                            if (peek(&lx, 0) == '.') {
-                                if (!is_ident_start(peek(&lx, 1))) {
-                                    break;
-                                }
-                                adv(&lx, 1); // consume '.'
-                                while (lx.i < lx.len && is_ident_mid(peek(&lx, 0))) {
-                                    adv(&lx, 1);
-                                }
-                                // Check for method call (parentheses with no args)
-                                if (peek(&lx, 0) == '(') {
-                                    // Consume balanced parentheses - simple case: ()
-                                    int depth = 1;
-                                    adv(&lx, 1); // consume '('
-                                    while (lx.i < lx.len && depth > 0) {
-                                        char pc = peek(&lx, 0);
-                                        if (pc == '(') {
-                                            depth++;
-                                        } else if (pc == ')') {
-                                            depth--;
-                                        }
-                                        if (depth > 0) adv(&lx, 1);
-                                    }
-                                    if (lx.i < lx.len) adv(&lx, 1); // consume final ')'
-                                }
-                                continue;
-                            }
-                            // Index access: consume [ ... ] with balanced brackets
-                            if (peek(&lx, 0) == '[') {
-                                int depth = 1;
-                                adv(&lx, 1); // consume '['
-                                while (lx.i < lx.len && depth > 0) {
-                                    char pc = peek(&lx, 0);
-                                    if (pc == '[') {
-                                        depth++;
-                                    } else if (pc == ']') {
-                                        depth--;
-                                    } else if (pc == '\n' || pc == '\0') {
-                                        strpartvec_free(&parts);
-                                        charvec_free(&buf);
-                                        return set_error(&lx, err, start_line, start_col, "unterminated placeholder [ ]");
-                                    }
-                                    if (depth > 0) adv(&lx, 1);
-                                }
-                                if (lx.i < lx.len) adv(&lx, 1); // consume final ']'
-                                continue;
-                            }
-                            break;
-                        }
-                    }
-                    
-                    // Must be at '>' to close placeholder
-                    if (peek(&lx, 0) != '>') {
-                        // If we hit something else (space, operator, etc.)
-                        // Skip forward to find >, but don't consume it yet
-                        while (lx.i < lx.len && peek(&lx, 0) != '>') {
-                            if (peek(&lx, 0) == '\n' || peek(&lx, 0) == '\0') {
-                                strpartvec_free(&parts);
-                                charvec_free(&buf);
-                                return set_error(&lx, err, lx.line, lx.col, "unterminated placeholder");
-                            }
-                            // If we hit another <, that's a new placeholder - error
-                            if (peek(&lx, 0) == '<') {
-                                strpartvec_free(&parts);
-                                charvec_free(&buf);
-                                return set_error(&lx, err, lx.line, lx.col, "invalid interpolation: nested '<' in placeholder");
-                            }
-                            adv(&lx, 1);
-                        }
-                        if (peek(&lx, 0) != '>') {
+
+                    while (lx.i < lx.len) {
+                        char pc = peek(&lx, 0);
+                        if (pc == '\n' || pc == '\0') {
                             strpartvec_free(&parts);
                             charvec_free(&buf);
-                            return set_error(&lx, err, lx.line, lx.col, "unterminated placeholder");
+                            return set_error(&lx, err, start_line, start_col, "unterminated $$ placeholder");
                         }
-                        // Continue to the normal > handling below
+                        if (pc == '$' && peek(&lx, 1) == '$') {
+                            break;
+                        }
+                        adv(&lx, 1);
                     }
-                    adv(&lx, 1); // consume '>'
-                    
+
+                    if (!(peek(&lx, 0) == '$' && peek(&lx, 1) == '$')) {
+                        strpartvec_free(&parts);
+                        charvec_free(&buf);
+                        return set_error(&lx, err, start_line, start_col, "unterminated $$ placeholder");
+                    }
+
                     size_t path_end = lx.i;
+                    adv(&lx, 2); // consume closing $$
+
                     StrPart part;
                     part.kind = STR_PART_EXPR_RAW;
-                    part.as.text = arena_str(lx.arena, lx.src + path_start, path_end - path_start - 1); // -1 for '>'
+                    part.as.text = arena_str(lx.arena, lx.src + path_start, path_end - path_start);
                     if (!strpartvec_push(&parts, part, err, &lx)) { return false; }
                     continue;
                 }

@@ -86,7 +86,124 @@ fun skip_ws_and_comments(source = string, i = num, line = num, col = num, in_ret
   return [cur_i, cur_line, cur_col]
 }
 
-fun lex_one(source = string, i = num, line = num, col = num) (( any )) {
+fun hex_value(c = string) (( num )) {
+  if stdr.is_null(c) || stdr.len(c) == 0 { return -1 }
+  let code = stdr.char_code(c)
+  if code >= 48 && code <= 57 { return code - 48 }
+  if code >= 97 && code <= 102 { return 10 + (code - 97) }
+  if code >= 65 && code <= 70 { return 10 + (code - 65) }
+  return -1
+}
+
+fun ascii_from_code(code = num) (( string )) {
+  if code == 7 { return "\a" }
+  if code == 8 { return "\b" }
+  if code == 9 { return "\t" }
+  if code == 10 { return "\n" }
+  if code == 11 { return "\v" }
+  if code == 12 { return "\f" }
+  if code == 13 { return "\r" }
+  if code == 27 { return "\e" }
+  if code >= 32 && code <= 126 {
+    let printable = " !\"#$%&'()*+,-./0123456789:\<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+    return stdr.slice(printable, code - 32, code - 31)
+  }
+  return ""
+}
+
+fun escape_pair(text = string, next_i = num) (( any )) {
+  let ?r = []: [string => any]
+  r["text"] = text
+  r["next"] = next_i
+  return r
+}
+
+fun decode_escape(source = string, i = num, n = num) (( any )) {
+  if i + 1 >= n { return escape_pair("", n) }
+  let e = stdr.slice(source, i + 1, i + 2)
+  if e == "n" { return escape_pair("\n", i + 2) }
+  if e == "a" { return escape_pair("\a", i + 2) }
+  if e == "b" { return escape_pair("\b", i + 2) }
+  if e == "e" { return escape_pair("\e", i + 2) }
+  if e == "f" { return escape_pair("\f", i + 2) }
+  if e == "t" { return escape_pair("\t", i + 2) }
+  if e == "r" { return escape_pair("\r", i + 2) }
+  if e == "v" { return escape_pair("\v", i + 2) }
+  if e == "\\" { return escape_pair("\\", i + 2) }
+  if e == "\"" { return escape_pair("\"", i + 2) }
+  if e == "'" { return escape_pair("'", i + 2) }
+  if e == "\<" { return escape_pair("\<", i + 2) }
+  if e == "\>" { return escape_pair("\>", i + 2) }
+  if e == "$" { return escape_pair("$", i + 2) }
+  if e == "?" { return escape_pair("?", i + 2) }
+
+  if e == "x" {
+    if i + 3 < n {
+      let h1 = stdr.slice(source, i + 2, i + 3)
+      let h2 = stdr.slice(source, i + 3, i + 4)
+      let v1 = hex_value(h1)
+      let v2 = hex_value(h2)
+      if v1 >= 0 && v2 >= 0 {
+        let ch = ascii_from_code(v1 * 16 + v2)
+        if stdr.len(ch) > 0 {
+          return escape_pair(ch, i + 4)
+        }
+      }
+    }
+    return escape_pair("x", i + 2)
+  }
+
+  let ec = stdr.char_code(e)
+  if ec >= 48 && ec <= 55 {
+    let ?j = i + 1
+    let ?value = 0
+    let ?digits = 0
+    for (; j < n && digits < 3; ) {
+      let d = stdr.slice(source, j, j + 1)
+      let dc = stdr.char_code(d)
+      if dc < 48 || dc > 55 { break }
+      value = value * 8 + (dc - 48)
+      digits = digits + 1
+      j = j + 1
+    }
+    if digits > 0 && value <= 127 {
+      let ch = ascii_from_code(value)
+      if stdr.len(ch) > 0 {
+        return escape_pair(ch, j)
+      }
+    }
+    return escape_pair(e, i + 2)
+  }
+
+  if e == "u" && i + 2 < n && stdr.slice(source, i + 2, i + 3) == "{" {
+    let ?j = i + 3
+    let ?value = 0
+    let ?digits = 0
+    let ?ok = true
+    for (; j < n; ) {
+      let ch = stdr.slice(source, j, j + 1)
+      if ch == "}" { break }
+      let hv = hex_value(ch)
+      if hv < 0 { ok = false; break }
+      value = value * 16 + hv
+      digits = digits + 1
+      j = j + 1
+    }
+    if ok && digits > 0 && j < n && stdr.slice(source, j, j + 1) == "}" {
+      if value <= 127 {
+        let out = ascii_from_code(value)
+        if stdr.len(out) > 0 {
+          return escape_pair(out, j + 1)
+        }
+      }
+    }
+    return escape_pair("u", i + 2)
+  }
+
+  return escape_pair(e, i + 2)
+}
+
+fun lex_one(source = string, i = num, line = num, col = num, decode_escapes = bool) (( any )) {
   let n = stdr.len(source)
   if i >= n {
     return [tok("eof", line, col, "", 0, ""), n, line, col]
@@ -252,54 +369,137 @@ fun lex_one(source = string, i = num, line = num, col = num) (( any )) {
   if c == "\"" {
     let start_col = col
     let ?j = i + 1
-    -- First pass: check if there are any unescaped < for interpolation
+    -- First pass: check if there are any unescaped interpolation markers
     let ?has_interp = false
     let ?scan = i + 1
     for (; scan < n; ) {
       let sc = stdr.slice(source, scan, scan + 1)
       if sc == "\"" { break }
       if sc == "\\" && scan + 1 < n { scan = scan + 2; continue }
-      if stdr.char_code(sc) == 60 { has_interp = true; break }
+      if sc == "$" && scan + 1 < n && stdr.slice(source, scan + 1, scan + 2) == "$" { has_interp = true; break }
       scan = scan + 1
     }
     if !has_interp {
       -- Simple string, no interpolation
+      if !decode_escapes {
+        for (; j < n; ) {
+          let ch = stdr.slice(source, j, j + 1)
+          if ch == "\"" {
+            let str_val = stdr.slice(source, i + 1, j)
+            return [tok("str", line, col, "", 0, str_val), j + 1, line, start_col + (j - i + 1)]
+          }
+          if ch == "\\" && j + 1 < n { j = j + 2; continue }
+          if stdr.char_code(ch) == 10 { break }
+          j = j + 1
+        }
+        let str_val = stdr.slice(source, i + 1, j)
+        return [tok("str", line, col, "", 0, str_val), j, line, col]
+      }
+
+      let ?str_out = ""
       for (; j < n; ) {
         let ch = stdr.slice(source, j, j + 1)
         if ch == "\"" {
-          let str_val = stdr.slice(source, i + 1, j)
-          return [tok("str", line, col, "", 0, str_val), j + 1, line, start_col + (j - i + 1)]
+          return [tok("str", line, col, "", 0, str_out), j + 1, line, start_col + (j - i + 1)]
         }
+        if ch == "\\" && j + 1 < n {
+          let r = decode_escape(source, j, n)
+          str_out = stdr.str_concat(str_out, stdr.str(r["text"] ?? ""))
+          j = r["next"] ?? (j + 2)
+          continue
+        }
+        if stdr.char_code(ch) == 10 { break }
+        str_out = stdr.str_concat(str_out, ch)
+        j = j + 1
+      }
+      return [tok("str", line, col, "", 0, str_out), j, line, col]
+    }
+    -- Interpolated string: split into parts
+    if !decode_escapes {
+      let ?parts = []: [any]
+      let ?seg_start = i + 1
+      for (; j < n; ) {
+        let ch = stdr.slice(source, j, j + 1)
+        if ch == "\"" { break }
         if ch == "\\" && j + 1 < n { j = j + 2; continue }
+        if ch == "$" && j + 1 < n && stdr.slice(source, j + 1, j + 2) == "$" {
+          if j > seg_start {
+            let ?tp = []: [string => any]
+            let tkk = "kind"
+            let tvk = "val"
+            tp[tkk] = "text"
+            tp[tvk] = stdr.slice(source, seg_start, j)
+            parts = stdr.concat(parts, [tp])
+          }
+          let ?vstart = j + 2
+          let ?vend = vstart
+          for (; vend < n; ) {
+            let vc = stdr.slice(source, vend, vend + 1)
+            if vc == "$" && vend + 1 < n && stdr.slice(source, vend + 1, vend + 2) == "$" { break }
+            if stdr.char_code(vc) == 10 { break }
+            vend = vend + 1
+          }
+          let ?ep = []: [string => any]
+          let ekk = "kind"
+          let evk = "val"
+          ep[ekk] = "expr"
+          ep[evk] = stdr.slice(source, vstart, vend)
+          parts = stdr.concat(parts, [ep])
+          if vend + 1 < n && stdr.slice(source, vend, vend + 1) == "$" && stdr.slice(source, vend + 1, vend + 2) == "$" {
+            j = vend + 2
+          } else {
+            j = vend
+          }
+          seg_start = j
+          continue
+        }
         if stdr.char_code(ch) == 10 { break }
         j = j + 1
       }
-      let str_val = stdr.slice(source, i + 1, j)
-      return [tok("str", line, col, "", 0, str_val), j, line, col]
+      if j > seg_start {
+        let ?tp = []: [string => any]
+        let tkk = "kind"
+        let tvk = "val"
+        tp[tkk] = "text"
+        tp[tvk] = stdr.slice(source, seg_start, j)
+        parts = stdr.concat(parts, [tp])
+      }
+      let ?t_interp = tok("str_interp", line, col, "", 0, "")
+      let partsk = "parts"
+      t_interp[partsk] = parts
+      let end_j = if j < n { j + 1 } else { j }
+      return [t_interp, end_j, line, start_col + (end_j - i)]
     }
-    -- Interpolated string: split into parts
+
     let ?parts = []: [any]
-    let ?seg_start = i + 1
+    let ?seg = ""
     for (; j < n; ) {
       let ch = stdr.slice(source, j, j + 1)
       if ch == "\"" { break }
-      if ch == "\\" && j + 1 < n { j = j + 2; continue }
-      if stdr.char_code(ch) == 60 {
-        -- < found: flush text segment
-        if j > seg_start {
+      if ch == "\\" && j + 1 < n {
+        let r = decode_escape(source, j, n)
+        seg = stdr.str_concat(seg, stdr.str(r["text"] ?? ""))
+        j = r["next"] ?? (j + 2)
+        continue
+      }
+      if ch == "$" && j + 1 < n && stdr.slice(source, j + 1, j + 2) == "$" {
+        -- $$ found: flush text segment
+        if stdr.len(seg) > 0 {
           let ?tp = []: [string => any]
           let tkk = "kind"
           let tvk = "val"
           tp[tkk] = "text"
-          tp[tvk] = stdr.slice(source, seg_start, j)
+          tp[tvk] = seg
           parts = stdr.concat(parts, [tp])
+          seg = ""
         }
-        -- Collect variable name until >
-        let ?vstart = j + 1
+        -- Collect expression until next $$
+        let ?vstart = j + 2
         let ?vend = vstart
         for (; vend < n; ) {
           let vc = stdr.slice(source, vend, vend + 1)
-          if stdr.char_code(vc) == 62 { break }
+          if vc == "$" && vend + 1 < n && stdr.slice(source, vend + 1, vend + 2) == "$" { break }
+          if stdr.char_code(vc) == 10 { break }
           vend = vend + 1
         }
         let ?ep = []: [string => any]
@@ -308,20 +508,24 @@ fun lex_one(source = string, i = num, line = num, col = num) (( any )) {
         ep[ekk] = "expr"
         ep[evk] = stdr.slice(source, vstart, vend)
         parts = stdr.concat(parts, [ep])
-        j = vend + 1
-        seg_start = j
+        if vend + 1 < n && stdr.slice(source, vend, vend + 1) == "$" && stdr.slice(source, vend + 1, vend + 2) == "$" {
+          j = vend + 2
+        } else {
+          j = vend
+        }
         continue
       }
       if stdr.char_code(ch) == 10 { break }
+      seg = stdr.str_concat(seg, ch)
       j = j + 1
     }
     -- Flush remaining text
-    if j > seg_start {
+    if stdr.len(seg) > 0 {
       let ?tp = []: [string => any]
       let tkk = "kind"
       let tvk = "val"
       tp[tkk] = "text"
-      tp[tvk] = stdr.slice(source, seg_start, j)
+      tp[tvk] = seg
       parts = stdr.concat(parts, [tp])
     }
     let ?t_interp = tok("str_interp", line, col, "", 0, "")
@@ -333,7 +537,7 @@ fun lex_one(source = string, i = num, line = num, col = num) (( any )) {
   return [tok("ident", line, col, c, 0, ""), i + 1, line, col + 1]
 }
 
-fun lex_rest(source = string, i = num, line = num, col = num, acc = any) (( any )) {
+fun lex_rest(source = string, i = num, line = num, col = num, acc = any, decode_escapes = bool) (( any )) {
   let n = stdr.len(source)
   let ?cur_i = i
   let ?cur_line = line
@@ -350,7 +554,7 @@ fun lex_rest(source = string, i = num, line = num, col = num, acc = any) (( any 
     let i2 = r[0] ?? 0
     let line2 = r[1] ?? 1
     let col2 = r[2] ?? 1
-    let lr = lex_one(source, i2, line2, col2)
+    let lr = lex_one(source, i2, line2, col2, decode_escapes)
     let t = lr[0]
     let ?next_i = 0
     next_i = stdr.num(lr[1] ?? 0)
@@ -373,6 +577,10 @@ fun lex_rest(source = string, i = num, line = num, col = num, acc = any) (( any 
   return cur_acc
 }
 
+pub fun lex_with_escapes(source = string, decode_escapes = bool) (( any )) {
+  return lex_rest(source, 0, 1, 1, []: [any], decode_escapes)
+}
+
 pub fun lex(source = string) (( any )) {
-  return lex_rest(source, 0, 1, 1, []: [any])
+  return lex_with_escapes(source, false)
 }

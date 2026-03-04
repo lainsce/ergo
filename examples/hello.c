@@ -1029,3 +1029,58 @@ static YisVal yis_call(YisVal fval, int argc, YisVal* argv) {
 
 // ---- Cogito GUI (shared library bindings) ----
 // Injected by codegen when the program imports `cogito`.
+
+/* inlined runtime helpers */
+static YisVal yis_index(YisVal obj, YisVal idx) {
+  if (obj.tag == EVT_ARR) return yis_arr_get((YisArr*)obj.as.p, yis_as_int(idx));
+  if (obj.tag == EVT_DICT) return yis_dict_get((YisDict*)obj.as.p, idx);
+  if (obj.tag == EVT_STR) return stdr_str_at(obj, yis_as_int(idx));
+  return YV_NULLV;
+}
+
+static YisVal yis_index_set(YisVal obj, YisVal idx, YisVal val) {
+  if (obj.tag == EVT_ARR) { yis_arr_set((YisArr*)obj.as.p, yis_as_int(idx), val); return val; }
+  if (obj.tag == EVT_DICT) { yis_dict_set((YisDict*)obj.as.p, idx, val); return val; }
+  return YV_NULLV;
+}
+
+static YisVal yis_arr_lit(int n, ...) {
+  YisArr *a = stdr_arr_new(n);
+  va_list ap; va_start(ap, n);
+  for (int i = 0; i < n; i++) yis_arr_add(a, va_arg(ap, YisVal));
+  va_end(ap);
+  YisVal av; av.tag = EVT_ARR; av.as.p = a;
+  return av;
+}
+
+static YisVal yis_dict_lit(int n, ...) {
+  YisDict *d = stdr_dict_new();
+  va_list ap; va_start(ap, n);
+  for (int i = 0; i < n; i++) {
+    YisVal k = va_arg(ap, YisVal);
+    YisVal v = va_arg(ap, YisVal);
+    yis_dict_set(d, k, v);
+  }
+  va_end(ap);
+  YisVal dv; dv.tag = EVT_DICT; dv.as.p = d;
+  return dv;
+}
+
+
+/* begin main unit */
+static void yis_entry(void);
+
+// cask hello
+// bring stdr
+static void yis_entry(void) {
+  (void)(stdr_write(YV_STR(stdr_str_lit("Hello, Yis World!\n"))));
+}
+
+/* end main unit */
+
+int main(int argc, char **argv) {
+  yis_set_args(argc, argv);
+  yis_runtime_init();
+  yis_entry();
+  return 0;
+}

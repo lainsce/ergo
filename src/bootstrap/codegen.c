@@ -3565,8 +3565,16 @@ static bool codegen_gen(Codegen *cg, bool uses_cogito, Diag *err) {
 
         if (!bindings_path) {
             const char *bindings_candidates[] = {
+                "src/yis/cogito_bindings.inc",
+                "../src/yis/cogito_bindings.inc",
+                "../../src/yis/cogito_bindings.inc",
+                "Cogito/src/yis/cogito_bindings.inc",
                 "cogito/yis/cogito_bindings.inc",
                 "cogito/src/yis/cogito_bindings.inc",        // split-repo layout
+                "../Cogito/yis/cogito_bindings.inc",
+                "../Cogito/src/yis/cogito_bindings.inc",
+                "../../Cogito/yis/cogito_bindings.inc",
+                "../../Cogito/src/yis/cogito_bindings.inc",
                 "../cogito/yis/cogito_bindings.inc",
                 "../cogito/src/yis/cogito_bindings.inc",     // split-repo layout
                 "../../cogito/yis/cogito_bindings.inc",
