@@ -167,6 +167,7 @@
 #undef cogito_gst_get_volume
 #undef cogito_gst_poll_event
 #undef cogito_gst_last_error
+#undef cogito_gst_last_cover_path
 #undef cogito_pointer_capture
 #undef cogito_pointer_release
 #undef cogito_progress_get_circular
@@ -3233,6 +3234,12 @@ static YisVal __cogito_gst_last_error(void) {
   if (!err || !err[0]) return YV_STR(stdr_str_lit(""));
   return YV_STR(stdr_str_lit(err));
 }
+
+static YisVal __cogito_gst_last_cover_path(void) {
+  const char* path = cogito_gst_last_cover_path();
+  if (!path || !path[0]) return YV_STR(stdr_str_lit(""));
+  return YV_STR(stdr_str_lit(path));
+}
 // ---- Codegen aliases ----
 #define cogito_app_new __cogito_app
 #define cogito_app_set_appid __cogito_app_set_appid
@@ -3257,6 +3264,7 @@ static YisVal __cogito_gst_last_error(void) {
 #define cogito_gst_get_volume __cogito_gst_get_volume
 #define cogito_gst_poll_event __cogito_gst_poll_event
 #define cogito_gst_last_error __cogito_gst_last_error
+#define cogito_gst_last_cover_path __cogito_gst_last_cover_path
 #define cogito_window_new __cogito_window
 #define cogito_window_set_resizable __cogito_window_set_resizable
 #define cogito_window_set_autosize __cogito_window_set_autosize

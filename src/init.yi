@@ -4867,9 +4867,16 @@ entry() (( -- )) {
   cc_cmd = stdr.str_concat(cc_cmd, cc_opt_flags)
   cc_cmd = stdr.str_concat(cc_cmd, " -lm 2>&1")
   if uses_cogito {
-    -- Probe for cogito.h include path using test -f
+    -- Prefer installed Cogito include/lib paths so generated binaries are not
+    -- tied to repo-relative build directories.
     let ?cog_cflags = ""
     let ?cog_ldflags = "-lcogito"
+    let hp1 = stdr.run_command("test -f /opt/homebrew/include/cogito/cogito.h && echo y")
+    let hp1c = hp1[0] ?? 1
+    let hp2 = stdr.run_command("test -f /usr/local/include/cogito/cogito.h && echo y")
+    let hp2c = hp2[0] ?? 1
+    let hp3 = stdr.run_command("test -f /usr/include/cogito/cogito.h && echo y")
+    let hp3c = hp3[0] ?? 1
     let p1 = stdr.run_command("test -f ../cogito/src/src/cogito.h && echo y")
     let p1c = p1[0] ?? 1
     let p2 = stdr.run_command("test -f ../cogito/src/cogito.h && echo y")
@@ -4878,11 +4885,20 @@ entry() (( -- )) {
     let p3c = p3[0] ?? 1
     let p4 = stdr.run_command("test -f ../../cogito/src/cogito.h && echo y")
     let p4c = p4[0] ?? 1
-    if p1c == 0 { cog_cflags = "-I../cogito/src/src" }
+    if hp1c == 0 { cog_cflags = "-I/opt/homebrew/include/cogito" }
+    elif hp2c == 0 { cog_cflags = "-I/usr/local/include/cogito" }
+    elif hp3c == 0 { cog_cflags = "-I/usr/include/cogito" }
+    elif p1c == 0 { cog_cflags = "-I../cogito/src/src" }
     elif p2c == 0 { cog_cflags = "-I../cogito/src" }
     elif p3c == 0 { cog_cflags = "-I../../cogito/src/src" }
     elif p4c == 0 { cog_cflags = "-I../../cogito/src" }
-    -- Probe for libcogito.dylib
+    -- Probe for libcogito.dylib and bake absolute runtime path into the output binary.
+    let lsys1 = stdr.run_command("test -f /opt/homebrew/lib/libcogito.dylib && cd /opt/homebrew/lib && pwd")
+    let lsys1c = lsys1[0] ?? 1
+    let lsys2 = stdr.run_command("test -f /usr/local/lib/libcogito.dylib && cd /usr/local/lib && pwd")
+    let lsys2c = lsys2[0] ?? 1
+    let lsys3 = stdr.run_command("test -f /usr/lib/libcogito.dylib && cd /usr/lib && pwd")
+    let lsys3c = lsys3[0] ?? 1
     let l1 = stdr.run_command("test -f ../cogito/build/libcogito.dylib && cd ../cogito/build && pwd")
     let l1c = l1[0] ?? 1
     let l2 = stdr.run_command("test -f ../cogito/_build/libcogito.dylib && cd ../cogito/_build && pwd")
@@ -4893,7 +4909,10 @@ entry() (( -- )) {
     let l4c = l4[0] ?? 1
     let ?lib_dir = ""
     let ?lib_abs = ""
-    if l1c == 0 { lib_dir = "../cogito/build"; lib_abs = l1[1] ?? "" }
+    if lsys1c == 0 { lib_dir = "/opt/homebrew/lib"; lib_abs = lsys1[1] ?? "" }
+    elif lsys2c == 0 { lib_dir = "/usr/local/lib"; lib_abs = lsys2[1] ?? "" }
+    elif lsys3c == 0 { lib_dir = "/usr/lib"; lib_abs = lsys3[1] ?? "" }
+    elif l1c == 0 { lib_dir = "../cogito/build"; lib_abs = l1[1] ?? "" }
     elif l2c == 0 { lib_dir = "../cogito/_build"; lib_abs = l2[1] ?? "" }
     elif l3c == 0 { lib_dir = "../../cogito/build"; lib_abs = l3[1] ?? "" }
     elif l4c == 0 { lib_dir = "../../cogito/_build"; lib_abs = l4[1] ?? "" }

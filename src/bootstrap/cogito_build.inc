@@ -237,15 +237,8 @@ static bool program_find_cogito_appid_name(Program *prog, char *out, size_t out_
 }
 
 static const char *cogito_default_cflags(void) {
-    // Try cwd-relative development locations first.
-    if (path_is_file("cogito/src/cogito.h")) return "-Icogito/src";
-    if (path_is_file("cogito/src/src/cogito.h")) return "-Icogito/src/src";   // split-repo layout
-    if (path_is_file("../cogito/src/cogito.h")) return "-I../cogito/src";
-    if (path_is_file("../cogito/src/src/cogito.h")) return "-I../cogito/src/src"; // split-repo layout
-    if (path_is_file("../../cogito/src/cogito.h")) return "-I../../cogito/src";
-    if (path_is_file("../../cogito/src/src/cogito.h")) return "-I../../cogito/src/src"; // split-repo layout
-
-    // Installed header layout (meson install_headers(..., subdir : 'cogito')).
+    // Prefer installed header layout so generated binaries are not tied to
+    // repo-relative source trees.
     if (path_is_file("cogito/include/cogito/cogito.h")) return "-Icogito/include/cogito";
     if (path_is_file("../cogito/include/cogito/cogito.h")) return "-I../cogito/include/cogito";
     if (path_is_file("../../cogito/include/cogito/cogito.h")) return "-I../../cogito/include/cogito";
@@ -256,6 +249,14 @@ static const char *cogito_default_cflags(void) {
     if (path_is_file("/usr/local/include/cogito/cogito.h")) return "-I/usr/local/include/cogito";
 #endif
     if (path_is_file("/usr/include/cogito/cogito.h")) return "-I/usr/include/cogito";
+
+    // Fall back to cwd-relative development locations.
+    if (path_is_file("cogito/src/cogito.h")) return "-Icogito/src";
+    if (path_is_file("cogito/src/src/cogito.h")) return "-Icogito/src/src";   // split-repo layout
+    if (path_is_file("../cogito/src/cogito.h")) return "-I../cogito/src";
+    if (path_is_file("../cogito/src/src/cogito.h")) return "-I../cogito/src/src"; // split-repo layout
+    if (path_is_file("../../cogito/src/cogito.h")) return "-I../../cogito/src";
+    if (path_is_file("../../cogito/src/src/cogito.h")) return "-I../../cogito/src/src"; // split-repo layout
 
     // Try relative to executable (binary at <project>/yis/build/yis)
     char *exe_dir = yis_exe_dir();
@@ -296,7 +297,30 @@ static const char *cogito_default_ldflags(void) {
 #endif
     static char buf[1024];
 
-    // 1) Check development build directories first (cwd-relative, resolved to absolute)
+    // 1) Prefer system install paths and bake rpath into generated binaries.
+    {
+        const char *sys_dirs[] = {
+#if defined(__APPLE__)
+            "/opt/homebrew/lib",
+            "/usr/local/lib",
+#endif
+            "/usr/lib",
+        };
+        for (size_t i = 0; i < sizeof(sys_dirs) / sizeof(sys_dirs[0]); i++) {
+            char path[512];
+            snprintf(path, sizeof(path), "%s/%s", sys_dirs[i], libname);
+            if (path_is_file(path)) {
+#if defined(__APPLE__) || defined(__linux__)
+                snprintf(buf, sizeof(buf), "-L%s -lcogito -Wl,-rpath,%s", sys_dirs[i], sys_dirs[i]);
+#else
+                snprintf(buf, sizeof(buf), "-L%s -lcogito", sys_dirs[i]);
+#endif
+                return buf;
+            }
+        }
+    }
+
+    // 2) Check development build directories (cwd-relative, resolved to absolute)
     {
         const char *dev_dirs[] = {
             "cogito/_build",
@@ -326,7 +350,7 @@ static const char *cogito_default_ldflags(void) {
         }
     }
 
-    // 2) Try relative to the executable (binary at <project>/yis/build/yis)
+    // 3) Try relative to the executable (binary at <project>/yis/build/yis)
     {
         char *exe_dir = yis_exe_dir();
         if (exe_dir) {
@@ -356,29 +380,6 @@ static const char *cogito_default_ldflags(void) {
                 }
             }
             free(exe_dir);
-        }
-    }
-
-    // 3) Fall back to system install paths
-    {
-        const char *sys_dirs[] = {
-#if defined(__APPLE__)
-            "/opt/homebrew/lib",
-            "/usr/local/lib",
-#endif
-            "/usr/lib",
-        };
-        for (size_t i = 0; i < sizeof(sys_dirs) / sizeof(sys_dirs[0]); i++) {
-            char path[512];
-            snprintf(path, sizeof(path), "%s/%s", sys_dirs[i], libname);
-            if (path_is_file(path)) {
-#if defined(__APPLE__) || defined(__linux__)
-                snprintf(buf, sizeof(buf), "-L%s -lcogito -Wl,-rpath,%s", sys_dirs[i], sys_dirs[i]);
-#else
-                snprintf(buf, sizeof(buf), "-L%s -lcogito", sys_dirs[i]);
-#endif
-                return buf;
-            }
         }
     }
 
