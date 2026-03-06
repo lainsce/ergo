@@ -665,8 +665,7 @@ static Param **parse_params(Parser *p, size_t *out_len) {
 }
 
 static FunDecl *parse_fun_decl(Parser *p, bool is_pub) {
-    Tok *kw = eat(p, TOK_KW_fun);
-    if (!p->ok) return NULL;
+    // ':' or '::' already consumed by caller
     Tok *name_tok = eat(p, TOK_IDENT);
     if (!p->ok) return NULL;
     eat(p, TOK_LPAR);
@@ -686,7 +685,6 @@ static FunDecl *parse_fun_decl(Parser *p, bool is_pub) {
     fun->ret = ret;
     fun->body = body;
     fun->is_pub = is_pub;
-    (void)kw;
     return fun;
 }
 
@@ -994,6 +992,15 @@ static Decl *parse_def_decl(Parser *p, bool is_pub) {
     Tok *name_tok = eat(p, TOK_IDENT);
     eat(p, TOK_EQ);
     Expr *expr = parse_expr(p, 0);
+    // Disallow method chaining on def values:
+    // CALL(MEMBER(CALL(...), name), args) is a chained method call.
+    if (expr && expr->kind == EXPR_CALL && expr->as.call.fn &&
+        expr->as.call.fn->kind == EXPR_MEMBER &&
+        expr->as.call.fn->as.member.a &&
+        expr->as.call.fn->as.member.a->kind == EXPR_CALL) {
+        parser_set_error(p, kw, "method chaining is not allowed on def declarations; chain at the usage site instead");
+        return NULL;
+    }
     Decl *decl = new_decl(p, DECL_DEF, kw);
     if (!decl) return NULL;
     decl->as.def_decl.name = name_tok->val.ident;
@@ -1067,12 +1074,13 @@ static Decl *parse_nominal(Parser *p) {
     PtrVec methods = {0};
     skip_semi(p);
     while (!at(p, body_close) && p->ok) {
-        if (at(p, TOK_KW_pub) && peek(p, 1)->kind == TOK_KW_fun) {
-            eat(p, TOK_KW_pub);
+        if (at(p, TOK_COLONCOLON)) {
+            eat(p, TOK_COLONCOLON);
             FunDecl *fun = parse_fun_decl(p, true);
             if (!p->ok) return NULL;
             ptrvec_push(p, &methods, fun);
-        } else if (at(p, TOK_KW_fun)) {
+        } else if (at(p, TOK_COLON)) {
+            eat(p, TOK_COLON);
             FunDecl *fun = parse_fun_decl(p, false);
             if (!p->ok) return NULL;
             ptrvec_push(p, &methods, fun);
@@ -1822,7 +1830,8 @@ Module *parse_cask(Tok *toks, size_t len, const char *path, Arena *arena, Diag *
             Decl *decl = parse_entry(&p);
             if (!p.ok) return NULL;
             ptrvec_push(&p, &decls, decl);
-        } else if (at(&p, TOK_KW_fun)) {
+        } else if (at(&p, TOK_COLON)) {
+            eat(&p, TOK_COLON);
             Decl *decl = parse_fun(&p, false);
             if (!p.ok) return NULL;
             ptrvec_push(&p, &decls, decl);
@@ -1838,8 +1847,8 @@ Module *parse_cask(Tok *toks, size_t len, const char *path, Arena *arena, Diag *
             Decl *decl = parse_def_decl(&p, false);
             if (!p.ok) return NULL;
             ptrvec_push(&p, &decls, decl);
-        } else if (at(&p, TOK_KW_pub) && peek(&p, 1)->kind == TOK_KW_fun) {
-            eat(&p, TOK_KW_pub);
+        } else if (at(&p, TOK_COLONCOLON)) {
+            eat(&p, TOK_COLONCOLON);
             Decl *decl = parse_fun(&p, true);
             if (!p.ok) return NULL;
             ptrvec_push(&p, &decls, decl);

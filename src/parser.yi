@@ -6,14 +6,30 @@ cask parser
 bring stdr
 
 -- Helper: return a 2-element array.
-fun pair(a = any, b = any) (( any )) {
+: pair(a = any, b = any) (( any )) {
   let ?p = []: [any]
   p[0] = a
   p[1] = b
   return p
 }
 
-fun mk_return_stmt(v = any) (( any )) {
+-- Helper: check if an expression node is a chained method call
+-- (call on a member of another call result), which is disallowed on defs.
+: is_chained_call(node = any) (( bool )) {
+  let tag = "tag"
+  if stdr.is_null(node) { return false }
+  if stdr.str(node[tag] ?? "") != "call" { return false }
+  let func_key = "func"
+  let fn = node[func_key]
+  if stdr.is_null(fn) { return false }
+  if stdr.str(fn[tag] ?? "") != "member" { return false }
+  let obj_key = "obj"
+  let obj = fn[obj_key]
+  if stdr.is_null(obj) { return false }
+  return stdr.str(obj[tag] ?? "") == "call"
+}
+
+: mk_return_stmt(v = any) (( any )) {
   let ?n = []: [string => any]
   n["tag"] = "return"
   n["value"] = v
@@ -21,14 +37,14 @@ fun mk_return_stmt(v = any) (( any )) {
 }
 
 -- Peek at token i (returns eof token if past end).
-fun peek(toks = any, i = num) (( any )) {
+: peek(toks = any, i = num) (( any )) {
   let n = stdr.len(toks)
   if i >= n { let k = "kind"; let ?eof = []: [string => any]; eof[k] = "eof"; return eof }
   return toks[i]
 }
 
 -- Skip semicolons.
-fun parse_skip_semi(toks = any, i = num) (( num )) {
+: parse_skip_semi(toks = any, i = num) (( num )) {
   let kind = "kind"
   let ?j = i
   for (; true; ) {
@@ -54,7 +70,7 @@ fun parse_skip_semi(toks = any, i = num) (( num )) {
 -- ============================================================
 
 -- Precedence for binary operators (token kind -> int). 0 = not a binop.
-fun prec_of(kind = string) (( num )) {
+: prec_of(kind = string) (( num )) {
   if kind == "eq" || kind == "plus_eq" || kind == "minus_eq" || kind == "star_eq" || kind == "slash_eq" || kind == "percent_eq" { return 1 }
   if kind == "qq" { return 2 }
   if kind == "barbar" { return 3 }
@@ -67,13 +83,13 @@ fun prec_of(kind = string) (( num )) {
 }
 
 -- Is this an assignment operator?
-fun is_assign(kind = string) (( bool )) {
+: is_assign(kind = string) (( bool )) {
   return kind == "eq" || kind == "plus_eq" || kind == "minus_eq" || kind == "star_eq" || kind == "slash_eq" || kind == "percent_eq"
 }
 
 -- Parse a primary expression (atom or prefix unary).
 -- Returns pair(next_index, expr_node).
-fun parse_primary(toks = any, i = num) (( any )) {
+: parse_primary(toks = any, i = num) (( any )) {
   let kind = "kind"
   let text = "text"
   let tag = "tag"
@@ -309,7 +325,7 @@ fun parse_primary(toks = any, i = num) (( any )) {
 
 -- Parse an if-expression: if cond { expr } [elif ...] [else { expr }]
 -- For simplicity, parse the bodies as statement blocks.
-fun parse_if_expr(toks = any, i = num) (( any )) {
+: parse_if_expr(toks = any, i = num) (( any )) {
   let kind = "kind"
   -- i points at kw_if
   let ?j = i + 1
@@ -361,7 +377,7 @@ fun parse_if_expr(toks = any, i = num) (( any )) {
 }
 
 -- Parse elif branch of if-expression (same structure, starts at kw_elif).
-fun parse_if_expr_elif(toks = any, i = num) (( any )) {
+: parse_if_expr_elif(toks = any, i = num) (( any )) {
   let kind = "kind"
   let ?j = i + 1
   let cond_res = parse_expr(toks, j, 0)
@@ -408,7 +424,7 @@ fun parse_if_expr_elif(toks = any, i = num) (( any )) {
 
 -- Parse postfix: calls f(args), member a.b, index a[i]
 -- Parse a match pattern: int, str, true, false, null, ident, _
-fun parse_pattern(toks = any, i = num) (( any )) {
+: parse_pattern(toks = any, i = num) (( any )) {
   let kind = "kind"
   let text = "text"
   let tag = "tag"
@@ -457,7 +473,7 @@ fun parse_pattern(toks = any, i = num) (( any )) {
 }
 
 -- Parse match expression: match scrutinee { pat => expr; ... }
-fun parse_match_expr(toks = any, i = num) (( any )) {
+: parse_match_expr(toks = any, i = num) (( any )) {
   let kind = "kind"
   let tag = "tag"
   let ?j = i + 1
@@ -524,7 +540,7 @@ fun parse_match_expr(toks = any, i = num) (( any )) {
   return pair(j, n)
 }
 
-fun parse_postfix(toks = any, i = num, left = any) (( any )) {
+: parse_postfix(toks = any, i = num, left = any) (( any )) {
   let kind = "kind"
   let text = "text"
   let tag = "tag"
@@ -629,7 +645,7 @@ fun parse_postfix(toks = any, i = num, left = any) (( any )) {
 
 -- Parse expression with precedence climbing.
 -- Returns pair(next_index, expr_node).
-pub fun parse_expr(toks = any, i = num, min_prec = num) (( any )) {
+:: parse_expr(toks = any, i = num, min_prec = num) (( any )) {
   let tag = "tag"
   -- Parse primary
   let prim = parse_primary(toks, i)
@@ -709,7 +725,7 @@ pub fun parse_expr(toks = any, i = num, min_prec = num) (( any )) {
 -- ============================================================
 
 -- Parse a single statement. Returns pair(next_index, stmt_node).
-fun parse_stmt(toks = any, i = num) (( any )) {
+: parse_stmt(toks = any, i = num) (( any )) {
   let kind = "kind"
   let text = "text"
   let tag = "tag"
@@ -838,7 +854,7 @@ fun parse_stmt(toks = any, i = num) (( any )) {
 }
 
 -- Parse if statement: if cond { stmts } [elif cond { stmts }]* [else { stmts }]
-fun parse_if_stmt(toks = any, i = num) (( any )) {
+: parse_if_stmt(toks = any, i = num) (( any )) {
   let kind = "kind"
   let ?j = i + 1
   -- parse condition (stop before lbrace)
@@ -889,7 +905,7 @@ fun parse_if_stmt(toks = any, i = num) (( any )) {
 }
 
 -- Parse elif as nested if
-fun parse_if_stmt_elif(toks = any, i = num) (( any )) {
+: parse_if_stmt_elif(toks = any, i = num) (( any )) {
   let kind = "kind"
   let ?j = i + 1
   let cond_res = parse_expr(toks, j, 0)
@@ -930,7 +946,7 @@ fun parse_if_stmt_elif(toks = any, i = num) (( any )) {
 }
 
 -- Parse for statement.
-fun parse_for_stmt(toks = any, i = num) (( any )) {
+: parse_for_stmt(toks = any, i = num) (( any )) {
   let kind = "kind"
   let text = "text"
   let tag = "tag"
@@ -1074,7 +1090,7 @@ fun parse_for_stmt(toks = any, i = num) (( any )) {
 }
 
 -- Parse a block: { stmt* }. Returns pair(next_index, stmts_array).
-fun parse_block(toks = any, i = num) (( any )) {
+: parse_block(toks = any, i = num) (( any )) {
   let kind = "kind"
   let t = peek(toks, i)
   if t[kind] != "lbrace" { return pair(i, []: [any]) }
@@ -1105,7 +1121,7 @@ fun parse_block(toks = any, i = num) (( any )) {
 -- Top-level declaration parsing
 -- ============================================================
 
-fun parse_cask(toks = any, i = num) (( any )) {
+: parse_cask(toks = any, i = num) (( any )) {
   let kind = "kind"
   let text = "text"
   let tag = "tag"
@@ -1127,7 +1143,7 @@ fun parse_cask(toks = any, i = num) (( any )) {
   return pair(next, node)
 }
 
-fun parse_bring(toks = any, i = num) (( any )) {
+: parse_bring(toks = any, i = num) (( any )) {
   let kind = "kind"
   let text = "text"
   let tag = "tag"
@@ -1151,7 +1167,7 @@ fun parse_bring(toks = any, i = num) (( any )) {
 
 -- Parse function parameters: (name = type, name = type, ...)
 -- Returns pair(next_index, params_array) where each param is {name, type, mutable}.
-fun parse_params(toks = any, i = num) (( any )) {
+: parse_params(toks = any, i = num) (( any )) {
   let kind = "kind"
   let text = "text"
   let t = peek(toks, i)
@@ -1214,7 +1230,7 @@ fun parse_params(toks = any, i = num) (( any )) {
 
 -- Parse return type: (( type )) or (( -- )) or (( )) [when -- was eaten as comment]
 -- Returns pair(next_index, ret_type_string).
-fun parse_ret_type(toks = any, i = num) (( any )) {
+: parse_ret_type(toks = any, i = num) (( any )) {
   let kind = "kind"
   let text = "text"
   let t = peek(toks, i)
@@ -1254,7 +1270,7 @@ fun parse_ret_type(toks = any, i = num) (( any )) {
 }
 
 -- Parse a fun/entry declaration with params, return type, and body.
-fun parse_fun_decl(toks = any, i = num) (( any )) {
+: parse_fun_decl(toks = any, i = num) (( any )) {
   let kind = "kind"
   let text = "text"
   let tag = "tag"
@@ -1264,12 +1280,11 @@ fun parse_fun_decl(toks = any, i = num) (( any )) {
   let ?t = peek(toks, i)
   let ?is_pub = false
   let ?j = i
-  if t[kind] == "kw_pub" {
+  if t[kind] == "coloncolon" {
     is_pub = true
     j = j + 1
     t = peek(toks, j)
-  }
-  if t[kind] == "kw_fun" {
+  } elif t[kind] == "colon" {
     j = j + 1
     t = peek(toks, j)
   }
@@ -1314,7 +1329,7 @@ fun parse_fun_decl(toks = any, i = num) (( any )) {
   return pair(j, node)
 }
 
-fun parse_decl(toks = any, i = num) (( any )) {
+: parse_decl(toks = any, i = num) (( any )) {
   let kind = "kind"
   let t = peek(toks, i)
   if t[kind] == "kw_cask" {
@@ -1350,6 +1365,10 @@ fun parse_decl(toks = any, i = num) (( any )) {
       let res = parse_expr(toks, j, 0)
       j = stdr.num(res[0] ?? j)
       init = res[1]
+    }
+    if is_chained_call(init) {
+      write("error: method chaining is not allowed on def declarations; chain at the usage site instead\n")
+      return pair(j, null)
     }
     let tsemi = peek(toks, j)
     if tsemi[kind] == "semi" { j = j + 1 }
@@ -1388,6 +1407,10 @@ fun parse_decl(toks = any, i = num) (( any )) {
         j = stdr.num(res[0] ?? j)
         init = res[1]
       }
+      if is_chained_call(init) {
+        write("error: method chaining is not allowed on def declarations; chain at the usage site instead\n")
+        return pair(j, null)
+      }
       let tsemi = peek(toks, j)
       if tsemi[kind] == "semi" { j = j + 1 }
       let ?n = []: [string => any]; n[tag] = "def"
@@ -1425,8 +1448,8 @@ fun parse_decl(toks = any, i = num) (( any )) {
     for (; true; ) {
       let tm = peek(toks, j)
       if tm[kind] == "rbrace" || tm[kind] == "eof" { break }
-      -- Each method is a fun decl (pub fun or fun)
-      if tm[kind] == "kw_pub" || tm[kind] == "kw_fun" {
+      -- Each method is a : or :: decl
+      if tm[kind] == "coloncolon" || tm[kind] == "colon" {
         let mres = parse_fun_decl(toks, j)
         let mnext = stdr.num(mres[0] ?? j)
         let mnode = mres[1]
@@ -1488,8 +1511,8 @@ fun parse_decl(toks = any, i = num) (( any )) {
     return pair(j, node)
   }
 
-  -- fun, pub fun, entry, or bare ident(
-  if t[kind] == "kw_fun" || t[kind] == "kw_pub" || t[kind] == "kw_entry" {
+  -- :, ::, entry, or bare ident(
+  if t[kind] == "colon" || t[kind] == "coloncolon" || t[kind] == "kw_entry" {
     let res = parse_fun_decl(toks, i)
     let next = res[0] ?? i
     let node = res[1]
@@ -1508,7 +1531,7 @@ fun parse_decl(toks = any, i = num) (( any )) {
   return pair(i, null)
 }
 
-fun parse_program_at(toks = any, i = num, acc = any) (( any )) {
+: parse_program_at(toks = any, i = num, acc = any) (( any )) {
   let kind = "kind"
   let tag = "tag"
   let decls_key = "decls"
@@ -1540,14 +1563,14 @@ fun parse_program_at(toks = any, i = num, acc = any) (( any )) {
   return pair(cur_i, prog)
 }
 
-pub fun parse(toks = any) (( any )) {
+:: parse(toks = any) (( any )) {
   let res = parse_program_at(toks, 0, []: [any])
   let _next = res[0]
   let prog = res[1]
   return prog
 }
 
-pub fun count_decls(ast = any) (( num )) {
+:: count_decls(ast = any) (( num )) {
   if stdr.is_null(ast) { return 0 }
   let tag = "tag"
   let decls_key = "decls"

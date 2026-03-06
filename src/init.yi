@@ -33,7 +33,7 @@ def ?g_next_lambda_id = 1
 -- ============================================================
 
 -- Track the cask name for name-mangling.
-fun mangle_name(cask_name = string, fun_name = string) (( string )) {
+: mangle_name(cask_name = string, fun_name = string) (( string )) {
   if stdr.len(cask_name) == 0 { return fun_name }
   let ?r = "yis_"
   r = stdr.str_concat(r, cask_name)
@@ -43,7 +43,7 @@ fun mangle_name(cask_name = string, fun_name = string) (( string )) {
 }
 
 -- Mangle a class method name: yis_m_<mod>_<class>_<method>
-fun mangle_method(mod_name = string, class_name = string, method_name = string) (( string )) {
+: mangle_method(mod_name = string, class_name = string, method_name = string) (( string )) {
   -- Defensive: tolerate null/empty parts to avoid crashes when upstream names are missing
   let ?m0 = stdr.str(mod_name)
   if stdr.is_null(m0) { m0 = "" }
@@ -61,7 +61,7 @@ fun mangle_method(mod_name = string, class_name = string, method_name = string) 
   return r
 }
 
-fun dict_get_or(d = any, k = any, fallback = any) (( any )) {
+: dict_get_or(d = any, k = any, fallback = any) (( any )) {
   if stdr.str(d) != "[dict]" { return fallback }
   let ?ks = stdr.str(k ?? "")
   if stdr.is_null(ks) { ks = "" }
@@ -70,7 +70,7 @@ fun dict_get_or(d = any, k = any, fallback = any) (( any )) {
   return v
 }
 
-fun join_parts(parts = any) (( string )) {
+: join_parts(parts = any) (( string )) {
   let ?out = ""
   let ?i = 0
   let n = stdr.len(parts)
@@ -80,14 +80,14 @@ fun join_parts(parts = any) (( string )) {
   return out
 }
 
-fun pair(a = any, b = any) (( any )) {
+: pair(a = any, b = any) (( any )) {
   let ?p = []: [any]
   p[0] = a
   p[1] = b
   return p
 }
 
-fun unescape_interp_expr(text = string) (( string )) {
+: unescape_interp_expr(text = string) (( string )) {
   let ?out = ""
   let ?i = 0
   let n = stdr.len(text)
@@ -103,17 +103,17 @@ fun unescape_interp_expr(text = string) (( string )) {
   return out
 }
 
-fun _is_ident_start_char(ch = string) (( bool )) {
+: _is_ident_start_char(ch = string) (( bool )) {
   let c = stdr.char_code(ch)
   return (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c == 95
 }
 
-fun _is_ident_mid_char(ch = string) (( bool )) {
+: _is_ident_mid_char(ch = string) (( bool )) {
   let c = stdr.char_code(ch)
   return _is_ident_start_char(ch) || (c >= 48 && c <= 57)
 }
 
-fun _is_int_text(text = string) (( bool )) {
+: _is_int_text(text = string) (( bool )) {
   let n = stdr.len(text)
   if n == 0 { return false }
   let ?i = 0
@@ -128,7 +128,7 @@ fun _is_int_text(text = string) (( bool )) {
   return true
 }
 
-fun _c_quote(text = string) (( string )) {
+: _c_quote(text = string) (( string )) {
   let hex = "0123456789ABCDEF"
   let ?q = "\""
   let n = stdr.len(text)
@@ -173,7 +173,7 @@ fun _c_quote(text = string) (( string )) {
   return q
 }
 
-fun _trim(text = string) (( string )) {
+: _trim(text = string) (( string )) {
   let n = stdr.len(text)
   let ?a = 0
   let ?b = n
@@ -188,7 +188,7 @@ fun _trim(text = string) (( string )) {
   return stdr.slice(text, a, b)
 }
 
-fun interp_path_to_c(raw = string) (( any )) {
+: interp_path_to_c(raw = string) (( any )) {
   let s = _trim(unescape_interp_expr(raw))
   let n = stdr.len(s)
   if n == 0 { return null }
@@ -277,12 +277,12 @@ fun interp_path_to_c(raw = string) (( any )) {
   return out
 }
 
-fun is_stdlib_module(name = string) (( bool )) {
+: is_stdlib_module(name = string) (( bool )) {
   if name == "stdr" || name == "math" || name == "net" || name == "json" { return true }
   return false
 }
 
-fun is_external_module(name = string) (( bool )) {
+: is_external_module(name = string) (( bool )) {
   if is_stdlib_module(name) { return false }
   if stdr.len(name) == 0 { return false }
   -- Check env var: YIS_<NAME>_PATH
@@ -302,7 +302,7 @@ fun is_external_module(name = string) (( bool )) {
   return false
 }
 
-fun str_to_upper(text = string) (( string )) {
+: str_to_upper(text = string) (( string )) {
   let ?out = ""
   let ?i = 0
   let n = stdr.len(text)
@@ -339,14 +339,14 @@ fun str_to_upper(text = string) (( string )) {
   return out
 }
 
-fun is_capture_excluded(name = string) (( bool )) {
+: is_capture_excluded(name = string) (( bool )) {
   if name == "" { return true }
   if is_stdlib_module(name) { return true }
   if is_external_module(name) { return true }
   return false
 }
 
-fun arr_contains(xs = any, v = any) (( bool )) {
+: arr_contains(xs = any, v = any) (( bool )) {
   let n = stdr.len(xs)
   let ?i = 0
   for (; i < n; i = i + 1) {
@@ -355,12 +355,12 @@ fun arr_contains(xs = any, v = any) (( bool )) {
   return false
 }
 
-fun arr_add_unique(xs = any, v = any) (( any )) {
+: arr_add_unique(xs = any, v = any) (( any )) {
   if arr_contains(xs, v) { return xs }
   return stdr.concat(xs, [v])
 }
 
-fun scope_mark(name = string) (( -- )) {
+: scope_mark(name = string) (( -- )) {
   if stdr.len(name) == 0 { return }
   if stdr.is_null(g_scope_names[name]) {
     g_scope_order = stdr.concat(g_scope_order, [name])
@@ -368,7 +368,7 @@ fun scope_mark(name = string) (( -- )) {
   g_scope_names[name] = true
 }
 
-fun collect_used_expr_lambda(e = any, used = any) (( any )) {
+: collect_used_expr_lambda(e = any, used = any) (( any )) {
   let ?u = used
   if stdr.is_null(e) { return u }
   let et = e["tag"] ?? ""
@@ -483,7 +483,7 @@ fun collect_used_expr_lambda(e = any, used = any) (( any )) {
   return u
 }
 
-fun collect_used_stmt_lambda(s = any, used = any) (( any )) {
+: collect_used_stmt_lambda(s = any, used = any) (( any )) {
   let ?u = used
   if stdr.is_null(s) { return u }
   let st = s["tag"] ?? ""
@@ -527,7 +527,7 @@ fun collect_used_stmt_lambda(s = any, used = any) (( any )) {
   return u
 }
 
-fun collect_declared_stmt_lambda(s = any, decl = any) (( any )) {
+: collect_declared_stmt_lambda(s = any, decl = any) (( any )) {
   let ?d = decl
   if stdr.is_null(s) { return d }
   let st = s["tag"] ?? ""
@@ -571,7 +571,7 @@ fun collect_declared_stmt_lambda(s = any, decl = any) (( any )) {
   return d
 }
 
-fun lambda_capture_names(e = any) (( any )) {
+: lambda_capture_names(e = any) (( any )) {
   let params = e["params"] ?? []: [any]
   let ?param_names = []: [string => any]
   let ?i = 0
@@ -596,20 +596,20 @@ fun lambda_capture_names(e = any) (( any )) {
   return caps
 }
 
-fun alloc_lambda_id() (( num )) {
+: alloc_lambda_id() (( num )) {
   let id = g_next_lambda_id
   g_next_lambda_id = g_next_lambda_id + 1
   return id
 }
 
-fun make_ident_expr(name = string) (( any )) {
+: make_ident_expr(name = string) (( any )) {
   let ?n = []: [string => any]
   n["tag"] = "ident"
   n["name"] = name
   return n
 }
 
-fun ensure_lambda_meta(e = any, cask_name = string) (( any )) {
+: ensure_lambda_meta(e = any, cask_name = string) (( any )) {
   let id = alloc_lambda_id()
   let key = stdr.str(id)
   let ?meta = []: [string => any]
@@ -636,7 +636,7 @@ fun ensure_lambda_meta(e = any, cask_name = string) (( any )) {
   return meta
 }
 
-fun emit_lambda_expr(e = any, cask_name = string) (( string )) {
+: emit_lambda_expr(e = any, cask_name = string) (( string )) {
   let meta = ensure_lambda_meta(e, cask_name)
   let lname = meta["name"] ?? "__lambda_0"
   let params = meta["params"] ?? []: [any]
@@ -677,7 +677,7 @@ fun emit_lambda_expr(e = any, cask_name = string) (( string )) {
 
 -- Build class info tables from a module's declarations.
 -- Populates g_classes, g_fun_rets, g_mod_funs, g_all_funs.
-fun build_class_info(decls = any, mod_name = string) (( -- )) {
+: build_class_info(decls = any, mod_name = string) (( -- )) {
   let tag = "tag"
   let name_key = "name"
   let ret_key = "ret"
@@ -752,7 +752,7 @@ fun build_class_info(decls = any, mod_name = string) (( -- )) {
 }
 
 -- Infer the class type of an expression. Returns class name or "".
-fun type_of_expr(e = any, cask_name = string) (( string )) {
+: type_of_expr(e = any, cask_name = string) (( string )) {
   if stdr.is_null(e) { return "" }
   let tag = "tag"
   let et = e[tag] ?? ""
@@ -828,7 +828,7 @@ fun type_of_expr(e = any, cask_name = string) (( string )) {
 
 -- Emit a C expression string from an expr AST node.
 -- Returns a C expression string (of type YisVal).
-fun emit_expr(e = any, cask_name = string) (( string )) {
+: emit_expr(e = any, cask_name = string) (( string )) {
   if stdr.is_null(e) { return "YV_NULLV" }
   let tag = "tag"
   let et = e[tag] ?? ""
@@ -1461,7 +1461,7 @@ fun emit_expr(e = any, cask_name = string) (( string )) {
 }
 
 -- Helper: emit member call with fallback for unary-wrapped receiver.
-fun emit_member_call(member_func = any, args = any, cask_name = string) (( string )) {
+: emit_member_call(member_func = any, args = any, cask_name = string) (( string )) {
   let obj = dict_get_or(member_func, "obj", null)
   let ?field = stdr.str(dict_get_or(member_func, "field", "") ?? "")
   if stdr.is_null(field) { field = "" }
@@ -1781,7 +1781,7 @@ fun emit_member_call(member_func = any, args = any, cask_name = string) (( strin
 }
 
 -- Helper: emit a binary operation call "func(left, right)"
-fun emit_binop_call(func = string, left = string, right = string) (( string )) {
+: emit_binop_call(func = string, left = string, right = string) (( string )) {
   let ?r = func
   r = stdr.str_concat(r, "(")
   r = stdr.str_concat(r, left)
@@ -1792,7 +1792,7 @@ fun emit_binop_call(func = string, left = string, right = string) (( string )) {
 }
 
 -- Helper: emit comma-separated args into string r.
-fun emit_args(args = any, r = string, cask_name = string) (( string )) {
+: emit_args(args = any, r = string, cask_name = string) (( string )) {
   let ?n = 0
   n = stdr.len(args)
   let ?out = r
@@ -1805,7 +1805,7 @@ fun emit_args(args = any, r = string, cask_name = string) (( string )) {
 }
 
 -- Helper: call a function value expression via runtime yis_call.
-fun emit_value_call(func_expr = string, args = any, cask_name = string) (( string )) {
+: emit_value_call(func_expr = string, args = any, cask_name = string) (( string )) {
   let ?n = 0
   n = stdr.len(args)
   if n == 0 {
@@ -1835,7 +1835,7 @@ fun emit_value_call(func_expr = string, args = any, cask_name = string) (( strin
 
 -- Emit C statements from a list of stmt AST nodes.
 -- Returns a string of C code (indented).
-fun emit_stmts(stmts = any, indent = string, cask_name = string) (( string )) {
+: emit_stmts(stmts = any, indent = string, cask_name = string) (( string )) {
   let ?n = 0
   n = stdr.len(stmts)
   let ?parts = []: [any]
@@ -1848,7 +1848,7 @@ fun emit_stmts(stmts = any, indent = string, cask_name = string) (( string )) {
 }
 
 -- Emit one C statement from a stmt AST node.
-fun emit_stmt(s = any, indent = string, cask_name = string) (( string )) {
+: emit_stmt(s = any, indent = string, cask_name = string) (( string )) {
   if stdr.is_null(s) { return "" }
   let tag = "tag"
   let st = s[tag] ?? ""
@@ -2074,7 +2074,7 @@ fun emit_stmt(s = any, indent = string, cask_name = string) (( string )) {
 }
 
 -- Emit an if-statement inline (for elif chains), without leading indent.
-fun emit_if_inline(s = any, indent = string, cask_name = string) (( string )) {
+: emit_if_inline(s = any, indent = string, cask_name = string) (( string )) {
   let tag = "tag"
   let ck = "cond"
   let tk = "then"
@@ -2118,7 +2118,7 @@ fun emit_if_inline(s = any, indent = string, cask_name = string) (( string )) {
   return r
 }
 
-fun emit_lambda_wrapper(meta = any) (( string )) {
+: emit_lambda_wrapper(meta = any) (( string )) {
   let lname = meta["name"] ?? "__lambda_0"
   let params = meta["params"] ?? []: [any]
   let body = meta["body"] ?? []: [any]
@@ -2194,7 +2194,7 @@ fun emit_lambda_wrapper(meta = any) (( string )) {
 }
 
 -- Emit a function declaration.
-fun emit_fun(d = any, cask_name = string) (( string )) {
+: emit_fun(d = any, cask_name = string) (( string )) {
   let tag = "tag"
   let name_key = "name"
   let pk = "params"
@@ -2270,7 +2270,7 @@ fun emit_fun(d = any, cask_name = string) (( string )) {
 
 -- Emit a macro as a C function with v_this as the first parameter.
 -- The macro body's last expression-statement becomes a return.
-fun emit_macro(d = any, cask_name = string) (( string )) {
+: emit_macro(d = any, cask_name = string) (( string )) {
   let tag = "tag"
   let name_key = "name"
   let pk = "params"
@@ -2341,7 +2341,7 @@ fun emit_macro(d = any, cask_name = string) (( string )) {
 
 -- Emit a class method as a C function.
 -- Mangling: yis_m_<mod>_<class>_<method>(YisVal self, ...)
-fun emit_class_method(d = any, cask_name = string, class_name = string) (( string )) {
+: emit_class_method(d = any, cask_name = string, class_name = string) (( string )) {
   let tag = "tag"
   let name_key = "name"
   let pk = "params"
@@ -2415,7 +2415,7 @@ fun emit_class_method(d = any, cask_name = string, class_name = string) (( strin
 }
 
 -- Emit a function value wrapper for a given function.
-fun emit_fnwrap(d = any, cask_name = string) (( string )) {
+: emit_fnwrap(d = any, cask_name = string) (( string )) {
   let name_key = "name"
   let pk = "params"
   let rk = "ret"
@@ -2487,7 +2487,7 @@ fun emit_fnwrap(d = any, cask_name = string) (( string )) {
 }
 
 -- Emit a single translation unit body for one AST (no runtime includes, no main).
-fun emit_unit(ast = any) (( string )) {
+: emit_unit(ast = any) (( string )) {
   let tag = "tag"
   let name_key = "name"
   let decls_key = "decls"
@@ -2765,7 +2765,7 @@ fun emit_unit(ast = any) (( string )) {
 }
 
 -- Extract directory from a file path (everything before the last /)
-fun dir_of(path = string) (( string )) {
+: dir_of(path = string) (( string )) {
   let n = stdr.len(path)
   let ?i = n - 1
   for (; i >= 0; i = i - 1) {
@@ -2775,7 +2775,7 @@ fun dir_of(path = string) (( string )) {
   return ""
 }
 
-fun base_name(path = string) (( string )) {
+: base_name(path = string) (( string )) {
   let n = stdr.len(path)
   let ?i = n - 1
   for (; i >= 0; i = i - 1) {
@@ -2785,7 +2785,7 @@ fun base_name(path = string) (( string )) {
   return path
 }
 
-fun stem_name(path = string) (( string )) {
+: stem_name(path = string) (( string )) {
   let b = base_name(path)
   let n = stdr.len(b)
   let ?i = n - 1
@@ -2796,7 +2796,7 @@ fun stem_name(path = string) (( string )) {
   return b
 }
 
-fun str_find(hay = string, needle = string) (( num )) {
+: str_find(hay = string, needle = string) (( num )) {
   let hn = stdr.len(hay)
   let nn = stdr.len(needle)
   if nn == 0 { return 0 }
@@ -2809,7 +2809,7 @@ fun str_find(hay = string, needle = string) (( num )) {
   return -1
 }
 
-fun has_char(s = string, ch = string) (( bool )) {
+: has_char(s = string, ch = string) (( bool )) {
   let n = stdr.len(s)
   let ?i = 0
   for (; i < n; i = i + 1) {
@@ -2818,14 +2818,14 @@ fun has_char(s = string, ch = string) (( bool )) {
   return false
 }
 
-fun is_ascii_alnum(code = num) (( bool )) {
+: is_ascii_alnum(code = num) (( bool )) {
   if code >= 48 && code <= 57 { return true }
   if code >= 65 && code <= 90 { return true }
   if code >= 97 && code <= 122 { return true }
   return false
 }
 
-fun sanitize_filename_component(src = string) (( string )) {
+: sanitize_filename_component(src = string) (( string )) {
   let ?out = ""
   let n = stdr.len(src)
   let ?i = 0
@@ -2854,7 +2854,7 @@ fun sanitize_filename_component(src = string) (( string )) {
   return out
 }
 
-fun trim_ws(s = string) (( string )) {
+: trim_ws(s = string) (( string )) {
   let n = stdr.len(s)
   let ?a = 0
   for (; a < n; a = a + 1) {
@@ -2869,7 +2869,7 @@ fun trim_ws(s = string) (( string )) {
   return stdr.slice(s, a, b)
 }
 
-fun strip_line_comments(src = string) (( string )) {
+: strip_line_comments(src = string) (( string )) {
   let n = stdr.len(src)
   let ?out = ""
   let ?i = 0
@@ -2955,7 +2955,7 @@ fun strip_line_comments(src = string) (( string )) {
   return out
 }
 
-fun normalize_typed_lambda_params(src = string) (( string )) {
+: normalize_typed_lambda_params(src = string) (( string )) {
   let n = stdr.len(src)
   let ?out = ""
   let ?i = 0
@@ -3030,12 +3030,12 @@ fun normalize_typed_lambda_params(src = string) (( string )) {
   return out
 }
 
-fun preprocess_source(src = string) (( string )) {
+: preprocess_source(src = string) (( string )) {
   let ?s = strip_line_comments(src)
   return s
 }
 
-fun shell_quote_arg(arg = string) (( string )) {
+: shell_quote_arg(arg = string) (( string )) {
   let ?q = "\""
   let n = stdr.len(arg)
   let ?i = 0
@@ -3050,7 +3050,7 @@ fun shell_quote_arg(arg = string) (( string )) {
   return q
 }
 
-fun find_bootstrap_compiler(argv = any) (( string )) {
+: find_bootstrap_compiler(argv = any) (( string )) {
   let self_path = argv[0] ?? ""
   let self_dir = dir_of(self_path)
   if stdr.len(self_dir) > 0 {
@@ -3079,7 +3079,7 @@ fun find_bootstrap_compiler(argv = any) (( string )) {
   return ""
 }
 
-fun contains_callback_lambda_arrow(src = string) (( bool )) {
+: contains_callback_lambda_arrow(src = string) (( bool )) {
   let n = stdr.len(src)
   let ?i = 0
   let ?in_str = false
@@ -3114,7 +3114,7 @@ fun contains_callback_lambda_arrow(src = string) (( bool )) {
   return false
 }
 
-fun rm_file_quiet(path = string) (( -- )) {
+: rm_file_quiet(path = string) (( -- )) {
   if stdr.len(path) == 0 { return }
   let ?cmd = "rm -f \""
   cmd = stdr.str_concat(cmd, path)
@@ -3122,7 +3122,7 @@ fun rm_file_quiet(path = string) (( -- )) {
   stdr.run_command(cmd)
 }
 
-fun rm_tree_quiet(path = string) (( -- )) {
+: rm_tree_quiet(path = string) (( -- )) {
   if stdr.len(path) == 0 { return }
   let ?cmd = "rm -rf \""
   cmd = stdr.str_concat(cmd, path)
@@ -3130,7 +3130,7 @@ fun rm_tree_quiet(path = string) (( -- )) {
   stdr.run_command(cmd)
 }
 
-fun env_nonempty(name = string) (( bool )) {
+: env_nonempty(name = string) (( bool )) {
   if stdr.len(name) == 0 { return false }
   let ?cmd = "printenv "
   cmd = stdr.str_concat(cmd, name)
@@ -3141,7 +3141,7 @@ fun env_nonempty(name = string) (( bool )) {
 }
 
 -- Extract set_appid("...") from source text without parsing
-fun extract_appid_from_source(source = string) (( string )) {
+: extract_appid_from_source(source = string) (( string )) {
   let marker = "set_appid(\""
   let pos = str_find(source, marker)
   if pos < 0 { return "" }
@@ -3154,7 +3154,7 @@ fun extract_appid_from_source(source = string) (( string )) {
 
 -- Compute the manifest path for a run-mode entry file
 -- For ext-module apps with a .app bundle, put it inside the bundle.
-fun run_manifest_path(entry_path = string, source_raw = string, ext_module = string) (( string )) {
+: run_manifest_path(entry_path = string, source_raw = string, ext_module = string) (( string )) {
   let ?app_name = sanitize_filename_component(stem_name(entry_path))
   if stdr.len(app_name) == 0 { app_name = "main" }
   if stdr.len(ext_module) > 0 {
@@ -3169,7 +3169,7 @@ fun run_manifest_path(entry_path = string, source_raw = string, ext_module = str
 }
 
 -- Read a manifest file and return the cached out_path (first line), or ""
-fun read_manifest_out_path(manifest_path = string) (( string )) {
+: read_manifest_out_path(manifest_path = string) (( string )) {
   if !stdr.file_exists(manifest_path) { return "" }
   let raw = stdr.read_text_file(manifest_path)
   if stdr.is_null(raw) { return "" }
@@ -3185,7 +3185,7 @@ fun read_manifest_out_path(manifest_path = string) (( string )) {
 }
 
 -- Write run manifest after successful compilation
-fun write_run_manifest(manifest_path = string, out_path = string, entry_path = string, ext_module_yi = string, compiler_path = string) (( -- )) {
+: write_run_manifest(manifest_path = string, out_path = string, entry_path = string, ext_module_yi = string, compiler_path = string) (( -- )) {
   let ?content = out_path
   content = stdr.str_concat(content, "\n")
   content = stdr.str_concat(content, entry_path)
@@ -3202,7 +3202,7 @@ fun write_run_manifest(manifest_path = string, out_path = string, entry_path = s
 }
 
 -- Check if binary at out_path is newer than all dep lines in the manifest
-fun check_manifest_freshness(manifest_path = string) (( string )) {
+: check_manifest_freshness(manifest_path = string) (( string )) {
   if !stdr.file_exists(manifest_path) { return "" }
   let raw = stdr.read_text_file(manifest_path)
   if stdr.is_null(raw) { return "" }
@@ -3245,7 +3245,7 @@ fun check_manifest_freshness(manifest_path = string) (( string )) {
   return out_path
 }
 
-fun ext_module_run_c_artifact(entry_path = string, source_raw = string) (( string )) {
+: ext_module_run_c_artifact(entry_path = string, source_raw = string) (( string )) {
   let ?app_name = sanitize_filename_component(stem_name(entry_path))
   if stdr.len(app_name) == 0 { app_name = "main" }
 
@@ -3263,11 +3263,11 @@ fun ext_module_run_c_artifact(entry_path = string, source_raw = string) (( strin
   return stdr.str_concat(app_name, ".c")
 }
 
-fun should_decode_escapes(path = string) (( bool )) {
+: should_decode_escapes(path = string) (( bool )) {
   return true
 }
 
-fun expr_string_literal_as_filename(e = any) (( string )) {
+: expr_string_literal_as_filename(e = any) (( string )) {
   if stdr.is_null(e) { return "" }
   let et = e["tag"] ?? ""
   if et != "str" { return "" }
@@ -3275,7 +3275,7 @@ fun expr_string_literal_as_filename(e = any) (( string )) {
   return sanitize_filename_component(raw)
 }
 
-fun find_appid_expr(e = any) (( string )) {
+: find_appid_expr(e = any) (( string )) {
   if stdr.is_null(e) { return "" }
   let et = e["tag"] ?? ""
 
@@ -3372,7 +3372,7 @@ fun find_appid_expr(e = any) (( string )) {
   return ""
 }
 
-fun find_appid_stmt(s = any) (( string )) {
+: find_appid_stmt(s = any) (( string )) {
   if stdr.is_null(s) { return "" }
   let st = s["tag"] ?? ""
   if st == "let" || st == "const" {
@@ -3436,7 +3436,7 @@ fun find_appid_stmt(s = any) (( string )) {
   return ""
 }
 
-fun find_appid_name(ast = any) (( string )) {
+: find_appid_name(ast = any) (( string )) {
   if stdr.is_null(ast) { return "" }
   let decls = ast["decls"] ?? []: [any]
   let ?out = ""
@@ -3477,7 +3477,7 @@ fun find_appid_name(ast = any) (( string )) {
   return out
 }
 
-fun prepare_macos_app_bundle(exe_path = string, bundle_id = string, bundle_name = string) (( bool )) {
+: prepare_macos_app_bundle(exe_path = string, bundle_id = string, bundle_name = string) (( bool )) {
   if stdr.len(exe_path) == 0 { return false }
   if stdr.len(bundle_id) == 0 { return false }
   if stdr.len(bundle_name) == 0 { return false }
@@ -3713,12 +3713,12 @@ fun prepare_macos_app_bundle(exe_path = string, bundle_id = string, bundle_name 
 }
 
 -- Resolve a bring name to a file path. Checks src_dir/<name>.yi
-fun file_exists(path = string) (( num )) {
+: file_exists(path = string) (( num )) {
   if stdr.file_exists(path) { return 0 }
   return 1
 }
 
-fun find_runtime_src(argv = any) (( string )) {
+: find_runtime_src(argv = any) (( string )) {
   let ?runtime_src = stdr.read_text_file("src/bootstrap/runtime.inc")
   if !stdr.is_null(runtime_src) { return runtime_src }
   runtime_src = stdr.read_text_file("src/runtime.inc")
@@ -3782,7 +3782,7 @@ fun find_runtime_src(argv = any) (( string )) {
   return ""
 }
 
-fun runtime_dep_fresh(out_path = string, argv = any) (( bool )) {
+: runtime_dep_fresh(out_path = string, argv = any) (( bool )) {
   let ?p = "src/bootstrap/runtime.inc"
   if file_exists(p) == 0 { return output_newer_than(out_path, p) }
   p = "src/runtime.inc"
@@ -3831,7 +3831,7 @@ fun runtime_dep_fresh(out_path = string, argv = any) (( bool )) {
   return true
 }
 
-fun _chomp_newline(text = string) (( string )) {
+: _chomp_newline(text = string) (( string )) {
   let n = stdr.len(text)
   if n > 0 && stdr.slice(text, n - 1, n) == "\n" {
     return stdr.slice(text, 0, n - 1)
@@ -3839,7 +3839,7 @@ fun _chomp_newline(text = string) (( string )) {
   return text
 }
 
-fun _env_value(name = string) (( string )) {
+: _env_value(name = string) (( string )) {
   let ?cmd = "printenv "
   cmd = stdr.str_concat(cmd, name)
   cmd = stdr.str_concat(cmd, " 2>/dev/null")
@@ -3850,7 +3850,7 @@ fun _env_value(name = string) (( string )) {
   return _chomp_newline(out)
 }
 
-fun resolve_stdlib_module_path(bname = string) (( string )) {
+: resolve_stdlib_module_path(bname = string) (( string )) {
   let ?p = ""
 
   let stdlib_env = _env_value("YIS_STDLIB")
@@ -3890,7 +3890,7 @@ fun resolve_stdlib_module_path(bname = string) (( string )) {
   return ""
 }
 
-fun resolve_bring(bname = string, src_dir = string) (( string )) {
+: resolve_bring(bname = string, src_dir = string) (( string )) {
   -- Check cache first
   let cache_key = stdr.str_concat(stdr.str_concat(bname, ":"), src_dir)
   let cached = g_path_cache[cache_key]
@@ -3927,7 +3927,7 @@ fun resolve_bring(bname = string, src_dir = string) (( string )) {
 }
 
 -- Load and parse a module, with caching
-fun load_module(fpath = string) (( any )) {
+: load_module(fpath = string) (( any )) {
   let cached = g_ast_cache[fpath]
   if !stdr.is_null(cached) { return cached }
   let src = stdr.read_text_file(fpath)
@@ -3938,14 +3938,14 @@ fun load_module(fpath = string) (( any )) {
   return ast
 }
 
-fun output_newer_than(out_path = string, dep_path = string) (( bool )) {
+: output_newer_than(out_path = string, dep_path = string) (( bool )) {
   let out_mt = stdr.file_mtime(out_path)
   let dep_mt = stdr.file_mtime(dep_path)
   if out_mt < 0 || dep_mt < 0 { return false }
   return out_mt >= dep_mt
 }
 
-fun output_fresh_for_module(out_path = string, fpath = string, seen = any) (( bool )) {
+: output_fresh_for_module(out_path = string, fpath = string, seen = any) (( bool )) {
   let ?seen_map = seen
   if stdr.len(fpath) == 0 { return false }
   if file_exists(fpath) != 0 { return false }
@@ -3981,61 +3981,61 @@ fun output_fresh_for_module(out_path = string, fpath = string, seen = any) (( bo
 -- Phase 3: small-function inlining + loop simplifications
 -- ============================================================
 
-fun lit_int(v = any) (( any )) {
+: lit_int(v = any) (( any )) {
   let ?n = []: [string => any]
   n["tag"] = "int"
   n["value"] = stdr.str(v)
   return n
 }
 
-fun lit_bool(v = bool) (( any )) {
+: lit_bool(v = bool) (( any )) {
   let ?n = []: [string => any]
   n["tag"] = "bool"
   n["value"] = v
   return n
 }
 
-fun lit_null() (( any )) {
+: lit_null() (( any )) {
   let ?n = []: [string => any]
   n["tag"] = "null"
   return n
 }
 
-fun is_lit(e = any) (( bool )) {
+: is_lit(e = any) (( bool )) {
   if stdr.is_null(e) { return false }
   let t = e["tag"] ?? ""
   return t == "int" || t == "bool" || t == "str" || t == "null"
 }
 
-fun is_non_null_lit(e = any) (( bool )) {
+: is_non_null_lit(e = any) (( bool )) {
   if stdr.is_null(e) { return false }
   let t = e["tag"] ?? ""
   return t == "int" || t == "bool" || t == "str" || t == "array" || t == "dict"
 }
 
-fun is_int_lit(e = any) (( bool )) {
+: is_int_lit(e = any) (( bool )) {
   if stdr.is_null(e) { return false }
   return (e["tag"] ?? "") == "int"
 }
 
-fun int_lit_val(e = any) (( num )) {
+: int_lit_val(e = any) (( num )) {
   return stdr.num(e["value"] ?? 0)
 }
 
-fun is_bool_lit(e = any) (( bool )) {
+: is_bool_lit(e = any) (( bool )) {
   if stdr.is_null(e) { return false }
   return (e["tag"] ?? "") == "bool"
 }
 
-fun bool_lit_val(e = any) (( bool )) {
+: bool_lit_val(e = any) (( bool )) {
   return e["value"] ?? false
 }
 
-fun env_new() (( any )) {
+: env_new() (( any )) {
   return []: [any]
 }
 
-fun env_clone(env = any) (( any )) {
+: env_clone(env = any) (( any )) {
   let ?out = []: [any]
   let ?i = 0
   let n = stdr.len(env)
@@ -4045,7 +4045,7 @@ fun env_clone(env = any) (( any )) {
   return out
 }
 
-fun env_get(env = any, name = string) (( any )) {
+: env_get(env = any, name = string) (( any )) {
   let ?i = 0
   let n = stdr.len(env)
   for (; i < n; i = i + 1) {
@@ -4058,7 +4058,7 @@ fun env_get(env = any, name = string) (( any )) {
   return null
 }
 
-fun env_set(env = any, name = string, value = any) (( any )) {
+: env_set(env = any, name = string, value = any) (( any )) {
   let ?out = []: [any]
   let ?found = false
   let ?i = 0
@@ -4085,11 +4085,11 @@ fun env_set(env = any, name = string, value = any) (( any )) {
   return out
 }
 
-fun env_kill(env = any, name = string) (( any )) {
+: env_kill(env = any, name = string) (( any )) {
   return env_set(env, name, null)
 }
 
-fun expr_size(e = any) (( num )) {
+: expr_size(e = any) (( num )) {
   if stdr.is_null(e) { return 0 }
   let t = e["tag"] ?? ""
   if t == "int" || t == "bool" || t == "str" || t == "null" || t == "ident" { return 1 }
@@ -4118,7 +4118,7 @@ fun expr_size(e = any) (( num )) {
   return 8
 }
 
-fun expr_has_side_effect(e = any) (( bool )) {
+: expr_has_side_effect(e = any) (( bool )) {
   if stdr.is_null(e) { return false }
   let t = e["tag"] ?? ""
   if t == "call" || t == "bang_call" || t == "assign" { return true }
@@ -4149,7 +4149,7 @@ fun expr_has_side_effect(e = any) (( bool )) {
   return false
 }
 
-fun subst_expr(e = any, binds = any) (( any )) {
+: subst_expr(e = any, binds = any) (( any )) {
   if stdr.is_null(e) { return null }
   let t = e["tag"] ?? ""
   if t == "ident" {
@@ -4238,7 +4238,7 @@ fun subst_expr(e = any, binds = any) (( any )) {
   return e
 }
 
-fun build_inline_map(ast = any) (( -- )) {
+: build_inline_map(ast = any) (( -- )) {
   g_inline_map = []: [string => any]
   if stdr.is_null(ast) { return }
   let decls = ast["decls"] ?? []: [any]
@@ -4270,7 +4270,7 @@ fun build_inline_map(ast = any) (( -- )) {
   }
 }
 
-fun opt_expr(e = any, env = any) (( any )) {
+: opt_expr(e = any, env = any) (( any )) {
   if stdr.is_null(e) { return null }
   let t = e["tag"] ?? ""
 
@@ -4515,14 +4515,14 @@ fun opt_expr(e = any, env = any) (( any )) {
   return e
 }
 
-fun splice_node(stmts = any) (( any )) {
+: splice_node(stmts = any) (( any )) {
   let ?n = []: [string => any]
   n["tag"] = "__splice"
   n["stmts"] = stmts
   return n
 }
 
-fun stmt_has_return(s = any) (( bool )) {
+: stmt_has_return(s = any) (( bool )) {
   if stdr.is_null(s) { return false }
   let st = s["tag"] ?? ""
   if st == "return" { return true }
@@ -4539,7 +4539,7 @@ fun stmt_has_return(s = any) (( bool )) {
   return false
 }
 
-fun block_has_return(stmts = any) (( bool )) {
+: block_has_return(stmts = any) (( bool )) {
   let ?i = 0
   let n = stdr.len(stmts)
   for (; i < n; i = i + 1) {
@@ -4548,7 +4548,7 @@ fun block_has_return(stmts = any) (( bool )) {
   return false
 }
 
-fun opt_stmt(s = any, env = any) (( any )) {
+: opt_stmt(s = any, env = any) (( any )) {
   if stdr.is_null(s) { return pair(null, env) }
   let st = s["tag"] ?? ""
 
@@ -4672,7 +4672,7 @@ fun opt_stmt(s = any, env = any) (( any )) {
   return pair(s, env)
 }
 
-fun opt_block(stmts = any, env = any) (( any )) {
+: opt_block(stmts = any, env = any) (( any )) {
   let ?out = []: [any]
   let ?cur_env = env
   let ?i = 0
@@ -4702,7 +4702,7 @@ fun opt_block(stmts = any, env = any) (( any )) {
   return out
 }
 
-fun opt_decl(d = any) (( any )) {
+: opt_decl(d = any) (( any )) {
   if stdr.is_null(d) { return d }
   let t = d["tag"] ?? ""
   if t == "fun" || t == "macro" {
@@ -4770,7 +4770,7 @@ fun opt_decl(d = any) (( any )) {
   return d
 }
 
-fun optimize_program_once(ast = any) (( any )) {
+: optimize_program_once(ast = any) (( any )) {
   if stdr.is_null(ast) { return ast }
   let decls = ast["decls"] ?? []: [any]
   let ?out = []: [any]
@@ -4785,12 +4785,12 @@ fun optimize_program_once(ast = any) (( any )) {
   return p
 }
 
-fun optimize_program(ast = any) (( any )) {
+: optimize_program(ast = any) (( any )) {
   if stdr.is_null(ast) { return ast }
   return optimize_program_once(ast)
 }
 
-fun load_module_opt(fpath = string) (( any )) {
+: load_module_opt(fpath = string) (( any )) {
   let cached = g_opt_ast_cache[fpath]
   if !stdr.is_null(cached) { return cached }
   let ast = load_module(fpath)
@@ -4801,7 +4801,7 @@ fun load_module_opt(fpath = string) (( any )) {
 }
 
 -- Emit a single brought module. Returns the emitted C code string.
-fun emit_one_bring(bname = string, src_dir = string) (( string )) {
+: emit_one_bring(bname = string, src_dir = string) (( string )) {
   let decls_key = "decls"
   let fpath = resolve_bring(bname, src_dir)
   let mod_ast = load_module(fpath)
@@ -4818,7 +4818,7 @@ fun emit_one_bring(bname = string, src_dir = string) (( string )) {
 }
 
 -- Collect all bring names from a decl list (non-builtin)
-fun collect_brings(decls = any, src_dir = string) (( any )) {
+: collect_brings(decls = any, src_dir = string) (( any )) {
   let tag = "tag"
   let name_key = "name"
   let decls_key = "decls"
@@ -4860,7 +4860,7 @@ fun collect_brings(decls = any, src_dir = string) (( any )) {
 }
 
 -- Collect all cask names that have defs from an AST's decls
-fun collect_def_inits(decls = any) (( any )) {
+: collect_def_inits(decls = any) (( any )) {
   let tag = "tag"
   let name_key = "name"
   let n = stdr.len(decls)
@@ -4882,7 +4882,7 @@ fun collect_def_inits(decls = any) (( any )) {
 
 -- Search for external module bindings file ({name}_bindings.inc).
 -- Checks env var YIS_<NAME>_BINDINGS first, then installed and dev paths.
-fun find_ext_module_bindings(mod_name = string) (( string )) {
+: find_ext_module_bindings(mod_name = string) (( string )) {
   if stdr.len(mod_name) == 0 { return "" }
   -- Check env var first: YIS_<NAME>_BINDINGS
   let upper = str_to_upper(mod_name)
@@ -4925,7 +4925,7 @@ fun find_ext_module_bindings(mod_name = string) (( string )) {
 
 -- Auto-detect C compiler include flags (-I...) for an external module.
 -- Probes installed system paths, then dev-relative paths.
-fun detect_module_cflags(mod_name = string) (( string )) {
+: detect_module_cflags(mod_name = string) (( string )) {
   if stdr.len(mod_name) == 0 { return "" }
   let hfile = stdr.str_concat(mod_name, ".h")
   -- System installed: /opt/homebrew/include/{name}/{name}.h etc
@@ -4956,7 +4956,7 @@ fun detect_module_cflags(mod_name = string) (( string )) {
 
 -- Auto-detect linker flags for an external module.
 -- Probes installed system paths, then dev-relative build dirs.
-fun detect_module_ldflags(mod_name = string) (( string )) {
+: detect_module_ldflags(mod_name = string) (( string )) {
   if stdr.len(mod_name) == 0 { return "" }
   let lib_name = stdr.str_concat("lib", stdr.str_concat(mod_name, ".dylib"))
   -- System installed
@@ -4997,7 +4997,7 @@ fun detect_module_ldflags(mod_name = string) (( string )) {
 }
 
 -- Main emit_c: walks the full AST, emits modules, then current unit, and wraps with runtime+main.
-fun emit_c(ast = any, runtime_src = string, src_dir = string) (( string )) {
+: emit_c(ast = any, runtime_src = string, src_dir = string) (( string )) {
   let tag = "tag"
   let name_key = "name"
   let decls_key = "decls"

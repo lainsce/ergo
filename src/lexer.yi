@@ -2,7 +2,7 @@ cask lexer
 
 bring stdr
 
-fun tok(kind = string, line = num, col = num, text = string, int_val = num, str_val = string) (( any )) {
+: tok(kind = string, line = num, col = num, text = string, int_val = num, str_val = string) (( any )) {
   let ?t = []: [string => any]
   let k_kind = "kind"
   let k_line = "line"
@@ -19,29 +19,29 @@ fun tok(kind = string, line = num, col = num, text = string, int_val = num, str_
   return t
 }
 
-fun is_space(c = string) (( bool )) {
+: is_space(c = string) (( bool )) {
   if stdr.is_null(c) || stdr.len(c) == 0 { return false }
   let code = stdr.char_code(c)
   return code == 32 || code == 9 || code == 10 || code == 13
 }
 
-fun is_digit(c = string) (( bool )) {
+: is_digit(c = string) (( bool )) {
   if stdr.is_null(c) || stdr.len(c) == 0 { return false }
   let code = stdr.char_code(c)
   return code >= 48 && code <= 57
 }
 
-fun is_ident_start(c = string) (( bool )) {
+: is_ident_start(c = string) (( bool )) {
   if stdr.is_null(c) || stdr.len(c) == 0 { return false }
   let code = stdr.char_code(c)
   return (code >= 97 && code <= 122) || (code >= 65 && code <= 90) || code == 95
 }
 
-fun is_ident_mid(c = string) (( bool )) {
+: is_ident_mid(c = string) (( bool )) {
   return is_ident_start(c) || is_digit(c)
 }
 
-fun skip_line_comment(source = string, i = num, line = num, col = num) (( any )) {
+: skip_line_comment(source = string, i = num, line = num, col = num) (( any )) {
   let n = stdr.len(source)
   let ?j = i
   for (; j < n; j = j + 1) {
@@ -51,7 +51,7 @@ fun skip_line_comment(source = string, i = num, line = num, col = num) (( any ))
   return [n, line, col]
 }
 
-fun skip_ws_and_comments(source = string, i = num, line = num, col = num, in_ret = bool) (( any )) {
+: skip_ws_and_comments(source = string, i = num, line = num, col = num, in_ret = bool) (( any )) {
   let n = stdr.len(source)
   let ?cur_i = i
   let ?cur_line = line
@@ -86,7 +86,7 @@ fun skip_ws_and_comments(source = string, i = num, line = num, col = num, in_ret
   return [cur_i, cur_line, cur_col]
 }
 
-fun hex_value(c = string) (( num )) {
+: hex_value(c = string) (( num )) {
   if stdr.is_null(c) || stdr.len(c) == 0 { return -1 }
   let code = stdr.char_code(c)
   if code >= 48 && code <= 57 { return code - 48 }
@@ -95,7 +95,7 @@ fun hex_value(c = string) (( num )) {
   return -1
 }
 
-fun ascii_from_code(code = num) (( string )) {
+: ascii_from_code(code = num) (( string )) {
   if code == 7 { return "\a" }
   if code == 8 { return "\b" }
   if code == 9 { return "\t" }
@@ -111,14 +111,14 @@ fun ascii_from_code(code = num) (( string )) {
   return ""
 }
 
-fun escape_pair(text = string, next_i = num) (( any )) {
+: escape_pair(text = string, next_i = num) (( any )) {
   let ?r = []: [string => any]
   r["text"] = text
   r["next"] = next_i
   return r
 }
 
-fun decode_escape(source = string, i = num, n = num) (( any )) {
+: decode_escape(source = string, i = num, n = num) (( any )) {
   if i + 1 >= n { return escape_pair("", n) }
   let e = stdr.slice(source, i + 1, i + 2)
   if e == "n" { return escape_pair("\n", i + 2) }
@@ -203,7 +203,7 @@ fun decode_escape(source = string, i = num, n = num) (( any )) {
   return escape_pair(e, i + 2)
 }
 
-fun lex_one(source = string, i = num, line = num, col = num, decode_escapes = bool) (( any )) {
+: lex_one(source = string, i = num, line = num, col = num, decode_escapes = bool) (( any )) {
   let n = stdr.len(source)
   if i >= n {
     return [tok("eof", line, col, "", 0, ""), n, line, col]
@@ -218,7 +218,13 @@ fun lex_one(source = string, i = num, line = num, col = num, decode_escapes = bo
   if c == "}" { return [tok("rbrace", line, col, "", 0, ""), i + 1, line, col + 1] }
   if c == "," { return [tok("comma", line, col, "", 0, ""), i + 1, line, col + 1] }
   if c == "." { return [tok("dot", line, col, "", 0, ""), i + 1, line, col + 1] }
-  if c == ":" { return [tok("colon", line, col, "", 0, ""), i + 1, line, col + 1] }
+  if c == ":" {
+    if i + 1 < n {
+      let c2 = stdr.slice(source, i + 1, i + 2)
+      if c2 == ":" { return [tok("coloncolon", line, col, "", 0, ""), i + 2, line, col + 2] }
+    }
+    return [tok("colon", line, col, "", 0, ""), i + 1, line, col + 1]
+  }
   if c == "+" {
     if i + 1 < n {
       let c2 = stdr.slice(source, i + 1, i + 2)
@@ -344,7 +350,6 @@ fun lex_one(source = string, i = num, line = num, col = num, decode_escapes = bo
     elif text == "if" { kind = "kw_if" }
     elif text == "else" { kind = "kw_else" }
     elif text == "return" { kind = "kw_return" }
-    elif text == "fun" { kind = "kw_fun" }
     elif text == "entry" { kind = "kw_entry" }
     elif text == "bring" { kind = "kw_bring" }
     elif text == "cask" { kind = "kw_cask" }
@@ -537,7 +542,7 @@ fun lex_one(source = string, i = num, line = num, col = num, decode_escapes = bo
   return [tok("ident", line, col, c, 0, ""), i + 1, line, col + 1]
 }
 
-fun lex_rest(source = string, i = num, line = num, col = num, acc = any, decode_escapes = bool) (( any )) {
+: lex_rest(source = string, i = num, line = num, col = num, acc = any, decode_escapes = bool) (( any )) {
   let n = stdr.len(source)
   let ?cur_i = i
   let ?cur_line = line
@@ -577,10 +582,10 @@ fun lex_rest(source = string, i = num, line = num, col = num, acc = any, decode_
   return cur_acc
 }
 
-pub fun lex_with_escapes(source = string, decode_escapes = bool) (( any )) {
+:: lex_with_escapes(source = string, decode_escapes = bool) (( any )) {
   return lex_rest(source, 0, 1, 1, []: [any], decode_escapes)
 }
 
-pub fun lex(source = string) (( any )) {
+:: lex(source = string) (( any )) {
   return lex_with_escapes(source, false)
 }

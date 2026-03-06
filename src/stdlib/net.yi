@@ -5,25 +5,25 @@ bring stdr
 -- Yis Standard Library: net.yi
 -- HTTP utilities backed by curl via stdr.run_command
 
-fun _hex_digit(n = num) (( string )) {
+: _hex_digit(n = num) (( string )) {
   let digits = "0123456789ABCDEF"
   return stdr.slice(digits, n, n + 1)
 }
 
-fun _is_alpha_num(code = num) (( bool )) {
+: _is_alpha_num(code = num) (( bool )) {
   if code >= 48 && code <= 57 { return true }
   if code >= 65 && code <= 90 { return true }
   if code >= 97 && code <= 122 { return true }
   return false
 }
 
-fun _is_unreserved(code = num) (( bool )) {
+: _is_unreserved(code = num) (( bool )) {
   if _is_alpha_num(code) { return true }
   if code == 45 || code == 46 || code == 95 || code == 126 { return true }
   return false
 }
 
-fun _shell_quote(text = string) (( string )) {
+: _shell_quote(text = string) (( string )) {
   let ?out = "'"
   let ?i = 0
   let n = stdr.len(text)
@@ -39,7 +39,7 @@ fun _shell_quote(text = string) (( string )) {
   return out
 }
 
-fun _contains(text = string, needle = string) (( bool )) {
+: _contains(text = string, needle = string) (( bool )) {
   let tn = stdr.len(text)
   let nn = stdr.len(needle)
   if nn == 0 { return true }
@@ -52,7 +52,7 @@ fun _contains(text = string, needle = string) (( bool )) {
   return false
 }
 
-fun _last_index_of(text = string, needle = string) (( num )) {
+: _last_index_of(text = string, needle = string) (( num )) {
   let tn = stdr.len(text)
   let nn = stdr.len(needle)
   if nn == 0 || nn > tn { return -1 }
@@ -67,7 +67,7 @@ fun _last_index_of(text = string, needle = string) (( num )) {
   return pos
 }
 
-fun _parse_int(text = string) (( num )) {
+: _parse_int(text = string) (( num )) {
   let ?v = 0
   let ?i = 0
   let n = stdr.len(text)
@@ -80,17 +80,17 @@ fun _parse_int(text = string) (( num )) {
   return v
 }
 
-fun _pair_key(pair = any) (( string )) {
+: _pair_key(pair = any) (( string )) {
   if stdr.len(pair) >= 1 { return stdr.str(pair[0]) }
   return ""
 }
 
-fun _pair_val(pair = any) (( string )) {
+: _pair_val(pair = any) (( string )) {
   if stdr.len(pair) >= 2 { return stdr.str(pair[1]) }
   return ""
 }
 
-pub fun encode_component(text = string) (( string )) {
+:: encode_component(text = string) (( string )) {
   let ?out = ""
   let ?i = 0
   let n = stdr.len(text)
@@ -110,7 +110,7 @@ pub fun encode_component(text = string) (( string )) {
   return out
 }
 
-pub fun build_query(params = any) (( string )) {
+:: build_query(params = any) (( string )) {
   let ?out = ""
   let ?i = 0
   let n = stdr.len(params)
@@ -128,7 +128,7 @@ pub fun build_query(params = any) (( string )) {
   return out
 }
 
-pub fun with_query(url = string, params = any) (( string )) {
+:: with_query(url = string, params = any) (( string )) {
   let q = build_query(params)
   if stdr.len(q) == 0 { return url }
   if _contains(url, "?") {
@@ -137,7 +137,7 @@ pub fun with_query(url = string, params = any) (( string )) {
   return stdr.str_concat(stdr.str_concat(url, "?"), q)
 }
 
-fun _parse_status_payload(raw = string) (( any )) {
+: _parse_status_payload(raw = string) (( any )) {
   let marker = "__YIS_HTTP_STATUS__:"
   let end_marker = "__YIS_HTTP_END__"
   let idx = _last_index_of(raw, marker)
@@ -158,7 +158,7 @@ fun _parse_status_payload(raw = string) (( any )) {
   return result
 }
 
-pub fun request(method = string, url = string, body = any, headers = any, params = any, timeout_secs = num, follow_redirects = bool) (( any )) {
+:: request(method = string, url = string, body = any, headers = any, params = any, timeout_secs = num, follow_redirects = bool) (( any )) {
   let request_url = with_query(url, params)
   let ?cmd = "curl -sS"
 
@@ -221,15 +221,15 @@ pub fun request(method = string, url = string, body = any, headers = any, params
   return resp
 }
 
-pub fun get(url = string, params = any, headers = any, timeout_secs = num) (( any )) {
+:: get(url = string, params = any, headers = any, timeout_secs = num) (( any )) {
   return request("GET", url, null, headers, params, timeout_secs, true)
 }
 
-pub fun post(url = string, body = string, headers = any, params = any, timeout_secs = num) (( any )) {
+:: post(url = string, body = string, headers = any, params = any, timeout_secs = num) (( any )) {
   return request("POST", url, body, headers, params, timeout_secs, true)
 }
 
-pub fun post_json(url = string, json_text = string, headers = any, params = any, timeout_secs = num) (( any )) {
+:: post_json(url = string, json_text = string, headers = any, params = any, timeout_secs = num) (( any )) {
   let ?hs = headers
   hs = stdr.concat(hs, [["Content-Type", "application/json"]])
   return request("POST", url, json_text, hs, params, timeout_secs, true)

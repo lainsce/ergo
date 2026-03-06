@@ -6,7 +6,7 @@ macro mod(divisor = num) (( bool )) {
     this % divisor == 0
 }
 
-fun fizzbuzz(n = num) (( -- )) {
+: fizzbuzz(n = num) (( -- )) {
     for (let ?i = 1; i <= n; i += 1) {
         let ?flag = false
         if i !mod 3 {

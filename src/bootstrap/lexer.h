@@ -28,6 +28,7 @@ typedef enum {
     TOK_COMMA,
     TOK_DOT,
     TOK_COLON,
+    TOK_COLONCOLON,
     TOK_PLUS,
     TOK_MINUS,
     TOK_STAR,

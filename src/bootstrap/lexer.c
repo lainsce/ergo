@@ -50,6 +50,7 @@ static const char *tok_name_default(TokKind kind) {
         case TOK_COMMA: return "COMMA";
         case TOK_DOT: return "DOT";
         case TOK_COLON: return "COLON";
+        case TOK_COLONCOLON: return "COLONCOLON";
         case TOK_PLUS: return "+";
         case TOK_MINUS: return "-";
         case TOK_STAR: return "*";
@@ -132,6 +133,7 @@ const char *tok_kind_desc(TokKind kind) {
         case TOK_COMMA: return "','";
         case TOK_DOT: return "'.'";
         case TOK_COLON: return "':'";
+        case TOK_COLONCOLON: return "'::'";
         
         // Operators
         case TOK_PLUS: return "'+'";
@@ -740,6 +742,22 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             set_last(&lx, TOK_QQ);
             continue;
         }
+        if (two0 == ':' && two1 == ':') {
+            if (!emit_simple(&lx, out, err, TOK_COLONCOLON, STR_LIT("::"), lx.line, lx.col)) {
+                return false;
+            }
+            adv(&lx, 2);
+            set_last(&lx, TOK_COLONCOLON);
+            continue;
+        }
+        if (ch == ':') {
+            if (!emit_simple(&lx, out, err, TOK_COLON, STR_LIT(":"), lx.line, lx.col)) {
+                return false;
+            }
+            adv(&lx, 1);
+            set_last(&lx, TOK_COLON);
+            continue;
+        }
 
         if (ch == ';') {
             if (!emit_simple(&lx, out, err, TOK_SEMI, STR_LIT(";"), lx.line, lx.col)) {
@@ -751,7 +769,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
         }
 
         if (ch == '(' || ch == ')' || ch == '[' || ch == ']' || ch == '{' || ch == '}' ||
-            ch == ',' || ch == '.' || ch == ':' || ch == '+' || ch == '-' || ch == '*' ||
+            ch == ',' || ch == '.' || ch == '+' || ch == '-' || ch == '*' ||
             ch == '/' || ch == '%' || ch == '!' || ch == '=' || ch == '<' || ch == '>' ||
             ch == '|') {
             TokKind kind = TOK_INVALID;
@@ -764,7 +782,6 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
                 case '}': kind = TOK_RBRACE; break;
                 case ',': kind = TOK_COMMA; break;
                 case '.': kind = TOK_DOT; break;
-                case ':': kind = TOK_COLON; break;
                 case '+': kind = TOK_PLUS; break;
                 case '-': kind = TOK_MINUS; break;
                 case '*': kind = TOK_STAR; break;
@@ -1045,8 +1062,7 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
                 break;
             case 3:
                 // Use direct character comparison for better branch prediction
-                if (word.data[0] == 'f' && word.data[1] == 'u' && word.data[2] == 'n') kw = TOK_KW_fun;
-                else if (word.data[0] == 'p' && word.data[1] == 'u' && word.data[2] == 'b') kw = TOK_KW_pub;
+                if (word.data[0] == 'p' && word.data[1] == 'u' && word.data[2] == 'b') kw = TOK_KW_pub;
                 else if (word.data[0] == 'd' && word.data[1] == 'e' && word.data[2] == 'f') kw = TOK_KW_def;
                 else if (word.data[0] == 'l' && word.data[1] == 'e' && word.data[2] == 't') kw = TOK_KW_let;
                 else if (word.data[0] == 'f' && word.data[1] == 'o' && word.data[2] == 'r') kw = TOK_KW_for;

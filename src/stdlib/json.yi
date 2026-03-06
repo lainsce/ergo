@@ -2,7 +2,7 @@ cask json
 
 bring stdr
 
-pub fun escape(text = string) (( string )) {
+:: escape(text = string) (( string )) {
   let ?out = ""
   let ?i = 0
   let n = stdr.len(text)
@@ -28,7 +28,7 @@ pub fun escape(text = string) (( string )) {
 -- Yis Standard Library: json.yi
 -- JSON parse helpers (object/array/string/number/bool/null)
 
-fun _state_new(src = string) (( any )) {
+: _state_new(src = string) (( any )) {
   let ?s = []: [string => any]
   s["src"] = src
   s["i"] = 0
@@ -38,7 +38,7 @@ fun _state_new(src = string) (( any )) {
   return s
 }
 
-fun _fail(s = any, msg = string) (( -- )) {
+: _fail(s = any, msg = string) (( -- )) {
   let ?st = s
   if st["ok"] ?? false {
     st["ok"] = false
@@ -46,7 +46,7 @@ fun _fail(s = any, msg = string) (( -- )) {
   }
 }
 
-fun _peek(s = any) (( string )) {
+: _peek(s = any) (( string )) {
   let i = stdr.num(s["i"] ?? 0)
   let n = stdr.num(s["n"] ?? 0)
   if i >= n { return "" }
@@ -54,7 +54,7 @@ fun _peek(s = any) (( string )) {
   return stdr.slice(src, i, i + 1)
 }
 
-fun _next(s = any) (( string )) {
+: _next(s = any) (( string )) {
   let ?st = s
   let ch = _peek(s)
   let i = stdr.num(st["i"] ?? 0)
@@ -64,11 +64,11 @@ fun _next(s = any) (( string )) {
   return ch
 }
 
-fun _is_ws(ch = string) (( bool )) {
+: _is_ws(ch = string) (( bool )) {
   return ch == " " || ch == "\t" || ch == "\n" || ch == "\r"
 }
 
-fun _skip_ws(s = any) (( -- )) {
+: _skip_ws(s = any) (( -- )) {
   for (; true; ) {
     let ch = _peek(s)
     if !_is_ws(ch) { break }
@@ -76,12 +76,12 @@ fun _skip_ws(s = any) (( -- )) {
   }
 }
 
-fun _is_digit(ch = string) (( bool )) {
+: _is_digit(ch = string) (( bool )) {
   let c = stdr.char_code(ch)
   return c >= 48 && c <= 57
 }
 
-fun _is_hex(ch = string) (( bool )) {
+: _is_hex(ch = string) (( bool )) {
   let c = stdr.char_code(ch)
   if c >= 48 && c <= 57 { return true }
   if c >= 65 && c <= 70 { return true }
@@ -89,7 +89,7 @@ fun _is_hex(ch = string) (( bool )) {
   return false
 }
 
-fun _expect(s = any, want = string) (( bool )) {
+: _expect(s = any, want = string) (( bool )) {
   let ch = _next(s)
   if ch != want {
     _fail(s, "unexpected token")
@@ -98,7 +98,7 @@ fun _expect(s = any, want = string) (( bool )) {
   return true
 }
 
-fun _read_lit(s = any, lit = string) (( bool )) {
+: _read_lit(s = any, lit = string) (( bool )) {
   let ?i = 0
   let n = stdr.len(lit)
   for (; i < n; i += 1) {
@@ -110,7 +110,7 @@ fun _read_lit(s = any, lit = string) (( bool )) {
   return true
 }
 
-fun _pow10(exp = num) (( num )) {
+: _pow10(exp = num) (( num )) {
   let ?p = 1.0
   let ?i = 0
   for (; i < exp; i += 1) {
@@ -119,7 +119,7 @@ fun _pow10(exp = num) (( num )) {
   return p
 }
 
-fun _parse_num_text(text = string) (( num )) {
+: _parse_num_text(text = string) (( num )) {
   let ?i = 0
   let n = stdr.len(text)
   let ?sign = 1.0
@@ -188,7 +188,7 @@ fun _parse_num_text(text = string) (( num )) {
   return v * sign
 }
 
-fun _parse_string(s = any) (( any )) {
+: _parse_string(s = any) (( any )) {
   if !_expect(s, "\"") { return null }
   let ?out = ""
 
@@ -240,7 +240,7 @@ fun _parse_string(s = any) (( any )) {
   return null
 }
 
-fun _parse_number(s = any) (( any )) {
+: _parse_number(s = any) (( any )) {
   let src = s["src"] ?? ""
   let start = stdr.num(s["i"] ?? 0)
   let n = stdr.num(s["n"] ?? 0)
@@ -312,7 +312,7 @@ fun _parse_number(s = any) (( any )) {
   return _parse_num_text(text)
 }
 
-fun _parse_value(s = any) (( any )) {
+: _parse_value(s = any) (( any )) {
   _skip_ws(s)
   let ch = _peek(s)
 
@@ -339,7 +339,7 @@ fun _parse_value(s = any) (( any )) {
   return null
 }
 
-fun _parse_array(s = any) (( any )) {
+: _parse_array(s = any) (( any )) {
   if !_expect(s, "[") { return null }
   let ?arr = []: [any]
 
@@ -370,7 +370,7 @@ fun _parse_array(s = any) (( any )) {
   return null
 }
 
-fun _parse_object(s = any) (( any )) {
+: _parse_object(s = any) (( any )) {
   if !_expect(s, "{") { return null }
   let ?obj = []: [string => any]
 
@@ -412,7 +412,7 @@ fun _parse_object(s = any) (( any )) {
   return null
 }
 
-pub fun parse_result(src = string) (( any )) {
+:: parse_result(src = string) (( any )) {
   let s = _state_new(src)
   let value = _parse_value(s)
   if s["ok"] ?? false {
@@ -431,7 +431,7 @@ pub fun parse_result(src = string) (( any )) {
   return r
 }
 
-pub fun parse(src = string) (( any )) {
+:: parse(src = string) (( any )) {
   let r = parse_result(src)
   if r["ok"] ?? false {
     return r["value"]
@@ -439,15 +439,15 @@ pub fun parse(src = string) (( any )) {
   return null
 }
 
-pub fun is_object(v = any) (( bool )) {
+:: is_object(v = any) (( bool )) {
   return stdr.str(v) == "[dict]"
 }
 
-pub fun is_array(v = any) (( bool )) {
+:: is_array(v = any) (( bool )) {
   return stdr.str(v) == "[array]"
 }
 
-pub fun get(obj = any, key = string, fallback = any) (( any )) {
+:: get(obj = any, key = string, fallback = any) (( any )) {
   if !is_object(obj) { return fallback }
   let v = obj[key]
   if stdr.is_null(v) { return fallback }
