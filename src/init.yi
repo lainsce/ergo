@@ -1175,6 +1175,42 @@ def ?g_src_dir = ""
         r = stdr.str_concat(r, "))")
         return r
       }
+      if fname == "__parse_hex" {
+        let ?r = "stdr_parse_hex("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, ")")
+        return r
+      }
+      if fname == "__char_from_code" {
+        let ?r = "stdr_char_from_code("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, ")")
+        return r
+      }
+      if fname == "__floor" {
+        let ?r = "stdr_floor("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, ")")
+        return r
+      }
+      if fname == "__ceil" {
+        let ?r = "stdr_ceil("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, ")")
+        return r
+      }
+      if fname == "__keys" {
+        let ?r = "stdr_keys("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, ")")
+        return r
+      }
+      if fname == "__replace" {
+        let ?r = "stdr_replace("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, ")")
+        return r
+      }
       if fname == "__read_text_file" {
         let ?r = "stdr_read_text_file("
         r = emit_args(args, r, cask_name)
@@ -5522,8 +5558,8 @@ entry() (( -- )) {
   if need_compile {
     -- Build cc command with external module flags if needed
     -- Append stderr redirection so stdr.run_command captures compiler errors
-    let ?cc_opt_flags = "-Os -march=native"
-    if is_run_mode { cc_opt_flags = "-O0" }
+    let ?cc_opt_flags = "-Os -march=native -w"
+    if is_run_mode { cc_opt_flags = "-O0 -w" }
     let ?cc_cmd = "cc -o \""
     cc_cmd = stdr.str_concat(cc_cmd, out_path)
     cc_cmd = stdr.str_concat(cc_cmd, "\" \"")

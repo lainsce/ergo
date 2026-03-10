@@ -2707,6 +2707,92 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__parse_hex")) {
+                        if (e->as.call.args_len != 1) return cg_set_err(err, path, "__parse_hex expects 1 arg");
+                        GenExpr sv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &sv, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_parse_hex(%s);", t, sv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", sv.tmp);
+                        gen_expr_release_except(cg, &sv, sv.tmp);
+                        gen_expr_free(&sv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__char_from_code")) {
+                        if (e->as.call.args_len != 1) return cg_set_err(err, path, "__char_from_code expects 1 arg");
+                        GenExpr cv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &cv, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_char_from_code(%s);", t, cv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", cv.tmp);
+                        gen_expr_release_except(cg, &cv, cv.tmp);
+                        gen_expr_free(&cv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__floor")) {
+                        if (e->as.call.args_len != 1) return cg_set_err(err, path, "__floor expects 1 arg");
+                        GenExpr av;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &av, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_floor(%s);", t, av.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", av.tmp);
+                        gen_expr_release_except(cg, &av, av.tmp);
+                        gen_expr_free(&av);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__ceil")) {
+                        if (e->as.call.args_len != 1) return cg_set_err(err, path, "__ceil expects 1 arg");
+                        GenExpr av;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &av, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_ceil(%s);", t, av.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", av.tmp);
+                        gen_expr_release_except(cg, &av, av.tmp);
+                        gen_expr_free(&av);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__keys")) {
+                        if (e->as.call.args_len != 1) return cg_set_err(err, path, "__keys expects 1 arg");
+                        GenExpr dv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &dv, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_keys(%s);", t, dv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", dv.tmp);
+                        gen_expr_release_except(cg, &dv, dv.tmp);
+                        gen_expr_free(&dv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__replace")) {
+                        if (e->as.call.args_len != 3) return cg_set_err(err, path, "__replace expects 3 args");
+                        GenExpr tv, fv, rv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &tv, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &fv, err)) { gen_expr_free(&tv); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[2], &rv, err)) { gen_expr_free(&tv); gen_expr_free(&fv); return false; }
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_replace(%s, %s, %s);", t, tv.tmp, fv.tmp, rv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", tv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", fv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", rv.tmp);
+                        gen_expr_release_except(cg, &tv, tv.tmp);
+                        gen_expr_release_except(cg, &fv, fv.tmp);
+                        gen_expr_release_except(cg, &rv, rv.tmp);
+                        gen_expr_free(&tv);
+                        gen_expr_free(&fv);
+                        gen_expr_free(&rv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__write_text_file")) {
                         if (e->as.call.args_len != 2) return cg_set_err(err, path, "__write_text_file expects 2 args");
                         GenExpr pathv, textv;

@@ -1043,5 +1043,93 @@ static YisVal yis_call(YisVal fval, int argc, YisVal* argv) {
   return f->fn(f->env, argc, argv);
 }
 
+static YisVal stdr_parse_hex(YisVal sv) {
+  if (sv.tag != EVT_STR) yis_trap("parse_hex expects string");
+  YisStr* s = (YisStr*)sv.as.p;
+  if (s->len == 0) return YV_INT(0);
+  char* end = NULL;
+  long long v = strtoll(s->data, &end, 16);
+  if (end == s->data) return YV_INT(0);
+  return YV_INT((int64_t)v);
+}
+
+static YisVal stdr_char_from_code(YisVal cv) {
+  int64_t code = yis_as_int(cv);
+  if (code < 0 || code > 127) return YV_STR(&yis_static_empty);
+  char ch = (char)code;
+  return YV_STR(stdr_str_from_slice(&ch, 1));
+}
+
+static YisVal stdr_floor(YisVal v) {
+  double x = (v.tag == EVT_FLOAT) ? v.as.f : (double)yis_as_int(v);
+  return YV_INT((int64_t)floor(x));
+}
+
+static YisVal stdr_ceil(YisVal v) {
+  double x = (v.tag == EVT_FLOAT) ? v.as.f : (double)yis_as_int(v);
+  return YV_INT((int64_t)ceil(x));
+}
+
+static YisVal stdr_keys(YisVal dv) {
+  if (dv.tag != EVT_DICT) yis_trap("keys expects dict");
+  YisDict* d = (YisDict*)dv.as.p;
+  YisArr* out = stdr_arr_new((int)d->len);
+  for (size_t i = 0; i < d->len; i++) {
+    YisVal k = YV_STR(d->entries[i].key);
+    yis_retain_val(k);
+    yis_arr_add(out, k);
+  }
+  return YV_ARR(out);
+}
+
+static YisVal stdr_replace(YisVal textv, YisVal fromv, YisVal tov) {
+  if (textv.tag != EVT_STR) yis_trap("replace expects string");
+  if (fromv.tag != EVT_STR) yis_trap("replace expects string");
+  if (tov.tag != EVT_STR) yis_trap("replace expects string");
+  YisStr* text = (YisStr*)textv.as.p;
+  YisStr* from = (YisStr*)fromv.as.p;
+  YisStr* to = (YisStr*)tov.as.p;
+  if (from->len == 0) { yis_retain_val(textv); return textv; }
+  size_t cap = text->len + 64;
+  char* buf = (char*)malloc(cap);
+  if (!buf) yis_trap("out of memory");
+  size_t out_len = 0;
+  size_t i = 0;
+  while (i + from->len <= text->len) {
+    if (memcmp(text->data + i, from->data, from->len) == 0) {
+      size_t need = out_len + to->len;
+      if (need >= cap) {
+        while (need >= cap) cap *= 2;
+        buf = (char*)realloc(buf, cap);
+        if (!buf) yis_trap("out of memory");
+      }
+      memcpy(buf + out_len, to->data, to->len);
+      out_len += to->len;
+      i += from->len;
+    } else {
+      if (out_len + 1 >= cap) {
+        cap *= 2;
+        buf = (char*)realloc(buf, cap);
+        if (!buf) yis_trap("out of memory");
+      }
+      buf[out_len++] = text->data[i++];
+    }
+  }
+  size_t tail = text->len - i;
+  if (tail > 0) {
+    if (out_len + tail >= cap) {
+      cap = out_len + tail + 1;
+      buf = (char*)realloc(buf, cap);
+      if (!buf) yis_trap("out of memory");
+    }
+    memcpy(buf + out_len, text->data + i, tail);
+    out_len += tail;
+  }
+  buf[out_len] = 0;
+  YisStr* result = stdr_str_from_slice(buf, out_len);
+  free(buf);
+  return YV_STR(result);
+}
+
 // ---- External module bindings ----
 // Injected by codegen when the program imports an external module.

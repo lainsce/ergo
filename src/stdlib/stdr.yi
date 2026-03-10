@@ -106,6 +106,57 @@ macro is_none() (( bool )) {
   return __char_code(c)
 }
 
+-- Create a single-character string from an ASCII code
+: __char_from_code(code = num) (( string )) { }
+:: char_from_code(code = num) (( string )) {
+  return __char_from_code(code)
+}
+
+-- Character at index (returns single-character string, or "" if out of range)
+:: char_at(s = string, idx = num) (( string )) {
+  return slice(s, idx, idx + 1)
+}
+
+-- Substring from start index to end of string
+:: substring(s = string, start = num) (( string )) {
+  return slice(s, start, len(s))
+}
+
+-- Substring from start index with given length
+:: substring_len(s = string, start = num, n = num) (( string )) {
+  return slice(s, start, start + n)
+}
+
+-- Replace all occurrences of 'from' with 'to' in text
+: __replace(text = string, from = string, to = string) (( string )) { }
+:: replace(text = string, from = string, to = string) (( string )) {
+  return __replace(text, from, to)
+}
+
+-- Parse a hexadecimal string to a number (e.g. "ff" → 255, "0x1a" → 26)
+: __parse_hex(s = string) (( num )) { }
+:: parse_hex(s = string) (( num )) {
+  return __parse_hex(s)
+}
+
+-- Floor: round down to nearest integer
+: __floor(x = num) (( num )) { }
+:: floor(x = num) (( num )) {
+  return __floor(x)
+}
+
+-- Ceil: round up to nearest integer
+: __ceil(x = num) (( num )) { }
+:: ceil(x = num) (( num )) {
+  return __ceil(x)
+}
+
+-- Get all keys of a dict as an array of strings
+: __keys(d = any) (( [string] )) { }
+:: keys(d = any) (( [string] )) {
+  return __keys(d)
+}
+
 -- Read text file contents; returns null when file cannot be read
 :: read_text_file(path = string) (( any )) {
   return __read_text_file(path)
