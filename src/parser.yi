@@ -731,6 +731,7 @@ bring stdr
   let tag = "tag"
   let t = peek(toks, i)
   let tk = t[kind] ?? ""
+  let stmt_line = t["line"] ?? 0
 
   -- let statement: let [?]name = expr;
   if tk == "kw_let" {
@@ -756,6 +757,7 @@ bring stdr
     let tsemi = peek(toks, j)
     if tsemi[kind] == "semi" { j = j + 1 }
     let ?n = []: [string => any]; n[tag] = "let"
+    n["line"] = stmt_line
     let nk = "name"
     let mk_key = "mutable"
     let ik = "init"
@@ -782,6 +784,7 @@ bring stdr
     let tsemi = peek(toks, j)
     if tsemi[kind] == "semi" { j = j + 1 }
     let ?n = []: [string => any]; n[tag] = "const"
+    n["line"] = stmt_line
     let nk = "name"
     let ik = "init"
     n[nk] = vname
@@ -802,6 +805,7 @@ bring stdr
     let tsemi = peek(toks, j)
     if tsemi[kind] == "semi" { j = j + 1 }
     let ?n = []: [string => any]; n[tag] = "return"
+    n["line"] = stmt_line
     let vk = "value"
     n[vk] = val
     return pair(j, n)
@@ -813,6 +817,7 @@ bring stdr
     let tsemi = peek(toks, j)
     if tsemi[kind] == "semi" { j = j + 1 }
     let ?__mk_tmp = []: [string => any]; __mk_tmp[tag] = "break"
+    __mk_tmp["line"] = stmt_line
     return pair(j, __mk_tmp)
   }
 
@@ -822,6 +827,7 @@ bring stdr
     let tsemi = peek(toks, j)
     if tsemi[kind] == "semi" { j = j + 1 }
     let ?__mk_tmp = []: [string => any]; __mk_tmp[tag] = "continue"
+    __mk_tmp["line"] = stmt_line
     return pair(j, __mk_tmp)
   }
 
@@ -848,6 +854,7 @@ bring stdr
   let tsemi = peek(toks, j)
   if tsemi[kind] == "semi" { j = j + 1 }
   let ?n = []: [string => any]; n[tag] = "expr_stmt"
+  n["line"] = stmt_line
   let ek = "expr"
   n[ek] = expr
   return pair(j, n)
@@ -856,6 +863,7 @@ bring stdr
 -- Parse if statement: if cond { stmts } [elif cond { stmts }]* [else { stmts }]
 : parse_if_stmt(toks = any, i = num) (( any )) {
   let kind = "kind"
+  let if_line = peek(toks, i)["line"] ?? 0
   let ?j = i + 1
   -- parse condition (stop before lbrace)
   let cond_res = parse_expr(toks, j, 0)
@@ -895,6 +903,7 @@ bring stdr
   }
   let tag = "tag"
   let ?n = []: [string => any]; n[tag] = "if"
+  n["line"] = if_line
   let ck = "cond"
   let tk_key = "then"
   let ek = "else"
@@ -907,6 +916,7 @@ bring stdr
 -- Parse elif as nested if
 : parse_if_stmt_elif(toks = any, i = num) (( any )) {
   let kind = "kind"
+  let elif_line = peek(toks, i)["line"] ?? 0
   let ?j = i + 1
   let cond_res = parse_expr(toks, j, 0)
   j = stdr.num(cond_res[0] ?? j)
@@ -936,6 +946,7 @@ bring stdr
   }
   let tag = "tag"
   let ?n = []: [string => any]; n[tag] = "if"
+  n["line"] = elif_line
   let ck = "cond"
   let tk_key = "then"
   let ek = "else"
@@ -948,6 +959,7 @@ bring stdr
 -- Parse for statement.
 : parse_for_stmt(toks = any, i = num) (( any )) {
   let kind = "kind"
+  let for_line = peek(toks, i)["line"] ?? 0
   let text = "text"
   let tag = "tag"
   let ?j = i + 1
@@ -975,6 +987,7 @@ bring stdr
         body = br[1] ?? []: [any]
       }
       let ?n = []: [string => any]; n[tag] = "foreach"
+      n["line"] = for_line
       let ik = "item"
       let itk = "iter"
       let bk = "body"
@@ -1028,6 +1041,7 @@ bring stdr
       body = br[1] ?? []: [any]
     }
     let ?n = []: [string => any]; n[tag] = "for"
+    n["line"] = for_line
     let initk = "init"
     let ck = "cond"
     let sk = "step"
@@ -1078,6 +1092,7 @@ bring stdr
     body = br[1] ?? []: [any]
   }
   let ?n = []: [string => any]; n[tag] = "for"
+  n["line"] = for_line
   let initk = "init"
   let ck = "cond"
   let sk = "step"

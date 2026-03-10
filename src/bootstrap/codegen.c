@@ -466,6 +466,10 @@ typedef struct {
     StrMap cask_globals_map; // cask -> index into env->cask_globals
     StrMap cask_consts_map;  // cask -> index into env->cask_consts
     StrMap cask_imports_map; // cask -> index into env->cask_imports
+
+    // #line directive tracking (avoid redundant directives)
+    int last_line_num;
+    Str last_line_file;
 } Codegen;
 
 static char *codegen_c_class_name(Codegen *cg, Str qname) {
@@ -3049,13 +3053,29 @@ static bool gen_if_chain(Codegen *cg, Str path, IfArm **arms, size_t idx, size_t
     return true;
 }
 
+// Emit a #line directive if the source location changed.
+static void emit_line_directive(Codegen *cg, Str path, int line) {
+    if (line <= 0 || !path.data || !path.len) return;
+    if (line == cg->last_line_num && str_eq(path, cg->last_line_file)) return;
+    cg->last_line_num = line;
+    cg->last_line_file = path;
+    // Emit at indent 0 (preprocessor directives must start at column 1)
+    int saved = cg->w.indent;
+    cg->w.indent = 0;
+    w_line(&cg->w, "#line %d \"%.*s\"", line, (int)path.len, path.data);
+    cg->w.indent = saved;
+}
+
 static bool gen_block(Codegen *cg, Str path, Stmt *b, bool ret_void, Diag *err) {
     if (!b) return true;
     if (b->kind != STMT_BLOCK) {
+        if (b->line > 0) emit_line_directive(cg, path, b->line);
         return gen_stmt(cg, path, b, ret_void, err);
     }
     for (size_t i = 0; i < b->as.block_s.stmts_len; i++) {
-        if (!gen_stmt(cg, path, b->as.block_s.stmts[i], ret_void, err)) return false;
+        Stmt *s = b->as.block_s.stmts[i];
+        if (s && s->line > 0) emit_line_directive(cg, path, s->line);
+        if (!gen_stmt(cg, path, s, ret_void, err)) return false;
     }
     return true;
 }
@@ -3484,6 +3504,8 @@ static bool gen_entry(Codegen *cg, Diag *err) {
         cg->current_imports_len = mi ? mi->imports_len : 0;
     }
 
+    if (entry_decl->body && entry_decl->body->line > 0)
+        emit_line_directive(cg, entry_path, entry_decl->body->line);
     w_line(&cg->w, "static void yis_entry(void) {");
     cg->w.indent++;
     for (size_t i = 0; i < cg->prog->mods_len; i++) {
@@ -3864,6 +3886,7 @@ static bool codegen_gen(Codegen *cg, const char *ext_module_name, const char *ex
         for (size_t j = 0; j < m->decls_len; j++) {
             Decl *d = m->decls[j];
             if (d->kind != DECL_DEF) continue;
+            if (d->line > 0) emit_line_directive(cg, m->path, d->line);
             GenExpr ge;
             if (!gen_expr(cg, m->path, d->as.def_decl.expr, &ge, err)) return false;
             char *gname = mangle_global_var(cg->arena, mod_name, d->as.def_decl.name);
@@ -3897,6 +3920,7 @@ static bool codegen_gen(Codegen *cg, const char *ext_module_name, const char *ex
                 }
             }
             if (d->kind == DECL_FUN) {
+                emit_line_directive(cg, m->path, d->line);
                 if (!gen_fun(cg, m->path, &d->as.fun, err)) return false;
             }
         }

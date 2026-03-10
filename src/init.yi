@@ -27,6 +27,8 @@ def ?g_lambda_meta = []: [string => any]
 def ?g_lambda_ids = []: [any]
 def ?g_next_lambda_id = 1
 def ?g_src_dir = ""
+def ?g_emit_file_path = ""
+def ?g_last_line_num = 0
 
 -- ============================================================
 -- C code emitter: walks AST and produces C using the Yis runtime.
@@ -187,6 +189,317 @@ def ?g_src_dir = ""
     if c != " " && c != "\t" && c != "\n" && c != "\r" { break }
   }
   return stdr.slice(text, a, b)
+}
+
+-- ============================================================
+-- C compiler error translation: demangle C names → Yis names
+-- ============================================================
+
+: _is_upper_char(ch = string) (( bool )) {
+  let c = stdr.char_code(ch)
+  return c >= 65 && c <= 90
+}
+
+-- Extract text between first pair of single-quote characters
+: _extract_single_quoted(text = string) (( string )) {
+  let q1 = stdr.index_of(text, "'")
+  if q1 < 0 { return "" }
+  let rest = stdr.slice(text, q1 + 1, stdr.len(text))
+  let q2 = stdr.index_of(rest, "'")
+  if q2 < 0 { return "" }
+  return stdr.slice(rest, 0, q2)
+}
+
+-- Demangle a C function name back to a Yis-readable form.
+-- yis_m_<mod>_<Class>_<method> → Class.method()
+-- yis_<mod>_<name>             → <mod>.<name>()
+: _demangle_c_name(name = string) (( string )) {
+  -- Method: yis_m_<mod>_<Class>_<method>
+  if stdr.starts_with(name, "yis_m_") {
+    let rest = stdr.slice(name, 6, stdr.len(name))
+    let n = stdr.len(rest)
+    -- Find first uppercase segment = class name
+    let ?cls_start = -1
+    let ?i = 0
+    for (; i < n; i = i + 1) {
+      let ch = stdr.slice(rest, i, i + 1)
+      if _is_upper_char(ch) && (i == 0 || stdr.slice(rest, i - 1, i) == "_") {
+        cls_start = i
+        break
+      }
+    }
+    if cls_start < 0 { return name }
+    -- Find end of class name (next underscore)
+    let ?cls_end = n
+    i = cls_start + 1
+    for (; i < n; i = i + 1) {
+      if stdr.slice(rest, i, i + 1) == "_" {
+        cls_end = i
+        break
+      }
+    }
+    let cls = stdr.slice(rest, cls_start, cls_end)
+    if cls_end >= n {
+      return cls
+    }
+    let method = stdr.slice(rest, cls_end + 1, n)
+    let ?r = cls
+    r = stdr.str_concat(r, ".")
+    r = stdr.str_concat(r, method)
+    r = stdr.str_concat(r, "()")
+    return r
+  }
+
+  -- Global var: yis_g_<mod>_<name>
+  if stdr.starts_with(name, "yis_g_") {
+    return stdr.slice(name, 6, stdr.len(name))
+  }
+
+  -- Function: yis_<rest> → show as dotted form <mod>.<func>()
+  if stdr.starts_with(name, "yis_") {
+    let rest = stdr.slice(name, 4, stdr.len(name))
+    let idx = stdr.index_of(rest, "_")
+    if idx >= 0 {
+      let ?r = stdr.slice(rest, 0, idx)
+      r = stdr.str_concat(r, ".")
+      r = stdr.str_concat(r, stdr.slice(rest, idx + 1, stdr.len(rest)))
+      r = stdr.str_concat(r, "()")
+      return r
+    }
+    return stdr.str_concat(rest, "()")
+  }
+
+  return name
+}
+
+-- Extract expected/have counts from "expected N, have M" error text.
+-- Returns [expected, have] adjusted for methods (subtracts 1 for self).
+: _extract_arg_counts(msg = string, fname = string) (( any )) {
+  let ei = stdr.index_of(msg, "expected ")
+  let hi = stdr.index_of(msg, "have ")
+  if ei < 0 || hi < 0 { return null }
+
+  let after_exp = stdr.slice(msg, ei + 9, stdr.len(msg))
+  let comma = stdr.index_of(after_exp, ",")
+  if comma < 0 { return null }
+  let expected_s = stdr.slice(after_exp, 0, comma)
+
+  let after_have = stdr.slice(msg, hi + 5, stdr.len(msg))
+  let ?hlen = 0
+  for (; hlen < stdr.len(after_have); hlen = hlen + 1) {
+    let c = stdr.char_code(stdr.slice(after_have, hlen, hlen + 1))
+    if c < 48 || c > 57 { break }
+  }
+  let have_s = stdr.slice(after_have, 0, hlen)
+  let ?expected = stdr.num(expected_s)
+  let ?have = stdr.num(have_s)
+
+  -- Methods have an implicit self parameter; subtract it for Yis-level counts
+  if stdr.starts_with(fname, "yis_m_") {
+    expected = expected - 1
+    have = have - 1
+  }
+  return pair(expected, have)
+}
+
+-- Translate raw C compiler output into Yis-friendly error messages.
+-- Extract "file.yi:LINE" location prefix from a C compiler error line.
+-- Input line format: "/path/to/file.yi:6:12: error: ..."
+-- Returns short location like "file.yi:6" or "" if not a .yi source.
+: _extract_yi_location(line = string, err_idx = num) (( string )) {
+  let prefix = stdr.slice(line, 0, err_idx)
+  -- prefix is like "/path/to/file.yi:6:12"
+  -- Find last colon (column), then second-to-last (line number)
+  let ?last_colon = -1
+  let ?second_colon = -1
+  let ?ci = stdr.len(prefix) - 1
+  for (; ci >= 0; ci = ci - 1) {
+    if stdr.slice(prefix, ci, ci + 1) == ":" {
+      if last_colon < 0 {
+        last_colon = ci
+      } elif second_colon < 0 {
+        second_colon = ci
+        break
+      }
+    }
+  }
+  if second_colon < 0 { return "" }
+  let fpath = stdr.slice(prefix, 0, second_colon)
+  let line_num = stdr.slice(prefix, second_colon + 1, last_colon)
+  -- Only show .yi files, not .c files
+  if !stdr.ends_with(fpath, ".yi") { return "" }
+  -- Extract just the filename from the path
+  let ?fi = stdr.len(fpath) - 1
+  for (; fi >= 0; fi = fi - 1) {
+    if stdr.slice(fpath, fi, fi + 1) == "/" { break }
+  }
+  let fname = stdr.slice(fpath, fi + 1, stdr.len(fpath))
+  let ?loc = fname
+  loc = stdr.str_concat(loc, ":")
+  loc = stdr.str_concat(loc, line_num)
+  return loc
+}
+
+-- Write error prefix: "  ERR: [file.yi:N]: " or "  ERR: "
+: _write_err_prefix(loc = string) (( -- )) {
+  if stdr.len(loc) > 0 {
+    stdr.write("  ERR: [")
+    stdr.write(loc)
+    stdr.write("]: ")
+  } else {
+    stdr.write("  ERR: ")
+  }
+}
+
+: _translate_cc_output(output = string) (( -- )) {
+  -- Split output into lines
+  let ?lines = []: [any]
+  let ?line_start = 0
+  let ?i = 0
+  let n = stdr.len(output)
+  for (; i <= n; i = i + 1) {
+    if i == n || stdr.slice(output, i, i + 1) == "\n" {
+      stdr.push(lines, stdr.slice(output, line_start, i))
+      line_start = i + 1
+    }
+  }
+
+  let nlines = stdr.len(lines)
+  let ?j = 0
+  let ?err_count = 0
+  let ?seen = []: [string => any]
+
+  for (; j < nlines; j = j + 1) {
+    let line = lines[j] ?? ""
+    -- Skip warning lines (artifacts of generated C code)
+    if stdr.contains(line, ": warning: ") { continue }
+    let err_idx = stdr.index_of(line, ": error: ")
+    if err_idx < 0 { continue }
+
+    let msg = stdr.slice(line, err_idx + 9, stdr.len(line))
+    let loc = _extract_yi_location(line, err_idx)
+
+    -- 1) Undeclared function → "no such function or method"
+    if stdr.contains(msg, "undeclared function") {
+      let cname = _extract_single_quoted(msg)
+      if stdr.len(cname) > 0 {
+        if stdr.is_null(seen[cname]) {
+          seen[cname] = true
+          let yname = _demangle_c_name(cname)
+          err_count = err_count + 1
+          _write_err_prefix(loc)
+          stdr.write("no such function or method '")
+          stdr.write(yname)
+          stdr.write("'\n")
+        }
+      }
+      continue
+    }
+
+    -- 2) Too few / too many arguments → "expects N argument(s), but M given"
+    if stdr.contains(msg, "too few arguments") || stdr.contains(msg, "too many arguments") {
+      -- Look ahead for note: line with function name
+      let ?fname = ""
+      let ?k = j + 1
+      for (; k < nlines && k < j + 8; k = k + 1) {
+        let nline = lines[k] ?? ""
+        if stdr.contains(nline, ": note:") && stdr.contains(nline, "declared here") {
+          fname = _extract_single_quoted(nline)
+          break
+        }
+        if stdr.contains(nline, ": error:") { break }
+      }
+      let counts = _extract_arg_counts(msg, fname)
+      if !stdr.is_null(counts) {
+        let expected = counts[0] ?? 0
+        let have = counts[1] ?? 0
+        let ?dedup_key = "args:"
+        dedup_key = stdr.str_concat(dedup_key, fname)
+        dedup_key = stdr.str_concat(dedup_key, ":")
+        dedup_key = stdr.str_concat(dedup_key, stdr.str(expected))
+        dedup_key = stdr.str_concat(dedup_key, ":")
+        dedup_key = stdr.str_concat(dedup_key, stdr.str(have))
+        if stdr.is_null(seen[dedup_key]) {
+          seen[dedup_key] = true
+          let yname = _demangle_c_name(fname)
+          err_count = err_count + 1
+          _write_err_prefix(loc)
+          stdr.write("'")
+          stdr.write(yname)
+          stdr.write("' expects ")
+          stdr.write(stdr.str(expected))
+          stdr.write(" argument(s), but ")
+          stdr.write(stdr.str(have))
+          stdr.write(" given\n")
+        }
+      }
+      continue
+    }
+
+    -- 3) Redefinition of variable → strip v_ prefix
+    if stdr.contains(msg, "redefinition of") {
+      let cname = _extract_single_quoted(msg)
+      if stdr.len(cname) > 0 {
+        let ?yname = cname
+        if stdr.starts_with(cname, "v_") {
+          yname = stdr.slice(cname, 2, stdr.len(cname))
+        } elif stdr.starts_with(cname, "yis_") {
+          yname = _demangle_c_name(cname)
+        }
+        if stdr.is_null(seen[cname]) {
+          seen[cname] = true
+          err_count = err_count + 1
+          _write_err_prefix(loc)
+          stdr.write("redefinition of '")
+          stdr.write(yname)
+          stdr.write("'\n")
+        }
+      }
+      continue
+    }
+
+    -- 4) Skip cascaded type mismatch errors (side-effects of above)
+    if stdr.contains(msg, "incompatible type") { continue }
+
+    -- 5) Non-void function return: translate __lambda_N to "closure"
+    if stdr.contains(msg, "should return a value") || stdr.contains(msg, "non-void function") {
+      let ?cleaned = msg
+      -- Strip [-Wfoo-bar] diagnostic suffix
+      let bracket = stdr.index_of(cleaned, " [-W")
+      if bracket >= 0 {
+        cleaned = stdr.slice(cleaned, 0, bracket)
+      }
+      -- Deduplicate: only show "a closure does not return a value on all paths" once
+      if stdr.contains(cleaned, "__lambda_") {
+        if !stdr.is_null(seen["closure_return"]) { continue }
+        seen["closure_return"] = true
+        cleaned = "a closure does not return a value on all code paths"
+      }
+      err_count = err_count + 1
+      _write_err_prefix(loc)
+      stdr.write(cleaned)
+      stdr.write("\n")
+      continue
+    }
+
+    -- 6) Generic fallback for unrecognized errors
+    let ?fallback_msg = msg
+    -- Strip [-Wfoo-bar] diagnostic suffix
+    let fb_bracket = stdr.index_of(fallback_msg, " [-W")
+    if fb_bracket >= 0 {
+      fallback_msg = stdr.slice(fallback_msg, 0, fb_bracket)
+    }
+    err_count = err_count + 1
+    _write_err_prefix(loc)
+    stdr.write(fallback_msg)
+    stdr.write("\n")
+  }
+
+  if err_count > 0 {
+    stdr.write(stdr.str(err_count))
+    stdr.write(" error(s) found\n")
+  }
+  stdr.write("hint: set YIS_KEEP_C=1 to inspect the generated C code\n")
 }
 
 : interp_path_to_c(raw = string) (( any )) {
@@ -1879,6 +2192,18 @@ def ?g_src_dir = ""
   let ?k = 0
   for (; k < n; k = k + 1) {
     let s = stmts[k]
+    if !stdr.is_null(s) {
+      let sline = stdr.num(s["line"] ?? 0)
+      if sline > 0 && stdr.len(g_emit_file_path) > 0 && sline != g_last_line_num {
+        g_last_line_num = sline
+        let ?ld = "#line "
+        ld = stdr.str_concat(ld, stdr.str(sline))
+        ld = stdr.str_concat(ld, " \"")
+        ld = stdr.str_concat(ld, g_emit_file_path)
+        ld = stdr.str_concat(ld, "\"\n")
+        stdr.push(parts, ld)
+      }
+    }
     stdr.push(parts, emit_stmt(s, indent, cask_name))
   }
   return join_parts(parts)
@@ -4926,7 +5251,11 @@ def ?g_src_dir = ""
   let fpath = resolve_bring(bname, src_dir)
   let mod_ast = load_module(fpath)
   if stdr.is_null(mod_ast) { return "" }
+  let saved_path = g_emit_file_path
+  g_emit_file_path = fpath
+  g_last_line_num = 0
   let mod_c = emit_unit(mod_ast)
+  g_emit_file_path = saved_path
   let ?out = "\n/* begin embedded module: "
   out = stdr.str_concat(out, bname)
   out = stdr.str_concat(out, " */\n")
@@ -5117,7 +5446,7 @@ def ?g_src_dir = ""
 }
 
 -- Main emit_c: walks the full AST, emits modules, then current unit, and wraps with runtime+main.
-: emit_c(ast = any, runtime_src = string, src_dir = string) (( string )) {
+: emit_c(ast = any, runtime_src = string, src_dir = string, entry_path = string) (( string )) {
   let tag = "tag"
   let name_key = "name"
   let decls_key = "decls"
@@ -5251,6 +5580,8 @@ def ?g_src_dir = ""
   build_class_info(decls, main_cask)
 
   stdr.push(p, "\n/* begin main unit */\n")
+  g_emit_file_path = entry_path
+  g_last_line_num = 0
   stdr.push(p, emit_unit(ast))
   stdr.push(p, "/* end main unit */\n\n")
 
@@ -5340,6 +5671,9 @@ entry() (( -- )) {
   if stdr.is_null(source_raw) {
     stdr.write("ERR: Cannot read file\n")
     return
+  }
+  if !stdr.starts_with(entry_path, "/") {
+    entry_path = stdr.str_concat(stdr.str_concat(stdr.getcwd(), "/"), entry_path)
   }
 
   let ?fallback_cleanup_c = ""
@@ -5548,7 +5882,7 @@ entry() (( -- )) {
   if need_compile {
     -- Read runtime for embedding in generated C (only when compiling)
     let runtime_src = find_runtime_src(argv)
-    let c_src_str = stdr.str(emit_c(opt_ast, runtime_src, src_dir))
+    let c_src_str = stdr.str(emit_c(opt_ast, runtime_src, src_dir, entry_path))
     let ok = stdr.write_text_file(c_path, c_src_str)
     if !ok {
       stdr.write("ERR: Cannot write C output\n")
@@ -5558,8 +5892,8 @@ entry() (( -- )) {
   if need_compile {
     -- Build cc command with external module flags if needed
     -- Append stderr redirection so stdr.run_command captures compiler errors
-    let ?cc_opt_flags = "-Os -march=native -w"
-    if is_run_mode { cc_opt_flags = "-O0 -w" }
+    let ?cc_opt_flags = "-Os -march=native"
+    if is_run_mode { cc_opt_flags = "-O0" }
     let ?cc_cmd = "cc -o \""
     cc_cmd = stdr.str_concat(cc_cmd, out_path)
     cc_cmd = stdr.str_concat(cc_cmd, "\" \"")
@@ -5638,8 +5972,7 @@ entry() (( -- )) {
     let out = result[1] ?? ""
     if code != 0 {
       stdr.write("Compilation FAIL!\n")
-      stdr.write(out ?? "")
-      stdr.write("\n")
+      _translate_cc_output(out ?? "")
       return
     }
 

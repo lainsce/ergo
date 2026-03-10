@@ -339,6 +339,353 @@ static const char *raylib_default_ldflags(void) {
 }
 #endif
 
+// ============================================================
+// C compiler error translation: demangle C names → Yis names
+// ============================================================
+
+// Demangle a C function name back to Yis-readable form.
+// yis_m_<mod>_<Class>_<method> → Class.method()
+// yis_<mod>_<name>             → <mod>.<name>()
+static void demangle_c_name(const char *name, char *out, size_t cap) {
+    if (!name || !out || cap < 2) return;
+    out[0] = '\0';
+
+    // Method: yis_m_<mod>_<Class>_<method>
+    if (strncmp(name, "yis_m_", 6) == 0) {
+        const char *rest = name + 6;
+        size_t rlen = strlen(rest);
+        // Find first uppercase segment = class name
+        size_t cls_start = 0;
+        bool found_cls = false;
+        for (size_t i = 0; i < rlen; i++) {
+            if (isupper((unsigned char)rest[i]) && (i == 0 || rest[i - 1] == '_')) {
+                cls_start = i;
+                found_cls = true;
+                break;
+            }
+        }
+        if (!found_cls) { snprintf(out, cap, "%s", name); return; }
+        // Find end of class name (next underscore)
+        size_t cls_end = rlen;
+        for (size_t i = cls_start + 1; i < rlen; i++) {
+            if (rest[i] == '_') { cls_end = i; break; }
+        }
+        if (cls_end >= rlen) {
+            // No method part
+            snprintf(out, cap, "%.*s", (int)(cls_end - cls_start), rest + cls_start);
+        } else {
+            snprintf(out, cap, "%.*s.%s()",
+                     (int)(cls_end - cls_start), rest + cls_start,
+                     rest + cls_end + 1);
+        }
+        return;
+    }
+
+    // Global var: yis_g_<mod>_<name>
+    if (strncmp(name, "yis_g_", 6) == 0) {
+        snprintf(out, cap, "%s", name + 6);
+        return;
+    }
+
+    // Function: yis_<rest> → <mod>.<func>()
+    if (strncmp(name, "yis_", 4) == 0) {
+        const char *rest = name + 4;
+        const char *us = strchr(rest, '_');
+        if (us) {
+            snprintf(out, cap, "%.*s.%s()", (int)(us - rest), rest, us + 1);
+        } else {
+            snprintf(out, cap, "%s()", rest);
+        }
+        return;
+    }
+
+    snprintf(out, cap, "%s", name);
+}
+
+// Extract text between first pair of single-quote characters.
+static bool extract_single_quoted(const char *text, char *out, size_t cap) {
+    if (!text || !out || cap < 1) return false;
+    out[0] = '\0';
+    const char *q1 = strchr(text, '\'');
+    if (!q1) return false;
+    const char *q2 = strchr(q1 + 1, '\'');
+    if (!q2) return false;
+    size_t len = (size_t)(q2 - q1 - 1);
+    if (len >= cap) len = cap - 1;
+    memcpy(out, q1 + 1, len);
+    out[len] = '\0';
+    return len > 0;
+}
+
+// Extract expected/have counts from "expected N, have M" error text.
+static bool extract_arg_counts(const char *msg, const char *fname, int *expected, int *have) {
+    const char *ep = strstr(msg, "expected ");
+    const char *hp = strstr(msg, "have ");
+    if (!ep || !hp) return false;
+    *expected = atoi(ep + 9);
+    *have = atoi(hp + 5);
+    // Methods have implicit self; subtract for Yis-level counts
+    if (fname && strncmp(fname, "yis_m_", 6) == 0) {
+        *expected -= 1;
+        *have -= 1;
+    }
+    return true;
+}
+
+// Compile C code and capture output. On error, translate C compiler errors to
+// Yis-friendly messages. Returns the compiler exit code.
+// Extract "file.yi:LINE" from C compiler error line prefix.
+// Input: full line up to ": error: " and err_offset = position of ": error: ".
+// Returns true if a .yi location was found, writing to loc_buf.
+static bool extract_yi_location(const char *line, size_t err_offset, char *loc_buf, size_t loc_cap) {
+    loc_buf[0] = '\0';
+    // prefix is everything before ": error: "
+    // Format: "/path/to/file.yi:LINE:COL"
+    // Find last two colons
+    int last_colon = -1, second_colon = -1;
+    for (int i = (int)err_offset - 1; i >= 0; i--) {
+        if (line[i] == ':') {
+            if (last_colon < 0) last_colon = i;
+            else if (second_colon < 0) { second_colon = i; break; }
+        }
+    }
+    if (second_colon < 0) return false;
+    // Check if path ends with .yi
+    if (second_colon < 3 || strncmp(line + second_colon - 3, ".yi", 3) != 0) return false;
+    // Extract filename from path
+    int slash = second_colon - 1;
+    while (slash >= 0 && line[slash] != '/') slash--;
+    const char *fname_start = line + slash + 1;
+    size_t fname_len = (size_t)(second_colon - (slash + 1));
+    // Extract line number
+    const char *linenum_start = line + second_colon + 1;
+    size_t linenum_len = (size_t)(last_colon - second_colon - 1);
+    // Build "file.yi:N"
+    if (fname_len + 1 + linenum_len + 1 > loc_cap) return false;
+    memcpy(loc_buf, fname_start, fname_len);
+    loc_buf[fname_len] = ':';
+    memcpy(loc_buf + fname_len + 1, linenum_start, linenum_len);
+    loc_buf[fname_len + 1 + linenum_len] = '\0';
+    return true;
+}
+
+static void write_err_prefix(const char *loc) {
+    if (loc[0]) {
+        fprintf(stderr, "  ERR: [%s]: ", loc);
+    } else {
+        fprintf(stderr, "  ERR: ");
+    }
+}
+
+static int compile_c_with_translated_errors(const char *cmd) {
+    // Redirect stderr → stdout so popen captures everything
+    char full_cmd[4200];
+    int n = snprintf(full_cmd, sizeof(full_cmd), "%s 2>&1", cmd);
+    if (n < 0 || (size_t)n >= sizeof(full_cmd)) {
+        // Fallback to system() if command is too long
+        return system(cmd);
+    }
+
+    FILE *fp = popen(full_cmd, "r");
+    if (!fp) return system(cmd);
+
+    // Read all output
+    char *buf = NULL;
+    size_t buf_len = 0, buf_cap = 0;
+    char line[4096];
+    while (fgets(line, sizeof(line), fp)) {
+        size_t ll = strlen(line);
+        if (buf_len + ll + 1 > buf_cap) {
+            buf_cap = (buf_cap == 0) ? 8192 : buf_cap * 2;
+            if (buf_cap < buf_len + ll + 1) buf_cap = buf_len + ll + 1;
+            char *nb = realloc(buf, buf_cap);
+            if (!nb) { free(buf); pclose(fp); return 1; }
+            buf = nb;
+        }
+        memcpy(buf + buf_len, line, ll);
+        buf_len += ll;
+    }
+    int rc = pclose(fp);
+    if (buf) buf[buf_len] = '\0';
+
+    // If compilation succeeded, clean up and return
+    if (rc == 0) { free(buf); return 0; }
+
+    // Parse and translate errors
+    fprintf(stderr, "Compilation FAIL!\n");
+    if (!buf || buf_len == 0) { free(buf); return rc; }
+
+    // Collect all output lines into an array for lookahead
+    size_t max_lines = 512;
+    char **lines_arr = calloc(max_lines, sizeof(char *));
+    size_t nlines = 0;
+    if (!lines_arr) { fprintf(stderr, "%s", buf); free(buf); return rc; }
+
+    char *p = buf;
+    while (*p) {
+        char *eol = strchr(p, '\n');
+        if (!eol) eol = p + strlen(p);
+        if (nlines >= max_lines) {
+            max_lines *= 2;
+            char **nb = realloc(lines_arr, max_lines * sizeof(char *));
+            if (!nb) break;
+            lines_arr = nb;
+        }
+        size_t ll = (size_t)(eol - p);
+        char *ln = malloc(ll + 1);
+        if (!ln) break;
+        memcpy(ln, p, ll);
+        ln[ll] = '\0';
+        lines_arr[nlines++] = ln;
+        p = *eol ? eol + 1 : eol;
+    }
+
+    int err_count = 0;
+    // Simple dedup: track seen error keys (hash table is overkill; linear scan is fine)
+    char **seen_keys = calloc(128, sizeof(char *));
+    size_t seen_count = 0, seen_cap = 128;
+
+    for (size_t i = 0; i < nlines; i++) {
+        const char *ln = lines_arr[i];
+        // Skip warning lines (artifacts of generated C code)
+        if (strstr(ln, ": warning: ")) continue;
+        const char *errp = strstr(ln, ": error: ");
+        if (!errp) continue;
+        const char *msg = errp + 9;
+        size_t err_offset = (size_t)(errp - ln);
+        char loc[256];
+        extract_yi_location(ln, err_offset, loc, sizeof(loc));
+
+        char cname[256], yname[256];
+
+        // 1) Undeclared function
+        if (strstr(msg, "undeclared function")) {
+            if (extract_single_quoted(msg, cname, sizeof(cname))) {
+                // Dedup
+                bool dup = false;
+                for (size_t s = 0; s < seen_count; s++) {
+                    if (seen_keys[s] && strcmp(seen_keys[s], cname) == 0) { dup = true; break; }
+                }
+                if (!dup) {
+                    if (seen_count < seen_cap) { seen_keys[seen_count++] = strdup(cname); }
+                    demangle_c_name(cname, yname, sizeof(yname));
+                    err_count++;
+                    write_err_prefix(loc);
+                    fprintf(stderr, "no such function or method '%s'\n", yname);
+                }
+            }
+            continue;
+        }
+
+        // 2) Too few / too many arguments
+        if (strstr(msg, "too few arguments") || strstr(msg, "too many arguments")) {
+            // Look ahead for note: line with function name
+            char fname[256] = "";
+            for (size_t k = i + 1; k < nlines && k < i + 8; k++) {
+                if (strstr(lines_arr[k], ": note:") && strstr(lines_arr[k], "declared here")) {
+                    extract_single_quoted(lines_arr[k], fname, sizeof(fname));
+                    break;
+                }
+                if (strstr(lines_arr[k], ": error:")) break;
+            }
+            int expected = 0, have = 0;
+            if (extract_arg_counts(msg, fname, &expected, &have)) {
+                char dedup_key[512];
+                snprintf(dedup_key, sizeof(dedup_key), "args:%s:%d:%d", fname, expected, have);
+                bool dup = false;
+                for (size_t s = 0; s < seen_count; s++) {
+                    if (seen_keys[s] && strcmp(seen_keys[s], dedup_key) == 0) { dup = true; break; }
+                }
+                if (!dup) {
+                    if (seen_count < seen_cap) { seen_keys[seen_count++] = strdup(dedup_key); }
+                    demangle_c_name(fname, yname, sizeof(yname));
+                    err_count++;
+                    write_err_prefix(loc);
+                    fprintf(stderr, "'%s' expects %d argument(s), but %d given\n",
+                            yname, expected, have);
+                }
+            }
+            continue;
+        }
+
+        // 3) Redefinition of variable → strip v_ prefix
+        if (strstr(msg, "redefinition of")) {
+            if (extract_single_quoted(msg, cname, sizeof(cname))) {
+                // Dedup
+                bool dup = false;
+                for (size_t s = 0; s < seen_count; s++) {
+                    if (seen_keys[s] && strcmp(seen_keys[s], cname) == 0) { dup = true; break; }
+                }
+                if (!dup) {
+                    if (seen_count < seen_cap) { seen_keys[seen_count++] = strdup(cname); }
+                    if (strncmp(cname, "v_", 2) == 0) {
+                        snprintf(yname, sizeof(yname), "%s", cname + 2);
+                    } else if (strncmp(cname, "yis_", 4) == 0) {
+                        demangle_c_name(cname, yname, sizeof(yname));
+                    } else {
+                        snprintf(yname, sizeof(yname), "%s", cname);
+                    }
+                    err_count++;
+                    write_err_prefix(loc);
+                    fprintf(stderr, "redefinition of '%s'\n", yname);
+                }
+            }
+            continue;
+        }
+
+        // 4) Skip cascaded type errors
+        if (strstr(msg, "incompatible type")) continue;
+
+        // 5) Non-void function return: translate __lambda_N to "closure"
+        if (strstr(msg, "should return a value") || strstr(msg, "non-void function")) {
+            if (strstr(msg, "__lambda_")) {
+                // Deduplicate: show once
+                bool dup = false;
+                for (size_t s = 0; s < seen_count; s++) {
+                    if (seen_keys[s] && strcmp(seen_keys[s], "closure_return") == 0) { dup = true; break; }
+                }
+                if (dup) continue;
+                if (seen_count < seen_cap) { seen_keys[seen_count++] = strdup("closure_return"); }
+                err_count++;
+                write_err_prefix(loc);
+                fprintf(stderr, "a closure does not return a value on all code paths\n");
+            } else {
+                char clean[1024];
+                snprintf(clean, sizeof(clean), "%s", msg);
+                char *bracket = strstr(clean, " [-W");
+                if (bracket) *bracket = '\0';
+                err_count++;
+                write_err_prefix(loc);
+                fprintf(stderr, "%s\n", clean);
+            }
+            continue;
+        }
+
+        // 6) Generic fallback: strip [-W...] suffix
+        {
+            char clean[1024];
+            snprintf(clean, sizeof(clean), "%s", msg);
+            char *bracket = strstr(clean, " [-W");
+            if (bracket) *bracket = '\0';
+            err_count++;
+            write_err_prefix(loc);
+            fprintf(stderr, "%s\n", clean);
+        }
+    }
+
+    if (err_count > 0) {
+        fprintf(stderr, "%d error(s) found\n", err_count);
+    }
+    fprintf(stderr, "hint: set YIS_KEEP_C=1 to inspect the generated C code\n");
+
+    // Cleanup
+    for (size_t s = 0; s < seen_count; s++) free(seen_keys[s]);
+    free(seen_keys);
+    for (size_t i = 0; i < nlines; i++) free(lines_arr[i]);
+    free(lines_arr);
+    free(buf);
+    return rc;
+}
 
 int main(int argc, char **argv) {
     yis_set_stdout_buffered();
@@ -731,9 +1078,8 @@ int main(int argc, char **argv) {
             arena_free(&arena);
             return 1;
         }
-        int rc = system(cmd);
+        int rc = compile_c_with_translated_errors(cmd);
         if (rc != 0) {
-            fprintf(stderr, "error: C compiler failed (code %d)\n", rc);
             free(ext_bindings_alloc);
             free(ext_packager_alloc);
             free(cache_base);
