@@ -1055,9 +1055,28 @@ static YisVal stdr_parse_hex(YisVal sv) {
 
 static YisVal stdr_char_from_code(YisVal cv) {
   int64_t code = yis_as_int(cv);
-  if (code < 0 || code > 127) return YV_STR(&yis_static_empty);
-  char ch = (char)code;
-  return YV_STR(stdr_str_from_slice(&ch, 1));
+  if (code < 0 || code > 0x10FFFF) return YV_STR(&yis_static_empty);
+  char buf[4];
+  int len = 0;
+  if (code <= 0x7F) {
+    buf[0] = (char)code; len = 1;
+  } else if (code <= 0x7FF) {
+    buf[0] = (char)(0xC0 | ((code >> 6) & 0x1F));
+    buf[1] = (char)(0x80 | (code & 0x3F));
+    len = 2;
+  } else if (code <= 0xFFFF) {
+    buf[0] = (char)(0xE0 | ((code >> 12) & 0x0F));
+    buf[1] = (char)(0x80 | ((code >> 6) & 0x3F));
+    buf[2] = (char)(0x80 | (code & 0x3F));
+    len = 3;
+  } else {
+    buf[0] = (char)(0xF0 | ((code >> 18) & 0x07));
+    buf[1] = (char)(0x80 | ((code >> 12) & 0x3F));
+    buf[2] = (char)(0x80 | ((code >> 6) & 0x3F));
+    buf[3] = (char)(0x80 | (code & 0x3F));
+    len = 4;
+  }
+  return YV_STR(stdr_str_from_slice(buf, (size_t)len));
 }
 
 static YisVal stdr_floor(YisVal v) {
