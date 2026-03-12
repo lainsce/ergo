@@ -606,7 +606,35 @@ static int64_t yis_as_int(YisVal v) {
 static double yis_as_float(YisVal v) {
   if (v.tag == EVT_FLOAT) return v.as.f;
   if (v.tag == EVT_INT) return (double)v.as.i;
-  yis_trap("type mismatch: expected float");
+  if (v.tag == EVT_NULL) return 0.0;
+  if (v.tag == EVT_BOOL) return v.as.b ? 1.0 : 0.0;
+  if (v.tag == EVT_STR) {
+    YisStr *s = (YisStr*)v.as.p;
+    if (s && s->len > 0 && s->len < 32) {
+      char buf[32];
+      memcpy(buf, s->data, s->len);
+      buf[s->len] = '\0';
+      char *end = NULL;
+      double x = strtod(buf, &end);
+      if (end && end == buf + (ptrdiff_t)s->len)
+        return x;
+    }
+    return 0.0;
+  }
+  {
+    const char *tag_name = "?";
+    switch (v.tag) {
+      case EVT_NULL: tag_name = "null"; break;
+      case EVT_ARR: tag_name = "array"; break;
+      case EVT_DICT: tag_name = "dict"; break;
+      case EVT_OBJ: tag_name = "object"; break;
+      case EVT_FN: tag_name = "function"; break;
+      default: tag_name = "unknown"; break;
+    }
+    char buf[80];
+    snprintf(buf, sizeof(buf), "type mismatch: expected float (got %s)", tag_name);
+    yis_trap(buf);
+  }
   return 0.0;
 }
 
