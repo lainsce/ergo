@@ -1275,6 +1275,13 @@ bring stdr
     j = j + 1
     let td = peek(toks, j)
     if td[kind] == "minus" { j = j + 1 }
+  } elif tr[kind] == "lbrack" {
+    ret = "any"
+    j = j + 1
+    let ta = peek(toks, j)
+    if ta[kind] != "rbrack" { j = j + 1 }
+    let tb = peek(toks, j)
+    if tb[kind] == "rbrack" { j = j + 1 }
   } else {
     ret = tr[text] ?? "any"
     j = j + 1
@@ -1285,6 +1292,25 @@ bring stdr
     let tc = peek(toks, j + 1)
     ret = tc[text] ?? ret
     j = j + 2
+  }
+  -- Skip additional comma-separated return types: (( num, string ))
+  let ?tcomma = peek(toks, j)
+  for (; tcomma[kind] == "comma"; tcomma = peek(toks, j)) {
+    j = j + 1
+    let tnext = peek(toks, j)
+    if tnext[kind] == "lbrack" {
+      j = j + 1
+      let ta = peek(toks, j)
+      if ta[kind] != "rbrack" { j = j + 1 }
+      let tb = peek(toks, j)
+      if tb[kind] == "rbrack" { j = j + 1 }
+    } elif tnext[kind] == "ident" || tnext[kind] == "kw_any" {
+      j = j + 1
+      let tdot2 = peek(toks, j)
+      if tdot2[kind] == "dot" {
+        j = j + 2
+      }
+    }
   }
   -- expect ))
   let tc1 = peek(toks, j)

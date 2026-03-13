@@ -1,0 +1,110 @@
+cask datetime
+
+bring stdr
+
+-- Yis Standard Library: datetime.yi
+-- Date/time utilities backed by the `date` command via stdr.run_command
+
+-- Return the current Unix timestamp (seconds since epoch) as a number.
+:: now() (( num )) {
+  let result = stdr.run_command("date +%s")
+  let ts = stdr.str(result ?? "0")
+  return stdr.num(stdr.trim(ts))
+}
+
+-- Return the current date/time formatted as an ISO-8601 string.
+:: now_iso() (( string )) {
+  let result = stdr.run_command("date -u +%Y-%m-%dT%H:%M:%SZ")
+  return stdr.trim(stdr.str(result ?? ""))
+}
+
+-- Format a Unix timestamp to a string using a strftime-style format.
+-- Example: datetime.format(ts, "%Y-%m-%d %H:%M:%S")
+:: format(timestamp = num, fmt = string) (( string )) {
+  let ts_str = stdr.str(timestamp)
+  let ?cmd = "date -r "
+  cmd = stdr.str_concat(cmd, ts_str)
+  cmd = stdr.str_concat(cmd, " +")
+  cmd = stdr.str_concat(cmd, fmt)
+  let result = stdr.run_command(cmd)
+  return stdr.trim(stdr.str(result ?? ""))
+}
+
+-- Return the current year as a number.
+:: year() (( num )) {
+  let result = stdr.run_command("date +%Y")
+  return stdr.num(stdr.trim(stdr.str(result ?? "0")))
+}
+
+-- Return the current month (1-12) as a number.
+:: month() (( num )) {
+  let result = stdr.run_command("date +%-m")
+  return stdr.num(stdr.trim(stdr.str(result ?? "0")))
+}
+
+-- Return the current day of the month (1-31) as a number.
+:: day() (( num )) {
+  let result = stdr.run_command("date +%-d")
+  return stdr.num(stdr.trim(stdr.str(result ?? "0")))
+}
+
+-- Return the current hour (0-23) as a number.
+:: hour() (( num )) {
+  let result = stdr.run_command("date +%-H")
+  return stdr.num(stdr.trim(stdr.str(result ?? "0")))
+}
+
+-- Return the current minute (0-59) as a number.
+:: minute() (( num )) {
+  let result = stdr.run_command("date +%-M")
+  return stdr.num(stdr.trim(stdr.str(result ?? "0")))
+}
+
+-- Return the current second (0-59) as a number.
+:: second() (( num )) {
+  let result = stdr.run_command("date +%-S")
+  return stdr.num(stdr.trim(stdr.str(result ?? "0")))
+}
+
+-- Return the day of the week (0 = Sunday, 6 = Saturday) as a number.
+:: weekday() (( num )) {
+  let result = stdr.run_command("date +%w")
+  return stdr.num(stdr.trim(stdr.str(result ?? "0")))
+}
+
+-- Return a human-readable relative time string, e.g. "3 minutes ago".
+:: time_ago(timestamp = num) (( string )) {
+  let now_ts = now()
+  let ?diff = now_ts - timestamp
+  if diff < 0 { diff = -diff }
+  if diff < 60 { return "just now" }
+  if diff < 3600 {
+    let mins = diff / 60
+    if mins < 2 { return "1 minute ago" }
+    let ?r = stdr.str(mins)
+    r = stdr.str_concat(r, " minutes ago")
+    return r
+  }
+  if diff < 86400 {
+    let hrs = diff / 3600
+    if hrs < 2 { return "1 hour ago" }
+    let ?r = stdr.str(hrs)
+    r = stdr.str_concat(r, " hours ago")
+    return r
+  }
+  let days = diff / 86400
+  if days < 2 { return "1 day ago" }
+  let ?r = stdr.str(days)
+  r = stdr.str_concat(r, " days ago")
+  return r
+}
+
+-- Add a number of seconds to a timestamp and return the new timestamp.
+:: add_seconds(timestamp = num, seconds = num) (( num )) {
+  return timestamp + seconds
+}
+
+-- Add a number of days to a timestamp and return the new timestamp.
+:: add_days(timestamp = num, days = num) (( num )) {
+  return timestamp + days * 86400
+}

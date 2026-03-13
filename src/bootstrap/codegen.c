@@ -1328,6 +1328,7 @@ static bool is_assign_op(TokKind op) {
         case TOK_MINUSEQ:
         case TOK_STAREQ:
         case TOK_SLASHEQ:
+        case TOK_PERCENTEQ:
             return true;
         default:
             return false;
@@ -1340,6 +1341,7 @@ static const char *compound_assign_opfn(TokKind op) {
         case TOK_MINUSEQ: return "yis_sub";
         case TOK_STAREQ: return "yis_mul";
         case TOK_SLASHEQ: return "yis_div";
+        case TOK_PERCENTEQ: return "yis_mod";
         default: return NULL;
     }
 }
@@ -1946,7 +1948,95 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
         }
         case EXPR_BINARY: {
             TokKind op = e->as.binary.op;
+            // Constant folding: if both operands are numeric literals, compute at compile time
             if (op != TOK_ANDAND && op != TOK_OROR && op != TOK_QQ) {
+                Expr *ea = e->as.binary.a;
+                Expr *eb = e->as.binary.b;
+                bool a_int = ea && ea->kind == EXPR_INT;
+                bool a_flt = ea && ea->kind == EXPR_FLOAT;
+                bool b_int = eb && eb->kind == EXPR_INT;
+                bool b_flt = eb && eb->kind == EXPR_FLOAT;
+                if ((a_int || a_flt) && (b_int || b_flt)) {
+                    bool is_float = a_flt || b_flt;
+                    double ad = a_int ? (double)ea->as.int_lit.v : ea->as.float_lit.v;
+                    double bd = b_int ? (double)eb->as.int_lit.v : eb->as.float_lit.v;
+                    long long ai = a_int ? ea->as.int_lit.v : (long long)ea->as.float_lit.v;
+                    long long bi = b_int ? eb->as.int_lit.v : (long long)eb->as.float_lit.v;
+                    char *t = codegen_new_tmp(cg);
+                    if (!t) return cg_set_err(err, path, "out of memory");
+                    bool folded = true;
+                    if (is_float) {
+                        double result = 0;
+                        switch (op) {
+                            case TOK_PLUS:  result = ad + bd; break;
+                            case TOK_MINUS: result = ad - bd; break;
+                            case TOK_STAR:  result = ad * bd; break;
+                            case TOK_SLASH: result = bd != 0 ? ad / bd : 0; break;
+                            default: folded = false; break;
+                        }
+                        if (folded) {
+                            w_line(&cg->w, "YisVal %s = YV_FLOAT(%.17g);", t, result);
+                            gen_expr_add(out, t);
+                            out->tmp = t;
+                            return true;
+                        }
+                        // Comparison ops produce bool
+                        bool boolresult = false;
+                        folded = true;
+                        switch (op) {
+                            case TOK_EQEQ: boolresult = ad == bd; break;
+                            case TOK_NEQ:  boolresult = ad != bd; break;
+                            case TOK_LT:   boolresult = ad < bd; break;
+                            case TOK_LTE:  boolresult = ad <= bd; break;
+                            case TOK_GT:   boolresult = ad > bd; break;
+                            case TOK_GTE:  boolresult = ad >= bd; break;
+                            default: folded = false; break;
+                        }
+                        if (folded) {
+                            w_line(&cg->w, "YisVal %s = YV_BOOL(%d);", t, boolresult ? 1 : 0);
+                            gen_expr_add(out, t);
+                            out->tmp = t;
+                            return true;
+                        }
+                    } else {
+                        // Both are ints
+                        long long result = 0;
+                        switch (op) {
+                            case TOK_PLUS:    result = ai + bi; break;
+                            case TOK_MINUS:   result = ai - bi; break;
+                            case TOK_STAR:    result = ai * bi; break;
+                            case TOK_SLASH:   result = bi != 0 ? ai / bi : 0; break;
+                            case TOK_PERCENT: result = bi != 0 ? ai % bi : 0; break;
+                            default: folded = false; break;
+                        }
+                        if (folded) {
+                            w_line(&cg->w, "YisVal %s = YV_INT(%lld);", t, result);
+                            gen_expr_add(out, t);
+                            out->tmp = t;
+                            return true;
+                        }
+                        // Comparison ops produce bool
+                        bool boolresult = false;
+                        folded = true;
+                        switch (op) {
+                            case TOK_EQEQ: boolresult = ai == bi; break;
+                            case TOK_NEQ:  boolresult = ai != bi; break;
+                            case TOK_LT:   boolresult = ai < bi; break;
+                            case TOK_LTE:  boolresult = ai <= bi; break;
+                            case TOK_GT:   boolresult = ai > bi; break;
+                            case TOK_GTE:  boolresult = ai >= bi; break;
+                            default: folded = false; break;
+                        }
+                        if (folded) {
+                            w_line(&cg->w, "YisVal %s = YV_BOOL(%d);", t, boolresult ? 1 : 0);
+                            gen_expr_add(out, t);
+                            out->tmp = t;
+                            return true;
+                        }
+                    }
+                    // Not a foldable op — fall through to runtime call
+                }
+                // Runtime arithmetic/comparison codegen
                 GenExpr a;
                 GenExpr b;
                 if (!gen_expr(cg, path, e->as.binary.a, &a, err)) return false;

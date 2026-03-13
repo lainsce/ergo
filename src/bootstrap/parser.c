@@ -377,7 +377,7 @@ static Expr *parse_interp_expr(Parser *p, Tok *owner, Str text) {
             case TOK_PLUS: case TOK_MINUS: case TOK_STAR: case TOK_SLASH: case TOK_PERCENT:
             case TOK_EQEQ: case TOK_NEQ: case TOK_LT: case TOK_LTE: case TOK_GT: case TOK_GTE:
             case TOK_ANDAND: case TOK_OROR:
-            case TOK_EQ: case TOK_PLUSEQ: case TOK_MINUSEQ: case TOK_STAREQ: case TOK_SLASHEQ:
+            case TOK_EQ: case TOK_PLUSEQ: case TOK_MINUSEQ: case TOK_STAREQ: case TOK_SLASHEQ: case TOK_PERCENTEQ:
             case TOK_KW_if: case TOK_KW_match: case TOK_KW_for:
             case TOK_LPAR: case TOK_RPAR:
                 parser_set_error(p, owner, "invalid interpolation '<%.*s>': operators not allowed in placeholder", (int)text.len, text.data);
@@ -505,7 +505,8 @@ static int prec_of(TokKind kind) {
         case TOK_PLUSEQ:
         case TOK_MINUSEQ:
         case TOK_STAREQ:
-        case TOK_SLASHEQ: return 1;
+        case TOK_SLASHEQ:
+        case TOK_PERCENTEQ: return 1;
         case TOK_QQ: return 2;
         case TOK_OROR: return 3;
         case TOK_ANDAND: return 4;
@@ -531,6 +532,7 @@ static bool is_assign_op(TokKind kind) {
         case TOK_MINUSEQ:
         case TOK_STAREQ:
         case TOK_SLASHEQ:
+        case TOK_PERCENTEQ:
             return true;
         default:
             return false;

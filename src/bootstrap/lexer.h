@@ -50,6 +50,7 @@ typedef enum {
     TOK_MINUSEQ,
     TOK_STAREQ,
     TOK_SLASHEQ,
+    TOK_PERCENTEQ,
     TOK_QMARK,
     TOK_QQ,
     TOK_HASH,

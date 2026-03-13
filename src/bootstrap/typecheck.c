@@ -1739,6 +1739,17 @@ static bool ensure_assignable(Arena *arena, Ty *expected, Ty *actual, Str path, 
             return false;
         }
     }
+    if (expected->tag == TY_CLASS && actual->tag == TY_CLASS) {
+        if (!str_eq(expected->name, actual->name)) {
+            char ea[64];
+            char eb[64];
+            ty_desc(expected, ea, sizeof(ea));
+            ty_desc(actual, eb, sizeof(eb));
+            set_errf(err, path, 0, 0, "type mismatch%s%s (expected %s, got %s)",
+                     where && where[0] ? ": " : "", where ? where : "", ea, eb);
+            return false;
+        }
+    }
     return true;
 }
 
@@ -2645,7 +2656,13 @@ static Ty *tc_assignment_result(Arena *arena, Ty *lhs, Ty *rhs, TokKind op, Str 
         return NULL;
     }
     if (!is_compound_assign_op(op)) {
-        ensure_assignable(arena, lhs, rhs, path, "assignment", err);
+        if (!ensure_assignable(arena, lhs, rhs, path, "assignment", err)) {
+            if (err && err->line == 0) {
+                err->line = line;
+                err->col = col;
+            }
+            return NULL;
+        }
         return unify(arena, lhs, rhs, path, "assignment", NULL, err);
     }
     if (ty_is_nullable(lhs) || ty_is_nullable(rhs)) {
@@ -3480,7 +3497,7 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
             return ty_fn(env->arena, param_tys, n, body_ty);
         }
         case EXPR_BLOCK: {
-            Ty *ret_ty = ty_null(env->arena);
+            Ty *ret_ty = ty_prim(env->arena, "any");
             tc_stmt_inner(e->as.block_expr.block, ctx, loc, env, ret_ty, err);
             return ret_ty;
         }
@@ -3716,8 +3733,18 @@ static void tc_stmt_inner(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *re
                 return;
             }
             Ty *t = tc_expr_inner(s->as.ret_s.expr, ctx, loc, env, err);
-            ensure_assignable(env->arena, ret_ty, t, ctx->cask_path, "return", err);
+            if (!ensure_assignable(env->arena, ret_ty, t, ctx->cask_path, "return", err)) {
+                if (err && err->line == 0) {
+                    err->line = s->line;
+                    err->col = s->col;
+                }
+                return;
+            }
             unify(env->arena, ret_ty, t, ctx->cask_path, "return", NULL, err);
+            if (err && err->message && err->line == 0) {
+                err->line = s->line;
+                err->col = s->col;
+            }
             return;
         }
         case STMT_IF: {
@@ -3790,6 +3817,7 @@ static void tc_stmt_inner(Stmt *s, Ctx *ctx, Locals *loc, GlobalEnv *env, Ty *re
             locals_push(loc);
             for (size_t i = 0; i < s->as.block_s.stmts_len; i++) {
                 tc_stmt_inner(s->as.block_s.stmts[i], ctx, loc, env, ret_ty, err);
+                if (err && err->message) break;
             }
             locals_pop(loc);
             return;

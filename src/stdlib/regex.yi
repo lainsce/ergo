@@ -1,0 +1,131 @@
+cask regex
+
+bring stdr
+
+-- Yis Standard Library: regex.yi
+-- Regular expression utilities backed by grep/sed via stdr.run_command
+
+-- Test whether a string matches a POSIX extended regular expression.
+-- Returns true if the pattern matches anywhere in the text.
+:: matches(text = string, pattern = string) (( bool )) {
+  let ?cmd = "printf '%s' "
+  cmd = stdr.str_concat(cmd, _shell_quote(text))
+  cmd = stdr.str_concat(cmd, " | grep -qE ")
+  cmd = stdr.str_concat(cmd, _shell_quote(pattern))
+  cmd = stdr.str_concat(cmd, " && echo 1 || echo 0")
+  let result = stdr.trim(stdr.str(stdr.run_command(cmd) ?? "0"))
+  return result == "1"
+}
+
+-- Find the first occurrence of pattern in text.
+-- Returns the matched substring, or "" if no match.
+:: find(text = string, pattern = string) (( string )) {
+  let ?cmd = "printf '%s' "
+  cmd = stdr.str_concat(cmd, _shell_quote(text))
+  cmd = stdr.str_concat(cmd, " | grep -oE ")
+  cmd = stdr.str_concat(cmd, _shell_quote(pattern))
+  cmd = stdr.str_concat(cmd, " | head -1")
+  let result = stdr.str(stdr.run_command(cmd) ?? "")
+  return stdr.trim(result)
+}
+
+-- Find all occurrences of pattern in text.
+-- Returns an array of matched substrings.
+:: find_all(text = string, pattern = string) (( any )) {
+  let ?cmd = "printf '%s' "
+  cmd = stdr.str_concat(cmd, _shell_quote(text))
+  cmd = stdr.str_concat(cmd, " | grep -oE ")
+  cmd = stdr.str_concat(cmd, _shell_quote(pattern))
+  let raw = stdr.str(stdr.run_command(cmd) ?? "")
+  if stdr.len(raw) == 0 { return []: [any] }
+  return _split_lines(stdr.trim(raw))
+}
+
+-- Replace the first occurrence of pattern in text with replacement.
+:: replace(text = string, pattern = string, replacement = string) (( string )) {
+  let ?cmd = "printf '%s' "
+  cmd = stdr.str_concat(cmd, _shell_quote(text))
+  cmd = stdr.str_concat(cmd, " | sed -E 's/")
+  cmd = stdr.str_concat(cmd, _sed_escape(pattern))
+  cmd = stdr.str_concat(cmd, "/")
+  cmd = stdr.str_concat(cmd, _sed_escape(replacement))
+  cmd = stdr.str_concat(cmd, "/'")
+  let result = stdr.str(stdr.run_command(cmd) ?? "")
+  return stdr.trim(result)
+}
+
+-- Replace all occurrences of pattern in text with replacement.
+:: replace_all(text = string, pattern = string, replacement = string) (( string )) {
+  let ?cmd = "printf '%s' "
+  cmd = stdr.str_concat(cmd, _shell_quote(text))
+  cmd = stdr.str_concat(cmd, " | sed -E 's/")
+  cmd = stdr.str_concat(cmd, _sed_escape(pattern))
+  cmd = stdr.str_concat(cmd, "/")
+  cmd = stdr.str_concat(cmd, _sed_escape(replacement))
+  cmd = stdr.str_concat(cmd, "/g'")
+  let result = stdr.str(stdr.run_command(cmd) ?? "")
+  return stdr.trim(result)
+}
+
+-- Split text by a regex pattern delimiter.
+-- Returns an array of substrings.
+:: split(text = string, pattern = string) (( any )) {
+  let ?cmd = "printf '%s' "
+  cmd = stdr.str_concat(cmd, _shell_quote(text))
+  cmd = stdr.str_concat(cmd, " | sed -E 's/")
+  cmd = stdr.str_concat(cmd, _sed_escape(pattern))
+  cmd = stdr.str_concat(cmd, "/\\n/g'")
+  let raw = stdr.str(stdr.run_command(cmd) ?? "")
+  if stdr.len(raw) == 0 { return [text] }
+  return _split_lines(raw)
+}
+
+: _shell_quote(text = string) (( string )) {
+  let ?out = "'"
+  let ?i = 0
+  let n = stdr.len(text)
+  for (; i < n; i = i + 1) {
+    let ch = stdr.slice(text, i, i + 1)
+    if ch == "'" {
+      out = stdr.str_concat(out, "'\"'\"'")
+    } else {
+      out = stdr.str_concat(out, ch)
+    }
+  }
+  out = stdr.str_concat(out, "'")
+  return out
+}
+
+: _sed_escape(text = string) (( string )) {
+  let ?out = ""
+  let ?i = 0
+  let n = stdr.len(text)
+  for (; i < n; i = i + 1) {
+    let ch = stdr.slice(text, i, i + 1)
+    if ch == "/" || ch == "&" || ch == "\\" {
+      out = stdr.str_concat(out, "\\")
+    }
+    out = stdr.str_concat(out, ch)
+  }
+  return out
+}
+
+: _split_lines(text = string) (( any )) {
+  let ?result = []: [any]
+  let ?start = 0
+  let n = stdr.len(text)
+  let ?i = 0
+  for (; i < n; i += 1) {
+    if stdr.slice(text, i, i + 1) == "\n" {
+      let line = stdr.slice(text, start, i)
+      if stdr.len(line) > 0 {
+        stdr.push(result, line)
+      }
+      start = i + 1
+    }
+  }
+  if start < n {
+    stdr.push(result, stdr.slice(text, start, n))
+  }
+  return result
+}

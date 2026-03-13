@@ -51,6 +51,41 @@ bring stdr
   return [n, line, col]
 }
 
+: skip_block_comment(source = string, i = num, line = num, col = num) (( any )) {
+  let n = stdr.len(source)
+  let ?j = i
+  let ?cur_line = line
+  let ?cur_col = col
+  let ?depth = 1
+  for (; j < n && depth > 0; ) {
+    let c0 = stdr.slice(source, j, j + 1)
+    let ?c1 = ""
+    if j + 1 < n { c1 = stdr.slice(source, j + 1, j + 2) }
+    if c0 == "-" && c1 == "|" {
+      depth += 1
+      j += 2
+      cur_col += 2
+      continue
+    }
+    if c0 == "|" && c1 == "-" {
+      depth -= 1
+      j += 2
+      cur_col += 2
+      continue
+    }
+    if stdr.char_code(c0) == 10 {
+      j += 1
+      cur_line += 1
+      cur_col = 1
+    } else {
+      j += 1
+      cur_col += 1
+    }
+  }
+  if depth > 0 { return null }
+  return [j, cur_line, cur_col]
+}
+
 : skip_ws_and_comments(source = string, i = num, line = num, col = num, in_ret = bool) (( any )) {
   let n = stdr.len(source)
   let ?cur_i = i
@@ -59,10 +94,17 @@ bring stdr
   for (; true; ) {
     if cur_i >= n { return [cur_i, cur_line, cur_col] }
     let c = stdr.slice(source, cur_i, cur_i + 1)
-    -- Only treat -- as comment when NOT inside (( )) return type
-    if c == "-" && cur_i + 1 < n && !in_ret {
+    if c == "-" && cur_i + 1 < n {
       let c2 = stdr.slice(source, cur_i + 1, cur_i + 2)
-      if c2 == "-" {
+      if c2 == "|" {
+        let r = skip_block_comment(source, cur_i + 2, cur_line, cur_col + 2)
+        if stdr.is_null(r) { return [cur_i, cur_line, cur_col] }
+        cur_i = r[0] ?? 0
+        cur_line = r[1] ?? 1
+        cur_col = r[2] ?? 1
+        continue
+      }
+      if c2 == "-" && !in_ret {
         let r = skip_line_comment(source, cur_i + 2, cur_line, cur_col)
         cur_i = r[0] ?? 0
         cur_line = r[1] ?? 1

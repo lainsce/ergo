@@ -1,6 +1,8 @@
 #include "lexer.h"
 
 #include <ctype.h>
+#include <errno.h>
+#include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -72,6 +74,7 @@ static const char *tok_name_default(TokKind kind) {
         case TOK_MINUSEQ: return "-=";
         case TOK_STAREQ: return "*=";
         case TOK_SLASHEQ: return "/=";
+        case TOK_PERCENTEQ: return "%=";
         case TOK_QMARK: return "QMARK";
         case TOK_QQ: return "?" "?";
         case TOK_HASH: return "#";
@@ -157,6 +160,7 @@ const char *tok_kind_desc(TokKind kind) {
         case TOK_MINUSEQ: return "'-='";
         case TOK_STAREQ: return "'*='";
         case TOK_SLASHEQ: return "'/='";
+        case TOK_PERCENTEQ: return "'%='";
         case TOK_QMARK: return "'?'";
         case TOK_QQ: return "'?" "?'";
         case TOK_HASH: return "'#'";
@@ -629,6 +633,31 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             continue;
         }
 
+        // Block comment: -| ... |- (nestable)
+        if (two0 == '-' && two1 == '|') {
+            int bc_line = lx.line;
+            int bc_col = lx.col;
+            adv(&lx, 2); // skip -|
+            int depth = 1;
+            while (lx.i < lx.len && depth > 0) {
+                char c0 = peek(&lx, 0);
+                char c1 = (lx.i + 1 < lx.len) ? peek(&lx, 1) : '\0';
+                if (c0 == '-' && c1 == '|') {
+                    depth++;
+                    adv(&lx, 2);
+                } else if (c0 == '|' && c1 == '-') {
+                    depth--;
+                    adv(&lx, 2);
+                } else {
+                    adv(&lx, 1);
+                }
+            }
+            if (depth > 0) {
+                return set_error(&lx, err, bc_line, bc_col, "unterminated block comment");
+            }
+            continue;
+        }
+
         if (two0 == '-' && two1 == '-' && lx.ret_depth > 0) {
             if (!emit_simple(&lx, out, err, TOK_RET_VOID, STR_LIT("--"), lx.line, lx.col)) {
                 return false;
@@ -732,6 +761,14 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             }
             adv(&lx, 2);
             set_last(&lx, TOK_SLASHEQ);
+            continue;
+        }
+        if (two0 == '%' && two1 == '=') {
+            if (!emit_simple(&lx, out, err, TOK_PERCENTEQ, STR_LIT("%="), lx.line, lx.col)) {
+                return false;
+            }
+            adv(&lx, 2);
+            set_last(&lx, TOK_PERCENTEQ);
             continue;
         }
         if (two0 == '?' && two1 == '?') {
@@ -1025,7 +1062,12 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
                 }
                 memcpy(tmp, text.data, text.len);
                 tmp[text.len] = '\0';
+                errno = 0;
                 double val = strtod(tmp, NULL);
+                if (errno == ERANGE) {
+                    if (tmp != stack_tmp) free(tmp);
+                    return set_error(&lx, err, start_line, start_col, "floating-point literal is too large");
+                }
                 if (tmp != stack_tmp) free(tmp);
                 if (!emit_float(&lx, out, err, text, val, start_line, start_col)) {
                     return false;
@@ -1033,8 +1075,17 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
                 set_last(&lx, TOK_FLOAT);
             } else {
                 long long val = 0;
+                bool overflow = false;
                 for (size_t k = 0; k < text.len; k++) {
-                    val = val * 10 + (long long)(text.data[k] - '0');
+                    int digit = (int)(text.data[k] - '0');
+                    if (val > (LLONG_MAX - digit) / 10) {
+                        overflow = true;
+                        break;
+                    }
+                    val = val * 10 + (long long)digit;
+                }
+                if (overflow) {
+                    return set_error(&lx, err, start_line, start_col, "integer literal is too large");
                 }
                 if (!emit_int(&lx, out, err, text, val, start_line, start_col)) {
                     return false;

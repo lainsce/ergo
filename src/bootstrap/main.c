@@ -283,12 +283,54 @@ static const char *get_module_env_val(const char *name, const char *suffix) {
 // C compiler error translation: demangle C names → Yis names
 // ============================================================
 
+// Strip trailing __N suffix (codegen local variable numbering).
+static void strip_local_suffix(char *buf, size_t len) {
+    if (len < 3) return;
+    // Find last "__" then check digits after it
+    for (size_t i = len; i >= 2; i--) {
+        if (buf[i - 2] == '_' && buf[i - 1] == '_') {
+            bool all_digits = true;
+            for (size_t j = i; j < len; j++) {
+                if (!isdigit((unsigned char)buf[j])) { all_digits = false; break; }
+            }
+            if (all_digits && i < len) {
+                buf[i - 2] = '\0';
+            }
+            return;
+        }
+    }
+}
+
 // Demangle a C function name back to Yis-readable form.
-// yis_m_<mod>_<Class>_<method> → Class.method()
-// yis_<mod>_<name>             → <mod>.<name>()
+// Local variables: v_foo or foo__N           → foo
+// Methods:         yis_m_<mod>_<Class>_<meth> → Class.method()
+// Globals:         yis_g_<mod>_<name>         → <name>
+// Functions:       yis_<mod>_<name>           → <mod>.<name>()
 static void demangle_c_name(const char *name, char *out, size_t cap) {
     if (!name || !out || cap < 2) return;
     out[0] = '\0';
+
+    // Local variable with v_ prefix: v_my_button → my_button
+    if (strncmp(name, "v_", 2) == 0) {
+        snprintf(out, cap, "%s", name + 2);
+        strip_local_suffix(out, strlen(out));
+        return;
+    }
+
+    // Local variable with __N suffix: my_button__3 → my_button
+    {
+        size_t nlen = strlen(name);
+        if (nlen < 256) {
+            char tmp[256];
+            memcpy(tmp, name, nlen + 1);
+            size_t orig_len = nlen;
+            strip_local_suffix(tmp, nlen);
+            if (strlen(tmp) < orig_len) {
+                snprintf(out, cap, "%s", tmp);
+                return;
+            }
+        }
+    }
 
     // Method: yis_m_<mod>_<Class>_<method>
     if (strncmp(name, "yis_m_", 6) == 0) {
@@ -311,7 +353,6 @@ static void demangle_c_name(const char *name, char *out, size_t cap) {
             if (rest[i] == '_') { cls_end = i; break; }
         }
         if (cls_end >= rlen) {
-            // No method part
             snprintf(out, cap, "%.*s", (int)(cls_end - cls_start), rest + cls_start);
         } else {
             snprintf(out, cap, "%.*s.%s()",
@@ -327,7 +368,9 @@ static void demangle_c_name(const char *name, char *out, size_t cap) {
         return;
     }
 
-    // Function: yis_<rest> → <mod>.<func>()
+    // Function: yis_<mod>_<name>
+    // Use the module separator registered during codegen (first underscore AFTER
+    // a known module prefix). Fallback: split at first underscore.
     if (strncmp(name, "yis_", 4) == 0) {
         const char *rest = name + 4;
         const char *us = strchr(rest, '_');
@@ -340,6 +383,46 @@ static void demangle_c_name(const char *name, char *out, size_t cap) {
     }
 
     snprintf(out, cap, "%s", name);
+}
+
+// Demangle any quoted C names inside an error message in-place.
+// Scans for 'single-quoted' substrings and replaces known prefixes.
+static void demangle_error_message(const char *msg, char *out, size_t cap) {
+    if (!msg || !out || cap < 2) { if (out && cap) out[0] = '\0'; return; }
+    size_t olen = 0;
+    const char *p = msg;
+    while (*p && olen + 1 < cap) {
+        if (*p == '\'') {
+            // Find closing quote
+            const char *q2 = strchr(p + 1, '\'');
+            if (q2 && q2 > p + 1) {
+                size_t nlen = (size_t)(q2 - p - 1);
+                char cname[256];
+                if (nlen < sizeof(cname)) {
+                    memcpy(cname, p + 1, nlen);
+                    cname[nlen] = '\0';
+                    // Check if it looks like a mangled name
+                    if (strncmp(cname, "v_", 2) == 0 ||
+                        strncmp(cname, "yis_", 4) == 0 ||
+                        strstr(cname, "__")) {
+                        char yname[256];
+                        demangle_c_name(cname, yname, sizeof(yname));
+                        // Write 'demangled'
+                        if (olen + 1 + strlen(yname) + 1 + 1 < cap) {
+                            out[olen++] = '\'';
+                            memcpy(out + olen, yname, strlen(yname));
+                            olen += strlen(yname);
+                            out[olen++] = '\'';
+                            p = q2 + 1;
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+        out[olen++] = *p++;
+    }
+    out[olen] = '\0';
 }
 
 // Extract text between first pair of single-quote characters.
@@ -548,7 +631,7 @@ static int compile_c_with_translated_errors(const char *cmd) {
             continue;
         }
 
-        // 3) Redefinition of variable → strip v_ prefix
+        // 3) Redefinition of variable → demangle
         if (strstr(msg, "redefinition of")) {
             if (extract_single_quoted(msg, cname, sizeof(cname))) {
                 // Dedup
@@ -558,13 +641,7 @@ static int compile_c_with_translated_errors(const char *cmd) {
                 }
                 if (!dup) {
                     if (seen_count < seen_cap) { seen_keys[seen_count++] = strdup(cname); }
-                    if (strncmp(cname, "v_", 2) == 0) {
-                        snprintf(yname, sizeof(yname), "%s", cname + 2);
-                    } else if (strncmp(cname, "yis_", 4) == 0) {
-                        demangle_c_name(cname, yname, sizeof(yname));
-                    } else {
-                        snprintf(yname, sizeof(yname), "%s", cname);
-                    }
+                    demangle_c_name(cname, yname, sizeof(yname));
                     err_count++;
                     write_err_prefix(loc);
                     fprintf(stderr, "redefinition of '%s'\n", yname);
@@ -601,15 +678,17 @@ static int compile_c_with_translated_errors(const char *cmd) {
             continue;
         }
 
-        // 6) Generic fallback: strip [-W...] suffix
+        // 6) Generic fallback: strip [-W...] suffix, demangle quoted names
         {
             char clean[1024];
             snprintf(clean, sizeof(clean), "%s", msg);
             char *bracket = strstr(clean, " [-W");
             if (bracket) *bracket = '\0';
+            char demangled[1024];
+            demangle_error_message(clean, demangled, sizeof(demangled));
             err_count++;
             write_err_prefix(loc);
-            fprintf(stderr, "%s\n", clean);
+            fprintf(stderr, "%s\n", demangled);
         }
     }
 

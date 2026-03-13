@@ -23,6 +23,7 @@ def ?g_scope_order = []: [any]
 def ?g_global_def_names = []: [string => any]
 def ?g_def_types = []: [string => any]
 def ?g_bring_names = []: [string => any]
+def ?g_fun_origin = []: [string => any]
 def ?g_lambda_meta = []: [string => any]
 def ?g_lambda_ids = []: [any]
 def ?g_next_lambda_id = 1
@@ -210,15 +211,47 @@ def ?g_last_line_num = 0
   return stdr.slice(rest, 0, q2)
 }
 
+-- Strip trailing __N suffix (codegen local variable numbering).
+: _strip_local_suffix(name = string) (( string )) {
+  let n = stdr.len(name)
+  if n < 3 { return name }
+  let ?i = n - 1
+  for (; i >= 2; i -= 1) {
+    if stdr.slice(name, i - 2, i) == "__" {
+      let ?all_digits = true
+      let ?j = i
+      for (; j < n; j += 1) {
+        let c = stdr.char_code(stdr.slice(name, j, j + 1))
+        if c < 48 || c > 57 { all_digits = false }
+      }
+      if all_digits && i < n {
+        return stdr.slice(name, 0, i - 2)
+      }
+      return name
+    }
+  }
+  return name
+}
+
 -- Demangle a C function name back to a Yis-readable form.
--- yis_m_<mod>_<Class>_<method> → Class.method()
--- yis_<mod>_<name>             → <mod>.<name>()
+-- Local variables: v_foo or foo__N           → foo
+-- Methods:         yis_m_<mod>_<Class>_<meth> → Class.method()
+-- Globals:         yis_g_<mod>_<name>         → <name>
+-- Functions:       yis_<mod>_<name>           → <mod>.<name>()
 : _demangle_c_name(name = string) (( string )) {
+  if stdr.starts_with(name, "v_") {
+    return _strip_local_suffix(stdr.slice(name, 2, stdr.len(name)))
+  }
+
+  let stripped = _strip_local_suffix(name)
+  if stdr.len(stripped) < stdr.len(name) {
+    return stripped
+  }
+
   -- Method: yis_m_<mod>_<Class>_<method>
   if stdr.starts_with(name, "yis_m_") {
     let rest = stdr.slice(name, 6, stdr.len(name))
     let n = stdr.len(rest)
-    -- Find first uppercase segment = class name
     let ?cls_start = -1
     let ?i = 0
     for (; i < n; i = i + 1) {
@@ -229,7 +262,6 @@ def ?g_last_line_num = 0
       }
     }
     if cls_start < 0 { return name }
-    -- Find end of class name (next underscore)
     let ?cls_end = n
     i = cls_start + 1
     for (; i < n; i = i + 1) {
@@ -250,12 +282,10 @@ def ?g_last_line_num = 0
     return r
   }
 
-  -- Global var: yis_g_<mod>_<name>
   if stdr.starts_with(name, "yis_g_") {
     return stdr.slice(name, 6, stdr.len(name))
   }
 
-  -- Function: yis_<rest> → show as dotted form <mod>.<func>()
   if stdr.starts_with(name, "yis_") {
     let rest = stdr.slice(name, 4, stdr.len(name))
     let idx = stdr.index_of(rest, "_")
@@ -270,6 +300,33 @@ def ?g_last_line_num = 0
   }
 
   return name
+}
+
+: _demangle_error_message(msg = string) (( string )) {
+  let ?out = ""
+  let n = stdr.len(msg)
+  let ?i = 0
+  for (; i < n; i += 1) {
+    let ch = stdr.slice(msg, i, i + 1)
+    if ch == "'" {
+      let ?j = i + 1
+      for (; j < n; j += 1) {
+        if stdr.slice(msg, j, j + 1) == "'" { break }
+      }
+      if j < n && j > i + 1 {
+        let cname = stdr.slice(msg, i + 1, j)
+        if stdr.starts_with(cname, "v_") || stdr.starts_with(cname, "yis_") || stdr.index_of(cname, "__") >= 0 {
+          out = stdr.str_concat(out, "'")
+          out = stdr.str_concat(out, _demangle_c_name(cname))
+          out = stdr.str_concat(out, "'")
+          i = j
+          continue
+        }
+      }
+    }
+    out = stdr.str_concat(out, ch)
+  }
+  return out
 }
 
 -- Extract expected/have counts from "expected N, have M" error text.
@@ -440,12 +497,7 @@ def ?g_last_line_num = 0
     if stdr.contains(msg, "redefinition of") {
       let cname = _extract_single_quoted(msg)
       if stdr.len(cname) > 0 {
-        let ?yname = cname
-        if stdr.starts_with(cname, "v_") {
-          yname = stdr.slice(cname, 2, stdr.len(cname))
-        } elif stdr.starts_with(cname, "yis_") {
-          yname = _demangle_c_name(cname)
-        }
+        let yname = _demangle_c_name(cname)
         if stdr.is_null(seen[cname]) {
           seen[cname] = true
           err_count = err_count + 1
@@ -489,6 +541,7 @@ def ?g_last_line_num = 0
     if fb_bracket >= 0 {
       fallback_msg = stdr.slice(fallback_msg, 0, fb_bracket)
     }
+    fallback_msg = _demangle_error_message(fallback_msg)
     err_count = err_count + 1
     _write_err_prefix(loc)
     stdr.write(fallback_msg)
@@ -1047,6 +1100,7 @@ def ?g_last_line_num = 0
       let ?mf = g_mod_funs[mod_name] ?? []: [string => any]
       mf[fname] = true
       g_mod_funs[mod_name] = mf
+      g_fun_origin[fname] = mod_name
       -- Track all functions with arity
       let pk = "params"
       let params = d[pk] ?? []: [any]
@@ -1582,7 +1636,13 @@ def ?g_last_line_num = 0
           return r
         }
       }
-      let ?r = mangle_name(cask_name, fname)
+      let ?origin_mod = cask_name
+      let cur_mod_funs = g_mod_funs[cask_name] ?? []: [string => any]
+      if stdr.is_null(cur_mod_funs[fname]) {
+        let gf = stdr.str(g_fun_origin[fname] ?? "")
+        if stdr.len(gf) > 0 { origin_mod = gf }
+      }
+      let ?r = mangle_name(origin_mod, fname)
       r = stdr.str_concat(r, "(")
       r = emit_args(args, r, cask_name)
       r = stdr.str_concat(r, ")")
@@ -1680,6 +1740,20 @@ def ?g_last_line_num = 0
       r = stdr.str_concat(r, ", ")
       r = stdr.str_concat(r, idx_c)
       r = stdr.str_concat(r, ", ")
+      r = stdr.str_concat(r, rhs_c)
+      r = stdr.str_concat(r, ")")
+      return r
+    }
+    if lhs_tag == "member" {
+      let ok = "obj"
+      let fk = "field"
+      let obj_c = emit_expr(lhs[ok], cask_name)
+      let field = lhs[fk] ?? ""
+      let ?r = "yis_dict_set((YisDict*)("
+      r = stdr.str_concat(r, obj_c)
+      r = stdr.str_concat(r, ").as.p, stdr_str_lit(\"")
+      r = stdr.str_concat(r, field)
+      r = stdr.str_concat(r, "\"), ")
       r = stdr.str_concat(r, rhs_c)
       r = stdr.str_concat(r, ")")
       return r
@@ -1860,12 +1934,6 @@ def ?g_last_line_num = 0
         r = stdr.str_concat(r, "))")
         return r
       }
-      if field == "write" {
-        let ?r = "stdr_write("
-        r = emit_args(args, r, cask_name)
-        r = stdr.str_concat(r, ")")
-        return r
-      }
       if field == "writef" {
         let ?r = "stdr_writef_args("
         r = emit_args(args, r, cask_name)
@@ -1878,62 +1946,8 @@ def ?g_last_line_num = 0
         r = stdr.str_concat(r, ")")
         return r
       }
-      if field == "read_text_file" {
-        let ?r = "stdr_read_text_file("
-        r = emit_args(args, r, cask_name)
-        r = stdr.str_concat(r, ")")
-        return r
-      }
-      if field == "write_text_file" {
-        let ?r = "stdr_write_text_file("
-        r = emit_args(args, r, cask_name)
-        r = stdr.str_concat(r, ")")
-        return r
-      }
-      if field == "run_command" {
-        let ?r = "stdr_run_command("
-        r = emit_args(args, r, cask_name)
-        r = stdr.str_concat(r, ")")
-        return r
-      }
-      if field == "file_exists" {
-        let ?r = "stdr_file_exists("
-        r = emit_args(args, r, cask_name)
-        r = stdr.str_concat(r, ")")
-        return r
-      }
-      if field == "file_mtime" {
-        let ?r = "stdr_file_mtime("
-        r = emit_args(args, r, cask_name)
-        r = stdr.str_concat(r, ")")
-        return r
-      }
-      if field == "getcwd" {
-        return "stdr_getcwd()"
-      }
-      if field == "args" {
-        return "stdr_args()"
-      }
-      if field == "open_file_dialog" {
-        let ?r = "stdr_open_file_dialog("
-        r = emit_args(args, r, cask_name)
-        r = stdr.str_concat(r, ")")
-        return r
-      }
-      if field == "save_file_dialog" {
-        let ?r = "stdr_save_file_dialog("
-        r = emit_args(args, r, cask_name)
-        r = stdr.str_concat(r, ")")
-        return r
-      }
       if field == "concat" {
         let ?r = "stdr_array_concat("
-        r = emit_args(args, r, cask_name)
-        r = stdr.str_concat(r, ")")
-        return r
-      }
-      if field == "join" {
-        let ?r = "stdr_join("
         r = emit_args(args, r, cask_name)
         r = stdr.str_concat(r, ")")
         return r
@@ -2890,6 +2904,7 @@ def ?g_last_line_num = 0
   i = 0
   for (; i < n; i = i + 1) {
     let d = decls[i]
+    if d[tag] == "cask" { cask_name = d[name_key] ?? "init" }
     if d[tag] == "fun" {
       let fname = d[name_key] ?? ""
       if !stdr.is_null(seen_fun_decls[fname]) { continue }
@@ -2921,6 +2936,7 @@ def ?g_last_line_num = 0
   i = 0
   for (; i < n; i = i + 1) {
     let d = decls[i]
+    if d[tag] == "cask" { cask_name = d[name_key] ?? "init" }
     if d[tag] == "macro" {
       let mname = d[name_key] ?? ""
       if !stdr.is_null(fun_names[mname]) { continue }
@@ -2942,6 +2958,7 @@ def ?g_last_line_num = 0
   i = 0
   for (; i < n; i = i + 1) {
     let d = decls[i]
+    if d[tag] == "cask" { cask_name = d[name_key] ?? "init" }
     if d[tag] == "class" {
       let cls_name = d[name_key] ?? ""
       let methods = d[methods_key] ?? []: [any]
@@ -2973,6 +2990,7 @@ def ?g_last_line_num = 0
   i = 0
   for (; i < n; i = i + 1) {
     let d = decls[i]
+    if d[tag] == "cask" { cask_name = d[name_key] ?? "init" }
     if d[tag] == "fun" {
       let fname = d[name_key] ?? ""
       if !stdr.is_null(seen_fnwrap_decls[fname]) { continue }
@@ -2999,6 +3017,7 @@ def ?g_last_line_num = 0
   i = 0
   for (; i < n; i = i + 1) {
     let d = decls[i]
+    if d[tag] == "cask" { cask_name = d[name_key] ?? "init" }
     if d[tag] == "def" {
       let dname = d[name_key] ?? ""
       g_global_def_names[dname] = true
@@ -3022,6 +3041,7 @@ def ?g_last_line_num = 0
   for (; i < n; i = i + 1) {
     let d = decls[i]
     if d[tag] == "cask" {
+      cask_name = d[name_key] ?? "init"
       stdr.push(p, "// cask ")
       stdr.push(p, d[name_key] ?? "")
       stdr.push(p, "\n")
@@ -3065,6 +3085,7 @@ def ?g_last_line_num = 0
   i = 0
   for (; i < n; i = i + 1) {
     let d = decls[i]
+    if d[tag] == "cask" { cask_name = d[name_key] ?? "init" }
     if d[tag] == "fun" {
       let fname = d[name_key] ?? ""
       if !stdr.is_null(seen_fnwrap_bodies[fname]) { continue }
@@ -3098,6 +3119,7 @@ def ?g_last_line_num = 0
     i = 0
     for (; i < n; i = i + 1) {
       let d = decls[i]
+      if d[tag] == "cask" { cask_name = d[name_key] ?? "init" }
       if d[tag] == "def" {
         let dname = d[name_key] ?? ""
         let dinit = d[init_key]
@@ -5518,6 +5540,7 @@ def ?g_last_line_num = 0
   let brings = collect_brings(decls, src_dir)
   let nb = stdr.len(brings)
   g_bring_names = []: [string => any]
+  g_fun_origin = []: [string => any]
   let ?bi = 0
   for (; bi < nb; bi = bi + 1) {
     let binfo = brings[bi]
@@ -5970,6 +5993,8 @@ entry() (( -- )) {
     let out = result[1] ?? ""
     if code != 0 {
       stdr.write("Compilation FAIL!\n")
+      stdr.write(out ?? "")
+      stdr.write("\n")
       _translate_cc_output(out ?? "")
       return
     }

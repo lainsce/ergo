@@ -59,5 +59,8 @@ install_data(
   'src/stdlib/math.yi',
   'src/stdlib/net.yi',
   'src/stdlib/json.yi',
+  'src/stdlib/base64.yi',
+  'src/stdlib/datetime.yi',
+  'src/stdlib/regex.yi',
   install_dir : get_option('datadir') / 'yis' / 'stdlib'
 )

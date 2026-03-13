@@ -1,0 +1,79 @@
+cask base64
+
+bring stdr
+
+-- Yis Standard Library: base64.yi
+-- Base64 encoding/decoding backed by the `base64` command via stdr.run_command
+
+-- Encode a string to base64.
+:: encode(text = string) (( string )) {
+  let ?cmd = "printf '%s' "
+  cmd = stdr.str_concat(cmd, _shell_quote(text))
+  cmd = stdr.str_concat(cmd, " | base64")
+  let result = stdr.str(stdr.run_command(cmd) ?? "")
+  return _strip_newlines(result)
+}
+
+-- Decode a base64 string back to plain text.
+:: decode(encoded = string) (( string )) {
+  let ?cmd = "printf '%s' "
+  cmd = stdr.str_concat(cmd, _shell_quote(encoded))
+  cmd = stdr.str_concat(cmd, " | base64 -d 2>/dev/null || base64 -D 2>/dev/null")
+  let result = stdr.str(stdr.run_command(cmd) ?? "")
+  return result
+}
+
+-- Encode a file's contents to base64. Returns the base64 string.
+:: encode_file(path = string) (( string )) {
+  let ?cmd = "base64 < "
+  cmd = stdr.str_concat(cmd, _shell_quote(path))
+  let result = stdr.str(stdr.run_command(cmd) ?? "")
+  return _strip_newlines(result)
+}
+
+-- Check if a string is valid base64.
+:: is_valid(text = string) (( bool )) {
+  let n = stdr.len(text)
+  if n == 0 { return true }
+  if n % 4 != 0 { return false }
+  let ?i = 0
+  for (; i < n; i += 1) {
+    let c = stdr.char_code(stdr.slice(text, i, i + 1))
+    if c >= 65 && c <= 90 { continue }
+    if c >= 97 && c <= 122 { continue }
+    if c >= 48 && c <= 57 { continue }
+    if c == 43 || c == 47 { continue }
+    if c == 61 && i >= n - 2 { continue }
+    return false
+  }
+  return true
+}
+
+: _shell_quote(text = string) (( string )) {
+  let ?out = "'"
+  let ?i = 0
+  let n = stdr.len(text)
+  for (; i < n; i = i + 1) {
+    let ch = stdr.slice(text, i, i + 1)
+    if ch == "'" {
+      out = stdr.str_concat(out, "'\"'\"'")
+    } else {
+      out = stdr.str_concat(out, ch)
+    }
+  }
+  out = stdr.str_concat(out, "'")
+  return out
+}
+
+: _strip_newlines(text = string) (( string )) {
+  let ?out = ""
+  let ?i = 0
+  let n = stdr.len(text)
+  for (; i < n; i += 1) {
+    let ch = stdr.slice(text, i, i + 1)
+    if stdr.char_code(ch) != 10 && stdr.char_code(ch) != 13 {
+      out = stdr.str_concat(out, ch)
+    }
+  }
+  return out
+}

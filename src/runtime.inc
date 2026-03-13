@@ -10,12 +10,13 @@
 #include <limits.h>
 #include <time.h>
 #include <sys/stat.h>
+#include <stddef.h>
 
 #if defined(_WIN32)
 #include <windows.h>
 #include <io.h>
-#include <unistd.h>
 #endif
+#include <unistd.h>
 
 static int yis_stdout_isatty = 0;
 
@@ -372,7 +373,8 @@ static YisVal stdr_run_command(YisVal cmdv) {
   YisArr* out = stdr_arr_new(2);
   yis_arr_add(out, YV_INT(status));
   yis_arr_add(out, YV_STR(out_str));
-  return YV_ARR(out);
+  YisVal rv; rv.tag = EVT_ARR; rv.as.p = out;
+  return rv;
 }
 
 static YisVal stdr_file_exists(YisVal pathv) {
