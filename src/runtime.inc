@@ -10,9 +10,6 @@
 #include <limits.h>
 #include <time.h>
 #include <sys/stat.h>
-#if defined(__APPLE__)
-#include <CoreGraphics/CoreGraphics.h>
-#endif
 
 #if defined(_WIN32)
 #include <windows.h>
