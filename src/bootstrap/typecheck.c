@@ -2603,7 +2603,7 @@ static void set_arg_diag(Diag *err, Ctx *ctx, Expr *arg) {
 }
 
 static Ty *numeric_result(Arena *arena, Ty *a, Ty *b, Str path, int line, int col, const char *op, Diag *err) {
-    if (!ty_is_numeric(a) || !ty_is_numeric(b)) {
+    if ((!ty_is_numeric(a) && !ty_is_any(a)) || (!ty_is_numeric(b) && !ty_is_any(b))) {
         set_errf(err, path, line, col, "operator %s expects numeric types", op);
         return NULL;
     }
@@ -3199,7 +3199,7 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                     set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: unary - on nullable value", (int)ctx->cask_path.len, ctx->cask_path.data);
                     return NULL;
                 }
-                if (!ty_is_numeric(ty_strip_nullable(tx))) {
+                if (!ty_is_numeric(ty_strip_nullable(tx)) && !ty_is_any(ty_strip_nullable(tx))) {
                     set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: unary - expects numeric", (int)ctx->cask_path.len, ctx->cask_path.data);
                     return NULL;
                 }
@@ -3251,7 +3251,7 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
                     set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: comparison on nullable value", (int)ctx->cask_path.len, ctx->cask_path.data);
                     return NULL;
                 }
-                if (!ty_is_numeric(ty_strip_nullable(ta)) || !ty_is_numeric(ty_strip_nullable(tb))) {
+                if ((!ty_is_numeric(ty_strip_nullable(ta)) && !ty_is_any(ty_strip_nullable(ta))) || (!ty_is_numeric(ty_strip_nullable(tb)) && !ty_is_any(ty_strip_nullable(tb)))) {
                     char da[64];
                     char db[64];
                     ty_desc(ta, da, sizeof(da));

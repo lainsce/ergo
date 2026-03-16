@@ -186,7 +186,13 @@ bring stdr
       let v1 = hex_value(h1)
       let v2 = hex_value(h2)
       if v1 >= 0 && v2 >= 0 {
-        let ch = ascii_from_code(v1 * 16 + v2)
+        let value = v1 * 16 + v2
+        let ?ch = ""
+        if value <= 127 {
+          ch = ascii_from_code(value)
+        } else {
+          ch = stdr.char_from_code(value)
+        }
         if stdr.len(ch) > 0 {
           return escape_pair(ch, i + 4)
         }
@@ -208,8 +214,13 @@ bring stdr
       digits = digits + 1
       j = j + 1
     }
-    if digits > 0 && value <= 127 {
-      let ch = ascii_from_code(value)
+    if digits > 0 && value >= 0 {
+      let ?ch = ""
+      if value <= 127 {
+        ch = ascii_from_code(value)
+      } else {
+        ch = stdr.char_from_code(value)
+      }
       if stdr.len(ch) > 0 {
         return escape_pair(ch, j)
       }
@@ -232,11 +243,14 @@ bring stdr
       j = j + 1
     }
     if ok && digits > 0 && j < n && stdr.slice(source, j, j + 1) == "}" {
+      let ?out = ""
       if value <= 127 {
-        let out = ascii_from_code(value)
-        if stdr.len(out) > 0 {
-          return escape_pair(out, j + 1)
-        }
+        out = ascii_from_code(value)
+      } else {
+        out = stdr.char_from_code(value)
+      }
+      if stdr.len(out) > 0 {
+        return escape_pair(out, j + 1)
       }
     }
     return escape_pair("u", i + 2)
@@ -599,13 +613,11 @@ bring stdr
   let ?cur_col = col
   let ?cur_acc = acc
   let kind = "kind"
-  -- Track return type depth: (( increments, )) decrements.
-  -- When > 0, -- is not treated as a comment.
   let ?ret_depth = 0
   let ?last_kind = ""
+  let ?second_last_kind = ""
   for (; true; ) {
-    let in_ret = ret_depth > 0
-    let r = skip_ws_and_comments(source, cur_i, cur_line, cur_col, in_ret)
+    let r = skip_ws_and_comments(source, cur_i, cur_line, cur_col, ret_depth > 0)
     let i2 = r[0] ?? 0
     let line2 = r[1] ?? 1
     let col2 = r[2] ?? 1
@@ -618,13 +630,17 @@ bring stdr
     let ?next_col = 1
     next_col = stdr.num(lr[3] ?? 1)
     let tk = t[kind] ?? ""
-    -- Track (( and )) for ret_depth
-    if tk == "lpar" && last_kind == "lpar" { ret_depth = ret_depth + 1 }
-    if tk == "rpar" && last_kind == "rpar" && ret_depth > 0 { ret_depth = ret_depth - 1 }
-    last_kind = tk
+    if tk == "lpar" && last_kind == "lpar" && second_last_kind == "rpar" {
+      ret_depth = ret_depth + 1
+    }
+    if tk == "rpar" && last_kind == "rpar" && ret_depth > 0 {
+      ret_depth = ret_depth - 1
+    }
     stdr.push(cur_acc, t)
     if next_i >= n { return cur_acc }
     if tk == "eof" { return cur_acc }
+    second_last_kind = last_kind
+    last_kind = tk
     cur_i = next_i
     cur_line = next_line
     cur_col = next_col

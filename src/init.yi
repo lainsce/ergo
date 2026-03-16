@@ -140,6 +140,66 @@ def ?g_last_line_num = 0
   return true
 }
 
+: _hex_val(c = string) (( num )) {
+  let code = stdr.char_code(c)
+  if code >= 48 && code <= 57 { return code - 48 }
+  if code >= 97 && code <= 102 { return 10 + (code - 97) }
+  if code >= 65 && code <= 70 { return 10 + (code - 65) }
+  return -1
+}
+
+: _utf8_hex_escape(codepoint = num, hex = string) (( string )) {
+  -- Encode a Unicode codepoint as C hex escape bytes (\xNN\xNN...)
+  let ?parts = []: [any]
+  if codepoint <= 127 {
+    let hi = codepoint / 16
+    let lo = codepoint - hi * 16
+    let ?hx = "\\x"
+    hx = stdr.str_concat(hx, stdr.slice(hex, hi, hi + 1))
+    hx = stdr.str_concat(hx, stdr.slice(hex, lo, lo + 1))
+    return hx
+  }
+  -- Multi-byte UTF-8
+  let ?bytes = []: [any]
+  if codepoint <= 2047 {
+    stdr.push(bytes, 192 + (codepoint / 64))
+    stdr.push(bytes, 128 + (codepoint - (codepoint / 64) * 64))
+  } elif codepoint <= 65535 {
+    let b0 = codepoint / 4096
+    let rem1 = codepoint - b0 * 4096
+    let b1 = rem1 / 64
+    let b2 = rem1 - b1 * 64
+    stdr.push(bytes, 224 + b0)
+    stdr.push(bytes, 128 + b1)
+    stdr.push(bytes, 128 + b2)
+  } elif codepoint <= 1114111 {
+    let b0 = codepoint / 262144
+    let rem1 = codepoint - b0 * 262144
+    let b1 = rem1 / 4096
+    let rem2 = rem1 - b1 * 4096
+    let b2 = rem2 / 64
+    let b3 = rem2 - b2 * 64
+    stdr.push(bytes, 240 + b0)
+    stdr.push(bytes, 128 + b1)
+    stdr.push(bytes, 128 + b2)
+    stdr.push(bytes, 128 + b3)
+  } else {
+    return "?"
+  }
+  let ?result = ""
+  let ?bi = 0
+  for (; bi < stdr.len(bytes); bi = bi + 1) {
+    let bv = bytes[bi] ?? 0
+    let hi = bv / 16
+    let lo = bv - hi * 16
+    let ?hx = "\\x"
+    hx = stdr.str_concat(hx, stdr.slice(hex, hi, hi + 1))
+    hx = stdr.str_concat(hx, stdr.slice(hex, lo, lo + 1))
+    result = stdr.str_concat(result, hx)
+  }
+  return result
+}
+
 : _c_quote(text = string) (( string )) {
   let hex = "0123456789ABCDEF"
   let ?parts = []: [any]
@@ -149,6 +209,32 @@ def ?g_last_line_num = 0
   let ?i = 0
   for (; i < n; i = i + 1) {
     let code = stdr.char_code(stdr.slice(text, i, i + 1))
+    -- Handle \u{XXXX} unicode escape → UTF-8 \xNN sequences for C
+    if code == 92 && i + 1 < n {
+      let uc = stdr.slice(text, i + 1, i + 2)
+      if uc == "u" && i + 2 < n && stdr.slice(text, i + 2, i + 3) == "{" {
+        let ?j = i + 3
+        let ?value = 0
+        let ?digits = 0
+        let ?ok = true
+        for (; j < n; ) {
+          let ch = stdr.slice(text, j, j + 1)
+          if ch == "}" { break }
+          let hv = _hex_val(ch)
+          if hv < 0 { ok = false; break }
+          value = value * 16 + hv
+          digits = digits + 1
+          j = j + 1
+        }
+        if ok && digits > 0 && j < n && stdr.slice(text, j, j + 1) == "}" {
+          if chunk_start < i { stdr.push(parts, stdr.slice(text, chunk_start, i)) }
+          stdr.push(parts, _utf8_hex_escape(value, hex))
+          i = j
+          chunk_start = j + 1
+          continue
+        }
+      }
+    }
     let ?esc = ""
     if code == 10 { esc = "\\n" }
     elif code == 9 { esc = "\\t" }
@@ -5952,9 +6038,6 @@ entry() (( -- )) {
     let code = result[0] ?? 1
     let out = result[1] ?? ""
     if code != 0 {
-      stdr.write("Compilation FAIL!\n")
-      stdr.write(out ?? "")
-      stdr.write("\n")
       _translate_cc_output(out ?? "")
       return
     }
