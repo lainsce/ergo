@@ -6042,7 +6042,7 @@ entry() (( -- )) {
     cc_cmd = stdr.str_concat(cc_cmd, c_path)
     cc_cmd = stdr.str_concat(cc_cmd, "\" ")
     cc_cmd = stdr.str_concat(cc_cmd, cc_opt_flags)
-    cc_cmd = stdr.str_concat(cc_cmd, " -lm 2>&1")
+    cc_cmd = stdr.str_concat(cc_cmd, " -lm ")
     if uses_ext_module {
       let ?mod_cflags = ""
       let ?mod_ldflags = ""
@@ -6080,7 +6080,6 @@ entry() (( -- )) {
         cc_cmd = stdr.str_concat(cc_cmd, mod_ldflags)
         cc_cmd = stdr.str_concat(cc_cmd, " ")
       }
-      cc_cmd = stdr.str_concat(cc_cmd, " 2>&1")
     }
     if uses_ext_module && is_macos {
       if !prepare_macos_app_bundle(out_path, macos_bundle_id, app_name) {
@@ -6088,6 +6087,31 @@ entry() (( -- )) {
         return
       }
     }
+
+    -- Embed SVG resources as base64 into a header in .app/Contents/Resources
+    let ?embed_resource_dir = ""
+    if uses_ext_module && stdr.len(ext_packager_path) > 0 {
+      if stdr.len(bundle_dir) > 0 {
+        embed_resource_dir = stdr.str_concat(bundle_dir, "/Contents/Resources")
+      } else {
+        embed_resource_dir = dir_of(c_path)
+        if stdr.len(embed_resource_dir) == 0 { embed_resource_dir = "." }
+      }
+      let ?embed_cmd = "sh "
+      embed_cmd = stdr.str_concat(embed_cmd, shell_quote_arg(ext_packager_path))
+      embed_cmd = stdr.str_concat(embed_cmd, " --embed-resources ")
+      embed_cmd = stdr.str_concat(embed_cmd, shell_quote_arg(entry_path))
+      embed_cmd = stdr.str_concat(embed_cmd, " ")
+      embed_cmd = stdr.str_concat(embed_cmd, shell_quote_arg(embed_resource_dir))
+      embed_cmd = stdr.str_concat(embed_cmd, " 2>&1")
+      stdr.run_command(embed_cmd)
+      -- Add -I so the compiler finds the embedded header in Resources
+      cc_cmd = stdr.str_concat(cc_cmd, " -I")
+      cc_cmd = stdr.str_concat(cc_cmd, shell_quote_arg(embed_resource_dir))
+      cc_cmd = stdr.str_concat(cc_cmd, " ")
+    }
+
+    cc_cmd = stdr.str_concat(cc_cmd, " 2>&1")
 
     let result = stdr.run_command(cc_cmd)
     let code = result[0] ?? 1

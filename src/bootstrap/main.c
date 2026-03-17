@@ -1071,6 +1071,22 @@ int main(int argc, char **argv) {
             }
         }
 #endif
+        /* Pre-compile: generate embedded resources header next to the .c file */
+#if defined(__APPLE__) || defined(__linux__)
+        if (ext_packager_alloc && ext_packager_alloc[0]) {
+            char embed_cmd[8192];
+            /* Derive the directory containing the generated .c file */
+            char c_dir_buf[4096];
+            snprintf(c_dir_buf, sizeof(c_dir_buf), "%s", c_path);
+            char *_esl = strrchr(c_dir_buf, '/');
+            if (_esl) *_esl = '\0'; else strcpy(c_dir_buf, ".");
+            int _en = snprintf(embed_cmd, sizeof(embed_cmd),
+                               "sh \"%s\" --embed-resources \"%s\" \"%s\"",
+                               ext_packager_alloc, entry, c_dir_buf);
+            if (_en > 0 && (size_t)_en < sizeof(embed_cmd))
+                (void)system(embed_cmd);
+        }
+#endif
         char cmd[4096];
         int n = snprintf(cmd, sizeof(cmd), "%s %s %s %s -o %s %s",
                          cc_path(), cc_flags(), extra_cflags, c_path, bin_path, extra_ldflags);
