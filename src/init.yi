@@ -1139,7 +1139,7 @@ def ?g_last_line_num = 0
         mdict[mname] = true
         let mret = m[mret_key] ?? ""
         if stdr.len(mret) > 0 {
-          if mret != "any" && mret != "void" && mret != "--" && mret != "num" && mret != "string" && mret != "bool" {
+          if mret != "any" && mret != "void" && mret != "--" && mret != "num" && mret != "string" && mret != "bool" && mret != "fn" {
             let ?mkey = mod_name
             mkey = stdr.str_concat(mkey, ".")
             mkey = stdr.str_concat(mkey, cls_name)
@@ -1160,7 +1160,7 @@ def ?g_last_line_num = 0
       let ret = d[ret_key] ?? ""
       -- Track function return types for constructor resolution
       if stdr.len(ret) > 0 {
-        if ret != "any" && ret != "void" && ret != "--" && ret != "num" && ret != "string" && ret != "bool" {
+        if ret != "any" && ret != "void" && ret != "--" && ret != "num" && ret != "string" && ret != "bool" && ret != "fn" {
           let ?key = mod_name
           key = stdr.str_concat(key, ".")
           key = stdr.str_concat(key, fname)

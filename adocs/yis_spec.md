@@ -167,6 +167,7 @@ Function return syntax:
 - Void: `(( -- ))`
 - Single return: `(( num ))`
 - Multi return tuple: `(( num, string ))` or `(( num; string ))`
+- Delegate / function reference: `(( -> ))`
 
 ### 6.4 Generic Type Variables
 

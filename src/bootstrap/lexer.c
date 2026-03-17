@@ -81,6 +81,7 @@ static const char *tok_name_default(TokKind kind) {
         case TOK_RET_L: return "((";
         case TOK_RET_R: return "))";
         case TOK_RET_VOID: return "--";
+        case TOK_RET_VECTOR: return "->";
         case TOK_KW_cask: return "KW_cask";
         case TOK_KW_bring: return "KW_bring";
         case TOK_KW_fun: return "KW_fun";
@@ -169,6 +170,7 @@ const char *tok_kind_desc(TokKind kind) {
         case TOK_RET_L: return "'(('";
         case TOK_RET_R: return "'))'";
         case TOK_RET_VOID: return "'--'";
+        case TOK_RET_VECTOR: return "'->'";
         
         // Keywords
         case TOK_KW_cask: return "'cask'";
@@ -655,6 +657,15 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             if (depth > 0) {
                 return set_error(&lx, err, bc_line, bc_col, "unterminated block comment");
             }
+            continue;
+        }
+
+        if (two0 == '-' && two1 == '>' && lx.ret_depth > 0) {
+            if (!emit_simple(&lx, out, err, TOK_RET_VECTOR, STR_LIT("->"), lx.line, lx.col)) {
+                return false;
+            }
+            adv(&lx, 2);
+            set_last(&lx, TOK_RET_VECTOR);
             continue;
         }
 

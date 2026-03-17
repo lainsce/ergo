@@ -560,6 +560,20 @@ static RetSpec parse_ret_spec(Parser *p) {
         spec.types_len = 0;
         return spec;
     }
+    if (at(p, TOK_RET_VECTOR)) {
+        eat(p, TOK_RET_VECTOR);
+        eat(p, TOK_RET_R);
+        TypeRef *ty = (TypeRef *)ast_alloc(p->arena, sizeof(TypeRef));
+        if (!ty) { parser_set_oom(p); return spec; }
+        ty->kind = TYPE_NAME;
+        ty->as.name = STR_LIT("any");
+        spec.is_void = false;
+        spec.types = (TypeRef **)ast_alloc(p->arena, sizeof(TypeRef *));
+        if (!spec.types) { parser_set_oom(p); return spec; }
+        spec.types[0] = ty;
+        spec.types_len = 1;
+        return spec;
+    }
     PtrVec types = {0};
     TypeRef *ty = parse_type(p);
     if (!p->ok) return spec;

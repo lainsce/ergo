@@ -1276,11 +1276,18 @@ bring stdr
     -- (( )) — the -- was eaten as a comment; treat as void
     ret = "void"
   } elif tr[kind] == "minus" {
-    -- (( -- ))
-    ret = "void"
-    j = j + 1
-    let td = peek(toks, j)
-    if td[kind] == "minus" { j = j + 1 }
+    let tn = peek(toks, j + 1)
+    if tn[kind] == "gt" {
+      -- (( -> )) delegate / function type
+      ret = "fn"
+      j = j + 2
+    } else {
+      -- (( -- ))
+      ret = "void"
+      j = j + 1
+      let td = peek(toks, j)
+      if td[kind] == "minus" { j = j + 1 }
+    }
   } elif tr[kind] == "lbrack" {
     ret = "any"
     j = j + 1

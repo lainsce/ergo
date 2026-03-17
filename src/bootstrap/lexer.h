@@ -57,6 +57,7 @@ typedef enum {
     TOK_RET_L,
     TOK_RET_R,
     TOK_RET_VOID,
+    TOK_RET_VECTOR,
     TOK_KW_cask,
     TOK_KW_bring,
     TOK_KW_fun,
