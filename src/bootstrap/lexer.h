@@ -27,6 +27,7 @@ typedef enum {
     TOK_RBRACE,
     TOK_COMMA,
     TOK_DOT,
+    TOK_DOTCOLON,
     TOK_COLON,
     TOK_COLONCOLON,
     TOK_PLUS,

@@ -273,7 +273,13 @@ bring stdr
   if c == "{" { return [tok("lbrace", line, col, "", 0, ""), i + 1, line, col + 1] }
   if c == "}" { return [tok("rbrace", line, col, "", 0, ""), i + 1, line, col + 1] }
   if c == "," { return [tok("comma", line, col, "", 0, ""), i + 1, line, col + 1] }
-  if c == "." { return [tok("dot", line, col, "", 0, ""), i + 1, line, col + 1] }
+  if c == "." {
+    if i + 1 < n {
+      let c2 = stdr.slice(source, i + 1, i + 2)
+      if c2 == ":" { return [tok("dotcolon", line, col, "", 0, ""), i + 2, line, col + 2] }
+    }
+    return [tok("dot", line, col, "", 0, ""), i + 1, line, col + 1]
+  }
   if c == ":" {
     if i + 1 < n {
       let c2 = stdr.slice(source, i + 1, i + 2)

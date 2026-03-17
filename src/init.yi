@@ -13,6 +13,7 @@ def ?g_cur_class = ""
 def ?g_cur_mod = ""
 def ?g_mod_funs = []: [string => any]
 def ?g_all_funs = []: [string => any]
+def ?g_interfaces = []: [string => any]
 -- Module cache: resolved paths and parsed ASTs (avoid re-reading/re-parsing)
 def ?g_path_cache = []: [string => any]
 def ?g_ast_cache = []: [string => any]
@@ -1153,6 +1154,60 @@ def ?g_last_line_num = 0
       info["methods"] = mdict
       info["mod"] = mod_name
       g_classes[cls_name] = info
+
+      -- Check interface conformance if class declares a base
+      let base_key = "base"
+      let cls_base = d[base_key] ?? ""
+      if stdr.len(cls_base) > 0 {
+        let iface_info = g_interfaces[cls_base] ?? []: [string => any]
+        let iface_check_name = iface_info["name"] ?? ""
+        if stdr.len(iface_check_name) > 0 {
+          -- Check primary initiator method (only when interface has params)
+          let iface_iname = iface_info["name"] ?? ""
+          let pk2 = "params"
+          let iface_params = iface_info[pk2] ?? []: [any]
+          if stdr.len(iface_params) > 0 {
+            if stdr.is_null(mdict[iface_iname]) {
+              write("error: class '")
+              write(cls_name)
+              write("' conforms to interface '")
+              write(cls_base)
+              write("' but is missing initiator method '")
+              write(iface_iname)
+              write("'\n")
+            }
+          }
+          -- Check :: contract methods
+          let iface_methods = iface_info["methods"] ?? []: [any]
+          let ?im = 0
+          let nim = stdr.len(iface_methods)
+          for (; im < nim; im = im + 1) {
+            let im_node = iface_methods[im]
+            let im_name = im_node[name_key] ?? ""
+            if stdr.is_null(mdict[im_name]) {
+              write("error: class '")
+              write(cls_name)
+              write("' conforms to interface '")
+              write(cls_base)
+              write("' but is missing method '")
+              write(im_name)
+              write("'\n")
+            }
+          }
+        }
+      }
+    }
+
+    if dt == "interface" {
+      let iface_name = d[name_key] ?? ""
+      let ?iinfo = []: [string => any]
+      iinfo["name"] = iface_name
+      let pk = "params"
+      iinfo["params"] = d[pk] ?? []: [any]
+      iinfo["ret"] = d[ret_key] ?? "any"
+      let mk = "methods"
+      iinfo["methods"] = d[mk] ?? []: [any]
+      g_interfaces[iface_name] = iinfo
     }
 
     if dt == "fun" {

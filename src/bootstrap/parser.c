@@ -214,6 +214,7 @@ static Decl *parse_entry(Parser *p);
 static Decl *parse_const_decl(Parser *p, bool is_pub);
 static Decl *parse_def_decl(Parser *p, bool is_pub);
 static Decl *parse_nominal(Parser *p);
+static Decl *parse_iface(Parser *p);
 static Import *parse_import(Parser *p);
 
 static Expr *new_expr(Parser *p, ExprKind kind, Tok *t);
@@ -1126,6 +1127,38 @@ static Decl *parse_nominal(Parser *p) {
     return decl;
 }
 
+static Decl *parse_iface(Parser *p) {
+    Tok *t = eat(p, TOK_DOTCOLON);
+    if (!p->ok) return NULL;
+    Tok *name_tok = eat(p, TOK_IDENT);
+    if (!p->ok) return NULL;
+    eat(p, TOK_LPAR);
+    size_t params_len = 0;
+    Param **params = parse_params(p, &params_len);
+    eat(p, TOK_RPAR);
+    RetSpec ret = parse_ret_spec(p);
+    eat(p, TOK_LBRACE);
+    PtrVec methods = {0};
+    skip_semi(p);
+    while (at(p, TOK_COLONCOLON) && p->ok) {
+        eat(p, TOK_COLONCOLON);
+        FunDecl *fun = parse_fun_decl(p, true);
+        if (!p->ok) return NULL;
+        ptrvec_push(p, &methods, fun);
+        skip_semi(p);
+    }
+    eat(p, TOK_RBRACE);
+    Decl *decl = new_decl(p, DECL_IFACE, t);
+    if (!decl) return NULL;
+    decl->as.iface.name = name_tok->val.ident;
+    decl->as.iface.params = params;
+    decl->as.iface.params_len = params_len;
+    decl->as.iface.ret = ret;
+    decl->as.iface.methods = (FunDecl **)ptrvec_finalize(p, &methods);
+    decl->as.iface.methods_len = methods.len;
+    return decl;
+}
+
 static Expr *parse_expr(Parser *p, int min_prec) {
     Expr *x = parse_unary(p);
     while (p->ok) {
@@ -1870,6 +1903,10 @@ Module *parse_cask(Tok *toks, size_t len, const char *path, Arena *arena, Diag *
         } else if (at(&p, TOK_KW_pub) || at(&p, TOK_KW_lock) || at(&p, TOK_KW_seal) ||
                    at(&p, TOK_KW_class) || at(&p, TOK_KW_struct) || at(&p, TOK_KW_enum)) {
             Decl *decl = parse_nominal(&p);
+            if (!p.ok) return NULL;
+            ptrvec_push(&p, &decls, decl);
+        } else if (at(&p, TOK_DOTCOLON)) {
+            Decl *decl = parse_iface(&p);
             if (!p.ok) return NULL;
             ptrvec_push(&p, &decls, decl);
         } else {

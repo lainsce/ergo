@@ -2199,7 +2199,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
         Module *m = prog->mods[i];
         for (size_t j = 0; j < m->decls_len; j++) {
             Decl *d = m->decls[j];
-            if (d->kind == DECL_CLASS) class_count++;
+            if (d->kind == DECL_CLASS || d->kind == DECL_IFACE) class_count++;
             if (d->kind == DECL_FUN) fun_count++;
         }
     }
@@ -2261,6 +2261,18 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
         Str mod_name = env->cask_names[i].name;
         for (size_t j = 0; j < m->decls_len; j++) {
             Decl *d = m->decls[j];
+            if (d->kind == DECL_IFACE) {
+                Str qname = qualify_class_name(arena, mod_name, d->as.iface.name);
+                ClassInfo *ci = &env->classes[cidx++];
+                memset(ci, 0, sizeof(ClassInfo));
+                ci->name = d->as.iface.name;
+                ci->cask = mod_name;
+                ci->qname = qname;
+                ci->vis = str_from_c("pub");
+                ci->kind = CLASS_KIND_IFACE;
+                ci->cask_path = m->path;
+                continue;
+            }
             if (d->kind != DECL_CLASS) continue;
             Str qname = qualify_class_name(arena, mod_name, d->as.class_decl.name);
             if (find_class(env, qname)) {
@@ -2314,7 +2326,7 @@ GlobalEnv *build_global_env(Program *prog, Arena *arena, Diag *err) {
                              (int)d->as.class_decl.base_name.len, d->as.class_decl.base_name.data);
                     return NULL;
                 }
-                if (base_ci->kind != CLASS_KIND_CLASS) {
+                if (base_ci->kind != CLASS_KIND_CLASS && base_ci->kind != CLASS_KIND_IFACE) {
                     set_errf(err, m->path, d->line, d->col, "%.*s: base type '%.*s' is not a class",
                              (int)m->path.len, m->path.data,
                              (int)base_ci->name.len, base_ci->name.data);

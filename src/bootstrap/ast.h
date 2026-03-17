@@ -346,7 +346,8 @@ typedef enum {
     DECL_ENTRY,
     DECL_CLASS,
     DECL_CONST,
-    DECL_DEF
+    DECL_DEF,
+    DECL_IFACE
 } DeclKind;
 
 typedef struct Decl Decl;
@@ -395,7 +396,8 @@ typedef struct {
 typedef enum {
     CLASS_KIND_CLASS,
     CLASS_KIND_STRUCT,
-    CLASS_KIND_ENUM
+    CLASS_KIND_ENUM,
+    CLASS_KIND_IFACE
 } ClassKind;
 
 typedef struct {
@@ -411,6 +413,15 @@ typedef struct {
     size_t methods_len;
 } ClassDecl;
 
+typedef struct {
+    Str name;
+    Param **params;
+    size_t params_len;
+    RetSpec ret;
+    FunDecl **methods;
+    size_t methods_len;
+} IfaceDecl;
+
 struct Decl {
     DeclKind kind;
     int line;
@@ -422,6 +433,7 @@ struct Decl {
         ClassDecl class_decl;
         ConstDecl const_decl;
         DefDecl def_decl;
+        IfaceDecl iface;
     } as;
 };
 

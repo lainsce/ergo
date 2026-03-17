@@ -51,6 +51,7 @@ static const char *tok_name_default(TokKind kind) {
         case TOK_RBRACE: return "RBRACE";
         case TOK_COMMA: return "COMMA";
         case TOK_DOT: return "DOT";
+        case TOK_DOTCOLON: return "DOTCOLON";
         case TOK_COLON: return "COLON";
         case TOK_COLONCOLON: return "COLONCOLON";
         case TOK_PLUS: return "+";
@@ -136,6 +137,7 @@ const char *tok_kind_desc(TokKind kind) {
         case TOK_RBRACE: return "'}'";
         case TOK_COMMA: return "','";
         case TOK_DOT: return "'.'";
+        case TOK_DOTCOLON: return "'.:'";
         case TOK_COLON: return "':'";
         case TOK_COLONCOLON: return "'::'";
         
@@ -788,6 +790,14 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             }
             adv(&lx, 2);
             set_last(&lx, TOK_QQ);
+            continue;
+        }
+        if (two0 == '.' && two1 == ':') {
+            if (!emit_simple(&lx, out, err, TOK_DOTCOLON, STR_LIT(".:"), lx.line, lx.col)) {
+                return false;
+            }
+            adv(&lx, 2);
+            set_last(&lx, TOK_DOTCOLON);
             continue;
         }
         if (two0 == ':' && two1 == ':') {

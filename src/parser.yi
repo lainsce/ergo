@@ -1487,6 +1487,54 @@ bring stdr
     }
   }
 
+  -- interface declaration: .: Name(params) (( ret )) { :: method(params) (( ret )) {} ... }
+  if t[kind] == "dotcolon" {
+    let tag = "tag"
+    let text = "text"
+    let ?j = i + 1
+    let tname = peek(toks, j)
+    let iface_name = tname[text] ?? ""
+    j = j + 1
+    -- Parse params
+    let params_res = parse_params(toks, j)
+    j = stdr.num(params_res[0] ?? j)
+    let params = params_res[1] ?? []: [any]
+    -- Parse return type
+    let ret_res = parse_ret_type(toks, j)
+    j = stdr.num(ret_res[0] ?? j)
+    let ret_type = ret_res[1] ?? "any"
+    -- Parse body: { :: methods }
+    let tb = peek(toks, j)
+    if tb[kind] == "lbrace" { j = j + 1 }
+    let ?methods = []: [any]
+    for (; true; ) {
+      let tm = peek(toks, j)
+      if tm[kind] == "rbrace" || tm[kind] == "eof" { break }
+      if tm[kind] == "coloncolon" {
+        let mres = parse_fun_decl(toks, j)
+        let mnext = stdr.num(mres[0] ?? j)
+        let mnode = mres[1]
+        if !stdr.is_null(mnode) { stdr.push(methods, mnode) }
+        j = mnext
+      } else {
+        j = j + 1
+      }
+    }
+    let tc = peek(toks, j)
+    if tc[kind] == "rbrace" { j = j + 1 }
+    let ?node = []: [string => any]
+    node[tag] = "interface"
+    let nk = "name"
+    let pk = "params"
+    let rk = "ret"
+    let mk = "methods"
+    node[nk] = iface_name
+    node[pk] = params
+    node[rk] = ret_type
+    node[mk] = methods
+    return pair(j, node)
+  }
+
   -- class declaration: [pub] class Name { [pub] fun method(this, ...) { ... } ... }
   if t[kind] == "kw_class" || (t[kind] == "kw_pub" && peek(toks, i + 1)[kind] == "kw_class") {
     let tag = "tag"
@@ -1501,6 +1549,15 @@ bring stdr
     let tname = peek(toks, j)
     let cls_name = tname[text] ?? ""
     j = j + 1
+    -- optional base/interface: class Name : Base { ... }
+    let ?base_name = ""
+    let tb0 = peek(toks, j)
+    if tb0[kind] == "colon" {
+      j = j + 1
+      let tbase = peek(toks, j)
+      base_name = tbase[text] ?? ""
+      j = j + 1
+    }
     -- expect {
     let tb = peek(toks, j)
     if tb[kind] == "lbrace" { j = j + 1 }
@@ -1529,9 +1586,11 @@ bring stdr
     let nk = "name"
     let mk = "methods"
     let pk = "pub"
+    let bk = "base"
     node[nk] = cls_name
     node[mk] = methods
     node[pk] = is_pub_cls
+    node[bk] = base_name
     return pair(j, node)
   }
 

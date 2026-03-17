@@ -671,6 +671,8 @@ bool program_find_appid_name(Program *prog, char *out, size_t out_cap) {
                         if (meth) find_appid_stmt(meth->body, out, out_cap, &found);
                     }
                     break;
+                case DECL_IFACE:
+                    break;
             }
         }
     }

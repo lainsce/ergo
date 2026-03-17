@@ -124,6 +124,7 @@ Allowed top-level declarations:
 - `macro`
 - `entry`
 - nominal declarations: `class`, `struct`, `enum` (with optional `pub` / `lock` / `seal` prefixes)
+- interface declarations: `.:` (dot-colon)
 - `def` (module global, optionally `pub`)
 - `const` (module constants, general-purpose, optionally `pub`)
 
@@ -262,7 +263,39 @@ enum Result = [
   - inheriting from a sealed class is a compile-time error.
 - Inheritance currently enforces base-class validity and sealed-class rejection; it does not yet add broader polymorphic dispatch semantics.
 
-### 8.5 Visibility (`pub`)
+### 8.5 Interfaces
+
+Interfaces declare a contract — a set of method signatures that conforming classes must implement. Declared with `.:` (dot-colon):
+
+```yis
+.: Clickable(x = num, y = num) (( bool )) {
+  :: on_hover(x = num) (( -- )) {}
+}
+```
+
+- `.: Name(params) (( ret ))` is the **initiator** — the primary entry point of the contract.
+- `:: method(params) (( ret )) {}` inside the body declares additional required methods.
+- No body implementation is provided in the interface — only signatures.
+
+**Conformance:** A class conforms to an interface via `: InterfaceName`:
+
+```yis
+class Button : Clickable {
+  :: Clickable(x = num, y = num) (( bool )) {
+    return true
+  }
+  :: on_hover(x = num) (( -- )) {
+    -- handle hover
+  }
+}
+```
+
+- The class must implement the initiator method (matching the interface name) AND all `::` methods from the interface body.
+- Missing required methods produce a compile-time error.
+- Conformance is checked at compile time only — no runtime vtable.
+- Interface names can be used as parameter types; they resolve to `any` at the C level.
+
+### 8.6 Visibility (`pub`)
 
 - `pub` controls cross-cask (cross-file module) access.
 - Non-`pub` symbols are cask-private.
