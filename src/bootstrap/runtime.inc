@@ -755,6 +755,7 @@ static YisVal yis_move(YisVal* slot) {
 }
 
 static void yis_move_into(YisVal* slot, YisVal v) {
+  yis_retain_val(v);
   yis_release_val(*slot);
   *slot = v;
 }

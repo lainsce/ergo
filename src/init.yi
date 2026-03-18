@@ -28,6 +28,7 @@ def ?g_fun_origin = []: [string => any]
 def ?g_lambda_meta = []: [string => any]
 def ?g_lambda_ids = []: [any]
 def ?g_next_lambda_id = 1
+def ?g_tmp_counter = 0
 def ?g_src_dir = ""
 def ?g_emit_file_path = ""
 def ?g_last_line_num = 0
@@ -1153,10 +1154,37 @@ def ?g_last_line_num = 0
       let ?info = []: [string => any]
       info["methods"] = mdict
       info["mod"] = mod_name
+
+      -- Collect field metadata from class AST
+      let fields_key = "fields"
+      let raw_fields = d[fields_key] ?? []: [any]
+      let ?flist = []: [any]
+      let ?fmap = []: [string => any]
+      let ?fi = 0
+      let nf = stdr.len(raw_fields)
+      for (; fi < nf; fi = fi + 1) {
+        let fd = raw_fields[fi]
+        let fn2 = fd[name_key] ?? ""
+        let ft = fd["type"] ?? "any"
+        let fp = fd["pub"] ?? false
+        let ?finfo = []: [string => any]
+        finfo["name"] = fn2
+        finfo["type"] = ft
+        finfo["pub"] = fp
+        finfo["index"] = fi
+        stdr.push(flist, finfo)
+        fmap[fn2] = finfo
+      }
+      info["fields"] = flist
+      info["field_map"] = fmap
+
+      -- Store base class name
+      let base_key = "base"
+      info["base"] = d[base_key] ?? ""
+
       g_classes[cls_name] = info
 
       -- Check interface conformance if class declares a base
-      let base_key = "base"
       let cls_base = d[base_key] ?? ""
       if stdr.len(cls_base) > 0 {
         let iface_info = g_interfaces[cls_base] ?? []: [string => any]
@@ -1295,6 +1323,10 @@ def ?g_last_line_num = 0
           if stdr.len(vtype) > 0 { return vtype }
         }
         -- Module.function() call: look up return type
+        -- Cross-module constructor: mod.ClassName(args) returns class type
+        let te_mcls = g_classes[field] ?? []: [string => any]
+        let te_mcls_fields = te_mcls["fields"] ?? []: [any]
+        if stdr.len(te_mcls_fields) > 0 { return field }
         let ?key = obj_name
         key = stdr.str_concat(key, ".")
         key = stdr.str_concat(key, field)
@@ -1309,6 +1341,10 @@ def ?g_last_line_num = 0
       -- Direct function call: look up return type
       let nk = "name"
       let fname = callee[nk] ?? ""
+      -- Constructor call: ClassName(args) returns that class type
+      let te_cls = g_classes[fname] ?? []: [string => any]
+      let te_cls_fields = te_cls["fields"] ?? []: [any]
+      if stdr.len(te_cls_fields) > 0 { return fname }
       let ?key = cask_name
       key = stdr.str_concat(key, ".")
       key = stdr.str_concat(key, fname)
@@ -1762,6 +1798,89 @@ def ?g_last_line_num = 0
           return r
         }
       }
+      -- Class constructor: ClassName(args) → allocate struct, init fields, call init()
+      let cls_info2 = g_classes[fname] ?? []: [string => any]
+      let cls_fields2 = cls_info2["fields"] ?? []: [any]
+      if stdr.len(cls_fields2) > 0 {
+        let cls_mod2 = cls_info2["mod"] ?? cask_name
+        let nf2 = stdr.len(cls_fields2)
+        let na2 = stdr.len(args)
+        -- Generate unique temp name
+        g_tmp_counter = g_tmp_counter + 1
+        let ?obj_var = "_obj"
+        obj_var = stdr.str_concat(obj_var, str(g_tmp_counter))
+        let ?r = "({\n"
+        -- Allocate
+        r = stdr.str_concat(r, "    YisObj_")
+        r = stdr.str_concat(r, cls_mod2)
+        r = stdr.str_concat(r, "_")
+        r = stdr.str_concat(r, fname)
+        r = stdr.str_concat(r, "* ")
+        r = stdr.str_concat(r, obj_var)
+        r = stdr.str_concat(r, " = (YisObj_")
+        r = stdr.str_concat(r, cls_mod2)
+        r = stdr.str_concat(r, "_")
+        r = stdr.str_concat(r, fname)
+        r = stdr.str_concat(r, "*)yis_obj_new(sizeof(YisObj_")
+        r = stdr.str_concat(r, cls_mod2)
+        r = stdr.str_concat(r, "_")
+        r = stdr.str_concat(r, fname)
+        r = stdr.str_concat(r, "), yis_drop_")
+        r = stdr.str_concat(r, cls_mod2)
+        r = stdr.str_concat(r, "_")
+        r = stdr.str_concat(r, fname)
+        r = stdr.str_concat(r, ");\n")
+        -- Init all fields to YV_NULLV
+        let ?fi2 = 0
+        for (; fi2 < nf2; fi2 = fi2 + 1) {
+          let fd2 = cls_fields2[fi2]
+          let fn4 = fd2["name"] ?? ""
+          r = stdr.str_concat(r, "    ")
+          r = stdr.str_concat(r, obj_var)
+          r = stdr.str_concat(r, "->f_")
+          r = stdr.str_concat(r, fn4)
+          r = stdr.str_concat(r, " = YV_NULLV;\n")
+        }
+        -- Assign positional args to fields
+        let ?ai = 0
+        for (; ai < na2 && ai < nf2; ai = ai + 1) {
+          let fd2 = cls_fields2[ai]
+          let fn4 = fd2["name"] ?? ""
+          r = stdr.str_concat(r, "    yis_move_into(&")
+          r = stdr.str_concat(r, obj_var)
+          r = stdr.str_concat(r, "->f_")
+          r = stdr.str_concat(r, fn4)
+          r = stdr.str_concat(r, ", ")
+          r = stdr.str_concat(r, emit_expr(args[ai], cask_name))
+          r = stdr.str_concat(r, ");\n")
+        }
+        -- Wrap in YisVal
+        r = stdr.str_concat(r, "    YisVal ")
+        r = stdr.str_concat(r, obj_var)
+        r = stdr.str_concat(r, "_v = YV_OBJ((YisObj*)")
+        r = stdr.str_concat(r, obj_var)
+        r = stdr.str_concat(r, ");\n")
+        -- Call init() if it exists
+        let cls_methods2 = cls_info2["methods"] ?? []: [string => any]
+        if !stdr.is_null(cls_methods2["init"]) {
+          r = stdr.str_concat(r, "    ")
+          r = stdr.str_concat(r, mangle_method(cls_mod2, fname, "init"))
+          r = stdr.str_concat(r, "(")
+          r = stdr.str_concat(r, obj_var)
+          r = stdr.str_concat(r, "_v")
+          -- Pass remaining args to init (after fields consumed)
+          let ?ii2 = nf2
+          for (; ii2 < na2; ii2 = ii2 + 1) {
+            r = stdr.str_concat(r, ", ")
+            r = stdr.str_concat(r, emit_expr(args[ii2], cask_name))
+          }
+          r = stdr.str_concat(r, ");\n")
+        }
+        r = stdr.str_concat(r, "    ")
+        r = stdr.str_concat(r, obj_var)
+        r = stdr.str_concat(r, "_v;\n})")
+        return r
+      }
       let ?origin_mod = cask_name
       let cur_mod_funs = g_mod_funs[cask_name] ?? []: [string => any]
       if stdr.is_null(cur_mod_funs[fname]) {
@@ -1774,7 +1893,9 @@ def ?g_last_line_num = 0
       r = stdr.str_concat(r, ")")
       return r
     }
-    return "YV_NULLV"
+    -- Fallback: any expression used as a function (e.g. dict["key"](args))
+    let fallback_fexpr = emit_expr(func, cask_name)
+    return emit_value_call(fallback_fexpr, args, cask_name)
   }
 
   if et == "bang_call" {
@@ -1813,6 +1934,27 @@ def ?g_last_line_num = 0
         r = stdr.str_concat(r, field)
         return r
       }
+    }
+    -- Check if receiver is a class with struct fields
+    let mem_recv_type = type_of_expr(obj_raw, cask_name)
+    let mem_cls_info = g_classes[mem_recv_type] ?? []: [string => any]
+    let mem_field_map = mem_cls_info["field_map"] ?? []: [string => any]
+    let mem_finfo = mem_field_map[field] ?? []: [string => any]
+    let mem_fname = mem_finfo["name"] ?? ""
+    if stdr.len(mem_fname) > 0 {
+      -- Struct field access: ((YisObj_mod_Cls*)obj.as.p)->f_field
+      let mem_cls_mod = mem_cls_info["mod"] ?? cask_name
+      let obj_c = emit_expr(e[ok], cask_name)
+      let ?r = "({\n    YisVal _mfr = ((YisObj_"
+      r = stdr.str_concat(r, mem_cls_mod)
+      r = stdr.str_concat(r, "_")
+      r = stdr.str_concat(r, mem_recv_type)
+      r = stdr.str_concat(r, "*)(")
+      r = stdr.str_concat(r, obj_c)
+      r = stdr.str_concat(r, ").as.p)->f_")
+      r = stdr.str_concat(r, field)
+      r = stdr.str_concat(r, ";\n    yis_retain_val(_mfr);\n    _mfr;\n})")
+      return r
     }
     let obj_c = emit_expr(e[ok], cask_name)
     let ?r = "yis_dict_get((YisDict*)("
@@ -1872,8 +2014,32 @@ def ?g_last_line_num = 0
     if lhs_tag == "member" {
       let ok = "obj"
       let fk = "field"
-      let obj_c = emit_expr(lhs[ok], cask_name)
+      let lhs_obj_raw = lhs[ok]
       let field = lhs[fk] ?? ""
+      -- Check if receiver is a class with struct fields
+      let asgn_recv_type = type_of_expr(lhs_obj_raw, cask_name)
+      let asgn_cls_info = g_classes[asgn_recv_type] ?? []: [string => any]
+      let asgn_fmap = asgn_cls_info["field_map"] ?? []: [string => any]
+      let asgn_finfo = asgn_fmap[field] ?? []: [string => any]
+      let asgn_fname = asgn_finfo["name"] ?? ""
+      if stdr.len(asgn_fname) > 0 {
+        -- Struct field write: yis_move_into(&((YisObj_mod_Cls*)obj.as.p)->f_field, value)
+        let asgn_cls_mod = asgn_cls_info["mod"] ?? cask_name
+        let obj_c = emit_expr(lhs_obj_raw, cask_name)
+        let ?r = "yis_move_into(&((YisObj_"
+        r = stdr.str_concat(r, asgn_cls_mod)
+        r = stdr.str_concat(r, "_")
+        r = stdr.str_concat(r, asgn_recv_type)
+        r = stdr.str_concat(r, "*)(")
+        r = stdr.str_concat(r, obj_c)
+        r = stdr.str_concat(r, ").as.p)->f_")
+        r = stdr.str_concat(r, field)
+        r = stdr.str_concat(r, ", ")
+        r = stdr.str_concat(r, rhs_c)
+        r = stdr.str_concat(r, ")")
+        return r
+      }
+      let obj_c = emit_expr(lhs_obj_raw, cask_name)
       let ?r = "yis_dict_set((YisDict*)("
       r = stdr.str_concat(r, obj_c)
       r = stdr.str_concat(r, ").as.p, stdr_str_lit(\"")
@@ -2133,6 +2299,80 @@ def ?g_last_line_num = 0
 
     -- Check if obj_name is a locally-brought module
     if !stdr.is_null(g_bring_names[obj_name]) && obj_name != cask_name {
+      -- Check for cross-module constructor: mod.ClassName(args) where ClassName has fields
+      let xm_cls_info = g_classes[field] ?? []: [string => any]
+      let xm_cls_fields = xm_cls_info["fields"] ?? []: [any]
+      if stdr.len(xm_cls_fields) > 0 {
+        let xm_cls_mod = xm_cls_info["mod"] ?? obj_name
+        let xm_nf = stdr.len(xm_cls_fields)
+        let xm_na = stdr.len(args)
+        g_tmp_counter = g_tmp_counter + 1
+        let ?xm_var = "_obj"
+        xm_var = stdr.str_concat(xm_var, str(g_tmp_counter))
+        let ?r = "({\n"
+        r = stdr.str_concat(r, "    YisObj_")
+        r = stdr.str_concat(r, xm_cls_mod)
+        r = stdr.str_concat(r, "_")
+        r = stdr.str_concat(r, field)
+        r = stdr.str_concat(r, "* ")
+        r = stdr.str_concat(r, xm_var)
+        r = stdr.str_concat(r, " = (YisObj_")
+        r = stdr.str_concat(r, xm_cls_mod)
+        r = stdr.str_concat(r, "_")
+        r = stdr.str_concat(r, field)
+        r = stdr.str_concat(r, "*)yis_obj_new(sizeof(YisObj_")
+        r = stdr.str_concat(r, xm_cls_mod)
+        r = stdr.str_concat(r, "_")
+        r = stdr.str_concat(r, field)
+        r = stdr.str_concat(r, "), yis_drop_")
+        r = stdr.str_concat(r, xm_cls_mod)
+        r = stdr.str_concat(r, "_")
+        r = stdr.str_concat(r, field)
+        r = stdr.str_concat(r, ");\n")
+        let ?xm_fi = 0
+        for (; xm_fi < xm_nf; xm_fi = xm_fi + 1) {
+          let xm_fd = xm_cls_fields[xm_fi]
+          let xm_fn = xm_fd["name"] ?? ""
+          r = stdr.str_concat(r, "    ")
+          r = stdr.str_concat(r, xm_var)
+          r = stdr.str_concat(r, "->f_")
+          r = stdr.str_concat(r, xm_fn)
+          if xm_fi < xm_na {
+            r = stdr.str_concat(r, " = YV_NULLV;\n    yis_move_into(&")
+            r = stdr.str_concat(r, xm_var)
+            r = stdr.str_concat(r, "->f_")
+            r = stdr.str_concat(r, xm_fn)
+            r = stdr.str_concat(r, ", ")
+            r = stdr.str_concat(r, emit_expr(args[xm_fi], cask_name))
+            r = stdr.str_concat(r, ");\n")
+          } else {
+            r = stdr.str_concat(r, " = YV_NULLV;\n")
+          }
+        }
+        r = stdr.str_concat(r, "    YisVal ")
+        r = stdr.str_concat(r, xm_var)
+        r = stdr.str_concat(r, "_v = YV_OBJ((YisObj*)")
+        r = stdr.str_concat(r, xm_var)
+        r = stdr.str_concat(r, ");\n")
+        let xm_methods = xm_cls_info["methods"] ?? []: [string => any]
+        if !stdr.is_null(xm_methods["init"]) {
+          r = stdr.str_concat(r, "    ")
+          r = stdr.str_concat(r, mangle_method(xm_cls_mod, field, "init"))
+          r = stdr.str_concat(r, "(")
+          r = stdr.str_concat(r, xm_var)
+          r = stdr.str_concat(r, "_v")
+          let ?xm_ii = xm_nf
+          for (; xm_ii < xm_na; xm_ii = xm_ii + 1) {
+            r = stdr.str_concat(r, ", ")
+            r = stdr.str_concat(r, emit_expr(args[xm_ii], cask_name))
+          }
+          r = stdr.str_concat(r, ");\n")
+        }
+        r = stdr.str_concat(r, "    ")
+        r = stdr.str_concat(r, xm_var)
+        r = stdr.str_concat(r, "_v;\n})")
+        return r
+      }
       let mod_funs = dict_get_or(g_mod_funs, obj_name, null)
       if !stdr.is_null(mod_funs) {
         let ?r = mangle_name(obj_name, field)
@@ -3023,6 +3263,87 @@ def ?g_last_line_num = 0
 
   -- Forward declarations: functions (skip extern stubs: __prefix + empty body)
   let body_key = "body"
+
+  -- Emit class struct typedefs and drop forward declarations
+  let fields_key = "fields"
+  i = 0
+  for (; i < n; i = i + 1) {
+    let d = decls[i]
+    let dt = d[tag] ?? ""
+    if dt == "cask" { cask_name = d[name_key] ?? "init" }
+    if dt == "class" {
+      let cls_name = d[name_key] ?? ""
+      let cls_info = g_classes[cls_name] ?? []: [string => any]
+      let cls_fields = cls_info[fields_key] ?? []: [any]
+      -- Only emit struct if class has fields
+      if stdr.len(cls_fields) > 0 {
+        stdr.push(p, "typedef struct YisObj_")
+        stdr.push(p, cask_name)
+        stdr.push(p, "_")
+        stdr.push(p, cls_name)
+        stdr.push(p, " {\n    YisObj base;\n")
+        let ?fi = 0
+        let nf = stdr.len(cls_fields)
+        for (; fi < nf; fi = fi + 1) {
+          let fd = cls_fields[fi]
+          let fn3 = fd["name"] ?? ""
+          stdr.push(p, "    YisVal f_")
+          stdr.push(p, fn3)
+          stdr.push(p, ";\n")
+        }
+        stdr.push(p, "} YisObj_")
+        stdr.push(p, cask_name)
+        stdr.push(p, "_")
+        stdr.push(p, cls_name)
+        stdr.push(p, ";\n")
+        -- Forward declare drop function
+        stdr.push(p, "static void yis_drop_")
+        stdr.push(p, cask_name)
+        stdr.push(p, "_")
+        stdr.push(p, cls_name)
+        stdr.push(p, "(YisObj* o);\n")
+      }
+    }
+  }
+
+  -- Emit class drop function bodies
+  i = 0
+  for (; i < n; i = i + 1) {
+    let d = decls[i]
+    let dt = d[tag] ?? ""
+    if dt == "cask" { cask_name = d[name_key] ?? "init" }
+    if dt == "class" {
+      let cls_name = d[name_key] ?? ""
+      let cls_info = g_classes[cls_name] ?? []: [string => any]
+      let cls_fields = cls_info[fields_key] ?? []: [any]
+      if stdr.len(cls_fields) > 0 {
+        stdr.push(p, "static void yis_drop_")
+        stdr.push(p, cask_name)
+        stdr.push(p, "_")
+        stdr.push(p, cls_name)
+        stdr.push(p, "(YisObj* o) {\n    YisObj_")
+        stdr.push(p, cask_name)
+        stdr.push(p, "_")
+        stdr.push(p, cls_name)
+        stdr.push(p, "* self = (YisObj_")
+        stdr.push(p, cask_name)
+        stdr.push(p, "_")
+        stdr.push(p, cls_name)
+        stdr.push(p, "*)o;\n")
+        let ?fi = 0
+        let nf = stdr.len(cls_fields)
+        for (; fi < nf; fi = fi + 1) {
+          let fd = cls_fields[fi]
+          let fn3 = fd["name"] ?? ""
+          stdr.push(p, "    yis_release_val(self->f_")
+          stdr.push(p, fn3)
+          stdr.push(p, ");\n")
+        }
+        stdr.push(p, "}\n")
+      }
+    }
+  }
+
   let ?seen_fun_decls = []: [string => any]
   i = 0
   for (; i < n; i = i + 1) {

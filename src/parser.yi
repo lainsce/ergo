@@ -1288,10 +1288,14 @@ bring stdr
   } elif tr[kind] == "lbrack" {
     ret = "any"
     j = j + 1
-    let ta = peek(toks, j)
-    if ta[kind] != "rbrack" { j = j + 1 }
-    let tb = peek(toks, j)
-    if tb[kind] == "rbrack" { j = j + 1 }
+    -- Skip all tokens to matching ], handling nested brackets
+    let ?depth = 1
+    for (; depth > 0; j = j + 1) {
+      let tb = peek(toks, j)
+      if tb[kind] == "lbrack" { depth = depth + 1 }
+      elif tb[kind] == "rbrack" { depth = depth - 1 }
+      elif tb[kind] == "eof" { depth = 0 }
+    }
   } else {
     ret = tr[text] ?? "any"
     j = j + 1
@@ -1310,10 +1314,13 @@ bring stdr
     let tnext = peek(toks, j)
     if tnext[kind] == "lbrack" {
       j = j + 1
-      let ta = peek(toks, j)
-      if ta[kind] != "rbrack" { j = j + 1 }
-      let tb = peek(toks, j)
-      if tb[kind] == "rbrack" { j = j + 1 }
+      let ?cdepth = 1
+      for (; cdepth > 0; j = j + 1) {
+        let tcb = peek(toks, j)
+        if tcb[kind] == "lbrack" { cdepth = cdepth + 1 }
+        elif tcb[kind] == "rbrack" { cdepth = cdepth - 1 }
+        elif tcb[kind] == "eof" { cdepth = 0 }
+      }
     } elif tnext[kind] == "ident" || tnext[kind] == "kw_any" {
       j = j + 1
       let tdot2 = peek(toks, j)
@@ -1561,8 +1568,9 @@ bring stdr
     -- expect {
     let tb = peek(toks, j)
     if tb[kind] == "lbrace" { j = j + 1 }
-    -- parse methods until }
+    -- parse methods and fields until }
     let ?methods = []: [any]
+    let ?fields = []: [any]
     for (; true; ) {
       let tm = peek(toks, j)
       if tm[kind] == "rbrace" || tm[kind] == "eof" { break }
@@ -1575,6 +1583,51 @@ bring stdr
           stdr.push(methods, mnode)
         }
         j = mnext
+      } elif tm[kind] == "kw_pub" || (tm[kind] == "ident" && peek(toks, j + 1)[kind] == "eq") {
+        -- Field declaration: [pub] name = Type
+        let ?field_pub = false
+        if tm[kind] == "kw_pub" {
+          field_pub = true
+          j = j + 1
+        }
+        let tf = peek(toks, j)
+        let fname = tf[text] ?? ""
+        j = j + 1
+        -- expect =
+        let teq = peek(toks, j)
+        let ?ftype = "any"
+        if teq[kind] == "eq" {
+          j = j + 1
+          let tt = peek(toks, j)
+          if tt[kind] == "lbrack" {
+            -- Array or dict type: [Type] or [K => V]
+            ftype = "any"
+            j = j + 1
+            let ta = peek(toks, j)
+            if ta[kind] != "rbrack" { j = j + 1 }
+            let tarr = peek(toks, j)
+            if tarr[kind] == "rbrack" { j = j + 1 }
+          } else {
+            ftype = tt[text] ?? "any"
+            j = j + 1
+          }
+          -- Handle dotted type: Module.Class
+          let tdot = peek(toks, j)
+          if tdot[kind] == "dot" {
+            let tc2 = peek(toks, j + 1)
+            ftype = tc2[text] ?? ftype
+            j = j + 2
+          }
+        }
+        let ?fnode = []: [string => any]
+        fnode[tag] = "field"
+        let fnk = "name"
+        let ftk = "type"
+        let fpk = "pub"
+        fnode[fnk] = fname
+        fnode[ftk] = ftype
+        fnode[fpk] = field_pub
+        stdr.push(fields, fnode)
       } else {
         j = j + 1
       }
@@ -1587,10 +1640,12 @@ bring stdr
     let mk = "methods"
     let pk = "pub"
     let bk = "base"
+    let fk = "fields"
     node[nk] = cls_name
     node[mk] = methods
     node[pk] = is_pub_cls
     node[bk] = base_name
+    node[fk] = fields
     return pair(j, node)
   }
 

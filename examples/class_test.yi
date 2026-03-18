@@ -1,0 +1,42 @@
+cask class_test
+
+bring stdr
+
+class Point {
+  pub x = num
+  pub y = num
+
+  :: to_string(this) (( string )) {
+    let ?s = "Point("
+    s = stdr.str_concat(s, str(this.x))
+    s = stdr.str_concat(s, ", ")
+    s = stdr.str_concat(s, str(this.y))
+    s = stdr.str_concat(s, ")")
+    return s
+  }
+
+  :: add(this, other = Point) (( Point )) {
+    return Point(this.x + other.x, this.y + other.y)
+  }
+}
+
+entry() {
+  let p1 = Point(3, 4)
+  write(p1.to_string())
+  write("\n")
+
+  let p2 = Point(10, 20)
+  write(p2.to_string())
+  write("\n")
+
+  let p3 = p1.add(p2)
+  write(p3.to_string())
+  write("\n")
+
+  -- Field write
+  let ?p4 = Point(0, 0)
+  p4.x = 42
+  p4.y = 99
+  write(p4.to_string())
+  write("\n")
+}
