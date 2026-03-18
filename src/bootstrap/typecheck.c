@@ -2999,6 +2999,56 @@ method_call:
             }
         }
         if (!sig) {
+            /* Check if fname is a class name (positional constructor call) */
+            Str ctor_qname = qualify_class_name(env->arena, ctx->cask_name, fname);
+            ClassInfo *ctor_ci = find_class(env, ctor_qname);
+            if (!ctor_ci) {
+                /* Try imported modules */
+                for (size_t ii = 0; ii < ctx->imports_len && !ctor_ci; ii++) {
+                    Str iq = qualify_class_name(env->arena, ctx->imports[ii], fname);
+                    ctor_ci = find_class(env, iq);
+                    if (ctor_ci) ctor_qname = iq;
+                }
+            }
+            if (ctor_ci) {
+                MethodEntry *init = NULL;
+                for (size_t mi = 0; mi < ctor_ci->methods_len; mi++) {
+                    if (str_eq_c(ctor_ci->methods[mi].name, "init")) {
+                        init = &ctor_ci->methods[mi];
+                        break;
+                    }
+                }
+                if (init) {
+                    FunSig *isig = init->sig;
+                    if (argc != isig->params_len) {
+                        set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: '%.*s.init' expects %zu args",
+                                 (int)ctx->cask_path.len, ctx->cask_path.data,
+                                 (int)ctor_ci->name.len, ctor_ci->name.data, isig->params_len);
+                        return NULL;
+                    }
+                    Subst subst = subst_init();
+                    for (size_t i = 0; i < argc; i++) {
+                        Ty *at = tc_expr_inner(args[i], ctx, loc, env, err);
+                        ensure_assignable(env->arena, isig->params[i], at, ctx->cask_path, "arg", err);
+                        unify(env->arena, isig->params[i], at, ctx->cask_path, "arg", &subst, err);
+                    }
+                    subst_free(&subst);
+                    return ty_class(env->arena, ctor_qname);
+                } else if (argc == ctor_ci->fields_len) {
+                    for (size_t i = 0; i < argc; i++) {
+                        Ty *at = tc_expr_inner(args[i], ctx, loc, env, err);
+                        ensure_assignable(env->arena, ctor_ci->fields[i].ty, at, ctx->cask_path, "field init", err);
+                    }
+                    return ty_class(env->arena, ctor_qname);
+                } else if (argc == 0) {
+                    return ty_class(env->arena, ctor_qname);
+                } else {
+                    set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: '%.*s' expects %zu fields",
+                             (int)ctx->cask_path.len, ctx->cask_path.data,
+                             (int)ctor_ci->name.len, ctor_ci->name.data, ctor_ci->fields_len);
+                    return NULL;
+                }
+            }
             Ty *fn_ty = tc_expr_inner(fn, ctx, loc, env, err);
             if (!fn_ty || fn_ty->tag != TY_FN) {
                 set_errf(err, ctx->cask_path, fn->line, fn->col, "%.*s: unknown function '%.*s'", (int)ctx->cask_path.len, ctx->cask_path.data, (int)fname.len, fname.data);
@@ -3134,8 +3184,9 @@ static Ty *tc_expr_inner(Expr *e, Ctx *ctx, Locals *loc, GlobalEnv *env, Diag *e
         case EXPR_ARRAY: {
             if (e->as.array_lit.items_len == 0) {
                 if (!e->as.array_lit.annot) {
-                    set_errf(err, ctx->cask_path, e->line, e->col, "%.*s: cannot infer type of empty array []", (int)ctx->cask_path.len, ctx->cask_path.data);
-                    return NULL;
+                    /* Infer as [any] when no annotation is provided */
+                    Ty *elem = ty_prim(env->arena, "any");
+                    return ty_array(env->arena, elem);
                 }
                 Ty *annot = ty_from_type_ref(env, e->as.array_lit.annot, ctx->cask_name, ctx->imports, ctx->imports_len, err);
                 if (!annot) return NULL;

@@ -619,7 +619,7 @@ def ?brace_depth = 0
         -- Check if there are args (next token is not a terminator)
         let tn = peek(toks, j)
         let nk = tn[kind] ?? ""
-        if nk != "semi" && nk != "eof" && nk != "rbrace" && nk != "rpar" && nk != "rbrack" && nk != "comma" && nk != "colon" && nk != "lbrace"
+        if nk != "semi" && nk != "newline_semi" && nk != "eof" && nk != "rbrace" && nk != "rpar" && nk != "rbrack" && nk != "comma" && nk != "colon" && nk != "lbrace"
           let ares = parse_expr(toks, j, 0)
           j = stdr.num(ares[0] ?? j)
           stdr.push(bargs, ares[1])

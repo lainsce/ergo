@@ -609,11 +609,31 @@ def ?g_last_line_num = 0
       for (; j < n; j = j + 1)
         if !_is_ident_mid_char(stdr.slice(s, j, j + 1)) { break }
       let field = stdr.slice(s, i, j)
-      let ?next = "yis_get_field(((YisObj*)("
-      next = stdr.str_concat(next, out)
-      next = stdr.str_concat(next, ").as.p), stdr_str_lit(")
-      next = stdr.str_concat(next, _c_quote(field))
-      next = stdr.str_concat(next, "))")
+      -- Try direct struct field access when inside a class method
+      let ?cls_info = []: [string => any]
+      if stdr.len(g_cur_class) > 0 && head == "this"
+        cls_info = g_classes[g_cur_class] ?? []: [string => any]
+      let fmap = cls_info["field_map"] ?? []: [string => any]
+      let finfo = fmap[field] ?? []: [string => any]
+      let fname = finfo["name"] ?? ""
+      let ?next = ""
+      if stdr.len(fname) > 0
+        let cls_mod = cls_info["mod"] ?? g_cur_mod
+        next = "({\n    YisVal _mfr = ((YisObj_"
+        next = stdr.str_concat(next, cls_mod)
+        next = stdr.str_concat(next, "_")
+        next = stdr.str_concat(next, g_cur_class)
+        next = stdr.str_concat(next, "*)(")
+        next = stdr.str_concat(next, out)
+        next = stdr.str_concat(next, ").as.p)->f_")
+        next = stdr.str_concat(next, field)
+        next = stdr.str_concat(next, ";\n    yis_retain_val(_mfr);\n    _mfr;\n})")
+      else
+        next = "yis_get_field(((YisObj*)("
+        next = stdr.str_concat(next, out)
+        next = stdr.str_concat(next, ").as.p), stdr_str_lit(")
+        next = stdr.str_concat(next, _c_quote(field))
+        next = stdr.str_concat(next, "))")
       out = next
       i = j
       continue
