@@ -2,9 +2,9 @@ cask math
 
 -- Yis Standard Library: math.yi
 
-macro sq() (( num )) {
+macro sq() (( num ))
   this * this
-}
+;
 
 -- Math constants
 pub const PI = 3.141592653589793
@@ -22,115 +22,103 @@ pub const LOG_TWO_E = 1.4426950408889634
 pub const LOG_TEN_E = 0.4342944819032518
 
 -- Internal: wrap angle to [-pi, pi] using a bounded loop.
-: _wrap_angle(x = num) (( num )) {
+: _wrap_angle(x = num) (( num ))
   let pi = math.PI
   let two_pi = pi + pi
   let ?y = x
-  for (let ?i = 0; i < 128; i += 1) {
-    if !(y > pi || y < -pi) {
+  for (let ?i = 0; i < 128; i += 1)
+    if !(y > pi || y < -pi)
       break
-    }
-    if y > pi {
+    if y > pi
       y -= two_pi
-    } elif y < -pi {
+    elif y < -pi
       y += two_pi
-    }
-  }
   return y
-}
+;
 
 -- Internal: sine via Taylor series on small |x|.
-: _sin_taylor(x = num) (( num )) {
+: _sin_taylor(x = num) (( num ))
   let x2 = x.sq()
   let ?term = x
   let ?sum = x
-  for (let ?i = 0; i < 7; i += 1) {
+  for (let ?i = 0; i < 7; i += 1)
     term = -term * x2 / ((2.0 * i + 2.0) * (2.0 * i + 3.0))
     sum += term
-  }
   return sum
-}
+;
 
 -- Internal: cosine via Taylor series on small |x|.
-: _cos_taylor(x = num) (( num )) {
+: _cos_taylor(x = num) (( num ))
   let x2 = x.sq()
   let ?term = 1.0
   let ?sum = 1.0
-  for (let ?i = 0; i < 7; i += 1) {
+  for (let ?i = 0; i < 7; i += 1)
     term = -term * x2 / ((2.0 * i + 1.0) * (2.0 * i + 2.0))
     sum += term
-  }
   return sum
-}
+;
 
 -- Sine function (implemented in Yis)
-: sin(x = num) (( num )) {
+: sin(x = num) (( num ))
   let pi = math.PI
   let half_pi = pi / 2.0
   let ?y = _wrap_angle(x)
   let ?sign = 1.0
-  if y > half_pi {
+  if y > half_pi
     y = pi - y
-  } elif y < -half_pi {
+  elif y < -half_pi
     y = pi + y
     sign = -1.0
-  }
   return sign * _sin_taylor(y)
-}
+;
 
 -- Cosine function (implemented in Yis)
-: cos(x = num) (( num )) {
+: cos(x = num) (( num ))
   let pi = math.PI
   let half_pi = pi / 2.0
   let ?y = _wrap_angle(x)
-  if y < 0.0 {
+  if y < 0.0
     y = -y
-  }
   let ?sign = 1.0
-  if y > half_pi {
+  if y > half_pi
     y = pi - y
     sign = -1.0
-  }
   return sign * _cos_taylor(y)
-}
+;
 
 -- Tangent function (implemented in Yis)
-: tan(x = num) (( num )) {
+: tan(x = num) (( num ))
   let s = sin(x)
   let c = cos(x)
   return s / c
-}
+;
 
 -- Square root function (implemented in Yis)
-: sqrt(x = num) (( num )) {
-  if x <= 0.0 {
+: sqrt(x = num) (( num ))
+  if x <= 0.0
     return 0.0
-  }
   let ?guess = 1.0
-  if x > 1.0 {
+  if x > 1.0
     guess = x
-  }
   let eps = 0.000000000001
-  for (let ?i = 0; i < 30; i += 1) {
-    if !(abs(guess * guess - x) > eps) {
+  for (let ?i = 0; i < 30; i += 1)
+    if !(abs(guess * guess - x) > eps)
       break
-    }
     guess = 0.5 * (guess + x / guess)
-  }
   return guess
-}
+;
 
 -- Absolute value
-: abs(x = num) (( num )) {
+: abs(x = num) (( num ))
   return if x < 0.0 { -x } else { x }
-}
+;
 
 -- Minimum of two floats
-: min(a = num, b = num) (( num )) {
+: min(a = num, b = num) (( num ))
   return if a < b { a } else { b }
-}
+;
 
 -- Maximum of two floats
-: max(a = num, b = num) (( num )) {
+: max(a = num, b = num) (( num ))
   return if a > b { a } else { b }
-}
+;

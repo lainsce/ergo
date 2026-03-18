@@ -1,0 +1,36 @@
+cask new_syntax_test
+bring stdr
+
+-- Test: new syntax with ;-terminated function bodies
+
+,: Vec2
+  x = num
+  y = num
+  :: add(this, other = Vec2) (( Vec2 ))
+    return Vec2(this.x + other.x, this.y + other.y)
+  ;
+  :: show(this) (( -- ))
+    writef("Vec2($$this.x$$, $$this.y$$)\n")
+  ;
+;
+
+: greet(name = string) (( -- ))
+  if name == "World"
+    writef("Hello, World!\n")
+  elif name == "Yis"
+    writef("Hello, Yis!\n")
+  else
+    writef("Hi, $$name$$!\n")
+;
+
+entry () (( -- ))
+  let a = Vec2(1, 2)
+  let b = Vec2(3, 4)
+  let c = a.add(b)
+  greet("World")
+  greet("Yis")
+  greet("Friend")
+  c.show()
+  for (let ?i = 0; i < 3; i = i + 1)
+    writef("i = $$i$$\n")
+;

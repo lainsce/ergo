@@ -43,6 +43,7 @@ static const char *tok_name_default(TokKind kind) {
         case TOK_FLOAT: return "FLOAT";
         case TOK_STR: return "STR";
         case TOK_SEMI: return "SEMI";
+        case TOK_NEWLINE_SEMI: return "NEWLINE_SEMI";
         case TOK_LPAR: return "LPAR";
         case TOK_RPAR: return "RPAR";
         case TOK_LBRACK: return "LBRACK";
@@ -50,6 +51,7 @@ static const char *tok_name_default(TokKind kind) {
         case TOK_LBRACE: return "LBRACE";
         case TOK_RBRACE: return "RBRACE";
         case TOK_COMMA: return "COMMA";
+        case TOK_COMMA_COLON: return "COMMA_COLON";
         case TOK_DOT: return "DOT";
         case TOK_DOTCOLON: return "DOTCOLON";
         case TOK_COLON: return "COLON";
@@ -129,6 +131,7 @@ const char *tok_kind_desc(TokKind kind) {
         
         // Punctuation
         case TOK_SEMI: return "';'";
+        case TOK_NEWLINE_SEMI: return "newline";
         case TOK_LPAR: return "'('";
         case TOK_RPAR: return "')'";
         case TOK_LBRACK: return "'['";
@@ -136,6 +139,7 @@ const char *tok_kind_desc(TokKind kind) {
         case TOK_LBRACE: return "'{'";
         case TOK_RBRACE: return "'}'";
         case TOK_COMMA: return "','";
+        case TOK_COMMA_COLON: return "',:'";
         case TOK_DOT: return "'.'";
         case TOK_DOTCOLON: return "'.:'";
         case TOK_COLON: return "':'";
@@ -402,6 +406,7 @@ static bool is_stmt_end(TokKind kind) {
         case TOK_KW_null:
         case TOK_KW_break:
         case TOK_KW_continue:
+        case TOK_KW_return:
             return true;
         default:
             return false;
@@ -410,7 +415,7 @@ static bool is_stmt_end(TokKind kind) {
 
 static void set_last(Lexer *lx, TokKind kind) {
     lx->last_real = kind;
-    if (kind != TOK_SEMI) {
+    if (kind != TOK_SEMI && kind != TOK_NEWLINE_SEMI) {
         lx->last_sig = kind;
     }
 }
@@ -607,10 +612,10 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
         if (ch == '\n') {
             adv(&lx, 1);
             if (lx.nest == 0 && is_stmt_end(lx.last_sig)) {
-                if (!emit_simple(&lx, out, err, TOK_SEMI, STR_LIT(";"), lx.line - 1, 0)) {
+                if (!emit_simple(&lx, out, err, TOK_NEWLINE_SEMI, STR_LIT(";"), lx.line - 1, 0)) {
                     return false;
                 }
-                lx.last_real = TOK_SEMI;
+                lx.last_real = TOK_NEWLINE_SEMI;
             }
             continue;
         }
@@ -790,6 +795,14 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             }
             adv(&lx, 2);
             set_last(&lx, TOK_QQ);
+            continue;
+        }
+        if (two0 == ',' && two1 == ':') {
+            if (!emit_simple(&lx, out, err, TOK_COMMA_COLON, STR_LIT(",:"), lx.line, lx.col)) {
+                return false;
+            }
+            adv(&lx, 2);
+            set_last(&lx, TOK_COMMA_COLON);
             continue;
         }
         if (two0 == '.' && two1 == ':') {
@@ -1196,16 +1209,34 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
     }
 
     if (lx.nest == 0 && is_stmt_end(lx.last_sig)) {
-        if (!emit_simple(&lx, out, err, TOK_SEMI, STR_LIT(";"), lx.line, lx.col)) {
+        if (!emit_simple(&lx, out, err, TOK_NEWLINE_SEMI, STR_LIT(";"), lx.line, lx.col)) {
             return false;
         }
-        lx.last_real = TOK_SEMI;
+        lx.last_real = TOK_NEWLINE_SEMI;
     }
 
     if (out->len > 1) {
         size_t w = 0;
         for (size_t r = 0; r < out->len; r++) {
-            if (out->data[r].kind == TOK_SEMI && w > 0 && out->data[w - 1].kind == TOK_SEMI) {
+            TokKind rk = out->data[r].kind;
+            TokKind pk = w > 0 ? out->data[w - 1].kind : TOK_INVALID;
+            // Remove NEWLINE_SEMI before DOT (method chain continuation)
+            // or FAT_ARROW (lambda continuation)
+            if ((rk == TOK_DOT || rk == TOK_ARROW) && pk == TOK_NEWLINE_SEMI) {
+                out->data[w - 1] = out->data[r];
+                continue;
+            }
+            if ((rk == TOK_SEMI || rk == TOK_NEWLINE_SEMI) &&
+                (pk == TOK_SEMI || pk == TOK_NEWLINE_SEMI)) {
+                // Two explicit semis → keep both (e.g. method ; then class ;)
+                if (rk == TOK_SEMI && pk == TOK_SEMI) {
+                    out->data[w++] = out->data[r];
+                    continue;
+                }
+                // Keep the explicit semi if one of them is explicit
+                if (rk == TOK_SEMI && pk == TOK_NEWLINE_SEMI) {
+                    out->data[w - 1] = out->data[r]; // replace auto with explicit
+                }
                 continue;
             }
             out->data[w++] = out->data[r];

@@ -2,7 +2,7 @@ cask lexer
 
 bring stdr
 
-: tok(kind = string, line = num, col = num, text = string, int_val = num, str_val = string) (( any )) {
+: tok(kind = string, line = num, col = num, text = string, int_val = num, str_val = string) (( any ))
   let ?t = []: [string => any]
   let k_kind = "kind"
   let k_line = "line"
@@ -17,127 +17,116 @@ bring stdr
   if int_val != 0 || kind == "int" || kind == "float" { t[k_int_val] = int_val }
   if stdr.len(str_val) > 0 || kind == "str" { t[k_str_val] = str_val }
   return t
-}
+;
 
-: is_space(c = string) (( bool )) {
+: is_space(c = string) (( bool ))
   if stdr.is_null(c) || stdr.len(c) == 0 { return false }
   let code = stdr.char_code(c)
   return code == 32 || code == 9 || code == 10 || code == 13
-}
+;
 
-: is_digit(c = string) (( bool )) {
+: is_digit(c = string) (( bool ))
   if stdr.is_null(c) || stdr.len(c) == 0 { return false }
   let code = stdr.char_code(c)
   return code >= 48 && code <= 57
-}
+;
 
-: is_ident_start(c = string) (( bool )) {
+: is_ident_start(c = string) (( bool ))
   if stdr.is_null(c) || stdr.len(c) == 0 { return false }
   let code = stdr.char_code(c)
   return (code >= 97 && code <= 122) || (code >= 65 && code <= 90) || code == 95
-}
+;
 
-: is_ident_mid(c = string) (( bool )) {
+: is_ident_mid(c = string) (( bool ))
   return is_ident_start(c) || is_digit(c)
-}
+;
 
-: skip_line_comment(source = string, i = num, line = num, col = num) (( any )) {
+: skip_line_comment(source = string, i = num, line = num, col = num) (( any ))
   let n = stdr.len(source)
   let ?j = i
-  for (; j < n; j = j + 1) {
+  for (; j < n; j = j + 1)
     let ch = stdr.slice(source, j, j + 1)
     if stdr.char_code(ch) == 10 { return [j + 1, line + 1, 1] }
-  }
   return [n, line, col]
-}
+;
 
-: skip_block_comment(source = string, i = num, line = num, col = num) (( any )) {
+: skip_block_comment(source = string, i = num, line = num, col = num) (( any ))
   let n = stdr.len(source)
   let ?j = i
   let ?cur_line = line
   let ?cur_col = col
   let ?depth = 1
-  for (; j < n && depth > 0; ) {
+  for (; j < n && depth > 0; )
     let c0 = stdr.slice(source, j, j + 1)
     let ?c1 = ""
     if j + 1 < n { c1 = stdr.slice(source, j + 1, j + 2) }
-    if c0 == "-" && c1 == "|" {
+    if c0 == "-" && c1 == "|"
       depth += 1
       j += 2
       cur_col += 2
       continue
-    }
-    if c0 == "|" && c1 == "-" {
+    if c0 == "|" && c1 == "-"
       depth -= 1
       j += 2
       cur_col += 2
       continue
-    }
-    if stdr.char_code(c0) == 10 {
+    if stdr.char_code(c0) == 10
       j += 1
       cur_line += 1
       cur_col = 1
-    } else {
+    else
       j += 1
       cur_col += 1
-    }
-  }
   if depth > 0 { return null }
   return [j, cur_line, cur_col]
-}
+;
 
-: skip_ws_and_comments(source = string, i = num, line = num, col = num, in_ret = bool) (( any )) {
+: skip_ws_and_comments(source = string, i = num, line = num, col = num, in_ret = bool) (( any ))
   let n = stdr.len(source)
   let ?cur_i = i
   let ?cur_line = line
   let ?cur_col = col
-  for (; true; ) {
+  for (; true; )
     if cur_i >= n { return [cur_i, cur_line, cur_col] }
     let c = stdr.slice(source, cur_i, cur_i + 1)
-    if c == "-" && cur_i + 1 < n {
+    if c == "-" && cur_i + 1 < n
       let c2 = stdr.slice(source, cur_i + 1, cur_i + 2)
-      if c2 == "|" {
+      if c2 == "|"
         let r = skip_block_comment(source, cur_i + 2, cur_line, cur_col + 2)
         if stdr.is_null(r) { return [cur_i, cur_line, cur_col] }
         cur_i = r[0] ?? 0
         cur_line = r[1] ?? 1
         cur_col = r[2] ?? 1
         continue
-      }
-      if c2 == "-" && !in_ret {
+      if c2 == "-" && !in_ret
         let r = skip_line_comment(source, cur_i + 2, cur_line, cur_col)
         cur_i = r[0] ?? 0
         cur_line = r[1] ?? 1
         cur_col = r[2] ?? 1
         continue
-      }
-    }
-    if is_space(c) {
-      if stdr.char_code(c) == 10 {
+    if is_space(c)
+      if stdr.char_code(c) == 10
         cur_i = cur_i + 1
         cur_line = cur_line + 1
         cur_col = 1
-      } else {
+      else
         cur_i = cur_i + 1
         cur_col = cur_col + 1
-      }
       continue
-    }
     return [cur_i, cur_line, cur_col]
-  }
   return [cur_i, cur_line, cur_col]
-}
+;
 
-: hex_value(c = string) (( num )) {
+: hex_value(c = string) (( num ))
   if stdr.is_null(c) || stdr.len(c) == 0 { return -1 }
   let code = stdr.char_code(c)
   if code >= 48 && code <= 57 { return code - 48 }
   if code >= 97 && code <= 102 { return 10 + (code - 97) }
   if code >= 65 && code <= 70 { return 10 + (code - 65) }
   return -1
-}
+;
 
-: ascii_from_code(code = num) (( string )) {
+: ascii_from_code(code = num) (( string ))
   if code == 7 { return "\a" }
   if code == 8 { return "\b" }
   if code == 9 { return "\t" }
@@ -146,21 +135,20 @@ bring stdr
   if code == 12 { return "\f" }
   if code == 13 { return "\r" }
   if code == 27 { return "\e" }
-  if code >= 32 && code <= 126 {
+  if code >= 32 && code <= 126
     let printable = " !\"#$%&'()*+,-./0123456789:\<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
     return stdr.slice(printable, code - 32, code - 31)
-  }
   return ""
-}
+;
 
-: escape_pair(text = string, next_i = num) (( any )) {
+: escape_pair(text = string, next_i = num) (( any ))
   let ?r = []: [string => any]
   r["text"] = text
   r["next"] = next_i
   return r
-}
+;
 
-: decode_escape(source = string, i = num, n = num) (( any )) {
+: decode_escape(source = string, i = num, n = num) (( any ))
   if i + 1 >= n { return escape_pair("", n) }
   let e = stdr.slice(source, i + 1, i + 2)
   if e == "n" { return escape_pair("\n", i + 2) }
@@ -179,61 +167,51 @@ bring stdr
   if e == "$" { return escape_pair("$", i + 2) }
   if e == "?" { return escape_pair("?", i + 2) }
 
-  if e == "x" {
-    if i + 3 < n {
+  if e == "x"
+    if i + 3 < n
       let h1 = stdr.slice(source, i + 2, i + 3)
       let h2 = stdr.slice(source, i + 3, i + 4)
       let v1 = hex_value(h1)
       let v2 = hex_value(h2)
-      if v1 >= 0 && v2 >= 0 {
+      if v1 >= 0 && v2 >= 0
         let value = v1 * 16 + v2
         let ?ch = ""
-        if value <= 127 {
+        if value <= 127
           ch = ascii_from_code(value)
-        } else {
+        else
           ch = stdr.char_from_code(value)
-        }
-        if stdr.len(ch) > 0 {
+        if stdr.len(ch) > 0
           return escape_pair(ch, i + 4)
-        }
-      }
-    }
     return escape_pair("x", i + 2)
-  }
 
   let ec = stdr.char_code(e)
-  if ec >= 48 && ec <= 55 {
+  if ec >= 48 && ec <= 55
     let ?j = i + 1
     let ?value = 0
     let ?digits = 0
-    for (; j < n && digits < 3; ) {
+    for (; j < n && digits < 3; )
       let d = stdr.slice(source, j, j + 1)
       let dc = stdr.char_code(d)
       if dc < 48 || dc > 55 { break }
       value = value * 8 + (dc - 48)
       digits = digits + 1
       j = j + 1
-    }
-    if digits > 0 && value >= 0 {
+    if digits > 0 && value >= 0
       let ?ch = ""
-      if value <= 127 {
+      if value <= 127
         ch = ascii_from_code(value)
-      } else {
+      else
         ch = stdr.char_from_code(value)
-      }
-      if stdr.len(ch) > 0 {
+      if stdr.len(ch) > 0
         return escape_pair(ch, j)
-      }
-    }
     return escape_pair(e, i + 2)
-  }
 
-  if e == "u" && i + 2 < n && stdr.slice(source, i + 2, i + 3) == "{" {
+  if e == "u" && i + 2 < n && stdr.slice(source, i + 2, i + 3) == "{"
     let ?j = i + 3
     let ?value = 0
     let ?digits = 0
     let ?ok = true
-    for (; j < n; ) {
+    for (; j < n; )
       let ch = stdr.slice(source, j, j + 1)
       if ch == "}" { break }
       let hv = hex_value(ch)
@@ -241,29 +219,23 @@ bring stdr
       value = value * 16 + hv
       digits = digits + 1
       j = j + 1
-    }
-    if ok && digits > 0 && j < n && stdr.slice(source, j, j + 1) == "}" {
+    if ok && digits > 0 && j < n && stdr.slice(source, j, j + 1) == "}"
       let ?out = ""
-      if value <= 127 {
+      if value <= 127
         out = ascii_from_code(value)
-      } else {
+      else
         out = stdr.char_from_code(value)
-      }
-      if stdr.len(out) > 0 {
+      if stdr.len(out) > 0
         return escape_pair(out, j + 1)
-      }
-    }
     return escape_pair("u", i + 2)
-  }
 
   return escape_pair(e, i + 2)
-}
+;
 
-: lex_one(source = string, i = num, line = num, col = num, decode_escapes = bool) (( any )) {
+: lex_one(source = string, i = num, line = num, col = num, decode_escapes = bool) (( any ))
   let n = stdr.len(source)
-  if i >= n {
+  if i >= n
     return [tok("eof", line, col, "", 0, ""), n, line, col]
-  }
   let c = stdr.slice(source, i, i + 1)
   if c == ";" { return [tok("semi", line, col, "", 0, ""), i + 1, line, col + 1] }
   if c == "(" { return [tok("lpar", line, col, "", 0, ""), i + 1, line, col + 1] }
@@ -272,140 +244,109 @@ bring stdr
   if c == "]" { return [tok("rbrack", line, col, "", 0, ""), i + 1, line, col + 1] }
   if c == "{" { return [tok("lbrace", line, col, "", 0, ""), i + 1, line, col + 1] }
   if c == "}" { return [tok("rbrace", line, col, "", 0, ""), i + 1, line, col + 1] }
-  if c == "," { return [tok("comma", line, col, "", 0, ""), i + 1, line, col + 1] }
-  if c == "." {
-    if i + 1 < n {
+  if c == ","
+    if i + 1 < n
+      let c2 = stdr.slice(source, i + 1, i + 2)
+      if c2 == ":" { return [tok("commacolon", line, col, "", 0, ""), i + 2, line, col + 2] }
+    return [tok("comma", line, col, "", 0, ""), i + 1, line, col + 1]
+  if c == "."
+    if i + 1 < n
       let c2 = stdr.slice(source, i + 1, i + 2)
       if c2 == ":" { return [tok("dotcolon", line, col, "", 0, ""), i + 2, line, col + 2] }
-    }
     return [tok("dot", line, col, "", 0, ""), i + 1, line, col + 1]
-  }
-  if c == ":" {
-    if i + 1 < n {
+  if c == ":"
+    if i + 1 < n
       let c2 = stdr.slice(source, i + 1, i + 2)
       if c2 == ":" { return [tok("coloncolon", line, col, "", 0, ""), i + 2, line, col + 2] }
-    }
     return [tok("colon", line, col, "", 0, ""), i + 1, line, col + 1]
-  }
-  if c == "+" {
-    if i + 1 < n {
+  if c == "+"
+    if i + 1 < n
       let c2 = stdr.slice(source, i + 1, i + 2)
       if c2 == "=" { return [tok("plus_eq", line, col, "", 0, ""), i + 2, line, col + 2] }
-    }
     return [tok("plus", line, col, "", 0, ""), i + 1, line, col + 1]
-  }
-  if c == "*" {
-    if i + 1 < n {
+  if c == "*"
+    if i + 1 < n
       let c2 = stdr.slice(source, i + 1, i + 2)
       if c2 == "=" { return [tok("star_eq", line, col, "", 0, ""), i + 2, line, col + 2] }
-    }
     return [tok("star", line, col, "", 0, ""), i + 1, line, col + 1]
-  }
-  if c == "/" {
-    if i + 1 < n {
+  if c == "/"
+    if i + 1 < n
       let c2 = stdr.slice(source, i + 1, i + 2)
       if c2 == "=" { return [tok("slash_eq", line, col, "", 0, ""), i + 2, line, col + 2] }
-    }
     return [tok("slash", line, col, "", 0, ""), i + 1, line, col + 1]
-  }
-  if c == "%" {
-    if i + 1 < n {
+  if c == "%"
+    if i + 1 < n
       let c2 = stdr.slice(source, i + 1, i + 2)
       if c2 == "=" { return [tok("percent_eq", line, col, "", 0, ""), i + 2, line, col + 2] }
-    }
     return [tok("percent", line, col, "", 0, ""), i + 1, line, col + 1]
-  }
-  if c == "!" {
-    if i + 1 < n {
+  if c == "!"
+    if i + 1 < n
       let c2 = stdr.slice(source, i + 1, i + 2)
       if c2 == "=" { return [tok("ne", line, col, "", 0, ""), i + 2, line, col + 2] }
-    }
     return [tok("bang", line, col, "", 0, ""), i + 1, line, col + 1]
-  }
-  if c == "=" {
-    if i + 1 < n {
+  if c == "="
+    if i + 1 < n
       let c2 = stdr.slice(source, i + 1, i + 2)
       if c2 == "=" { return [tok("eqeq", line, col, "", 0, ""), i + 2, line, col + 2] }
       if c2 == "\>" { return [tok("arrow", line, col, "", 0, ""), i + 2, line, col + 2] }
-    }
     return [tok("eq", line, col, "", 0, ""), i + 1, line, col + 1]
-  }
-  if c == "\<" {
-    if i + 1 < n {
+  if c == "\<"
+    if i + 1 < n
       let c2 = stdr.slice(source, i + 1, i + 2)
       if c2 == "=" { return [tok("le", line, col, "", 0, ""), i + 2, line, col + 2] }
-    }
     return [tok("lt", line, col, "", 0, ""), i + 1, line, col + 1]
-  }
-  if c == "\>" {
-    if i + 1 < n {
+  if c == "\>"
+    if i + 1 < n
       let c2 = stdr.slice(source, i + 1, i + 2)
       if c2 == "=" { return [tok("ge", line, col, "", 0, ""), i + 2, line, col + 2] }
-    }
     return [tok("gt", line, col, "", 0, ""), i + 1, line, col + 1]
-  }
-  if c == "?" {
-    if i + 1 < n {
+  if c == "?"
+    if i + 1 < n
       let c2 = stdr.slice(source, i + 1, i + 2)
       if c2 == "?" { return [tok("qq", line, col, "", 0, ""), i + 2, line, col + 2] }
-    }
     return [tok("qmark", line, col, "", 0, ""), i + 1, line, col + 1]
-  }
-  if c == "&" {
-    if i + 1 < n {
+  if c == "&"
+    if i + 1 < n
       let c2 = stdr.slice(source, i + 1, i + 2)
       if c2 == "&" { return [tok("ampamp", line, col, "", 0, ""), i + 2, line, col + 2] }
-    }
     return [tok("amp", line, col, "", 0, ""), i + 1, line, col + 1]
-  }
-  if c == "|" {
-    if i + 1 < n {
+  if c == "|"
+    if i + 1 < n
       let c2 = stdr.slice(source, i + 1, i + 2)
       if c2 == "|" { return [tok("barbar", line, col, "", 0, ""), i + 2, line, col + 2] }
-    }
     return [tok("bar", line, col, "", 0, ""), i + 1, line, col + 1]
-  }
   if c == "#" { return [tok("hash", line, col, "", 0, ""), i + 1, line, col + 1] }
-  if c == "-" {
-    if i + 1 < n {
+  if c == "-"
+    if i + 1 < n
       let c2 = stdr.slice(source, i + 1, i + 2)
       if c2 == "=" { return [tok("minus_eq", line, col, "", 0, ""), i + 2, line, col + 2] }
-    }
     return [tok("minus", line, col, "", 0, ""), i + 1, line, col + 1]
-  }
-  if is_digit(c) {
+  if is_digit(c)
     let ?j = i
-    for (; j < n; ) {
+    for (; j < n; )
       let ch = stdr.slice(source, j, j + 1)
       if !is_digit(ch) { break }
       j = j + 1
-    }
     let ?is_float = false
-    if j < n {
+    if j < n
       let d = stdr.slice(source, j, j + 1)
-      if d == "." && j + 1 < n && is_digit(stdr.slice(source, j + 1, j + 2)) {
+      if d == "." && j + 1 < n && is_digit(stdr.slice(source, j + 1, j + 2))
         is_float = true
         j = j + 1
-        for (; j < n; ) {
+        for (; j < n; )
           let fh = stdr.slice(source, j, j + 1)
           if !is_digit(fh) { break }
           j = j + 1
-        }
-      }
-    }
     let raw = stdr.slice(source, i, j)
-    if is_float {
+    if is_float
       return [tok("float", line, col, raw, 0, ""), j, line, col + (j - i)]
-    }
     return [tok("int", line, col, raw, 0, ""), j, line, col + (j - i)]
-  }
-  if is_ident_start(c) {
+  if is_ident_start(c)
     let ?j = i
-    for (; j < n; ) {
+    for (; j < n; )
       let ch = stdr.slice(source, j, j + 1)
       if !is_ident_mid(ch) { break }
       j = j + 1
-    }
     let text = stdr.slice(source, i, j)
     let ?kind = "ident"
     if text == "let" { kind = "kw_let" }
@@ -432,187 +373,227 @@ bring stdr
     elif text == "continue" { kind = "kw_continue" }
     elif text == "macro" { kind = "kw_macro" }
     return [tok(kind, line, col, text, 0, ""), j, line, col + (j - i)]
-  }
-  if c == "\"" {
+  if c == "\""
     let start_col = col
     let ?j = i + 1
     -- First pass: check if there are any unescaped interpolation markers
     let ?has_interp = false
     let ?scan = i + 1
-    for (; scan < n; ) {
+    for (; scan < n; )
       let sc = stdr.slice(source, scan, scan + 1)
       if sc == "\"" { break }
       if sc == "\\" && scan + 1 < n { scan = scan + 2; continue }
       if sc == "$" && scan + 1 < n && stdr.slice(source, scan + 1, scan + 2) == "$" { has_interp = true; break }
       scan = scan + 1
-    }
-    if !has_interp {
+    if !has_interp
       -- Simple string, no interpolation
-      if !decode_escapes {
-        for (; j < n; ) {
+      if !decode_escapes
+        for (; j < n; )
           let ch = stdr.slice(source, j, j + 1)
-          if ch == "\"" {
+          if ch == "\""
             let str_val = stdr.slice(source, i + 1, j)
             return [tok("str", line, col, "", 0, str_val), j + 1, line, start_col + (j - i + 1)]
-          }
           if ch == "\\" && j + 1 < n { j = j + 2; continue }
           if stdr.char_code(ch) == 10 { break }
           j = j + 1
-        }
         let str_val = stdr.slice(source, i + 1, j)
         return [tok("str", line, col, "", 0, str_val), j, line, col]
-      }
 
       let ?str_parts = []: [any]
       let ?chunk_start = j
-      for (; j < n; ) {
+      for (; j < n; )
         let ch = stdr.slice(source, j, j + 1)
-        if ch == "\"" {
+        if ch == "\""
           if chunk_start < j { stdr.push(str_parts, stdr.slice(source, chunk_start, j)) }
           return [tok("str", line, col, "", 0, stdr.join(str_parts)), j + 1, line, start_col + (j - i + 1)]
-        }
-        if ch == "\\" && j + 1 < n {
+        if ch == "\\" && j + 1 < n
           if chunk_start < j { stdr.push(str_parts, stdr.slice(source, chunk_start, j)) }
           let r = decode_escape(source, j, n)
           stdr.push(str_parts, stdr.str(r["text"] ?? ""))
           j = r["next"] ?? (j + 2)
           chunk_start = j
           continue
-        }
         if stdr.char_code(ch) == 10 { break }
         j = j + 1
-      }
       if chunk_start < j { stdr.push(str_parts, stdr.slice(source, chunk_start, j)) }
       return [tok("str", line, col, "", 0, stdr.join(str_parts)), j, line, col]
-    }
     -- Interpolated string: split into parts
-    if !decode_escapes {
+    if !decode_escapes
       let ?parts = []: [any]
       let ?seg_start = i + 1
-      for (; j < n; ) {
+      for (; j < n; )
         let ch = stdr.slice(source, j, j + 1)
         if ch == "\"" { break }
         if ch == "\\" && j + 1 < n { j = j + 2; continue }
-        if ch == "$" && j + 1 < n && stdr.slice(source, j + 1, j + 2) == "$" {
-          if j > seg_start {
+        if ch == "$" && j + 1 < n && stdr.slice(source, j + 1, j + 2) == "$"
+          if j > seg_start
             let ?tp = []: [string => any]
             let tkk = "kind"
             let tvk = "val"
             tp[tkk] = "text"
             tp[tvk] = stdr.slice(source, seg_start, j)
             stdr.push(parts, tp)
-          }
           let ?vstart = j + 2
           let ?vend = vstart
-          for (; vend < n; ) {
+          for (; vend < n; )
             let vc = stdr.slice(source, vend, vend + 1)
             if vc == "$" && vend + 1 < n && stdr.slice(source, vend + 1, vend + 2) == "$" { break }
             if stdr.char_code(vc) == 10 { break }
             vend = vend + 1
-          }
           let ?ep = []: [string => any]
           let ekk = "kind"
           let evk = "val"
           ep[ekk] = "expr"
           ep[evk] = stdr.slice(source, vstart, vend)
           stdr.push(parts, ep)
-          if vend + 1 < n && stdr.slice(source, vend, vend + 1) == "$" && stdr.slice(source, vend + 1, vend + 2) == "$" {
+          if vend + 1 < n && stdr.slice(source, vend, vend + 1) == "$" && stdr.slice(source, vend + 1, vend + 2) == "$"
             j = vend + 2
-          } else {
+          else
             j = vend
-          }
           seg_start = j
           continue
-        }
         if stdr.char_code(ch) == 10 { break }
         j = j + 1
-      }
-      if j > seg_start {
+      if j > seg_start
         let ?tp = []: [string => any]
         let tkk = "kind"
         let tvk = "val"
         tp[tkk] = "text"
         tp[tvk] = stdr.slice(source, seg_start, j)
         stdr.push(parts, tp)
-      }
       let ?t_interp = tok("str_interp", line, col, "", 0, "")
       let partsk = "parts"
       t_interp[partsk] = parts
       let end_j = if j < n { j + 1 } else { j }
       return [t_interp, end_j, line, start_col + (end_j - i)]
-    }
 
     let ?parts = []: [any]
     let ?seg_parts = []: [any]
     let ?seg_chunk_start = j
-    for (; j < n; ) {
+    for (; j < n; )
       let ch = stdr.slice(source, j, j + 1)
       if ch == "\"" { break }
-      if ch == "\\" && j + 1 < n {
+      if ch == "\\" && j + 1 < n
         if seg_chunk_start < j { stdr.push(seg_parts, stdr.slice(source, seg_chunk_start, j)) }
         let r = decode_escape(source, j, n)
         stdr.push(seg_parts, stdr.str(r["text"] ?? ""))
         j = r["next"] ?? (j + 2)
         seg_chunk_start = j
         continue
-      }
-      if ch == "$" && j + 1 < n && stdr.slice(source, j + 1, j + 2) == "$" {
+      if ch == "$" && j + 1 < n && stdr.slice(source, j + 1, j + 2) == "$"
         if seg_chunk_start < j { stdr.push(seg_parts, stdr.slice(source, seg_chunk_start, j)) }
         let seg = stdr.join(seg_parts)
         seg_parts = []: [any]
-        if stdr.len(seg) > 0 {
+        if stdr.len(seg) > 0
           let ?tp = []: [string => any]
           let tkk = "kind"
           let tvk = "val"
           tp[tkk] = "text"
           tp[tvk] = seg
           stdr.push(parts, tp)
-        }
         let ?vstart = j + 2
         let ?vend = vstart
-        for (; vend < n; ) {
+        for (; vend < n; )
           let vc = stdr.slice(source, vend, vend + 1)
           if vc == "$" && vend + 1 < n && stdr.slice(source, vend + 1, vend + 2) == "$" { break }
           if stdr.char_code(vc) == 10 { break }
           vend = vend + 1
-        }
         let ?ep = []: [string => any]
         let ekk = "kind"
         let evk = "val"
         ep[ekk] = "expr"
         ep[evk] = stdr.slice(source, vstart, vend)
         stdr.push(parts, ep)
-        if vend + 1 < n && stdr.slice(source, vend, vend + 1) == "$" && stdr.slice(source, vend + 1, vend + 2) == "$" {
+        if vend + 1 < n && stdr.slice(source, vend, vend + 1) == "$" && stdr.slice(source, vend + 1, vend + 2) == "$"
           j = vend + 2
-        } else {
+        else
           j = vend
-        }
         seg_chunk_start = j
         continue
-      }
       if stdr.char_code(ch) == 10 { break }
       j = j + 1
-    }
     if seg_chunk_start < j { stdr.push(seg_parts, stdr.slice(source, seg_chunk_start, j)) }
     let seg_final = stdr.join(seg_parts)
-    if stdr.len(seg_final) > 0 {
+    if stdr.len(seg_final) > 0
       let ?tp = []: [string => any]
       let tkk = "kind"
       let tvk = "val"
       tp[tkk] = "text"
       tp[tvk] = seg_final
       stdr.push(parts, tp)
-    }
     let ?t_interp = tok("str_interp", line, col, "", 0, "")
     let partsk = "parts"
     t_interp[partsk] = parts
     let end_j = if j < n { j + 1 } else { j }
     return [t_interp, end_j, line, start_col + (end_j - i)]
-  }
   return [tok("ident", line, col, c, 0, ""), i + 1, line, col + 1]
-}
+;
 
-: lex_rest(source = string, i = num, line = num, col = num, acc = any, decode_escapes = bool) (( any )) {
+: is_stmt_end(kind = string) (( bool ))
+  return kind == "rbrace" || kind == "semi" || kind == "rpar" || kind == "rbrack" || kind == "int" || kind == "float" || kind == "ident" || kind == "str" || kind == "str_interp" || kind == "kw_true" || kind == "kw_false" || kind == "kw_null" || kind == "kw_break" || kind == "kw_continue" || kind == "kw_return"
+;
+
+: insert_auto_semis(toks = any) (( any ))
+  let n = stdr.len(toks)
+  if n == 0 { return toks }
+  let kind = "kind"
+  let ?result = []: [any]
+  let ?nest = 0
+  let ?last_sig = ""
+  let ?last_line = 0
+  let ?i = 0
+  for (; i < n; i = i + 1)
+    let t = toks[i]
+    let tk = t[kind] ?? ""
+    let tline = stdr.num(t["line"] ?? 0)
+    -- Insert newline_semi when moving to a new line at nest==0 after a stmt-end
+    if tline > last_line && last_line > 0 && nest == 0 && is_stmt_end(last_sig)
+      stdr.push(result, tok("newline_semi", last_line, 0, ";", 0, ""))
+    -- Track nesting depth
+    if tk == "lpar" || tk == "lbrack" || tk == "lbrace" { nest = nest + 1 }
+    if tk == "rpar" || tk == "rbrack" || tk == "rbrace"
+      if nest > 0 { nest = nest - 1 }
+    -- Push token
+    stdr.push(result, t)
+    -- Track last significant token (skip semi/newline_semi)
+    if tk != "semi" && tk != "newline_semi" { last_sig = tk }
+    last_line = tline
+  -- Emit trailing newline_semi if needed
+  if nest == 0 && is_stmt_end(last_sig)
+    stdr.push(result, tok("newline_semi", last_line, 0, ";", 0, ""))
+  -- Post-processing fixups
+  let rn = stdr.len(result)
+  if rn <= 1 { return result }
+  let ?out = []: [any]
+  let ?w = 0
+  i = 0
+  for (; i < rn; i = i + 1)
+    let ri = result[i] ?? []: [string => any]
+    let rk = ri[kind] ?? ""
+    let oi = if w > 0 { out[w - 1] ?? []: [string => any] } else { []: [string => any] }
+    let pk = oi[kind] ?? ""
+    -- Remove newline_semi before dot (method chain) or arrow (lambda continuation)
+    let is_chain = rk == "dot" || rk == "arrow"
+    if is_chain && pk == "newline_semi"
+      out[w - 1] = result[i]
+      continue
+    -- Dedup consecutive semis: keep explicit over auto
+    let rk_semi = rk == "semi" || rk == "newline_semi"
+    let pk_semi = pk == "semi" || pk == "newline_semi"
+    if rk_semi && pk_semi
+      if rk == "semi" && pk == "semi"
+        stdr.push(out, result[i])
+        w = w + 1
+        continue
+      if rk == "semi" && pk == "newline_semi"
+        out[w - 1] = result[i]
+      continue
+    stdr.push(out, result[i])
+    w = w + 1
+  return out
+;
+
+: lex_rest(source = string, i = num, line = num, col = num, acc = any, decode_escapes = bool) (( any ))
   let n = stdr.len(source)
   let ?cur_i = i
   let ?cur_line = line
@@ -622,7 +603,7 @@ bring stdr
   let ?ret_depth = 0
   let ?last_kind = ""
   let ?second_last_kind = ""
-  for (; true; ) {
+  for (; true; )
     let r = skip_ws_and_comments(source, cur_i, cur_line, cur_col, ret_depth > 0)
     let i2 = r[0] ?? 0
     let line2 = r[1] ?? 1
@@ -636,12 +617,10 @@ bring stdr
     let ?next_col = 1
     next_col = stdr.num(lr[3] ?? 1)
     let tk = t[kind] ?? ""
-    if tk == "lpar" && last_kind == "lpar" && second_last_kind == "rpar" {
+    if tk == "lpar" && last_kind == "lpar" && second_last_kind == "rpar"
       ret_depth = ret_depth + 1
-    }
-    if tk == "rpar" && last_kind == "rpar" && ret_depth > 0 {
+    if tk == "rpar" && last_kind == "rpar" && ret_depth > 0
       ret_depth = ret_depth - 1
-    }
     stdr.push(cur_acc, t)
     if next_i >= n { return cur_acc }
     if tk == "eof" { return cur_acc }
@@ -650,14 +629,14 @@ bring stdr
     cur_i = next_i
     cur_line = next_line
     cur_col = next_col
-  }
   return cur_acc
-}
+;
 
-:: lex_with_escapes(source = string, decode_escapes = bool) (( any )) {
-  return lex_rest(source, 0, 1, 1, []: [any], decode_escapes)
-}
+:: lex_with_escapes(source = string, decode_escapes = bool) (( any ))
+  let raw = lex_rest(source, 0, 1, 1, []: [any], decode_escapes)
+  return insert_auto_semis(raw)
+;
 
-:: lex(source = string) (( any )) {
+:: lex(source = string) (( any ))
   return lex_with_escapes(source, false)
-}
+;

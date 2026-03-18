@@ -2,205 +2,202 @@ cask stdr
 
 -- Yis Standard Library: stdr.yi
 
-macro is_none() (( bool )) {
+macro is_none() (( bool ))
   this == null
-}
+;
 
 -- Internal output primitive (compiler intrinsic)
-: __write(x = any) (( -- )) { }
+: __write(x = any) (( -- )) ;
 
 -- Internal formatted output primitive (compiler intrinsic)
-: __writef(fmt = string, args = any) (( -- )) { }
+: __writef(fmt = string, args = any) (( -- )) ;
 
 -- Internal line input primitive (compiler intrinsic)
-: __read_line() (( string )) { }
+: __read_line() (( string )) ;
 
 -- Internal readf parser (compiler intrinsic)
-: __readf_parse(fmt = string, line = string, args = any) (( any )) { }
-: __read_text_file(path = string) (( any )) { }
-: __write_text_file(path = string, text = string) (( bool )) { }
-: __open_file_dialog(prompt = string, extension = string) (( any )) { }
-: __save_file_dialog(prompt = string, default_name = string, extension = string) (( any )) { }
+: __readf_parse(fmt = string, line = string, args = any) (( any )) ;
+: __read_text_file(path = string) (( any )) ;
+: __write_text_file(path = string, text = string) (( bool )) ;
+: __open_file_dialog(prompt = string, extension = string) (( any )) ;
+: __save_file_dialog(prompt = string, default_name = string, extension = string) (( any )) ;
 
 -- Print formatted output
-: writef(fmt = string, args = any) (( -- )) {
+: writef(fmt = string, args = any) (( -- ))
   __writef(fmt, args)
-}
+;
 
 -- Read formatted input (returns line and parsed values)
-: readf(fmt = string, args = any) (( string, any )) {
+: readf(fmt = string, args = any) (( string, any ))
   __writef(fmt, args)
   let line = __read_line()
   let parsed = __readf_parse(fmt, line, args)
   return (line, parsed)
-}
+;
 
 -- Print a value
-: write(x = any) (( -- )) {
+: write(x = any) (( -- ))
   __write(x)
-}
+;
 
 -- Check if a value is null
-: is_null(x = any) (( bool )) {
+: is_null(x = any) (( bool ))
   return x.is_none()
-}
+;
 
 -- Convert a value to a string (compiler intrinsic)
-: str(x = any) (( string )) { }
+: str(x = any) (( string )) ;
 
 -- Internal length primitive (compiler intrinsic)
-: __len(x = any) (( num )) { }
+: __len(x = any) (( num )) ;
 
 -- Coerce any to num (int/bool/float/parseable string → int; null/other → 0)
-: __num(x = any) (( num )) { }
+: __num(x = any) (( num )) ;
 
 -- Get the length of an array or string
-: len(x = any) (( num )) {
+: len(x = any) (( num ))
   return __len(x)
-}
+;
 
 -- Coerce value to num for comparisons and arithmetic (e.g. array index from any)
-: num(x = any) (( num )) {
+: num(x = any) (( num ))
   return __num(x)
-}
+;
 
 -- Substring: slice(s, start, end) is s[start..end), 0-based; indices clamped
-: __slice(s = string, start = num, end = num) (( string )) { }
-: slice(s = string, start = num, end = num) (( string )) {
+: __slice(s = string, start = num, end = num) (( string )) ;
+: slice(s = string, start = num, end = num) (( string ))
   return __slice(s, start, end)
-}
+;
 
 -- Concatenate two arrays; both must be arrays
-: __concat(a = any, b = any) (( any )) { }
-: concat(a = any, b = any) (( any )) {
+: __concat(a = any, b = any) (( any )) ;
+: concat(a = any, b = any) (( any ))
   let ?out = []: [any]
   let ?i = 0
   let n1 = len(a)
-  for (; i < n1; i = i + 1) {
+  for (; i < n1; i = i + 1)
     let idx = len(out)
     out[idx] = a[i]
-  }
   i = 0
   let n2 = len(b)
-  for (; i < n2; i = i + 1) {
+  for (; i < n2; i = i + 1)
     let idx = len(out)
     out[idx] = b[i]
-  }
   return out
-}
+;
 
 -- Concatenate two values as strings (returns string)
-: __str_concat(a = any, b = any) (( string )) { }
-: str_concat(a = any, b = any) (( string )) {
+: __str_concat(a = any, b = any) (( string )) ;
+: str_concat(a = any, b = any) (( string ))
   return __str_concat(a, b)
-}
+;
 
 -- Join an array of strings into one string (O(n) total length)
-: __join(arr = any) (( string )) { }
-: join(arr = any) (( string )) {
+: __join(arr = any) (( string )) ;
+: join(arr = any) (( string ))
   let ?out = ""
   let ?i = 0
   let n = len(arr)
-  for (; i < n; i = i + 1) {
+  for (; i < n; i = i + 1)
     out = str_concat(out, str(arr[i]))
-  }
   return out
-}
+;
 
 -- Push a value onto the end of an array in-place (O(1) amortized)
-: __push(arr = any, val = any) (( -- )) { }
-: push(arr = any, val = any) (( -- )) {
+: __push(arr = any, val = any) (( -- )) ;
+: push(arr = any, val = any) (( -- ))
   let ?a_ref = arr
   let idx = len(a_ref)
   a_ref[idx] = val
-}
+;
 
 -- ASCII code of first character of string (0 if empty)
-: __char_code(c = string) (( num )) { }
-: char_code(c = string) (( num )) {
+: __char_code(c = string) (( num )) ;
+: char_code(c = string) (( num ))
   return __char_code(c)
-}
+;
 
 -- Create a single-character string from an ASCII code
-: __char_from_code(code = num) (( string )) { }
-: char_from_code(code = num) (( string )) {
+: __char_from_code(code = num) (( string )) ;
+: char_from_code(code = num) (( string ))
   return __char_from_code(code)
-}
+;
 
 -- Character at index (returns single-character string, or "" if out of range)
-: char_at(s = string, idx = num) (( string )) {
+: char_at(s = string, idx = num) (( string ))
   return slice(s, idx, idx + 1)
-}
+;
 
 -- Substring from start index to end of string
-: substring(s = string, start = num) (( string )) {
+: substring(s = string, start = num) (( string ))
   return slice(s, start, len(s))
-}
+;
 
 -- Substring from start index with given length
-: substring_len(s = string, start = num, n = num) (( string )) {
+: substring_len(s = string, start = num, n = num) (( string ))
   return slice(s, start, start + n)
-}
+;
 
 -- Replace all occurrences of 'from' with 'to' in text
-: __replace(text = string, from = string, to = string) (( string )) { }
-: replace(text = string, from = string, to = string) (( string )) {
+: __replace(text = string, from = string, to = string) (( string )) ;
+: replace(text = string, from = string, to = string) (( string ))
   return __replace(text, from, to)
-}
+;
 
 -- Parse a hexadecimal string to a number (e.g. "ff" → 255, "0x1a" → 26)
-: __parse_hex(s = string) (( num )) { }
-: parse_hex(s = string) (( num )) {
+: __parse_hex(s = string) (( num )) ;
+: parse_hex(s = string) (( num ))
   return __parse_hex(s)
-}
+;
 
 -- Floor: round down to nearest integer
-: __floor(x = num) (( num )) { }
-: floor(x = num) (( num )) {
+: __floor(x = num) (( num )) ;
+: floor(x = num) (( num ))
   return __floor(x)
-}
+;
 
 -- Ceil: round up to nearest integer
-: __ceil(x = num) (( num )) { }
-: ceil(x = num) (( num )) {
+: __ceil(x = num) (( num )) ;
+: ceil(x = num) (( num ))
   return __ceil(x)
-}
+;
 
 -- Get all keys of a dict as an array of strings
-: __keys(d = any) (( [string] )) { }
-: keys(d = any) (( [string] )) {
+: __keys(d = any) (( [string] )) ;
+: keys(d = any) (( [string] ))
   return __keys(d)
-}
+;
 
 -- Read text file contents; returns null when file cannot be read
-: read_text_file(path = string) (( any )) {
+: read_text_file(path = string) (( any ))
   return __read_text_file(path)
-}
+;
 
 -- Write text to a file; returns true on success
-: write_text_file(path = string, text = string) (( bool )) {
+: write_text_file(path = string, text = string) (( bool ))
   return __write_text_file(path, text)
-}
+;
 
 -- Run a shell command; returns (exit_code, stdout) as (num, string)
-: __run_command(cmd = string) (( num, string )) { }
+: __run_command(cmd = string) (( num, string )) ;
 
-: run_command(cmd = string) (( num, string )) {
+: run_command(cmd = string) (( num, string ))
   return __run_command(cmd)
-}
+;
 
 -- Command-line arguments (argv as array of strings)
-: __args() (( [string] )) { }
-: args() (( [string] )) {
+: __args() (( [string] )) ;
+: args() (( [string] ))
   return __args()
-}
+;
 
 -- Open native file picker and return selected path or null
-: open_file_dialog(prompt = string, extension = string) (( any )) {
+: open_file_dialog(prompt = string, extension = string) (( any ))
   return __open_file_dialog(prompt, extension)
-}
+;
 
 -- Open native save dialog and return selected path or null
-: save_file_dialog(prompt = string, default_name = string, extension = string) (( any )) {
+: save_file_dialog(prompt = string, default_name = string, extension = string) (( any ))
   return __save_file_dialog(prompt, default_name, extension)
-}
+;

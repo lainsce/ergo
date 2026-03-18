@@ -5,102 +5,96 @@ bring stdr
 -- Yis Standard Library: net.yi
 -- HTTP utilities backed by curl via stdr.run_command
 
-: _hex_digit(n = num) (( string )) {
+: _hex_digit(n = num) (( string ))
   let digits = "0123456789ABCDEF"
   return stdr.slice(digits, n, n + 1)
-}
+;
 
-: _is_alpha_num(code = num) (( bool )) {
+: _is_alpha_num(code = num) (( bool ))
   if code >= 48 && code <= 57 { return true }
   if code >= 65 && code <= 90 { return true }
   if code >= 97 && code <= 122 { return true }
   return false
-}
+;
 
-: _is_unreserved(code = num) (( bool )) {
+: _is_unreserved(code = num) (( bool ))
   if _is_alpha_num(code) { return true }
   if code == 45 || code == 46 || code == 95 || code == 126 { return true }
   return false
-}
+;
 
-: _shell_quote(text = string) (( string )) {
+: _shell_quote(text = string) (( string ))
   let ?parts = []: [any]
   stdr.push(parts, "'")
   let ?chunk_start = 0
   let n = stdr.len(text)
   let ?i = 0
-  for (; i < n; i = i + 1) {
+  for (; i < n; i = i + 1)
     let ch = stdr.slice(text, i, i + 1)
-    if ch == "'" {
+    if ch == "'"
       if chunk_start < i { stdr.push(parts, stdr.slice(text, chunk_start, i)) }
       stdr.push(parts, "'\"'\"'")
       chunk_start = i + 1
-    }
-  }
   if chunk_start < n { stdr.push(parts, stdr.slice(text, chunk_start, n)) }
   stdr.push(parts, "'")
   return stdr.join(parts)
-}
+;
 
-: _contains(text = string, needle = string) (( bool )) {
+: _contains(text = string, needle = string) (( bool ))
   let tn = stdr.len(text)
   let nn = stdr.len(needle)
   if nn == 0 { return true }
   if nn > tn { return false }
   let ?i = 0
   let end = tn - nn
-  for (; i <= end; i = i + 1) {
+  for (; i <= end; i = i + 1)
     if stdr.slice(text, i, i + nn) == needle { return true }
-  }
   return false
-}
+;
 
-: _last_index_of(text = string, needle = string) (( num )) {
+: _last_index_of(text = string, needle = string) (( num ))
   let tn = stdr.len(text)
   let nn = stdr.len(needle)
   if nn == 0 || nn > tn { return -1 }
   let ?pos = -1
   let ?i = 0
   let end = tn - nn
-  for (; i <= end; i = i + 1) {
-    if stdr.slice(text, i, i + nn) == needle {
+  for (; i <= end; i = i + 1)
+    if stdr.slice(text, i, i + nn) == needle
       pos = i
-    }
-  }
   return pos
-}
+;
 
-: _parse_int(text = string) (( num )) {
+: _parse_int(text = string) (( num ))
   let ?v = 0
   let ?i = 0
   let n = stdr.len(text)
-  for (; i < n; i = i + 1) {
+  for (; i < n; i = i + 1)
     let ch = stdr.slice(text, i, i + 1)
     let code = stdr.char_code(ch)
     if code < 48 || code > 57 { break }
     v = v * 10 + (code - 48)
-  }
   return v
-}
+;
 
-: _pair_key(pair = any) (( string )) {
+: _pair_key(pair = any) (( string ))
   if stdr.len(pair) >= 1 { return stdr.str(pair[0]) }
   return ""
-}
+;
 
-: _pair_val(pair = any) (( string )) {
+: _pair_val(pair = any) (( string ))
   if stdr.len(pair) >= 2 { return stdr.str(pair[1]) }
   return ""
-}
+;
 
-:: encode_component(text = string) (( string )) {
+:: encode_component(text = string) (( string ))
   let ?parts = []: [any]
   let ?chunk_start = 0
   let n = stdr.len(text)
   let ?i = 0
-  for (; i < n; i = i + 1) {
+  for (; i < n; i = i + 1)
     let code = stdr.char_code(stdr.slice(text, i, i + 1))
-    if !_is_unreserved(code) {
+    if !_is_unreserved(code)
       if chunk_start < i { stdr.push(parts, stdr.slice(text, chunk_start, i)) }
       let hi = code / 16
       let lo = code - hi * 16
@@ -108,17 +102,15 @@ bring stdr
       stdr.push(parts, _hex_digit(hi))
       stdr.push(parts, _hex_digit(lo))
       chunk_start = i + 1
-    }
-  }
   if chunk_start < n { stdr.push(parts, stdr.slice(text, chunk_start, n)) }
   return stdr.join(parts)
-}
+;
 
-:: build_query(params = any) (( string )) {
+:: build_query(params = any) (( string ))
   let ?parts = []: [any]
   let ?i = 0
   let n = stdr.len(params)
-  for (; i < n; i = i + 1) {
+  for (; i < n; i = i + 1)
     let pair = params[i]
     let k = encode_component(_pair_key(pair))
     let v = encode_component(_pair_val(pair))
@@ -126,20 +118,18 @@ bring stdr
     stdr.push(parts, k)
     stdr.push(parts, "=")
     stdr.push(parts, v)
-  }
   return stdr.join(parts)
-}
+;
 
-:: with_query(url = string, params = any) (( string )) {
+:: with_query(url = string, params = any) (( string ))
   let q = build_query(params)
   if stdr.len(q) == 0 { return url }
-  if _contains(url, "?") {
+  if _contains(url, "?")
     return stdr.str_concat(stdr.str_concat(url, "&"), q)
-  }
   return stdr.str_concat(stdr.str_concat(url, "?"), q)
-}
+;
 
-: _parse_status_payload(raw = string) (( any )) {
+: _parse_status_payload(raw = string) (( any ))
   let marker = "__YIS_HTTP_STATUS__:"
   let end_marker = "__YIS_HTTP_END__"
   let idx = _last_index_of(raw, marker)
@@ -158,27 +148,25 @@ bring stdr
   result["status"] = _parse_int(status_text)
   result["body"] = stdr.slice(raw, 0, idx)
   return result
-}
+;
 
-:: request(method = string, url = string, body = any, headers = any, params = any, timeout_secs = num, follow_redirects = bool) (( any )) {
+:: request(method = string, url = string, body = any, headers = any, params = any, timeout_secs = num, follow_redirects = bool) (( any ))
   let request_url = with_query(url, params)
   let ?cmd = "curl -sS"
 
-  if follow_redirects {
+  if follow_redirects
     cmd = stdr.str_concat(cmd, " -L")
-  }
 
-  if timeout_secs > 0 {
+  if timeout_secs > 0
     cmd = stdr.str_concat(cmd, " --max-time ")
     cmd = stdr.str_concat(cmd, stdr.str(timeout_secs))
-  }
 
   cmd = stdr.str_concat(cmd, " -X ")
   cmd = stdr.str_concat(cmd, _shell_quote(method))
 
   let ?i = 0
   let hn = stdr.len(headers)
-  for (; i < hn; i = i + 1) {
+  for (; i < hn; i = i + 1)
     let pair = headers[i]
     let hk = _pair_key(pair)
     let hv = _pair_val(pair)
@@ -186,12 +174,10 @@ bring stdr
     let hline = stdr.str_concat(stdr.str_concat(hk, ": "), hv)
     cmd = stdr.str_concat(cmd, " -H ")
     cmd = stdr.str_concat(cmd, _shell_quote(hline))
-  }
 
-  if !stdr.is_null(body) {
+  if !stdr.is_null(body)
     cmd = stdr.str_concat(cmd, " --data-binary ")
     cmd = stdr.str_concat(cmd, _shell_quote(stdr.str(body)))
-  }
 
   cmd = stdr.str_concat(cmd, " ")
   cmd = stdr.str_concat(cmd, _shell_quote(request_url))
@@ -214,25 +200,24 @@ bring stdr
   resp["curl_exit"] = curl_exit
   resp["ok"] = curl_exit == 0 && status >= 200 && status < 300
 
-  if curl_exit != 0 {
+  if curl_exit != 0
     resp["error"] = text
-  } else {
+  else
     resp["error"] = null
-  }
 
   return resp
-}
+;
 
-:: get(url = string, params = any, headers = any, timeout_secs = num) (( any )) {
+:: get(url = string, params = any, headers = any, timeout_secs = num) (( any ))
   return request("GET", url, null, headers, params, timeout_secs, true)
-}
+;
 
-:: post(url = string, body = string, headers = any, params = any, timeout_secs = num) (( any )) {
+:: post(url = string, body = string, headers = any, params = any, timeout_secs = num) (( any ))
   return request("POST", url, body, headers, params, timeout_secs, true)
-}
+;
 
-:: post_json(url = string, json_text = string, headers = any, params = any, timeout_secs = num) (( any )) {
+:: post_json(url = string, json_text = string, headers = any, params = any, timeout_secs = num) (( any ))
   let ?hs = headers
   stdr.push(hs, ["Content-Type", "application/json"])
   return request("POST", url, json_text, hs, params, timeout_secs, true)
-}
+;

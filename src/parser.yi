@@ -5,17 +5,20 @@ cask parser
 -- Expression/statement parsing uses iterative Pratt parsing.
 bring stdr
 
+def ?semi_depth = 0
+def ?brace_depth = 0
+
 -- Helper: return a 2-element array.
-: pair(a = any, b = any) (( any )) {
+: pair(a = any, b = any) (( any ))
   let ?p = []: [any]
   p[0] = a
   p[1] = b
   return p
-}
+;
 
 -- Helper: check if an expression node is a chained method call
 -- (call on a member of another call result), which is disallowed on defs.
-: is_chained_call(node = any) (( bool )) {
+: is_chained_call(node = any) (( bool ))
   let tag = "tag"
   if stdr.is_null(node) { return false }
   let nt = node[tag] ?? ""
@@ -30,33 +33,40 @@ bring stdr
   if stdr.is_null(obj) { return false }
   let ot = obj[tag] ?? ""
   return ot == "call"
-}
+;
 
-: mk_return_stmt(v = any) (( any )) {
+: mk_return_stmt(v = any) (( any ))
   let ?n = []: [string => any]
   n["tag"] = "return"
   n["value"] = v
   return n
-}
+;
 
 -- Peek at token i (returns eof token if past end).
-: peek(toks = any, i = num) (( any )) {
+: peek(toks = any, i = num) (( any ))
   let n = stdr.len(toks)
   if i >= n { let k = "kind"; let ?eof = []: [string => any]; eof[k] = "eof"; return eof }
   return toks[i]
-}
+;
 
--- Skip semicolons.
-: parse_skip_semi(toks = any, i = num) (( num )) {
-  let kind = "kind"
+-- Check if a semi/newline_semi at current position should be consumed.
+-- newline_semi is always consumed; semi is consumed only when semi_depth==0 or brace_depth>0.
+: should_eat_semi(toks = any, j = num) (( bool ))
+  let t = peek(toks, j)
+  let k = t["kind"] ?? ""
+  if k == "newline_semi" { return true }
+  let semi_ok = semi_depth == 0 || brace_depth > 0
+  if k == "semi" && semi_ok { return true }
+  return false
+;
+
+-- Skip semicolons (respects semi_depth/brace_depth).
+: parse_skip_semi(toks = any, i = num) (( num ))
   let ?j = i
-  for (; true; ) {
-    let t = peek(toks, j)
-    if t[kind] != "semi" { return j }
+  for (; should_eat_semi(toks, j); )
     j = j + 1
-  }
   return j
-}
+;
 
 -- Make an AST node (dict) with given tag.
 -- Note: callers must assign to a [string => any] typed variable
@@ -73,7 +83,7 @@ bring stdr
 -- ============================================================
 
 -- Precedence for binary operators (token kind -> int). 0 = not a binop.
-: prec_of(kind = string) (( num )) {
+: prec_of(kind = string) (( num ))
   if kind == "eq" || kind == "plus_eq" || kind == "minus_eq" || kind == "star_eq" || kind == "slash_eq" || kind == "percent_eq" { return 1 }
   if kind == "qq" { return 2 }
   if kind == "barbar" { return 3 }
@@ -83,16 +93,16 @@ bring stdr
   if kind == "plus" || kind == "minus" { return 7 }
   if kind == "star" || kind == "slash" || kind == "percent" { return 8 }
   return 0
-}
+;
 
 -- Is this an assignment operator?
-: is_assign(kind = string) (( bool )) {
+: is_assign(kind = string) (( bool ))
   return kind == "eq" || kind == "plus_eq" || kind == "minus_eq" || kind == "star_eq" || kind == "slash_eq" || kind == "percent_eq"
-}
+;
 
 -- Parse a primary expression (atom or prefix unary).
 -- Returns pair(next_index, expr_node).
-: parse_primary(toks = any, i = num) (( any )) {
+: parse_primary(toks = any, i = num) (( any ))
   let kind = "kind"
   let text = "text"
   let tag = "tag"
@@ -100,130 +110,122 @@ bring stdr
   let tk = t[kind] ?? ""
 
   -- Integer literal
-  if tk == "int" {
-    let ?n = []: [string => any]; n[tag] = "int"
+  if tk == "int"
+    let ?n = []: [string => any]
+    n[tag] = "int"
     let vk = "value"
     n[vk] = t[text] ?? "0"
     return pair(i + 1, n)
-  }
 
   -- Float literal
-  if tk == "float" {
-    let ?n = []: [string => any]; n[tag] = "float"
+  if tk == "float"
+    let ?n = []: [string => any]
+    n[tag] = "float"
     let vk = "value"
     n[vk] = t[text] ?? "0.0"
     return pair(i + 1, n)
-  }
 
   -- String literal
-  if tk == "str" {
-    let ?n = []: [string => any]; n[tag] = "str"
+  if tk == "str"
+    let ?n = []: [string => any]
+    n[tag] = "str"
     let vk = "value"
     let sv = "str_val"
     n[vk] = t[sv] ?? ""
     return pair(i + 1, n)
-  }
 
   -- Interpolated string
-  if tk == "str_interp" {
+  if tk == "str_interp"
     let partsk = "parts"
-    let ?n = []: [string => any]; n[tag] = "interp"
+    let ?n = []: [string => any]
+    n[tag] = "interp"
     n[partsk] = t[partsk] ?? []: [any]
     return pair(i + 1, n)
-  }
 
   -- Boolean literals
-  if tk == "kw_true" {
-    let ?n = []: [string => any]; n[tag] = "bool"
+  if tk == "kw_true"
+    let ?n = []: [string => any]
+    n[tag] = "bool"
     let vk = "value"
     n[vk] = true
     return pair(i + 1, n)
-  }
-  if tk == "kw_false" {
-    let ?n = []: [string => any]; n[tag] = "bool"
+  if tk == "kw_false"
+    let ?n = []: [string => any]
+    n[tag] = "bool"
     let vk = "value"
     n[vk] = false
     return pair(i + 1, n)
-  }
 
   -- Null literal
-  if tk == "kw_null" {
-    let ?__mk_tmp = []: [string => any]; __mk_tmp[tag] = "null"
+  if tk == "kw_null"
+    let ?__mk_tmp = []: [string => any]
+    __mk_tmp[tag] = "null"
     return pair(i + 1, __mk_tmp)
-  }
 
   -- Unary prefix: !, -, #
   -- Parse operand as a high-precedence expression so postfix binds first:
   -- !stdr.is_null(x) => !(stdr.is_null(x))
-  if tk == "bang" || tk == "minus" || tk == "hash" {
+  if tk == "bang" || tk == "minus" || tk == "hash"
     let res = parse_expr(toks, i + 1, 9)
     let next = stdr.num(res[0] ?? (i + 1))
     let operand = res[1]
     if stdr.is_null(operand) { return pair(next, null) }
-    let ?n = []: [string => any]; n[tag] = "unary"
+    let ?n = []: [string => any]
+    n[tag] = "unary"
     let ok = "op"
     let rk = "operand"
     n[ok] = tk
     n[rk] = operand
     return pair(next, n)
-  }
 
   -- Parenthesized expression
-  if tk == "lpar" {
+  if tk == "lpar"
     -- Check for (( which is a type annotation, not grouping
     let t2 = peek(toks, i + 1)
-    if t2[kind] == "lpar" {
+    if t2[kind] == "lpar"
       -- This shouldn't appear as an expression primary; treat as error/null
       return pair(i, null)
-    }
 
     -- Lambda expression: only when matching ')' is followed by =>
     let ?scan = i + 1
     let ?depth = 1
     let ?close_i = -1
-    for (; true; ) {
+    for (; true; )
       let ts = peek(toks, scan)
       let sk = ts[kind] ?? ""
       if sk == "eof" { break }
       if sk == "lpar" { depth = depth + 1 }
-      if sk == "rpar" {
+      if sk == "rpar"
         depth = depth - 1
-        if depth == 0 {
+        if depth == 0
           close_i = scan
           break
-        }
-      }
       scan = scan + 1
-    }
 
-    if close_i > i {
+    if close_i > i
       let ta = peek(toks, close_i + 1)
-      if ta[kind] == "arrow" {
+      if ta[kind] == "arrow"
         let params_res = parse_params(toks, i)
         let pj = stdr.num(params_res[0] ?? i)
-        if pj == close_i + 1 {
+        if pj == close_i + 1
           let params = params_res[1] ?? []: [any]
           let ?j = pj + 1
           let ?body = []: [any]
           let ?eres = null
           let tb = peek(toks, j)
-          if tb[kind] == "lbrace" {
+          if tb[kind] == "lbrace"
             let br = parse_block(toks, j)
             j = stdr.num(br[0] ?? j)
             body = br[1] ?? []: [any]
-          } else {
+          else
             eres = parse_expr(toks, j, 0)
             j = stdr.num(eres[0] ?? j)
             body = [mk_return_stmt(eres[1])]
-          }
           let ?ln = []: [string => any]
           ln[tag] = "lambda"
           ln["params"] = params
           ln["body"] = body
           return pair(j, ln)
-        }
-      }
-    }
 
     let res = parse_expr(toks, i + 1, 0)
     let ?next = stdr.num(res[0] ?? (i + 1))
@@ -231,62 +233,56 @@ bring stdr
     let t3 = peek(toks, next)
     if t3[kind] == "rpar" { next = next + 1 }
     return pair(next, inner)
-  }
 
   -- Array / dict literal: [expr, ...], []: [T], []: [K => V]
-  if tk == "lbrack" {
+  if tk == "lbrack"
     let t2 = peek(toks, i + 1)
-    if t2[kind] == "rbrack" {
+    if t2[kind] == "rbrack"
       -- Empty literal: [] or typed []: [ ... ]
       let ?j = i + 2
       let t3 = peek(toks, j)
-      if t3[kind] == "colon" {
+      if t3[kind] == "colon"
         j = j + 1
         let t4 = peek(toks, j)
-        if t4[kind] == "lbrack" {
+        if t4[kind] == "lbrack"
           -- detect whether type annotation contains =>
           let ?scan = j + 1
           let ?depth = 1
           let ?is_dict_type = false
-          for (; depth > 0; ) {
+          for (; depth > 0; )
             let tt = peek(toks, scan)
             let tk = tt[kind] ?? ""
             if tk == "lbrack" { depth = depth + 1 }
             if tk == "rbrack" { depth = depth - 1 }
-            if depth == 1 && tk == "arrow" {
+            if depth == 1 && tk == "arrow"
               is_dict_type = true
-            }
             if tk == "eof" { break }
             scan = scan + 1
-          }
           -- consume full [ ... ] type annotation
           j = j + 1
           let ?depth2 = 1
-          for (; depth2 > 0; ) {
+          for (; depth2 > 0; )
             let tt = peek(toks, j)
             let tk = tt[kind] ?? ""
             if tk == "lbrack" { depth2 = depth2 + 1 }
             if tk == "rbrack" { depth2 = depth2 - 1 }
             if tk == "eof" { break }
             j = j + 1
-          }
-          if is_dict_type {
-            let ?n = []: [string => any]; n[tag] = "dict"
+          if is_dict_type
+            let ?n = []: [string => any]
+            n[tag] = "dict"
             let ek = "entries"
             n[ek] = []: [any]
             return pair(j, n)
-          }
-        }
-      }
-      let ?n = []: [string => any]; n[tag] = "array"
+      let ?n = []: [string => any]
+      n[tag] = "array"
       let ek = "elems"
       n[ek] = []: [any]
       return pair(j, n)
-    }
     -- Non-empty array: [e1, e2, ...]
     let ?elems = []: [any]
     let ?j = i + 1
-    for (; true; ) {
+    for (; true; )
       let tt = peek(toks, j)
       if tt[kind] == "rbrack" || tt[kind] == "eof" { break }
       let res = parse_expr(toks, j, 0)
@@ -295,42 +291,39 @@ bring stdr
       if !stdr.is_null(elem) { stdr.push(elems, elem) }
       let tc = peek(toks, j)
       if tc[kind] == "comma" { j = j + 1 }
-    }
     let tf = peek(toks, j)
     if tf[kind] == "rbrack" { j = j + 1 }
-    let ?n = []: [string => any]; n[tag] = "array"
+    let ?n = []: [string => any]
+    n[tag] = "array"
     let ek = "elems"
     n[ek] = elems
     return pair(j, n)
-  }
 
   -- if-expression: if cond { expr } elif cond { expr } else { expr }
-  if tk == "kw_if" {
+  if tk == "kw_if"
     let res = parse_if_expr(toks, i)
     return res
-  }
 
   -- match expression: match scrutinee { pattern => expr ... }
-  if tk == "kw_match" {
+  if tk == "kw_match"
     let res = parse_match_expr(toks, i)
     return res
-  }
 
   -- Identifier (or kw_entry used as ident)
-  if tk == "ident" || tk == "kw_entry" {
-    let ?n = []: [string => any]; n[tag] = "ident"
+  if tk == "ident" || tk == "kw_entry"
+    let ?n = []: [string => any]
+    n[tag] = "ident"
     let nk = "name"
     n[nk] = t[text] ?? ""
     return pair(i + 1, n)
-  }
 
   -- Fallback: unrecognized token; skip it
   return pair(i + 1, null)
-}
+;
 
 -- Parse an if-expression: if cond { expr } [elif ...] [else { expr }]
 -- For simplicity, parse the bodies as statement blocks.
-: parse_if_expr(toks = any, i = num) (( any )) {
+: parse_if_expr(toks = any, i = num) (( any ))
   let kind = "kind"
   -- i points at kw_if
   let ?j = i + 1
@@ -341,37 +334,39 @@ bring stdr
   -- expect { body }
   let ?then_val = null
   let t = peek(toks, j)
-  if t[kind] == "lbrace" {
+  if t[kind] == "lbrace"
+    brace_depth = brace_depth + 1
     j = j + 1
     let body_res = parse_expr(toks, j, 0)
     j = stdr.num(body_res[0] ?? j)
     then_val = body_res[1]
+    j = parse_skip_semi(toks, j)
     let tc = peek(toks, j)
     if tc[kind] == "rbrace" { j = j + 1 }
-  }
+    brace_depth = brace_depth - 1
   -- check for elif / else
   let ?else_val = null
   let te = peek(toks, j)
-  if te[kind] == "kw_elif" {
-    -- treat elif as nested if-expression
-    -- replace kw_elif conceptually with kw_if
+  if te[kind] == "kw_elif"
     let elif_res = parse_if_expr_elif(toks, j)
     j = stdr.num(elif_res[0] ?? j)
     else_val = elif_res[1]
-  } elif te[kind] == "kw_else" {
+  elif te[kind] == "kw_else"
     j = j + 1
     let te2 = peek(toks, j)
-    if te2[kind] == "lbrace" {
+    if te2[kind] == "lbrace"
+      brace_depth = brace_depth + 1
       j = j + 1
       let eres = parse_expr(toks, j, 0)
       j = stdr.num(eres[0] ?? j)
       else_val = eres[1]
+      j = parse_skip_semi(toks, j)
       let tc = peek(toks, j)
       if tc[kind] == "rbrace" { j = j + 1 }
-    }
-  }
+      brace_depth = brace_depth - 1
   let tag = "tag"
-  let ?n = []: [string => any]; n[tag] = "if_expr"
+  let ?n = []: [string => any]
+  n[tag] = "if_expr"
   let ck = "cond"
   let tk_key = "then"
   let ek = "else"
@@ -379,10 +374,10 @@ bring stdr
   n[tk_key] = then_val
   n[ek] = else_val
   return pair(j, n)
-}
+;
 
 -- Parse elif branch of if-expression (same structure, starts at kw_elif).
-: parse_if_expr_elif(toks = any, i = num) (( any )) {
+: parse_if_expr_elif(toks = any, i = num) (( any ))
   let kind = "kind"
   let ?j = i + 1
   let cond_res = parse_expr(toks, j, 0)
@@ -390,34 +385,38 @@ bring stdr
   let cond = cond_res[1]
   let ?then_val = null
   let t = peek(toks, j)
-  if t[kind] == "lbrace" {
+  if t[kind] == "lbrace"
+    brace_depth = brace_depth + 1
     j = j + 1
     let body_res = parse_expr(toks, j, 0)
     j = stdr.num(body_res[0] ?? j)
     then_val = body_res[1]
+    j = parse_skip_semi(toks, j)
     let tc = peek(toks, j)
     if tc[kind] == "rbrace" { j = j + 1 }
-  }
+    brace_depth = brace_depth - 1
   let ?else_val = null
   let te = peek(toks, j)
-  if te[kind] == "kw_elif" {
+  if te[kind] == "kw_elif"
     let elif_res = parse_if_expr_elif(toks, j)
     j = stdr.num(elif_res[0] ?? j)
     else_val = elif_res[1]
-  } elif te[kind] == "kw_else" {
+  elif te[kind] == "kw_else"
     j = j + 1
     let te2 = peek(toks, j)
-    if te2[kind] == "lbrace" {
+    if te2[kind] == "lbrace"
+      brace_depth = brace_depth + 1
       j = j + 1
       let eres = parse_expr(toks, j, 0)
       j = stdr.num(eres[0] ?? j)
       else_val = eres[1]
+      j = parse_skip_semi(toks, j)
       let tc = peek(toks, j)
       if tc[kind] == "rbrace" { j = j + 1 }
-    }
-  }
+      brace_depth = brace_depth - 1
   let tag = "tag"
-  let ?n = []: [string => any]; n[tag] = "if_expr"
+  let ?n = []: [string => any]
+  n[tag] = "if_expr"
   let ck = "cond"
   let tk_key = "then"
   let ek = "else"
@@ -425,60 +424,60 @@ bring stdr
   n[tk_key] = then_val
   n[ek] = else_val
   return pair(j, n)
-}
+;
 
 -- Parse postfix: calls f(args), member a.b, index a[i]
 -- Parse a match pattern: int, str, true, false, null, ident, _
-: parse_pattern(toks = any, i = num) (( any )) {
+: parse_pattern(toks = any, i = num) (( any ))
   let kind = "kind"
   let text = "text"
   let tag = "tag"
   let t = peek(toks, i)
   let tk = t[kind] ?? ""
-  if tk == "int" {
-    let ?n = []: [string => any]; n[tag] = "pat_int"
+  if tk == "int"
+    let ?n = []: [string => any]
+    n[tag] = "pat_int"
     let vk = "value"
     n[vk] = t[text] ?? "0"
     return pair(i + 1, n)
-  }
-  if tk == "str" {
-    let ?n = []: [string => any]; n[tag] = "pat_str"
+  if tk == "str"
+    let ?n = []: [string => any]
+    n[tag] = "pat_str"
     let vk = "value"
     n[vk] = t["str_val"] ?? ""
     return pair(i + 1, n)
-  }
-  if tk == "kw_true" {
-    let ?n = []: [string => any]; n[tag] = "pat_bool"
+  if tk == "kw_true"
+    let ?n = []: [string => any]
+    n[tag] = "pat_bool"
     let vk = "value"
     n[vk] = true
     return pair(i + 1, n)
-  }
-  if tk == "kw_false" {
-    let ?n = []: [string => any]; n[tag] = "pat_bool"
+  if tk == "kw_false"
+    let ?n = []: [string => any]
+    n[tag] = "pat_bool"
     let vk = "value"
     n[vk] = false
     return pair(i + 1, n)
-  }
-  if tk == "kw_null" {
-    let ?n = []: [string => any]; n[tag] = "pat_null"
+  if tk == "kw_null"
+    let ?n = []: [string => any]
+    n[tag] = "pat_null"
     return pair(i + 1, n)
-  }
-  if tk == "ident" {
+  if tk == "ident"
     let name = t[text] ?? ""
-    if name == "_" {
-      let ?n = []: [string => any]; n[tag] = "pat_wild"
+    if name == "_"
+      let ?n = []: [string => any]
+      n[tag] = "pat_wild"
       return pair(i + 1, n)
-    }
-    let ?n = []: [string => any]; n[tag] = "pat_ident"
+    let ?n = []: [string => any]
+    n[tag] = "pat_ident"
     let nk = "name"
     n[nk] = name
     return pair(i + 1, n)
-  }
   return pair(i, null)
-}
+;
 
 -- Parse match expression: match scrutinee { pat => expr; ... }
-: parse_match_expr(toks = any, i = num) (( any )) {
+: parse_match_expr(toks = any, i = num) (( any ))
   let kind = "kind"
   let tag = "tag"
   let ?j = i + 1
@@ -489,15 +488,16 @@ bring stdr
   let ?arms = []: [any]
 
   let tb = peek(toks, j)
-  if tb[kind] == "lbrace" {
+  if tb[kind] == "lbrace"
+    brace_depth = brace_depth + 1
     j = j + 1
     -- Parse arms: pattern => expr [;]
-    for (; true; ) {
+    for (; true; )
       let tsemi = peek(toks, j)
-      if tsemi[kind] == "semi" { j = j + 1; continue }
+      if tsemi[kind] == "semi" || tsemi[kind] == "newline_semi" { j = j + 1; continue }
       let tc = peek(toks, j)
-      if tc[kind] == "rbrace" { j = j + 1; break }
-      if tc[kind] == "eof" { break }
+      if tc[kind] == "rbrace" { brace_depth = brace_depth - 1; j = j + 1; break }
+      if tc[kind] == "eof" { brace_depth = brace_depth - 1; break }
       let pat_res = parse_pattern(toks, j)
       j = stdr.num(pat_res[0] ?? j)
       let pat = pat_res[1]
@@ -513,11 +513,10 @@ bring stdr
       arm[pk] = pat
       arm[ek] = arm_expr
       stdr.push(arms, arm)
-    }
-  } elif tb[kind] == "colon" {
+  elif tb[kind] == "colon"
     -- Inline form: match x: pat1 => e1, pat2 => e2
     j = j + 1
-    for (; true; ) {
+    for (; true; )
       let pat_res = parse_pattern(toks, j)
       j = stdr.num(pat_res[0] ?? j)
       let pat = pat_res[1]
@@ -534,32 +533,31 @@ bring stdr
       stdr.push(arms, arm)
       let tc = peek(toks, j)
       if tc[kind] == "comma" { j = j + 1 } else { break }
-    }
-  }
 
-  let ?n = []: [string => any]; n[tag] = "match"
+  let ?n = []: [string => any]
+  n[tag] = "match"
   let sk = "scrut"
   let ak = "arms"
   n[sk] = scrut
   n[ak] = arms
   return pair(j, n)
-}
+;
 
-: parse_postfix(toks = any, i = num, left = any) (( any )) {
+: parse_postfix(toks = any, i = num, left = any) (( any ))
   let kind = "kind"
   let text = "text"
   let tag = "tag"
   let ?j = i
   let ?cur = left
-  for (; true; ) {
+  for (; true; )
     let t = peek(toks, j)
     let tk = t[kind] ?? ""
 
     -- Call: f(args)
-    if tk == "lpar" {
+    if tk == "lpar"
       let ?args = []: [any]
       j = j + 1
-      for (; true; ) {
+      for (; true; )
         let ta = peek(toks, j)
         if ta[kind] == "rpar" || ta[kind] == "eof" { break }
         let res = parse_expr(toks, j, 0)
@@ -568,22 +566,22 @@ bring stdr
         if !stdr.is_null(arg) { stdr.push(args, arg) }
         let tc = peek(toks, j)
         if tc[kind] == "comma" { j = j + 1 }
-      }
       let tr = peek(toks, j)
       if tr[kind] == "rpar" { j = j + 1 }
-      let ?n = []: [string => any]; n[tag] = "call"
+      let ?n = []: [string => any]
+      n[tag] = "call"
       let fk = "func"
       let ak = "args"
       n[fk] = cur
       n[ak] = args
       cur = n
       continue
-    }
 
     -- Member: a.b
-    if tk == "dot" {
+    if tk == "dot"
       let t2 = peek(toks, j + 1)
-      let ?n = []: [string => any]; n[tag] = "member"
+      let ?n = []: [string => any]
+      n[tag] = "member"
       let ok = "obj"
       let fk = "field"
       n[ok] = cur
@@ -591,16 +589,16 @@ bring stdr
       cur = n
       j = j + 2
       continue
-    }
 
     -- Index: a[i]
-    if tk == "lbrack" {
+    if tk == "lbrack"
       let res = parse_expr(toks, j + 1, 0)
       let ?next = stdr.num(res[0] ?? (j + 1))
       let idx = res[1]
       let tr = peek(toks, next)
       if tr[kind] == "rbrack" { next = next + 1 }
-      let ?n = []: [string => any]; n[tag] = "index"
+      let ?n = []: [string => any]
+      n[tag] = "index"
       let ok = "obj"
       let ik = "idx"
       n[ok] = cur
@@ -608,30 +606,28 @@ bring stdr
       cur = n
       j = next
       continue
-    }
 
     -- Bang-method: expr !method args
-    if tk == "bang" {
+    if tk == "bang"
       let t2 = peek(toks, j + 1)
-      if t2[kind] == "ident" {
+      if t2[kind] == "ident"
         let mname = t2[text] ?? ""
         j = j + 2
         let ?bargs = []: [any]
         -- Check if there are args (next token is not a terminator)
         let tn = peek(toks, j)
         let nk = tn[kind] ?? ""
-        if nk != "semi" && nk != "eof" && nk != "rbrace" && nk != "rpar" && nk != "rbrack" && nk != "comma" && nk != "colon" && nk != "lbrace" {
+        if nk != "semi" && nk != "eof" && nk != "rbrace" && nk != "rpar" && nk != "rbrack" && nk != "comma" && nk != "colon" && nk != "lbrace"
           let ares = parse_expr(toks, j, 0)
           j = stdr.num(ares[0] ?? j)
           stdr.push(bargs, ares[1])
-          for (; peek(toks, j)[kind] == "comma"; ) {
+          for (; peek(toks, j)[kind] == "comma"; )
             j = j + 1
             let ares2 = parse_expr(toks, j, 0)
             j = stdr.num(ares2[0] ?? j)
             stdr.push(bargs, ares2[1])
-          }
-        }
-        let ?n = []: [string => any]; n[tag] = "bang_call"
+        let ?n = []: [string => any]
+        n[tag] = "bang_call"
         let rk = "recv"
         let mnk = "name"
         let ak = "args"
@@ -640,17 +636,14 @@ bring stdr
         n[ak] = bargs
         cur = n
         continue
-      }
-    }
 
     return pair(j, cur)
-  }
   return pair(j, cur)
-}
+;
 
 -- Parse expression with precedence climbing.
 -- Returns pair(next_index, expr_node).
-:: parse_expr(toks = any, i = num, min_prec = num) (( any )) {
+:: parse_expr(toks = any, i = num, min_prec = num) (( any ))
   let tag = "tag"
   -- Parse primary
   let prim = parse_primary(toks, i)
@@ -665,7 +658,7 @@ bring stdr
 
   -- Precedence climbing for binary operators
   let kind = "kind"
-  for (; true; ) {
+  for (; true; )
     let t = peek(toks, j)
     let tk = t[kind] ?? ""
     let prec = prec_of(tk)
@@ -676,18 +669,19 @@ bring stdr
     j = j + 1
 
     -- For assignment, the LHS must be an lvalue (ident, index, member)
-    if is_assign(tk) {
+    if is_assign(tk)
       let rhs_res = parse_expr(toks, j, next_min)
       j = stdr.num(rhs_res[0] ?? j)
       let ?rhs = rhs_res[1]
       -- Desugar compound assignment: x += e -> x = x + e
-      if tk == "plus_eq" || tk == "minus_eq" || tk == "star_eq" || tk == "slash_eq" || tk == "percent_eq" {
+      if tk == "plus_eq" || tk == "minus_eq" || tk == "star_eq" || tk == "slash_eq" || tk == "percent_eq"
         let ?op = "plus"
         if tk == "minus_eq" { op = "minus" }
         if tk == "star_eq" { op = "star" }
         if tk == "slash_eq" { op = "slash" }
         if tk == "percent_eq" { op = "percent" }
-        let ?bin = []: [string => any]; bin[tag] = "binop"
+        let ?bin = []: [string => any]
+        bin[tag] = "binop"
         let bop = "op"
         let blk = "left"
         let brk = "right"
@@ -695,15 +689,14 @@ bring stdr
         bin[blk] = left
         bin[brk] = rhs
         rhs = bin
-      }
-      let ?n = []: [string => any]; n[tag] = "assign"
+      let ?n = []: [string => any]
+      n[tag] = "assign"
       let lk = "lhs"
       let rk = "rhs"
       n[lk] = left
       n[rk] = rhs
       left = n
       continue
-    }
 
     -- Regular binary op
     let rhs_res = parse_expr(toks, j, next_min)
@@ -713,7 +706,8 @@ bring stdr
     -- After parsing RHS, check for postfix on RHS
     -- (already handled by recursive parse_expr)
 
-    let ?n = []: [string => any]; n[tag] = "binop"
+    let ?n = []: [string => any]
+    n[tag] = "binop"
     let ok = "op"
     let lk = "left"
     let rk = "right"
@@ -721,16 +715,15 @@ bring stdr
     n[lk] = left
     n[rk] = rhs
     left = n
-  }
   return pair(j, left)
-}
+;
 
 -- ============================================================
 -- Statement parsing
 -- ============================================================
 
 -- Parse a single statement. Returns pair(next_index, stmt_node).
-: parse_stmt(toks = any, i = num) (( any )) {
+: parse_stmt(toks = any, i = num) (( any ))
   let kind = "kind"
   let text = "text"
   let tag = "tag"
@@ -739,29 +732,27 @@ bring stdr
   let stmt_line = t["line"] ?? 0
 
   -- let statement: let [?]name = expr;
-  if tk == "kw_let" {
+  if tk == "kw_let"
     let ?j = i + 1
     let ?mutable = false
     let t2 = peek(toks, j)
-    if t2[kind] == "qmark" {
+    if t2[kind] == "qmark"
       mutable = true
       j = j + 1
-    }
     let tname = peek(toks, j)
     let vname = tname[text] ?? ""
     j = j + 1
     -- expect = expr
     let teq = peek(toks, j)
     let ?init = null
-    if teq[kind] == "eq" {
+    if teq[kind] == "eq"
       j = j + 1
       let res = parse_expr(toks, j, 0)
       j = stdr.num(res[0] ?? j)
       init = res[1]
-    }
-    let tsemi = peek(toks, j)
-    if tsemi[kind] == "semi" { j = j + 1 }
-    let ?n = []: [string => any]; n[tag] = "let"
+    if should_eat_semi(toks, j) { j = j + 1 }
+    let ?n = []: [string => any]
+    n[tag] = "let"
     n["line"] = stmt_line
     let nk = "name"
     let mk_key = "mutable"
@@ -770,105 +761,96 @@ bring stdr
     n[mk_key] = mutable
     n[ik] = init
     return pair(j, n)
-  }
 
   -- const statement: const name = expr;
-  if tk == "kw_const" {
+  if tk == "kw_const"
     let ?j = i + 1
     let tname = peek(toks, j)
     let vname = tname[text] ?? ""
     j = j + 1
     let teq = peek(toks, j)
     let ?init = null
-    if teq[kind] == "eq" {
+    if teq[kind] == "eq"
       j = j + 1
       let res = parse_expr(toks, j, 0)
       j = stdr.num(res[0] ?? j)
       init = res[1]
-    }
-    let tsemi = peek(toks, j)
-    if tsemi[kind] == "semi" { j = j + 1 }
-    let ?n = []: [string => any]; n[tag] = "const"
+    if should_eat_semi(toks, j) { j = j + 1 }
+    let ?n = []: [string => any]
+    n[tag] = "const"
     n["line"] = stmt_line
     let nk = "name"
     let ik = "init"
     n[nk] = vname
     n[ik] = init
     return pair(j, n)
-  }
 
   -- return statement: return [expr];
-  if tk == "kw_return" {
+  if tk == "kw_return"
     let ?j = i + 1
     let ?val = null
     let t2 = peek(toks, j)
-    if t2[kind] != "semi" && t2[kind] != "rbrace" && t2[kind] != "eof" {
+    if t2[kind] != "semi" && t2[kind] != "newline_semi" && t2[kind] != "rbrace" && t2[kind] != "eof"
       let res = parse_expr(toks, j, 0)
       j = stdr.num(res[0] ?? j)
       val = res[1]
-    }
-    let tsemi = peek(toks, j)
-    if tsemi[kind] == "semi" { j = j + 1 }
-    let ?n = []: [string => any]; n[tag] = "return"
+    if should_eat_semi(toks, j) { j = j + 1 }
+    let ?n = []: [string => any]
+    n[tag] = "return"
     n["line"] = stmt_line
     let vk = "value"
     n[vk] = val
     return pair(j, n)
-  }
 
   -- break
-  if tk == "kw_break" {
+  if tk == "kw_break"
     let ?j = i + 1
-    let tsemi = peek(toks, j)
-    if tsemi[kind] == "semi" { j = j + 1 }
-    let ?__mk_tmp = []: [string => any]; __mk_tmp[tag] = "break"
+    if should_eat_semi(toks, j) { j = j + 1 }
+    let ?__mk_tmp = []: [string => any]
+    __mk_tmp[tag] = "break"
     __mk_tmp["line"] = stmt_line
     return pair(j, __mk_tmp)
-  }
 
   -- continue
-  if tk == "kw_continue" {
+  if tk == "kw_continue"
     let ?j = i + 1
-    let tsemi = peek(toks, j)
-    if tsemi[kind] == "semi" { j = j + 1 }
-    let ?__mk_tmp = []: [string => any]; __mk_tmp[tag] = "continue"
+    if should_eat_semi(toks, j) { j = j + 1 }
+    let ?__mk_tmp = []: [string => any]
+    __mk_tmp[tag] = "continue"
     __mk_tmp["line"] = stmt_line
     return pair(j, __mk_tmp)
-  }
 
   -- if / elif / else
-  if tk == "kw_if" {
+  if tk == "kw_if"
     let res = parse_if_stmt(toks, i)
     return res
-  }
 
   -- for statement: for (; cond; step) { body } or for (item in expr) { body }
-  if tk == "kw_for" {
+  if tk == "kw_for"
     let res = parse_for_stmt(toks, i)
     return res
-  }
 
   -- expression statement
   let res = parse_expr(toks, i, 0)
   let ?j = stdr.num(res[0] ?? i)
   let expr = res[1]
-  if stdr.is_null(expr) {
+  if stdr.is_null(expr)
     -- Skip unrecognized token
     return pair(i + 1, null)
-  }
-  let tsemi = peek(toks, j)
-  if tsemi[kind] == "semi" { j = j + 1 }
-  let ?n = []: [string => any]; n[tag] = "expr_stmt"
+  if should_eat_semi(toks, j) { j = j + 1 }
+  let ?n = []: [string => any]
+  n[tag] = "expr_stmt"
   n["line"] = stmt_line
   let ek = "expr"
   n[ek] = expr
   return pair(j, n)
-}
+;
 
 -- Parse if statement: if cond { stmts } [elif cond { stmts }]* [else { stmts }]
-: parse_if_stmt(toks = any, i = num) (( any )) {
+: parse_if_stmt(toks = any, i = num) (( any ))
   let kind = "kind"
   let if_line = peek(toks, i)["line"] ?? 0
+  let if_col = stdr.num(peek(toks, i)["col"] ?? 0)
   let ?j = i + 1
   -- parse condition (stop before lbrace)
   let cond_res = parse_expr(toks, j, 0)
@@ -876,38 +858,38 @@ bring stdr
   let cond = cond_res[1]
   -- parse then block
   let ?then_body = []: [any]
-  let t = peek(toks, j)
-  if t[kind] == "lbrace" {
-    let br = parse_block(toks, j)
-    j = stdr.num(br[0] ?? j)
-    then_body = br[1] ?? []: [any]
-  }
+  let br = parse_body_block(toks, j, if_col)
+  j = stdr.num(br[0] ?? j)
+  then_body = br[1] ?? []: [any]
   -- elif / else chains
   let ?else_body = []: [any]
   let te = peek(toks, j)
-  if te[kind] == "kw_elif" {
+  if te[kind] == "kw_elif"
     -- Parse elif as a nested if stmt
     let elif_res = parse_if_stmt_elif(toks, j)
     j = stdr.num(elif_res[0] ?? j)
     let elif_node = elif_res[1]
     else_body = [elif_node]
-  } elif te[kind] == "kw_else" {
+  elif te[kind] == "kw_else"
     j = j + 1
     let te2 = peek(toks, j)
-    if te2[kind] == "lbrace" {
-      let br = parse_block(toks, j)
-      j = stdr.num(br[0] ?? j)
-      else_body = br[1] ?? []: [any]
-    } elif te2[kind] == "kw_if" {
+    if te2[kind] == "lbrace"
+      let br2 = parse_block(toks, j)
+      j = stdr.num(br2[0] ?? j)
+      else_body = br2[1] ?? []: [any]
+    elif te2[kind] == "kw_if"
       -- else if
       let eif_res = parse_if_stmt(toks, j)
       j = stdr.num(eif_res[0] ?? j)
       let eif_node = eif_res[1]
       else_body = [eif_node]
-    }
-  }
+    elif semi_depth > 0
+      let br2 = parse_block_indent(toks, j, if_col)
+      j = stdr.num(br2[0] ?? j)
+      else_body = br2[1] ?? []: [any]
   let tag = "tag"
-  let ?n = []: [string => any]; n[tag] = "if"
+  let ?n = []: [string => any]
+  n[tag] = "if"
   n["line"] = if_line
   let ck = "cond"
   let tk_key = "then"
@@ -916,41 +898,42 @@ bring stdr
   n[tk_key] = then_body
   n[ek] = else_body
   return pair(j, n)
-}
+;
 
 -- Parse elif as nested if
-: parse_if_stmt_elif(toks = any, i = num) (( any )) {
+: parse_if_stmt_elif(toks = any, i = num) (( any ))
   let kind = "kind"
   let elif_line = peek(toks, i)["line"] ?? 0
+  let elif_col = stdr.num(peek(toks, i)["col"] ?? 0)
   let ?j = i + 1
   let cond_res = parse_expr(toks, j, 0)
   j = stdr.num(cond_res[0] ?? j)
   let cond = cond_res[1]
   let ?then_body = []: [any]
-  let t = peek(toks, j)
-  if t[kind] == "lbrace" {
-    let br = parse_block(toks, j)
-    j = stdr.num(br[0] ?? j)
-    then_body = br[1] ?? []: [any]
-  }
+  let br = parse_body_block(toks, j, elif_col)
+  j = stdr.num(br[0] ?? j)
+  then_body = br[1] ?? []: [any]
   let ?else_body = []: [any]
   let te = peek(toks, j)
-  if te[kind] == "kw_elif" {
+  if te[kind] == "kw_elif"
     let elif_res = parse_if_stmt_elif(toks, j)
     j = stdr.num(elif_res[0] ?? j)
     let elif_node = elif_res[1]
     else_body = [elif_node]
-  } elif te[kind] == "kw_else" {
+  elif te[kind] == "kw_else"
     j = j + 1
     let te2 = peek(toks, j)
-    if te2[kind] == "lbrace" {
-      let br = parse_block(toks, j)
-      j = stdr.num(br[0] ?? j)
-      else_body = br[1] ?? []: [any]
-    }
-  }
+    if te2[kind] == "lbrace"
+      let br2 = parse_block(toks, j)
+      j = stdr.num(br2[0] ?? j)
+      else_body = br2[1] ?? []: [any]
+    elif semi_depth > 0
+      let br2 = parse_block_indent(toks, j, elif_col)
+      j = stdr.num(br2[0] ?? j)
+      else_body = br2[1] ?? []: [any]
   let tag = "tag"
-  let ?n = []: [string => any]; n[tag] = "if"
+  let ?n = []: [string => any]
+  n[tag] = "if"
   n["line"] = elif_line
   let ck = "cond"
   let tk_key = "then"
@@ -959,23 +942,24 @@ bring stdr
   n[tk_key] = then_body
   n[ek] = else_body
   return pair(j, n)
-}
+;
 
 -- Parse for statement.
-: parse_for_stmt(toks = any, i = num) (( any )) {
+: parse_for_stmt(toks = any, i = num) (( any ))
   let kind = "kind"
   let for_line = peek(toks, i)["line"] ?? 0
+  let for_col = stdr.num(peek(toks, i)["col"] ?? 0)
   let text = "text"
   let tag = "tag"
   let ?j = i + 1
   let t = peek(toks, j)
   -- Expect (
-  if t[kind] == "lpar" {
+  if t[kind] == "lpar"
     j = j + 1
     -- Check for foreach: for (item in expr)
     let t2 = peek(toks, j)
     let t3 = peek(toks, j + 1)
-    if t2[kind] == "ident" && t3[kind] == "kw_in" {
+    if t2[kind] == "ident" && t3[kind] == "kw_in"
       -- foreach
       let item_name = t2[text] ?? ""
       j = j + 2
@@ -984,14 +968,11 @@ bring stdr
       let iter = iter_res[1]
       let trp = peek(toks, j)
       if trp[kind] == "rpar" { j = j + 1 }
-      let ?body = []: [any]
-      let tb = peek(toks, j)
-      if tb[kind] == "lbrace" {
-        let br = parse_block(toks, j)
-        j = stdr.num(br[0] ?? j)
-        body = br[1] ?? []: [any]
-      }
-      let ?n = []: [string => any]; n[tag] = "foreach"
+      let br = parse_body_block(toks, j, for_col)
+      j = stdr.num(br[0] ?? j)
+      let body = br[1] ?? []: [any]
+      let ?n = []: [string => any]
+      n[tag] = "foreach"
       n["line"] = for_line
       let ik = "item"
       let itk = "iter"
@@ -1000,52 +981,45 @@ bring stdr
       n[itk] = iter
       n[bk] = body
       return pair(j, n)
-    }
     -- C-style for: for ([let ?x = e | expr]; cond; step) { body }
     let ?init = null
     let ?init_stmt = null
     let ti = peek(toks, j)
-    if ti[kind] == "kw_let" {
+    if ti[kind] == "kw_let"
       -- Parse let as init statement
       let lres = parse_stmt(toks, j)
       j = stdr.num(lres[0] ?? j)
       init_stmt = lres[1]
-    } elif ti[kind] != "semi" {
+    elif ti[kind] != "semi"
       let ires = parse_expr(toks, j, 0)
       j = stdr.num(ires[0] ?? j)
       init = ires[1]
-    }
     let ts1 = peek(toks, j)
     if ts1[kind] == "semi" { j = j + 1 }
     -- cond
     let ?cond = null
     let tc = peek(toks, j)
-    if tc[kind] != "semi" {
+    if tc[kind] != "semi"
       let cres = parse_expr(toks, j, 0)
       j = stdr.num(cres[0] ?? j)
       cond = cres[1]
-    }
     let ts2 = peek(toks, j)
     if ts2[kind] == "semi" { j = j + 1 }
     -- step
     let ?step = null
     let tst = peek(toks, j)
-    if tst[kind] != "rpar" {
+    if tst[kind] != "rpar"
       let sres = parse_expr(toks, j, 0)
       j = stdr.num(sres[0] ?? j)
       step = sres[1]
-    }
     let trp = peek(toks, j)
     if trp[kind] == "rpar" { j = j + 1 }
     -- body
-    let ?body = []: [any]
-    let tb = peek(toks, j)
-    if tb[kind] == "lbrace" {
-      let br = parse_block(toks, j)
-      j = stdr.num(br[0] ?? j)
-      body = br[1] ?? []: [any]
-    }
-    let ?n = []: [string => any]; n[tag] = "for"
+    let br = parse_body_block(toks, j, for_col)
+    j = stdr.num(br[0] ?? j)
+    let body = br[1] ?? []: [any]
+    let ?n = []: [string => any]
+    n[tag] = "for"
     n["line"] = for_line
     let initk = "init"
     let ck = "cond"
@@ -1058,45 +1032,38 @@ bring stdr
     n[bk] = body
     if !stdr.is_null(init_stmt) { n[isk] = init_stmt }
     return pair(j, n)
-  }
 
   -- for without parens: for (; cond; step) { body }
   -- Parse init
   let ?init = null
   let ti = peek(toks, j)
-  if ti[kind] != "semi" {
+  if ti[kind] != "semi"
     let ires = parse_expr(toks, j, 0)
     j = stdr.num(ires[0] ?? j)
     init = ires[1]
-  }
   let ts1 = peek(toks, j)
   if ts1[kind] == "semi" { j = j + 1 }
   let ?cond = null
   let tc = peek(toks, j)
-  if tc[kind] != "semi" {
+  if tc[kind] != "semi"
     let cres = parse_expr(toks, j, 0)
     j = stdr.num(cres[0] ?? j)
     cond = cres[1]
-  }
   let ts2 = peek(toks, j)
   if ts2[kind] == "semi" { j = j + 1 }
   let ?step = null
   let tst = peek(toks, j)
-  if tst[kind] != "rpar" && tst[kind] != "lbrace" {
+  if tst[kind] != "rpar" && tst[kind] != "lbrace"
     let sres = parse_expr(toks, j, 0)
     j = stdr.num(sres[0] ?? j)
     step = sres[1]
-  }
   let trp2 = peek(toks, j)
   if trp2[kind] == "rpar" { j = j + 1 }
-  let ?body = []: [any]
-  let tb = peek(toks, j)
-  if tb[kind] == "lbrace" {
-    let br = parse_block(toks, j)
-    j = stdr.num(br[0] ?? j)
-    body = br[1] ?? []: [any]
-  }
-  let ?n = []: [string => any]; n[tag] = "for"
+  let br = parse_body_block(toks, j, for_col)
+  j = stdr.num(br[0] ?? j)
+  let body = br[1] ?? []: [any]
+  let ?n = []: [string => any]
+  n[tag] = "for"
   n["line"] = for_line
   let initk = "init"
   let ck = "cond"
@@ -1107,41 +1074,95 @@ bring stdr
   n[sk] = step
   n[bk] = body
   return pair(j, n)
-}
+;
 
 -- Parse a block: { stmt* }. Returns pair(next_index, stmts_array).
-: parse_block(toks = any, i = num) (( any )) {
+: parse_block(toks = any, i = num) (( any ))
   let kind = "kind"
   let t = peek(toks, i)
   if t[kind] != "lbrace" { return pair(i, []: [any]) }
+  brace_depth = brace_depth + 1
   let ?j = i + 1
   let ?stmts = []: [any]
-  for (; true; ) {
+  for (; true; )
     let ?j2 = parse_skip_semi(toks, j)
     let t2 = peek(toks, j2)
-    if t2[kind] == "rbrace" || t2[kind] == "eof" {
+    if t2[kind] == "rbrace" || t2[kind] == "eof"
       if t2[kind] == "rbrace" { j2 = j2 + 1 }
+      brace_depth = brace_depth - 1
       return pair(j2, stmts)
-    }
     let res = parse_stmt(toks, j2)
     let ?next = stdr.num(res[0] ?? j2)
     let stmt = res[1]
     if !stdr.is_null(stmt) { stdr.push(stmts, stmt) }
-    if next == j2 {
+    if next == j2
       -- No progress; skip token to avoid infinite loop
       j = j2 + 1
-    } else {
+    else
       j = next
-    }
-  }
+  brace_depth = brace_depth - 1
   return pair(j, stmts)
-}
+;
+
+-- Parse a semicolon-terminated block: stmt* ; (for function/macro bodies in new syntax).
+: parse_block_semi(toks = any, i = num) (( any ))
+  semi_depth = semi_depth + 1
+  let kind = "kind"
+  let ?j = i
+  let ?stmts = []: [any]
+  for (; true; )
+    let j2 = parse_skip_semi(toks, j)
+    let t = peek(toks, j2)
+    let tk = t[kind] ?? ""
+    if tk == "semi"
+      semi_depth = semi_depth - 1
+      return pair(j2 + 1, stmts)
+    if tk == "eof"
+      semi_depth = semi_depth - 1
+      return pair(j2, stmts)
+    let res = parse_stmt(toks, j2)
+    let ?next = stdr.num(res[0] ?? j2)
+    let stmt = res[1]
+    if !stdr.is_null(stmt) { stdr.push(stmts, stmt) }
+    if next == j2
+      j = j2 + 1
+    else
+      j = next
+  semi_depth = semi_depth - 1
+  return pair(j, stmts)
+;
+
+-- Parse an indentation-based block: statements while col > base_col.
+: parse_block_indent(toks = any, i = num, base_col = num) (( any ))
+  let ?j = parse_skip_semi(toks, i)
+  let ?stmts = []: [any]
+  for (; true; )
+    let t = peek(toks, j)
+    if t["kind"] == "eof" { break }
+    let tcol = stdr.num(t["col"] ?? 0)
+    if tcol <= base_col { break }
+    let res = parse_stmt(toks, j)
+    let ?next = stdr.num(res[0] ?? j)
+    let stmt = res[1]
+    if !stdr.is_null(stmt) { stdr.push(stmts, stmt) }
+    if next == j { j = j + 1 } else { j = next }
+    j = parse_skip_semi(toks, j)
+  return pair(j, stmts)
+;
+
+-- Helper: parse body block using the right strategy (brace, indent, or empty).
+: parse_body_block(toks = any, j = num, base_col = num) (( any ))
+  let t = peek(toks, j)
+  if t["kind"] == "lbrace" { return parse_block(toks, j) }
+  if semi_depth > 0 { return parse_block_indent(toks, j, base_col) }
+  return pair(j, []: [any])
+;
 
 -- ============================================================
 -- Top-level declaration parsing
 -- ============================================================
 
-: parse_cask(toks = any, i = num) (( any )) {
+: parse_cask(toks = any, i = num) (( any ))
   let kind = "kind"
   let text = "text"
   let tag = "tag"
@@ -1154,16 +1175,16 @@ bring stdr
   if t1[kind] != "ident" && t1[kind] != "kw_let" && t1[kind] != "kw_if" { return pair(i + 1, null) }
   let name = t1[text] ?? ""
   let t2 = peek(toks, i + 2)
-  let next = if t2[kind] == "semi" { i + 3 } else { i + 2 }
+  let next = if t2[kind] == "semi" || t2[kind] == "newline_semi" { i + 3 } else { i + 2 }
   let ?node = []: [string => any]
   node[tag] = "cask"
   node[name_key] = name
   node[line] = t[line]
   node[col] = t[col]
   return pair(next, node)
-}
+;
 
-: parse_bring(toks = any, i = num) (( any )) {
+: parse_bring(toks = any, i = num) (( any ))
   let kind = "kind"
   let text = "text"
   let tag = "tag"
@@ -1177,53 +1198,51 @@ bring stdr
   let ?name = t1[text] ?? ""
   let ?next = i + 2
   -- Handle dotted bring paths: bring a.b.c
-  for (; true; ) {
+  for (; true; )
     let td = peek(toks, next)
     if td[kind] != "dot" { break }
     let ts = peek(toks, next + 1)
     if ts[kind] != "ident" { break }
     name = stdr.str_concat(stdr.str_concat(name, "."), ts[text] ?? "")
     next = next + 2
-  }
   let tsemi = peek(toks, next)
-  if tsemi[kind] == "semi" { next = next + 1 }
+  if tsemi[kind] == "semi" || tsemi[kind] == "newline_semi" { next = next + 1 }
   let ?node = []: [string => any]
   node[tag] = "bring"
   node[name_key] = name
   node[line] = t[line]
   node[col] = t[col]
   return pair(next, node)
-}
+;
 
 -- Parse function parameters: (name = type, name = type, ...)
 -- Returns pair(next_index, params_array) where each param is {name, type, mutable}.
-: parse_params(toks = any, i = num) (( any )) {
+: parse_params(toks = any, i = num) (( any ))
   let kind = "kind"
   let text = "text"
   let t = peek(toks, i)
   if t[kind] != "lpar" { return pair(i, []: [any]) }
   let ?j = i + 1
   let ?params = []: [any]
-  for (; true; ) {
+  for (; true; )
     let ?tp = peek(toks, j)
     let tpk = tp[kind] ?? ""
     if tpk == "rpar" || tpk == "eof" { break }
     -- Parse param: [?]name = type
     let ?mutable = false
-    if tpk == "qmark" {
+    if tpk == "qmark"
       mutable = true
       j = j + 1
       tp = peek(toks, j)
-    }
     let pname = tp[text] ?? ""
     j = j + 1
     -- expect =
     let teq = peek(toks, j)
     let ?ptype = "any"
-    if teq[kind] == "eq" {
+    if teq[kind] == "eq"
       j = j + 1
       let tt = peek(toks, j)
-      if tt[kind] == "lbrack" {
+      if tt[kind] == "lbrack"
         -- Array type [Type] — skip to ]
         ptype = "any"
         j = j + 1
@@ -1231,18 +1250,15 @@ bring stdr
         if ta[kind] != "rbrack" { j = j + 1 }
         let tb = peek(toks, j)
         if tb[kind] == "rbrack" { j = j + 1 }
-      } else {
+      else
         ptype = tt[text] ?? "any"
         j = j + 1
-      }
       -- Handle dotted type: Module.Class (only fires for non-array types)
       let tdot = peek(toks, j)
-      if tdot[kind] == "dot" {
+      if tdot[kind] == "dot"
         let tc = peek(toks, j + 1)
         ptype = tc[text] ?? ptype
         j = j + 2
-      }
-    }
     let ?p = []: [string => any]
     let nk = "name"
     let tk = "type"
@@ -1253,15 +1269,14 @@ bring stdr
     stdr.push(params, p)
     let tc = peek(toks, j)
     if tc[kind] == "comma" { j = j + 1 }
-  }
   let tr = peek(toks, j)
   if tr[kind] == "rpar" { j = j + 1 }
   return pair(j, params)
-}
+;
 
 -- Parse return type: (( type )) or (( -- )) or (( )) [when -- was eaten as comment]
 -- Returns pair(next_index, ret_type_string).
-: parse_ret_type(toks = any, i = num) (( any )) {
+: parse_ret_type(toks = any, i = num) (( any ))
   let kind = "kind"
   let text = "text"
   let t = peek(toks, i)
@@ -1272,73 +1287,66 @@ bring stdr
   let ?j = i + 2
   let ?ret = "any"
   let tr = peek(toks, j)
-  if tr[kind] == "rpar" {
+  if tr[kind] == "rpar"
     -- (( )) — the -- was eaten as a comment; treat as void
     ret = "void"
-  } elif tr[kind] == "minus" && peek(toks, j + 1)[kind] == "gt" {
+  elif tr[kind] == "minus" && peek(toks, j + 1)[kind] == "gt"
     -- (( -> )) delegate / function type
     ret = "fn"
     j = j + 2
-  } elif tr[kind] == "minus" {
+  elif tr[kind] == "minus"
     -- (( -- ))
     ret = "void"
     j = j + 1
     let tn = peek(toks, j)
     if tn[kind] == "minus" { j = j + 1 }
-  } elif tr[kind] == "lbrack" {
+  elif tr[kind] == "lbrack"
     ret = "any"
     j = j + 1
     -- Skip all tokens to matching ], handling nested brackets
     let ?depth = 1
-    for (; depth > 0; j = j + 1) {
+    for (; depth > 0; j = j + 1)
       let tb = peek(toks, j)
       if tb[kind] == "lbrack" { depth = depth + 1 }
       elif tb[kind] == "rbrack" { depth = depth - 1 }
       elif tb[kind] == "eof" { depth = 0 }
-    }
-  } else {
+  else
     ret = tr[text] ?? "any"
     j = j + 1
-  }
   -- Handle dotted return type: Module.Class
   let tdot = peek(toks, j)
-  if tdot[kind] == "dot" {
+  if tdot[kind] == "dot"
     let tc = peek(toks, j + 1)
     ret = tc[text] ?? ret
     j = j + 2
-  }
   -- Skip additional comma-separated return types: (( num, string ))
   let ?tcomma = peek(toks, j)
-  for (; tcomma[kind] == "comma"; tcomma = peek(toks, j)) {
+  for (; tcomma[kind] == "comma"; tcomma = peek(toks, j))
     j = j + 1
     let tnext = peek(toks, j)
-    if tnext[kind] == "lbrack" {
+    if tnext[kind] == "lbrack"
       j = j + 1
       let ?cdepth = 1
-      for (; cdepth > 0; j = j + 1) {
+      for (; cdepth > 0; j = j + 1)
         let tcb = peek(toks, j)
         if tcb[kind] == "lbrack" { cdepth = cdepth + 1 }
         elif tcb[kind] == "rbrack" { cdepth = cdepth - 1 }
         elif tcb[kind] == "eof" { cdepth = 0 }
-      }
-    } elif tnext[kind] == "ident" || tnext[kind] == "kw_any" {
+    elif tnext[kind] == "ident" || tnext[kind] == "kw_any"
       j = j + 1
       let tdot2 = peek(toks, j)
-      if tdot2[kind] == "dot" {
+      if tdot2[kind] == "dot"
         j = j + 2
-      }
-    }
-  }
   -- expect ))
   let tc1 = peek(toks, j)
   if tc1[kind] == "rpar" { j = j + 1 }
   let tc2 = peek(toks, j)
   if tc2[kind] == "rpar" { j = j + 1 }
   return pair(j, ret)
-}
+;
 
 -- Parse a fun/entry declaration with params, return type, and body.
-: parse_fun_decl(toks = any, i = num) (( any )) {
+: parse_fun_decl(toks = any, i = num) (( any ))
   let kind = "kind"
   let text = "text"
   let tag = "tag"
@@ -1348,14 +1356,13 @@ bring stdr
   let ?t = peek(toks, i)
   let ?is_pub = false
   let ?j = i
-  if t[kind] == "coloncolon" {
+  if t[kind] == "coloncolon"
     is_pub = true
     j = j + 1
     t = peek(toks, j)
-  } elif t[kind] == "colon" {
+  elif t[kind] == "colon"
     j = j + 1
     t = peek(toks, j)
-  }
   let name = if t[kind] == "kw_entry" { "entry" } elif t[kind] == "ident" { t[text] ?? "" } else { "" }
   if stdr.len(name) == 0 { return pair(i, null) }
   let fun_line = t[line]
@@ -1375,11 +1382,14 @@ bring stdr
   -- Parse body block
   let ?body = []: [any]
   let tb = peek(toks, j)
-  if tb[kind] == "lbrace" {
-    let br = parse_block(toks, j)
-    j = stdr.num(br[0] ?? j)
-    body = br[1] ?? []: [any]
-  }
+  let ?bres = []: [any]
+  if tb[kind] == "lbrace"
+    bres = parse_block(toks, j)
+  else
+    -- Semicolon-terminated body (new syntax)
+    bres = parse_block_semi(toks, j)
+  j = stdr.num(bres[0] ?? j)
+  body = bres[1] ?? []: [any]
 
   let ?node = []: [string => any]
   node[tag] = "fun"
@@ -1395,52 +1405,47 @@ bring stdr
   node[bk] = body
   node[pubk] = is_pub
   return pair(j, node)
-}
+;
 
-: parse_decl(toks = any, i = num) (( any )) {
+: parse_decl(toks = any, i = num) (( any ))
   let kind = "kind"
   let t = peek(toks, i)
-  if t[kind] == "kw_cask" {
+  if t[kind] == "kw_cask"
     let res = parse_cask(toks, i)
     let next = res[0] ?? i
     let node = res[1]
     return pair(next, node)
-  }
-  if t[kind] == "kw_bring" {
+  if t[kind] == "kw_bring"
     let res = parse_bring(toks, i)
     let next = res[0] ?? i
     let node = res[1]
     return pair(next, node)
-  }
   -- def declaration: def [?]name = expr
-  if t[kind] == "kw_def" {
+  if t[kind] == "kw_def"
     let tag = "tag"
     let ?j = i + 1
     let ?mutable = false
     let text = "text"
     let t2 = peek(toks, j)
-    if t2[kind] == "qmark" {
+    if t2[kind] == "qmark"
       mutable = true
       j = j + 1
-    }
     let tname = peek(toks, j)
     let vname = tname[text] ?? ""
     j = j + 1
     let teq = peek(toks, j)
     let ?init = null
-    if teq[kind] == "eq" {
+    if teq[kind] == "eq"
       j = j + 1
       let res = parse_expr(toks, j, 0)
       j = stdr.num(res[0] ?? j)
       init = res[1]
-    }
-    if is_chained_call(init) {
+    if is_chained_call(init)
       write("error: method chaining is not allowed on def declarations; chain at the usage site instead\n")
       return pair(j, null)
-    }
-    let tsemi = peek(toks, j)
-    if tsemi[kind] == "semi" { j = j + 1 }
-    let ?n = []: [string => any]; n[tag] = "def"
+    if should_eat_semi(toks, j) { j = j + 1 }
+    let ?n = []: [string => any]
+    n[tag] = "def"
     let nk = "name"
     let mk_key = "mutable"
     let ik = "init"
@@ -1450,38 +1455,34 @@ bring stdr
     n[ik] = init
     n[pk] = false
     return pair(j, n)
-  }
   -- pub def declaration
-  if t[kind] == "kw_pub" {
+  if t[kind] == "kw_pub"
     let t2 = peek(toks, i + 1)
-    if t2[kind] == "kw_def" {
+    if t2[kind] == "kw_def"
       let tag = "tag"
       let text = "text"
       let ?j = i + 2
       let ?mutable = false
       let t3 = peek(toks, j)
-      if t3[kind] == "qmark" {
+      if t3[kind] == "qmark"
         mutable = true
         j = j + 1
-      }
       let tname = peek(toks, j)
       let vname = tname[text] ?? ""
       j = j + 1
       let teq = peek(toks, j)
       let ?init = null
-      if teq[kind] == "eq" {
+      if teq[kind] == "eq"
         j = j + 1
         let res = parse_expr(toks, j, 0)
         j = stdr.num(res[0] ?? j)
         init = res[1]
-      }
-      if is_chained_call(init) {
+      if is_chained_call(init)
         write("error: method chaining is not allowed on def declarations; chain at the usage site instead\n")
         return pair(j, null)
-      }
-      let tsemi = peek(toks, j)
-      if tsemi[kind] == "semi" { j = j + 1 }
-      let ?n = []: [string => any]; n[tag] = "def"
+      if should_eat_semi(toks, j) { j = j + 1 }
+      let ?n = []: [string => any]
+      n[tag] = "def"
       let nk = "name"
       let mk_key = "mutable"
       let ik = "init"
@@ -1491,11 +1492,9 @@ bring stdr
       n[ik] = init
       n[pk] = true
       return pair(j, n)
-    }
-  }
 
   -- interface declaration: .: Name(params) (( ret )) { :: method(params) (( ret )) {} ... }
-  if t[kind] == "dotcolon" {
+  if t[kind] == "dotcolon"
     let tag = "tag"
     let text = "text"
     let ?j = i + 1
@@ -1510,25 +1509,36 @@ bring stdr
     let ret_res = parse_ret_type(toks, j)
     j = stdr.num(ret_res[0] ?? j)
     let ret_type = ret_res[1] ?? "any"
-    -- Parse body: { :: methods }
+    -- Parse body: { :: methods } or semi-terminated
+    let ?use_semi_iface = false
     let tb = peek(toks, j)
-    if tb[kind] == "lbrace" { j = j + 1 }
+    if tb[kind] == "lbrace" { brace_depth = brace_depth + 1; j = j + 1 }
+    elif tb[kind] != "rbrace" && tb[kind] != "eof"
+      -- No brace: assume semi-terminated body
+      use_semi_iface = true
+      semi_depth = semi_depth + 1
     let ?methods = []: [any]
-    for (; true; ) {
+    for (; true; )
+      j = parse_skip_semi(toks, j)
       let tm = peek(toks, j)
-      if tm[kind] == "rbrace" || tm[kind] == "eof" { break }
-      if tm[kind] == "coloncolon" {
+      if tm[kind] == "eof" { break }
+      if use_semi_iface && tm[kind] == "semi" { break }
+      if !use_semi_iface && tm[kind] == "rbrace" { break }
+      if tm[kind] == "coloncolon"
         let mres = parse_fun_decl(toks, j)
         let mnext = stdr.num(mres[0] ?? j)
         let mnode = mres[1]
         if !stdr.is_null(mnode) { stdr.push(methods, mnode) }
         j = mnext
-      } else {
+      else
         j = j + 1
-      }
-    }
-    let tc = peek(toks, j)
-    if tc[kind] == "rbrace" { j = j + 1 }
+    let tc_iface = peek(toks, j)
+    if use_semi_iface
+      if tc_iface[kind] == "semi" { j = j + 1 }
+      semi_depth = semi_depth - 1
+    else
+      if tc_iface[kind] == "rbrace" { j = j + 1 }
+      brace_depth = brace_depth - 1
     let ?node = []: [string => any]
     node[tag] = "interface"
     let nk = "name"
@@ -1540,18 +1550,16 @@ bring stdr
     node[rk] = ret_type
     node[mk] = methods
     return pair(j, node)
-  }
 
-  -- class declaration: [pub] class Name { [pub] fun method(this, ...) { ... } ... }
-  if t[kind] == "kw_class" || (t[kind] == "kw_pub" && peek(toks, i + 1)[kind] == "kw_class") {
+  -- class declaration: [pub] class Name { ... } or class Name ,: ... ;
+  if t[kind] == "kw_class" || (t[kind] == "kw_pub" && peek(toks, i + 1)[kind] == "kw_class")
     let tag = "tag"
     let text = "text"
     let ?j = i
     let ?is_pub_cls = false
-    if t[kind] == "kw_pub" {
+    if t[kind] == "kw_pub"
       is_pub_cls = true
       j = j + 1
-    }
     j = j + 1
     let tname = peek(toks, j)
     let cls_name = tname[text] ?? ""
@@ -1559,47 +1567,52 @@ bring stdr
     -- optional base/interface: class Name : Base { ... }
     let ?base_name = ""
     let tb0 = peek(toks, j)
-    if tb0[kind] == "colon" {
+    if tb0[kind] == "colon"
       j = j + 1
       let tbase = peek(toks, j)
       base_name = tbase[text] ?? ""
       j = j + 1
-    }
-    -- expect {
+    -- Open body: { or ,:
+    let ?use_semi_class = false
     let tb = peek(toks, j)
-    if tb[kind] == "lbrace" { j = j + 1 }
-    -- parse methods and fields until }
+    if tb[kind] == "commacolon"
+      j = j + 1
+      use_semi_class = true
+      semi_depth = semi_depth + 1
+    elif tb[kind] == "lbrace" { brace_depth = brace_depth + 1; j = j + 1 }
+    -- parse methods and fields until closing
     let ?methods = []: [any]
     let ?fields = []: [any]
-    for (; true; ) {
+    for (; true; )
+      j = parse_skip_semi(toks, j)
       let tm = peek(toks, j)
-      if tm[kind] == "rbrace" || tm[kind] == "eof" { break }
+      if tm[kind] == "eof" { break }
+      if use_semi_class && tm[kind] == "semi" { break }
+      if !use_semi_class && tm[kind] == "rbrace" { break }
       -- Each method is a : or :: decl
-      if tm[kind] == "coloncolon" || tm[kind] == "colon" {
+      if tm[kind] == "coloncolon" || tm[kind] == "colon"
         let mres = parse_fun_decl(toks, j)
         let mnext = stdr.num(mres[0] ?? j)
         let mnode = mres[1]
-        if !stdr.is_null(mnode) {
+        if !stdr.is_null(mnode)
           stdr.push(methods, mnode)
-        }
         j = mnext
-      } elif tm[kind] == "kw_pub" || (tm[kind] == "ident" && peek(toks, j + 1)[kind] == "eq") {
+      elif tm[kind] == "kw_pub" || (tm[kind] == "ident" && peek(toks, j + 1)[kind] == "eq")
         -- Field declaration: [pub] name = Type
         let ?field_pub = false
-        if tm[kind] == "kw_pub" {
+        if tm[kind] == "kw_pub"
           field_pub = true
           j = j + 1
-        }
         let tf = peek(toks, j)
         let fname = tf[text] ?? ""
         j = j + 1
         -- expect =
         let teq = peek(toks, j)
         let ?ftype = "any"
-        if teq[kind] == "eq" {
+        if teq[kind] == "eq"
           j = j + 1
           let tt = peek(toks, j)
-          if tt[kind] == "lbrack" {
+          if tt[kind] == "lbrack"
             -- Array or dict type: [Type] or [K => V]
             ftype = "any"
             j = j + 1
@@ -1607,18 +1620,15 @@ bring stdr
             if ta[kind] != "rbrack" { j = j + 1 }
             let tarr = peek(toks, j)
             if tarr[kind] == "rbrack" { j = j + 1 }
-          } else {
+          else
             ftype = tt[text] ?? "any"
             j = j + 1
-          }
           -- Handle dotted type: Module.Class
           let tdot = peek(toks, j)
-          if tdot[kind] == "dot" {
+          if tdot[kind] == "dot"
             let tc2 = peek(toks, j + 1)
             ftype = tc2[text] ?? ftype
             j = j + 2
-          }
-        }
         let ?fnode = []: [string => any]
         fnode[tag] = "field"
         let fnk = "name"
@@ -1628,12 +1638,16 @@ bring stdr
         fnode[ftk] = ftype
         fnode[fpk] = field_pub
         stdr.push(fields, fnode)
-      } else {
+      else
         j = j + 1
-      }
-    }
-    let tc = peek(toks, j)
-    if tc[kind] == "rbrace" { j = j + 1 }
+    -- consume closing token
+    let tc_cls = peek(toks, j)
+    if use_semi_class
+      if tc_cls[kind] == "semi" { j = j + 1 }
+      semi_depth = semi_depth - 1
+    else
+      if tc_cls[kind] == "rbrace" { j = j + 1 }
+      brace_depth = brace_depth - 1
     let ?node = []: [string => any]
     node[tag] = "class"
     let nk = "name"
@@ -1647,10 +1661,9 @@ bring stdr
     node[bk] = base_name
     node[fk] = fields
     return pair(j, node)
-  }
 
   -- macro declaration: macro name(params) ((ret)) { body }
-  if t[kind] == "kw_macro" {
+  if t[kind] == "kw_macro"
     let tag = "tag"
     let text = "text"
     let ?j = i + 1
@@ -1668,11 +1681,13 @@ bring stdr
     -- Parse body block
     let ?body = []: [any]
     let tb = peek(toks, j)
-    if tb[kind] == "lbrace" {
-      let br = parse_block(toks, j)
-      j = stdr.num(br[0] ?? j)
-      body = br[1] ?? []: [any]
-    }
+    let ?bres = []: [any]
+    if tb[kind] == "lbrace"
+      bres = parse_block(toks, j)
+    else
+      bres = parse_block_semi(toks, j)
+    j = stdr.num(bres[0] ?? j)
+    body = bres[1] ?? []: [any]
     let ?node = []: [string => any]
     node[tag] = "macro"
     let nk = "name"
@@ -1684,68 +1699,61 @@ bring stdr
     node[rk] = ret_type
     node[bk] = body
     return pair(j, node)
-  }
 
   -- :, ::, entry, or bare ident(
-  if t[kind] == "colon" || t[kind] == "coloncolon" || t[kind] == "kw_entry" {
+  if t[kind] == "colon" || t[kind] == "coloncolon" || t[kind] == "kw_entry"
     let res = parse_fun_decl(toks, i)
     let next = res[0] ?? i
     let node = res[1]
     return pair(next, node)
-  }
-  if t[kind] == "ident" {
+  if t[kind] == "ident"
     -- Could be a bare function: name(...) ...
     let t2 = peek(toks, i + 1)
-    if t2[kind] == "lpar" {
+    if t2[kind] == "lpar"
       let res = parse_fun_decl(toks, i)
       let next = res[0] ?? i
       let node = res[1]
       return pair(next, node)
-    }
-  }
   return pair(i, null)
-}
+;
 
-: parse_program_at(toks = any, i = num, acc = any) (( any )) {
+: parse_program_at(toks = any, i = num, acc = any) (( any ))
   let kind = "kind"
   let tag = "tag"
   let decls_key = "decls"
   let ?cur_i = i
   let ?cur_acc = acc
-  for (; true; ) {
+  for (; true; )
     let i2 = parse_skip_semi(toks, cur_i)
     let t = peek(toks, i2)
-    if t[kind] == "eof" {
+    if t[kind] == "eof"
       let ?prog = []: [string => any]
       prog[tag] = "program"
       prog[decls_key] = cur_acc
       return pair(i2, prog)
-    }
     let res = parse_decl(toks, i2)
     let next = res[0] ?? i2
     let node = res[1]
-    if stdr.is_null(node) {
+    if stdr.is_null(node)
       -- Skip unrecognized token to avoid infinite loop
       cur_i = i2 + 1
       continue
-    }
     stdr.push(cur_acc, node)
     cur_i = next
-  }
   let ?prog = []: [string => any]
   prog[tag] = "program"
   prog[decls_key] = cur_acc
   return pair(cur_i, prog)
-}
+;
 
-:: parse(toks = any) (( any )) {
+:: parse(toks = any) (( any ))
   let res = parse_program_at(toks, 0, []: [any])
   let _next = res[0]
   let prog = res[1]
   return prog
-}
+;
 
-:: count_decls(ast = any) (( num )) {
+:: count_decls(ast = any) (( num ))
   if stdr.is_null(ast) { return 0 }
   let tag = "tag"
   let decls_key = "decls"
@@ -1753,4 +1761,4 @@ bring stdr
   let decls = ast[decls_key]
   if stdr.is_null(decls) { return 0 }
   return stdr.len(decls)
-}
+;

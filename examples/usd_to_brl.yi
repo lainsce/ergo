@@ -6,25 +6,23 @@ bring json
 
 -- Yis Example: Show 1 USD to BRL using net stdlib
 
-entry() (( -- )) {
+entry() (( -- ))
     let url = "https://open.er-api.com/v6/latest/USD"
     let resp = net.get(url, [], [["Accept", "application/json"]], 20)
 
-    if !(resp["ok"] ?? false) {
+    if !(resp["ok"] ?? false)
         let status = resp["status"] ?? 0
         let err_msg = resp["error"] ?? "unknown"
         write("HTTP request failed. status=$$status$$ error=$$err_msg$$\n")
         return
-    }
 
     let body = str(resp["body"] ?? "")
     let root = json.parse(body)
     let rates = json.get(root, "rates", null)
     let brl = json.get(rates, "BRL", null)
-    if is_null(brl) {
+    if is_null(brl)
         write("Could not extract BRL rate from response.\n")
         return
-    }
 
     write("1 USD = $$brl$$ BRL\n")
-}
+;

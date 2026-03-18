@@ -2,27 +2,25 @@ cask fizzbuzz
 bring stdr
 -- Yis Example: FizzBuzz
 
-macro mod(divisor = num) (( bool )) {
+macro mod(divisor = num) (( bool ))
     this % divisor == 0
-}
+;
 
-: fizzbuzz(n = num) (( -- )) {
-    for (let ?i = 1; i <= n; i += 1) {
+: fizzbuzz(n = num) (( -- ))
+    for (let ?i = 1; i <= n; i += 1)
         let ?flag = false
-        if i !mod 3 {
+        if i !mod 3
             write("Fizz\n")
             flag = true
-        } elif i !mod 5 {
+        elif i !mod 5
             write("Buzz\n")
             flag = true
-        } elif !flag {
+        elif !flag
             writef("$$i$$\n")
-        }
-    }
-}
+;
 
-entry () (( -- )) {
+entry () (( -- ))
     write("== FizzBuzz Example ==\n")
     fizzbuzz(20)
     write("== Done ==\n")
-}
+;

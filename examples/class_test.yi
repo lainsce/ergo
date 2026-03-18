@@ -2,25 +2,25 @@ cask class_test
 
 bring stdr
 
-class Point {
+,: Point
   pub x = num
   pub y = num
 
-  :: to_string(this) (( string )) {
+  :: to_string(this) (( string ))
     let ?s = "Point("
     s = stdr.str_concat(s, str(this.x))
     s = stdr.str_concat(s, ", ")
     s = stdr.str_concat(s, str(this.y))
     s = stdr.str_concat(s, ")")
     return s
-  }
+  ;
 
-  :: add(this, other = Point) (( Point )) {
+  :: add(this, other = Point) (( Point ))
     return Point(this.x + other.x, this.y + other.y)
-  }
-}
+  ;
+;
 
-entry() {
+entry()
   let p1 = Point(3, 4)
   write(p1.to_string())
   write("\n")
@@ -39,4 +39,4 @@ entry() {
   p4.y = 99
   write(p4.to_string())
   write("\n")
-}
+;

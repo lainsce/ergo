@@ -15,6 +15,8 @@ typedef struct {
     Arena *arena;
     Diag *err;
     bool ok;
+    int semi_depth;  // >0 when inside ;-terminated block (new syntax)
+    int brace_depth; // >0 when inside {}-block nested in ;-block
 } Parser;
 
 typedef struct {
@@ -148,8 +150,16 @@ static Tok *maybe(Parser *p, TokKind kind) {
 }
 
 static void skip_semi(Parser *p) {
-    while (at(p, TOK_SEMI)) {
-        eat(p, TOK_SEMI);
+    while (true) {
+        if (at(p, TOK_NEWLINE_SEMI)) {
+            eat(p, TOK_NEWLINE_SEMI);
+            continue;
+        }
+        if (at(p, TOK_SEMI) && (p->semi_depth == 0 || p->brace_depth > 0)) {
+            eat(p, TOK_SEMI);
+            continue;
+        }
+        break;
     }
 }
 
@@ -186,6 +196,7 @@ static TypeRef *parse_type(Parser *p);
 static Expr *parse_expr(Parser *p, int min_prec);
 static Stmt *parse_stmt(Parser *p);
 static Stmt *parse_block(Parser *p);
+static Stmt *parse_block_semi(Parser *p);
 static Expr *parse_primary(Parser *p);
 static Expr *parse_unary(Parser *p);
 static Expr *parse_postfix(Parser *p);
@@ -202,6 +213,7 @@ static Expr *parse_match(Parser *p);
 static Expr *parse_new(Parser *p);
 static Expr *parse_lambda(Parser *p);
 static Expr *parse_lambda_arrow(Parser *p);
+static Expr *parse_lambda_bracket(Parser *p);
 static Expr *parse_array_lit(Parser *p);
 static Pat *parse_pattern(Parser *p);
 static MatchArm *parse_match_arm(Parser *p);
@@ -215,6 +227,7 @@ static Decl *parse_const_decl(Parser *p, bool is_pub);
 static Decl *parse_def_decl(Parser *p, bool is_pub);
 static Decl *parse_nominal(Parser *p);
 static Decl *parse_iface(Parser *p);
+static Stmt *parse_block_indent(Parser *p, int base_col);
 static Import *parse_import(Parser *p);
 
 static Expr *new_expr(Parser *p, ExprKind kind, Tok *t);
@@ -258,7 +271,7 @@ static Expr *parse_interp_expr(Parser *p, Tok *owner, Str text) {
         Tok *t = &toks.data[i];
 
         // Skip semicolons (they may be added by the lexer)
-        if (t->kind == TOK_SEMI) {
+        if (t->kind == TOK_SEMI || t->kind == TOK_NEWLINE_SEMI) {
             i++;
             continue;
         }
@@ -355,6 +368,7 @@ static Expr *parse_interp_expr(Parser *p, Tok *owner, Str text) {
         // Check for disallowed operators
         switch (t->kind) {
             case TOK_SEMI:
+            case TOK_NEWLINE_SEMI:
                 // Skip semicolons (they may be added by the lexer)
                 i++;
                 if (i < toks.len) {
@@ -392,7 +406,7 @@ static Expr *parse_interp_expr(Parser *p, Tok *owner, Str text) {
     // Check for remaining tokens (after format spec, there should be nothing else)
     // But allow semicolons as they might be added by the lexer
     while (i < toks.len) {
-        if (toks.data[i].kind == TOK_SEMI) {
+        if (toks.data[i].kind == TOK_SEMI || toks.data[i].kind == TOK_NEWLINE_SEMI) {
             i++;
             continue;
         }
@@ -579,7 +593,7 @@ static RetSpec parse_ret_spec(Parser *p) {
     TypeRef *ty = parse_type(p);
     if (!p->ok) return spec;
     ptrvec_push(p, &types, ty);
-    while (at(p, TOK_SEMI) || at(p, TOK_COMMA)) {
+    while (at(p, TOK_SEMI) || at(p, TOK_NEWLINE_SEMI) || at(p, TOK_COMMA)) {
         eat(p, peek(p, 0)->kind);
         TypeRef *next = parse_type(p);
         if (!p->ok) return spec;
@@ -678,7 +692,7 @@ static FunDecl *parse_fun_decl(Parser *p, bool is_pub) {
     Param **params = parse_params(p, &params_len);
     eat(p, TOK_RPAR);
     RetSpec ret = parse_ret_spec(p);
-    Stmt *body = parse_block(p);
+    Stmt *body = at(p, TOK_LBRACE) ? parse_block(p) : parse_block_semi(p);
     FunDecl *fun = (FunDecl *)ast_alloc(p->arena, sizeof(FunDecl));
     if (!fun) {
         parser_set_oom(p);
@@ -709,7 +723,7 @@ static MacroDecl *parse_macro_decl(Parser *p) {
     }
     eat(p, TOK_RPAR);
     RetSpec ret = parse_ret_spec(p);
-    Stmt *body = parse_block(p);
+    Stmt *body = at(p, TOK_LBRACE) ? parse_block(p) : parse_block_semi(p);
     MacroDecl *macro = (MacroDecl *)ast_alloc(p->arena, sizeof(MacroDecl));
     if (!macro) {
         parser_set_oom(p);
@@ -750,7 +764,7 @@ static Decl *parse_entry(Parser *p) {
     eat(p, TOK_LPAR);
     eat(p, TOK_RPAR);
     RetSpec ret = parse_ret_spec(p);
-    Stmt *body = parse_block(p);
+    Stmt *body = at(p, TOK_LBRACE) ? parse_block(p) : parse_block_semi(p);
     Decl *decl = new_decl(p, DECL_ENTRY, kw);
     if (!decl) return NULL;
     decl->as.entry.ret = ret;
@@ -761,6 +775,7 @@ static Decl *parse_entry(Parser *p) {
 static Stmt *parse_block(Parser *p) {
     Tok *t = eat(p, TOK_LBRACE);
     if (!p->ok) return NULL;
+    p->brace_depth++;
     PtrVec stmts = {0};
     skip_semi(p);
     while (!at(p, TOK_RBRACE) && p->ok) {
@@ -770,6 +785,46 @@ static Stmt *parse_block(Parser *p) {
         skip_semi(p);
     }
     eat(p, TOK_RBRACE);
+    p->brace_depth--;
+    Stmt *block = new_stmt(p, STMT_BLOCK, t);
+    if (!block) return NULL;
+    block->as.block_s.stmts = (Stmt **)ptrvec_finalize(p, &stmts);
+    block->as.block_s.stmts_len = stmts.len;
+    return block;
+}
+
+static Stmt *parse_block_semi(Parser *p) {
+    Tok *t = peek(p, 0);
+    p->semi_depth++;
+    PtrVec stmts = {0};
+    skip_semi(p);
+    while (!at(p, TOK_SEMI) && !at(p, TOK_EOF) && p->ok) {
+        Stmt *st = parse_stmt(p);
+        if (!p->ok) { p->semi_depth--; return NULL; }
+        ptrvec_push(p, &stmts, st);
+        skip_semi(p);
+    }
+    eat(p, TOK_SEMI);
+    p->semi_depth--;
+    Stmt *block = new_stmt(p, STMT_BLOCK, t);
+    if (!block) return NULL;
+    block->as.block_s.stmts = (Stmt **)ptrvec_finalize(p, &stmts);
+    block->as.block_s.stmts_len = stmts.len;
+    return block;
+}
+
+static Stmt *parse_block_indent(Parser *p, int base_col) {
+    Tok *t = peek(p, 0);
+    PtrVec stmts = {0};
+    skip_semi(p);
+    while (!at(p, TOK_EOF) && p->ok) {
+        Tok *next = peek(p, 0);
+        if (next->col <= base_col) break;
+        Stmt *st = parse_stmt(p);
+        if (!p->ok) return NULL;
+        ptrvec_push(p, &stmts, st);
+        skip_semi(p);
+    }
     Stmt *block = new_stmt(p, STMT_BLOCK, t);
     if (!block) return NULL;
     block->as.block_s.stmts = (Stmt **)ptrvec_finalize(p, &stmts);
@@ -818,6 +873,8 @@ static Stmt *parse_stmt(Parser *p) {
         if (at(p, TOK_COLON)) {
             eat(p, TOK_COLON);
             body = parse_stmt(p);
+        } else if (p->semi_depth > 0 && !at(p, TOK_LBRACE)) {
+            body = parse_block_indent(p, t->col);
         } else {
             body = parse_block(p);
         }
@@ -830,8 +887,8 @@ static Stmt *parse_stmt(Parser *p) {
         arm0->body = body;
         ptrvec_push(p, &arms, arm0);
         skip_semi(p);
-        while (at(p, TOK_KW_elif)) {
-            eat(p, TOK_KW_elif);
+        while (at(p, TOK_KW_elif) && (peek(p, 0)->line == t->line || peek(p, 0)->col == t->col)) {
+            Tok *elif_tok = eat(p, TOK_KW_elif);
             Expr *c2 = NULL;
             if (at(p, TOK_LPAR)) {
                 eat(p, TOK_LPAR);
@@ -844,6 +901,8 @@ static Stmt *parse_stmt(Parser *p) {
             if (at(p, TOK_COLON)) {
                 eat(p, TOK_COLON);
                 b2 = parse_stmt(p);
+            } else if (p->semi_depth > 0 && !at(p, TOK_LBRACE)) {
+                b2 = parse_block_indent(p, elif_tok->col);
             } else {
                 b2 = parse_block(p);
             }
@@ -857,12 +916,14 @@ static Stmt *parse_stmt(Parser *p) {
             ptrvec_push(p, &arms, arm);
             skip_semi(p);
         }
-        if (at(p, TOK_KW_else)) {
-            eat(p, TOK_KW_else);
+        if (at(p, TOK_KW_else) && (peek(p, 0)->line == t->line || peek(p, 0)->col == t->col)) {
+            Tok *else_tok = eat(p, TOK_KW_else);
             Stmt *b3 = NULL;
             if (at(p, TOK_COLON)) {
                 eat(p, TOK_COLON);
                 b3 = parse_stmt(p);
+            } else if (p->semi_depth > 0 && !at(p, TOK_LBRACE)) {
+                b3 = parse_block_indent(p, else_tok->col);
             } else {
                 b3 = parse_block(p);
             }
@@ -894,6 +955,8 @@ static Stmt *parse_stmt(Parser *p) {
             if (at(p, TOK_COLON)) {
                 eat(p, TOK_COLON);
                 body = parse_stmt(p);
+            } else if (p->semi_depth > 0 && !at(p, TOK_LBRACE)) {
+                body = parse_block_indent(p, t->col);
             } else {
                 body = parse_block(p);
             }
@@ -933,6 +996,8 @@ static Stmt *parse_stmt(Parser *p) {
         if (at(p, TOK_COLON)) {
             eat(p, TOK_COLON);
             body = parse_stmt(p);
+        } else if (p->semi_depth > 0 && !at(p, TOK_LBRACE)) {
+            body = parse_block_indent(p, t->col);
         } else {
             body = parse_block(p);
         }
@@ -946,7 +1011,7 @@ static Stmt *parse_stmt(Parser *p) {
     }
     if (at(p, TOK_KW_return)) {
         eat(p, TOK_KW_return);
-        if (at(p, TOK_SEMI) || at(p, TOK_RBRACE)) {
+        if (at(p, TOK_SEMI) || at(p, TOK_NEWLINE_SEMI) || at(p, TOK_RBRACE)) {
             Stmt *st = new_stmt(p, STMT_RETURN, t);
             if (!st) return NULL;
             st->as.ret_s.expr = NULL;
@@ -1020,37 +1085,49 @@ static Decl *parse_nominal(Parser *p) {
     Str vis = str_from_c("priv");
     bool is_seal = false;
     ClassKind kind = CLASS_KIND_CLASS;
-    if (at(p, TOK_KW_pub)) {
-        eat(p, TOK_KW_pub);
-        vis = str_from_c("pub");
-    } else if (at(p, TOK_KW_lock)) {
-        eat(p, TOK_KW_lock);
-        vis = str_from_c("lock");
-    }
-    if (at(p, TOK_KW_seal)) {
-        eat(p, TOK_KW_seal);
-        is_seal = true;
-    }
-    if (at(p, TOK_KW_class)) {
-        eat(p, TOK_KW_class);
+    bool use_semi_class = false;
+    if (at(p, TOK_COMMA_COLON)) {
+        // New syntax: ,: ClassName ...;
+        eat(p, TOK_COMMA_COLON);
         kind = CLASS_KIND_CLASS;
-    } else if (at(p, TOK_KW_struct)) {
-        eat(p, TOK_KW_struct);
-        kind = CLASS_KIND_STRUCT;
-        if (is_seal) {
-            parser_set_error(p, t, "seal is only valid on class declarations");
-            return NULL;
-        }
-    } else if (at(p, TOK_KW_enum)) {
-        eat(p, TOK_KW_enum);
-        kind = CLASS_KIND_ENUM;
-        if (is_seal) {
-            parser_set_error(p, t, "seal is only valid on class declarations");
-            return NULL;
-        }
+        use_semi_class = true;
     } else {
-        parser_set_error(p, peek(p, 0), "expected class/struct/enum");
-        return NULL;
+        if (at(p, TOK_KW_pub)) {
+            eat(p, TOK_KW_pub);
+            vis = str_from_c("pub");
+        } else if (at(p, TOK_KW_lock)) {
+            eat(p, TOK_KW_lock);
+            vis = str_from_c("lock");
+        }
+        if (at(p, TOK_KW_seal)) {
+            eat(p, TOK_KW_seal);
+            is_seal = true;
+        }
+        if (at(p, TOK_COMMA_COLON)) {
+            eat(p, TOK_COMMA_COLON);
+            kind = CLASS_KIND_CLASS;
+            use_semi_class = true;
+        } else if (at(p, TOK_KW_class)) {
+            eat(p, TOK_KW_class);
+            kind = CLASS_KIND_CLASS;
+        } else if (at(p, TOK_KW_struct)) {
+            eat(p, TOK_KW_struct);
+            kind = CLASS_KIND_STRUCT;
+            if (is_seal) {
+                parser_set_error(p, t, "seal is only valid on class declarations");
+                return NULL;
+            }
+        } else if (at(p, TOK_KW_enum)) {
+            eat(p, TOK_KW_enum);
+            kind = CLASS_KIND_ENUM;
+            if (is_seal) {
+                parser_set_error(p, t, "seal is only valid on class declarations");
+                return NULL;
+            }
+        } else {
+            parser_set_error(p, peek(p, 0), "expected class/struct/enum");
+            return NULL;
+        }
     }
     Tok *name_tok = eat(p, TOK_IDENT);
     Str base_name = {0};
@@ -1067,7 +1144,10 @@ static Decl *parse_nominal(Parser *p) {
         has_base = true;
     }
     TokKind body_close = TOK_RBRACE;
-    if (kind == CLASS_KIND_CLASS) {
+    if (use_semi_class) {
+        body_close = TOK_SEMI;
+        p->semi_depth++;
+    } else if (kind == CLASS_KIND_CLASS) {
         eat(p, TOK_LBRACE);
     } else {
         eat(p, TOK_EQ);
@@ -1111,6 +1191,9 @@ static Decl *parse_nominal(Parser *p) {
         skip_semi(p);
     }
     eat(p, body_close);
+    if (use_semi_class) {
+        p->semi_depth--;
+    }
 
     Decl *decl = new_decl(p, DECL_CLASS, t);
     if (!decl) return NULL;
@@ -1137,7 +1220,15 @@ static Decl *parse_iface(Parser *p) {
     Param **params = parse_params(p, &params_len);
     eat(p, TOK_RPAR);
     RetSpec ret = parse_ret_spec(p);
-    eat(p, TOK_LBRACE);
+    bool use_semi_iface = false;
+    TokKind close_tok = TOK_RBRACE;
+    if (at(p, TOK_LBRACE)) {
+        eat(p, TOK_LBRACE);
+    } else {
+        use_semi_iface = true;
+        close_tok = TOK_SEMI;
+        p->semi_depth++;
+    }
     PtrVec methods = {0};
     skip_semi(p);
     while (at(p, TOK_COLONCOLON) && p->ok) {
@@ -1147,7 +1238,8 @@ static Decl *parse_iface(Parser *p) {
         ptrvec_push(p, &methods, fun);
         skip_semi(p);
     }
-    eat(p, TOK_RBRACE);
+    eat(p, close_tok);
+    if (use_semi_iface) p->semi_depth--;
     Decl *decl = new_decl(p, DECL_IFACE, t);
     if (!decl) return NULL;
     decl->as.iface.name = name_tok->val.ident;
@@ -1268,6 +1360,7 @@ static Expr *parse_postfix(Parser *p) {
             TokKind nk = peek(p, 0)->kind;
             bool has_arg =
                 nk != TOK_SEMI &&
+                nk != TOK_NEWLINE_SEMI &&
                 nk != TOK_EOF &&
                 nk != TOK_LBRACE &&
                 nk != TOK_RBRACE &&
@@ -1491,6 +1584,8 @@ static Expr *parse_primary(Parser *p) {
         return e;
     }
     if (t->kind == TOK_LBRACK) {
+        Expr *lam = parse_lambda_bracket(p);
+        if (lam) return lam;
         return parse_array_lit(p);
     }
     if (t->kind == TOK_LPAR) {
@@ -1626,6 +1721,92 @@ static Pat *parse_pattern(Parser *p) {
     }
     parser_set_error(p, t, "unexpected token %s in pattern", tok_kind_desc(t->kind));
     return NULL;
+}
+
+static Expr *parse_lambda_bracket(Parser *p) {
+    Parser probe = *p;
+    probe.err = NULL;
+
+    Tok *t = eat(&probe, TOK_LBRACK);
+    if (!probe.ok) return NULL;
+
+    PtrVec params = {0};
+    bool has_typed = false;
+    if (!at(&probe, TOK_RBRACK)) {
+        while (true) {
+            bool is_mut = maybe(&probe, TOK_QMARK) != NULL;
+            Tok *name_tok = eat(&probe, TOK_IDENT);
+            if (!probe.ok) return NULL;
+            Param *param = (Param *)ast_alloc(probe.arena, sizeof(Param));
+            if (!param) {
+                parser_set_oom(&probe);
+                return NULL;
+            }
+            param->name = name_tok->val.ident;
+            param->is_mut = is_mut;
+            param->is_this = false;
+            param->typ = NULL;
+            if (maybe(&probe, TOK_EQ)) {
+                param->typ = parse_type(&probe);
+                has_typed = true;
+            }
+            if (!probe.ok) return NULL;
+            ptrvec_push(&probe, &params, param);
+            if (!maybe(&probe, TOK_COMMA)) break;
+        }
+    }
+    Tok *rbrack = eat(&probe, TOK_RBRACK);
+    if (!probe.ok) return NULL;
+
+    // Disambiguation: require at least one typed param, OR empty params [],
+    // OR next token is on same line and is an expression start (not operator/punct)
+    if (!has_typed && params.len > 0) {
+        Tok *after = peek(&probe, 0);
+        // Only treat as lambda if next token is on same line as ] and is
+        // clearly a body start (not a binary op which would mean array usage)
+        if (after->line != rbrack->line) {
+            // Different line — could be multi-line lambda, but without typed
+            // params it's ambiguous. Require types for multi-line.
+            return NULL;
+        }
+        TokKind ak = after->kind;
+        // If followed by operator, dot, [, etc. → not a lambda
+        if (ak == TOK_PLUS || ak == TOK_MINUS || ak == TOK_STAR ||
+            ak == TOK_SLASH || ak == TOK_PERCENT || ak == TOK_DOT ||
+            ak == TOK_LBRACK || ak == TOK_EQEQ || ak == TOK_NEQ ||
+            ak == TOK_LT || ak == TOK_GT || ak == TOK_LTE || ak == TOK_GTE ||
+            ak == TOK_ANDAND || ak == TOK_OROR || ak == TOK_COMMA ||
+            ak == TOK_SEMI || ak == TOK_NEWLINE_SEMI || ak == TOK_RPAR ||
+            ak == TOK_RBRACK || ak == TOK_RBRACE || ak == TOK_EOF) {
+            return NULL;
+        }
+    }
+
+    Expr *body = NULL;
+    Tok *after = peek(&probe, 0);
+    if (after->line != rbrack->line && after->kind != TOK_EOF) {
+        // Multi-line: body terminated by ;
+        Stmt *block = parse_block_semi(&probe);
+        if (!probe.ok) return NULL;
+        Expr *be = new_expr(&probe, EXPR_BLOCK, t);
+        if (!be) return NULL;
+        be->as.block_expr.block = block;
+        body = be;
+    } else {
+        body = parse_expr(&probe, 0);
+        if (!probe.ok) return NULL;
+    }
+
+    Expr *lam = new_expr(&probe, EXPR_LAMBDA, t);
+    if (!lam) return NULL;
+    lam->as.lambda.params = (Param **)ptrvec_finalize(&probe, &params);
+    lam->as.lambda.params_len = params.len;
+    lam->as.lambda.body = body;
+
+    Diag *original_err = p->err;
+    *p = probe;
+    p->err = original_err;
+    return lam;
 }
 
 static Expr *parse_lambda(Parser *p) {
@@ -1844,6 +2025,8 @@ Module *parse_cask(Tok *toks, size_t len, const char *path, Arena *arena, Diag *
     p.arena = arena;
     p.err = err;
     p.ok = true;
+    p.semi_depth = 0;
+    p.brace_depth = 0;
 
     PtrVec imports = {0};
     PtrVec decls = {0};
@@ -1901,7 +2084,8 @@ Module *parse_cask(Tok *toks, size_t len, const char *path, Arena *arena, Diag *
             if (!p.ok) return NULL;
             ptrvec_push(&p, &decls, decl);
         } else if (at(&p, TOK_KW_pub) || at(&p, TOK_KW_lock) || at(&p, TOK_KW_seal) ||
-                   at(&p, TOK_KW_class) || at(&p, TOK_KW_struct) || at(&p, TOK_KW_enum)) {
+                   at(&p, TOK_KW_class) || at(&p, TOK_KW_struct) || at(&p, TOK_KW_enum) ||
+                   at(&p, TOK_COMMA_COLON)) {
             Decl *decl = parse_nominal(&p);
             if (!p.ok) return NULL;
             ptrvec_push(&p, &decls, decl);
