@@ -2,7 +2,7 @@ cask math
 
 -- Yis Standard Library: math.yi
 
-macro sq() (( num ))
+!: sq() (( num ))
   this * this
 ;
 
@@ -33,7 +33,7 @@ pub const LOG_TEN_E = 0.4342944819032518
       y -= two_pi
     elif y < -pi
       y += two_pi
-  return y
+  <- y
 ;
 
 -- Internal: sine via Taylor series on small |x|.
@@ -44,7 +44,7 @@ pub const LOG_TEN_E = 0.4342944819032518
   for (let ?i = 0; i < 7; i += 1)
     term = -term * x2 / ((2.0 * i + 2.0) * (2.0 * i + 3.0))
     sum += term
-  return sum
+  <- sum
 ;
 
 -- Internal: cosine via Taylor series on small |x|.
@@ -55,7 +55,7 @@ pub const LOG_TEN_E = 0.4342944819032518
   for (let ?i = 0; i < 7; i += 1)
     term = -term * x2 / ((2.0 * i + 1.0) * (2.0 * i + 2.0))
     sum += term
-  return sum
+  <- sum
 ;
 
 -- Sine function (implemented in Yis)
@@ -69,7 +69,7 @@ pub const LOG_TEN_E = 0.4342944819032518
   elif y < -half_pi
     y = pi + y
     sign = -1.0
-  return sign * _sin_taylor(y)
+  <- sign * _sin_taylor(y)
 ;
 
 -- Cosine function (implemented in Yis)
@@ -83,20 +83,20 @@ pub const LOG_TEN_E = 0.4342944819032518
   if y > half_pi
     y = pi - y
     sign = -1.0
-  return sign * _cos_taylor(y)
+  <- sign * _cos_taylor(y)
 ;
 
 -- Tangent function (implemented in Yis)
 :: tan(x = num) (( num ))
   let s = sin(x)
   let c = cos(x)
-  return s / c
+  <- s / c
 ;
 
 -- Square root function (implemented in Yis)
 :: sqrt(x = num) (( num ))
   if x <= 0.0
-    return 0.0
+    <- 0.0
   let ?guess = 1.0
   if x > 1.0
     guess = x
@@ -105,20 +105,20 @@ pub const LOG_TEN_E = 0.4342944819032518
     if !(abs(guess * guess - x) > eps)
       break
     guess = 0.5 * (guess + x / guess)
-  return guess
+  <- guess
 ;
 
 -- Absolute value
 :: abs(x = num) (( num ))
-  return if x < 0.0 { -x } else { x }
+  <- if x < 0.0 { -x } else { x }
 ;
 
 -- Minimum of two floats
 :: min(a = num, b = num) (( num ))
-  return if a < b { a } else { b }
+  <- if a < b { a } else { b }
 ;
 
 -- Maximum of two floats
 :: max(a = num, b = num) (( num ))
-  return if a > b { a } else { b }
+  <- if a > b { a } else { b }
 ;

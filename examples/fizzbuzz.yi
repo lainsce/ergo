@@ -2,7 +2,7 @@ cask fizzbuzz
 bring stdr
 -- Yis Example: FizzBuzz
 
-macro mod(divisor = num) (( bool ))
+!: mod(divisor = num) (( bool ))
     this % divisor == 0
 ;
 
@@ -19,7 +19,7 @@ macro mod(divisor = num) (( bool ))
             writef("$$i$$\n")
 ;
 
-entry () (( -- ))
+-> ()
     write("== FizzBuzz Example ==\n")
     fizzbuzz(20)
     write("== Done ==\n")

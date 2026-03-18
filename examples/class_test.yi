@@ -12,15 +12,15 @@ bring stdr
     s = stdr.str_concat(s, ", ")
     s = stdr.str_concat(s, str(this.y))
     s = stdr.str_concat(s, ")")
-    return s
+    <- s
   ;
 
   :: add(this, other = Point) (( Point ))
-    return Point(this.x + other.x, this.y + other.y)
+    <- Point(this.x + other.x, this.y + other.y)
   ;
 ;
 
-entry()
+-> ()
   let p1 = Point(3, 4)
   write(p1.to_string())
   write("\n")

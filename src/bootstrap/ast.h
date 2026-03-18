@@ -344,6 +344,7 @@ typedef enum {
     DECL_FUN,
     DECL_MACRO,
     DECL_ENTRY,
+    DECL_EXIT,
     DECL_CLASS,
     DECL_CONST,
     DECL_DEF,
@@ -370,9 +371,12 @@ typedef struct {
 } MacroDecl;
 
 typedef struct {
-    RetSpec ret;
     Stmt *body;
 } EntryDecl;
+
+typedef struct {
+    Stmt *body;
+} ExitDecl;
 
 typedef struct {
     Str name;
@@ -430,6 +434,7 @@ struct Decl {
         FunDecl fun;
         MacroDecl macro;
         EntryDecl entry;
+        ExitDecl exit;
         ClassDecl class_decl;
         ConstDecl const_decl;
         DefDecl def_decl;

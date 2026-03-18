@@ -7,20 +7,20 @@ bring stdr
 
 : _hex_digit(n = num) (( string ))
   let digits = "0123456789ABCDEF"
-  return stdr.slice(digits, n, n + 1)
+  <- stdr.slice(digits, n, n + 1)
 ;
 
 : _is_alpha_num(code = num) (( bool ))
-  if code >= 48 && code <= 57 { return true }
-  if code >= 65 && code <= 90 { return true }
-  if code >= 97 && code <= 122 { return true }
-  return false
+  if code >= 48 && code <= 57 { <- true }
+  if code >= 65 && code <= 90 { <- true }
+  if code >= 97 && code <= 122 { <- true }
+  <- false
 ;
 
 : _is_unreserved(code = num) (( bool ))
-  if _is_alpha_num(code) { return true }
-  if code == 45 || code == 46 || code == 95 || code == 126 { return true }
-  return false
+  if _is_alpha_num(code) { <- true }
+  if code == 45 || code == 46 || code == 95 || code == 126 { <- true }
+  <- false
 ;
 
 : _shell_quote(text = string) (( string ))
@@ -34,32 +34,32 @@ bring stdr
     else
       out = stdr.str_concat(out, ch)
   out = stdr.str_concat(out, "'")
-  return out
+  <- out
 ;
 
 : _contains(text = string, needle = string) (( bool ))
   let tn = stdr.len(text)
   let nn = stdr.len(needle)
-  if nn == 0 { return true }
-  if nn > tn { return false }
+  if nn == 0 { <- true }
+  if nn > tn { <- false }
   let ?i = 0
   let end = tn - nn
   for (; i <= end; i = i + 1)
-    if stdr.slice(text, i, i + nn) == needle { return true }
-  return false
+    if stdr.slice(text, i, i + nn) == needle { <- true }
+  <- false
 ;
 
 : _last_index_of(text = string, needle = string) (( num ))
   let tn = stdr.len(text)
   let nn = stdr.len(needle)
-  if nn == 0 || nn > tn { return -1 }
+  if nn == 0 || nn > tn { <- -1 }
   let ?pos = -1
   let ?i = 0
   let end = tn - nn
   for (; i <= end; i = i + 1)
     if stdr.slice(text, i, i + nn) == needle
       pos = i
-  return pos
+  <- pos
 ;
 
 : _parse_int(text = string) (( num ))
@@ -71,17 +71,17 @@ bring stdr
     let code = stdr.char_code(ch)
     if code < 48 || code > 57 { break }
     v = v * 10 + (code - 48)
-  return v
+  <- v
 ;
 
 : _pair_key(pair = any) (( string ))
-  if stdr.len(pair) >= 1 { return stdr.str(pair[0]) }
-  return ""
+  if stdr.len(pair) >= 1 { <- stdr.str(pair[0]) }
+  <- ""
 ;
 
 : _pair_val(pair = any) (( string ))
-  if stdr.len(pair) >= 2 { return stdr.str(pair[1]) }
-  return ""
+  if stdr.len(pair) >= 2 { <- stdr.str(pair[1]) }
+  <- ""
 ;
 
 :: encode_component(text = string) (( string ))
@@ -99,7 +99,7 @@ bring stdr
       out = stdr.str_concat(out, "%")
       out = stdr.str_concat(out, _hex_digit(hi))
       out = stdr.str_concat(out, _hex_digit(lo))
-  return out
+  <- out
 ;
 
 :: build_query(params = any) (( string ))
@@ -115,15 +115,15 @@ bring stdr
     out = stdr.str_concat(out, k)
     out = stdr.str_concat(out, "=")
     out = stdr.str_concat(out, v)
-  return out
+  <- out
 ;
 
 :: with_query(url = string, params = any) (( string ))
   let q = build_query(params)
-  if stdr.len(q) == 0 { return url }
+  if stdr.len(q) == 0 { <- url }
   if _contains(url, "?")
-    return stdr.str_concat(stdr.str_concat(url, "&"), q)
-  return stdr.str_concat(stdr.str_concat(url, "?"), q)
+    <- stdr.str_concat(stdr.str_concat(url, "&"), q)
+  <- stdr.str_concat(stdr.str_concat(url, "?"), q)
 ;
 
 : _parse_status_payload(raw = string) (( any ))
@@ -135,16 +135,16 @@ bring stdr
   result["status"] = 0
   result["body"] = raw
 
-  if idx < 0 { return result }
+  if idx < 0 { <- result }
 
   let from = idx + stdr.len(marker)
   let end = _last_index_of(raw, end_marker)
-  if end < from { return result }
+  if end < from { <- result }
 
   let status_text = stdr.slice(raw, from, end)
   result["status"] = _parse_int(status_text)
   result["body"] = stdr.slice(raw, 0, idx)
-  return result
+  <- result
 ;
 
 :: request(method = string, url = string, body = any, headers = any, params = any, timeout_secs = num, follow_redirects = bool) (( any ))
@@ -202,19 +202,19 @@ bring stdr
   else
     resp["error"] = null
 
-  return resp
+  <- resp
 ;
 
 :: get(url = string, params = any, headers = any, timeout_secs = num) (( any ))
-  return request("GET", url, null, headers, params, timeout_secs, true)
+  <- request("GET", url, null, headers, params, timeout_secs, true)
 ;
 
 :: post(url = string, body = string, headers = any, params = any, timeout_secs = num) (( any ))
-  return request("POST", url, body, headers, params, timeout_secs, true)
+  <- request("POST", url, body, headers, params, timeout_secs, true)
 ;
 
 :: post_json(url = string, json_text = string, headers = any, params = any, timeout_secs = num) (( any ))
   let ?hs = headers
   hs = stdr.concat(hs, [["Content-Type", "application/json"]])
-  return request("POST", url, json_text, hs, params, timeout_secs, true)
+  <- request("POST", url, json_text, hs, params, timeout_secs, true)
 ;

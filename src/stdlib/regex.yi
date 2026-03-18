@@ -14,7 +14,7 @@ bring stdr
   cmd = stdr.str_concat(cmd, _shell_quote(pattern))
   cmd = stdr.str_concat(cmd, " && echo 1 || echo 0")
   let result = stdr.trim(stdr.str(stdr.run_command(cmd) ?? "0"))
-  return result == "1"
+  <- result == "1"
 ;
 
 -- Find the first occurrence of pattern in text.
@@ -26,7 +26,7 @@ bring stdr
   cmd = stdr.str_concat(cmd, _shell_quote(pattern))
   cmd = stdr.str_concat(cmd, " | head -1")
   let result = stdr.str(stdr.run_command(cmd) ?? "")
-  return stdr.trim(result)
+  <- stdr.trim(result)
 ;
 
 -- Find all occurrences of pattern in text.
@@ -37,8 +37,8 @@ bring stdr
   cmd = stdr.str_concat(cmd, " | grep -oE ")
   cmd = stdr.str_concat(cmd, _shell_quote(pattern))
   let raw = stdr.str(stdr.run_command(cmd) ?? "")
-  if stdr.len(raw) == 0 { return []: [any] }
-  return _split_lines(stdr.trim(raw))
+  if stdr.len(raw) == 0 { <- []: [any] }
+  <- _split_lines(stdr.trim(raw))
 ;
 
 -- Replace the first occurrence of pattern in text with replacement.
@@ -51,7 +51,7 @@ bring stdr
   cmd = stdr.str_concat(cmd, _sed_escape(replacement))
   cmd = stdr.str_concat(cmd, "/'")
   let result = stdr.str(stdr.run_command(cmd) ?? "")
-  return stdr.trim(result)
+  <- stdr.trim(result)
 ;
 
 -- Replace all occurrences of pattern in text with replacement.
@@ -64,7 +64,7 @@ bring stdr
   cmd = stdr.str_concat(cmd, _sed_escape(replacement))
   cmd = stdr.str_concat(cmd, "/g'")
   let result = stdr.str(stdr.run_command(cmd) ?? "")
-  return stdr.trim(result)
+  <- stdr.trim(result)
 ;
 
 -- Split text by a regex pattern delimiter.
@@ -76,8 +76,8 @@ bring stdr
   cmd = stdr.str_concat(cmd, _sed_escape(pattern))
   cmd = stdr.str_concat(cmd, "/\\n/g'")
   let raw = stdr.str(stdr.run_command(cmd) ?? "")
-  if stdr.len(raw) == 0 { return [text] }
-  return _split_lines(raw)
+  if stdr.len(raw) == 0 { <- [text] }
+  <- _split_lines(raw)
 ;
 
 : _shell_quote(text = string) (( string ))
@@ -93,7 +93,7 @@ bring stdr
       chunk_start = i + 1
   if chunk_start < n { stdr.push(parts, stdr.slice(text, chunk_start, n)) }
   stdr.push(parts, "'")
-  return stdr.join(parts)
+  <- stdr.join(parts)
 ;
 
 : _sed_escape(text = string) (( string ))
@@ -108,7 +108,7 @@ bring stdr
       stdr.push(parts, "\\")
       chunk_start = i
   if chunk_start < n { stdr.push(parts, stdr.slice(text, chunk_start, n)) }
-  return stdr.join(parts)
+  <- stdr.join(parts)
 ;
 
 : _split_lines(text = string) (( any ))
@@ -124,5 +124,5 @@ bring stdr
       start = i + 1
   if start < n
     stdr.push(result, stdr.slice(text, start, n))
-  return result
+  <- result
 ;

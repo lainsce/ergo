@@ -5,14 +5,14 @@ bring json
 
 -- Yis Example: JSON parsing with objects, arrays, bools, numbers
 
-entry() (( -- ))
+-> ()
     let src = "{\"name\":\"Yis\",\"ok\":true,\"nums\":[1,2,3],\"meta\":{\"lang\":\"yi\"}}"
 
     let r = json.parse_result(src)
     if !(r["ok"] ?? false)
         let err_msg = r["error"] ?? "unknown"
         write("Parse error: $$err_msg$$\n")
-        return
+        <-
 
     let root = r["value"]
     let name = json.get(root, "name", "")

@@ -20,7 +20,7 @@ bring stdr
       out = stdr.str_concat(out, "\\t")
     else
       out = stdr.str_concat(out, ch)
-  return out
+  <- out
 ;
 
 -- Yis Standard Library: json.yi
@@ -33,7 +33,7 @@ bring stdr
   s["n"] = stdr.len(src)
   s["ok"] = true
   s["error"] = ""
-  return s
+  <- s
 ;
 
 : _fail(s = any, msg = string) (( -- ))
@@ -46,9 +46,9 @@ bring stdr
 : _peek(s = any) (( string ))
   let i = stdr.num(s["i"] ?? 0)
   let n = stdr.num(s["n"] ?? 0)
-  if i >= n { return "" }
+  if i >= n { <- "" }
   let src = s["src"] ?? ""
-  return stdr.slice(src, i, i + 1)
+  <- stdr.slice(src, i, i + 1)
 ;
 
 : _next(s = any) (( string ))
@@ -57,11 +57,11 @@ bring stdr
   let i = stdr.num(st["i"] ?? 0)
   if i < stdr.num(st["n"] ?? 0)
     st["i"] = i + 1
-  return ch
+  <- ch
 ;
 
 : _is_ws(ch = string) (( bool ))
-  return ch == " " || ch == "\t" || ch == "\n" || ch == "\r"
+  <- ch == " " || ch == "\t" || ch == "\n" || ch == "\r"
 ;
 
 : _skip_ws(s = any) (( -- ))
@@ -73,23 +73,23 @@ bring stdr
 
 : _is_digit(ch = string) (( bool ))
   let c = stdr.char_code(ch)
-  return c >= 48 && c <= 57
+  <- c >= 48 && c <= 57
 ;
 
 : _is_hex(ch = string) (( bool ))
   let c = stdr.char_code(ch)
-  if c >= 48 && c <= 57 { return true }
-  if c >= 65 && c <= 70 { return true }
-  if c >= 97 && c <= 102 { return true }
-  return false
+  if c >= 48 && c <= 57 { <- true }
+  if c >= 65 && c <= 70 { <- true }
+  if c >= 97 && c <= 102 { <- true }
+  <- false
 ;
 
 : _expect(s = any, want = string) (( bool ))
   let ch = _next(s)
   if ch != want
     _fail(s, "unexpected token")
-    return false
-  return true
+    <- false
+  <- true
 ;
 
 : _read_lit(s = any, lit = string) (( bool ))
@@ -98,8 +98,8 @@ bring stdr
   for (; i < n; i += 1)
     if _next(s) != stdr.slice(lit, i, i + 1)
       _fail(s, "invalid literal")
-      return false
-  return true
+      <- false
+  <- true
 ;
 
 : _pow10(exp = num) (( num ))
@@ -107,7 +107,7 @@ bring stdr
   let ?i = 0
   for (; i < exp; i += 1)
     p = p * 10.0
-  return p
+  <- p
 ;
 
 : _parse_num_text(text = string) (( num ))
@@ -164,25 +164,25 @@ bring stdr
     else
       v = v / p
 
-  return v * sign
+  <- v * sign
 ;
 
 : _parse_string(s = any) (( any ))
-  if !_expect(s, "\"") { return null }
+  if !_expect(s, "\"") { <- null }
   let ?out = ""
 
   for (; true; )
     let ch = _next(s)
     if ch == ""
       _fail(s, "unterminated string")
-      return null
+      <- null
     if ch == "\""
-      return out
+      <- out
     if ch == "\\"
       let esc = _next(s)
       if esc == ""
         _fail(s, "unterminated escape")
-        return null
+        <- null
       if esc == "\"" || esc == "\\" || esc == "/"
         out = stdr.str_concat(out, esc)
       elif esc == "b"
@@ -201,14 +201,14 @@ bring stdr
           let h = _next(s)
           if !_is_hex(h)
             _fail(s, "invalid unicode escape")
-            return null
+            <- null
         out = stdr.str_concat(out, "?")
       else
         _fail(s, "invalid escape")
-        return null
+        <- null
       continue
     out = stdr.str_concat(out, ch)
-  return null
+  <- null
 ;
 
 : _parse_number(s = any) (( any ))
@@ -232,7 +232,7 @@ bring stdr
 
   if digits == 0
     _fail(s, "invalid number")
-    return null
+    <- null
 
   if _peek(s) == "."
     _next(s)
@@ -244,7 +244,7 @@ bring stdr
       frac_digits += 1
     if frac_digits == 0
       _fail(s, "invalid number")
-      return null
+      <- null
 
   let ech = _peek(s)
   if ech == "e" || ech == "E"
@@ -260,52 +260,52 @@ bring stdr
       exp_digits += 1
     if exp_digits == 0
       _fail(s, "invalid number")
-      return null
+      <- null
 
   let end = stdr.num(s["i"] ?? start)
   if end <= start || end > n
     _fail(s, "invalid number")
-    return null
+    <- null
 
   let text = stdr.slice(src, start, end)
-  return _parse_num_text(text)
+  <- _parse_num_text(text)
 ;
 
 : _parse_value(s = any) (( any ))
   _skip_ws(s)
   let ch = _peek(s)
 
-  if ch == "\"" { return _parse_string(s) }
-  if ch == "{" { return _parse_object(s) }
-  if ch == "[" { return _parse_array(s) }
+  if ch == "\"" { <- _parse_string(s) }
+  if ch == "{" { <- _parse_object(s) }
+  if ch == "[" { <- _parse_array(s) }
   if ch == "t"
-    if _read_lit(s, "true") { return true }
-    return null
+    if _read_lit(s, "true") { <- true }
+    <- null
   if ch == "f"
-    if _read_lit(s, "false") { return false }
-    return null
+    if _read_lit(s, "false") { <- false }
+    <- null
   if ch == "n"
-    if _read_lit(s, "null") { return null }
-    return null
+    if _read_lit(s, "null") { <- null }
+    <- null
   if ch == "-" || _is_digit(ch)
-    return _parse_number(s)
+    <- _parse_number(s)
 
   _fail(s, "invalid value")
-  return null
+  <- null
 ;
 
 : _parse_array(s = any) (( any ))
-  if !_expect(s, "[") { return null }
+  if !_expect(s, "[") { <- null }
   let ?arr = []: [any]
 
   _skip_ws(s)
   if _peek(s) == "]"
     _next(s)
-    return arr
+    <- arr
 
   for (; true; )
     let v = _parse_value(s)
-    if !(s["ok"] ?? false) { return null }
+    if !(s["ok"] ?? false) { <- null }
     stdr.push(arr, v)
 
     _skip_ws(s)
@@ -315,34 +315,34 @@ bring stdr
       continue
     if sep == "]"
       _next(s)
-      return arr
+      <- arr
     _fail(s, "expected ',' or ']' in array")
-    return null
-  return null
+    <- null
+  <- null
 ;
 
 : _parse_object(s = any) (( any ))
-  if !_expect(s, "{") { return null }
+  if !_expect(s, "{") { <- null }
   let ?obj = []: [string => any]
 
   _skip_ws(s)
   if _peek(s) == "}"
     _next(s)
-    return obj
+    <- obj
 
   for (; true; )
     _skip_ws(s)
     if _peek(s) != "\""
       _fail(s, "object key must be string")
-      return null
+      <- null
     let key = _parse_string(s)
-    if !(s["ok"] ?? false) { return null }
+    if !(s["ok"] ?? false) { <- null }
 
     _skip_ws(s)
-    if !_expect(s, ":") { return null }
+    if !_expect(s, ":") { <- null }
 
     let value = _parse_value(s)
-    if !(s["ok"] ?? false) { return null }
+    if !(s["ok"] ?? false) { <- null }
     obj[key] = value
 
     _skip_ws(s)
@@ -352,10 +352,10 @@ bring stdr
       continue
     if sep == "}"
       _next(s)
-      return obj
+      <- obj
     _fail(s, "expected ',' or '}' in object")
-    return null
-  return null
+    <- null
+  <- null
 ;
 
 :: parse_result(src = string) (( any ))
@@ -372,27 +372,27 @@ bring stdr
   r["ok"] = s["ok"] ?? false
   r["value"] = value
   r["error"] = s["error"] ?? ""
-  return r
+  <- r
 ;
 
 :: parse(src = string) (( any ))
   let r = parse_result(src)
   if r["ok"] ?? false
-    return r["value"]
-  return null
+    <- r["value"]
+  <- null
 ;
 
 :: is_object(v = any) (( bool ))
-  return stdr.str(v) == "[dict]"
+  <- stdr.str(v) == "[dict]"
 ;
 
 :: is_array(v = any) (( bool ))
-  return stdr.str(v) == "[array]"
+  <- stdr.str(v) == "[array]"
 ;
 
 :: get(obj = any, key = string, fallback = any) (( any ))
-  if !is_object(obj) { return fallback }
+  if !is_object(obj) { <- fallback }
   let v = obj[key]
-  if stdr.is_null(v) { return fallback }
-  return v
+  if stdr.is_null(v) { <- fallback }
+  <- v
 ;

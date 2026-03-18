@@ -4472,7 +4472,7 @@ bool lint_program(Program *prog, Arena *arena, YisLintMode mode, int *warning_co
                 ctx.imports_len = imports_len;
                 ctx.has_current_class = false;
                 ctx.loop_depth = 0;
-                Ty *ret_ty = lint_ret_ty_from_spec(env, &d->as.entry.ret, mod_name, imports, imports_len, &err);
+                Ty *ret_ty = ty_void(env->arena);
                 lint_stmt(d->as.entry.body, &ctx, &loc, env, ret_ty, &ls);
                 locals_free(&loc);
             }
@@ -4614,19 +4614,7 @@ bool typecheck_program(Program *prog, Arena *arena, Diag *err) {
                 ctx.imports_len = imports_len;
                 ctx.has_current_class = false;
                 ctx.loop_depth = 0;
-                Ty *ret_ty = d->as.entry.ret.is_void ? ty_void(env->arena) : NULL;
-                if (!d->as.entry.ret.is_void) {
-                    if (d->as.entry.ret.types_len == 1) {
-                        ret_ty = ty_from_type_ref(env, d->as.entry.ret.types[0], mod_name, imports, imports_len, err);
-                    } else {
-                        size_t rn = d->as.entry.ret.types_len;
-                        Ty **items = (Ty **)arena_array(env->arena, rn, sizeof(Ty *));
-                        for (size_t r = 0; r < rn; r++) {
-                            items[r] = ty_from_type_ref(env, d->as.entry.ret.types[r], mod_name, imports, imports_len, err);
-                        }
-                        ret_ty = ty_tuple(env->arena, items, rn);
-                    }
-                }
+                Ty *ret_ty = ty_void(env->arena);
                 if (!check_nonvoid_return_coverage(d->as.entry.body, ret_ty, m->path, str_from_c("entry"), d->line, d->col, err)) {
                     locals_free(&loc);
                     return false;

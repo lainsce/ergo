@@ -443,6 +443,7 @@ typedef struct {
     bool has_current_class;
     
     Str entry_path;  // Path to the entry script file
+    bool has_exit;   // Whether an exit/destructor function was found
 
     LambdaInfo *lambdas;
     size_t lambdas_len;
@@ -1274,6 +1275,8 @@ static void codegen_collect_lambdas(Codegen *cg) {
                 }
             } else if (d->kind == DECL_ENTRY) {
                 collect_stmt(cg, d->as.entry.body, m->path);
+            } else if (d->kind == DECL_EXIT) {
+                collect_stmt(cg, d->as.exit.body, m->path);
             } else if (d->kind == DECL_DEF) {
                 collect_expr(cg, d->as.def_decl.expr, m->path, true);
             }
@@ -3621,6 +3624,52 @@ static bool gen_entry(Codegen *cg, Diag *err) {
     return true;
 }
 
+static bool gen_exit(Codegen *cg, Diag *err) {
+    ExitDecl *exit_decl = NULL;
+    Str exit_path = {NULL, 0};
+    for (size_t i = 0; i < cg->prog->mods_len; i++) {
+        Module *m = cg->prog->mods[i];
+        for (size_t j = 0; j < m->decls_len; j++) {
+            if (m->decls[j]->kind == DECL_EXIT) {
+                exit_decl = &m->decls[j]->as.exit;
+                exit_path = m->path;
+            }
+        }
+    }
+    if (!exit_decl) {
+        cg->has_exit = false;
+        return true;
+    }
+    cg->has_exit = true;
+
+    cg->scopes_len = 0;
+    cg->scope_locals_len = 0;
+    cg->loop_stack_len = 0;
+    locals_free(&cg->ty_loc);
+    locals_init(&cg->ty_loc);
+    codegen_push_scope(cg);
+
+    if (exit_path.data) {
+        Str mod_name = codegen_cask_name(cg, exit_path);
+        cg->current_cask = mod_name;
+        ModuleImport *mi = codegen_cask_imports(cg, mod_name);
+        cg->current_imports = mi ? mi->imports : NULL;
+        cg->current_imports_len = mi ? mi->imports_len : 0;
+    }
+
+    w_line(&cg->w, "static void yis_exit_fn(void) {");
+    cg->w.indent++;
+    if (!gen_block(cg, exit_path, exit_decl->body, true, err)) return false;
+    {
+        LocalList locals = codegen_pop_scope(cg);
+        codegen_release_scope(cg, locals);
+    }
+    cg->w.indent--;
+    w_line(&cg->w, "}");
+    w_line(&cg->w, "");
+    return true;
+}
+
 // -----------------
 // Codegen top-level
 // -----------------
@@ -4022,6 +4071,9 @@ static bool codegen_gen(Codegen *cg, const char *ext_module_name, const char *ex
     w_line(&cg->w, "// ---- entry ----");
     if (!gen_entry(cg, err)) return false;
 
+    w_line(&cg->w, "// ---- exit ----");
+    if (!gen_exit(cg, err)) return false;
+
     // ---- deferred lambda bodies ----
     // Generated AFTER functions/methods/entry so captures are populated
     w_line(&cg->w, "// ---- lambda defs ----");
@@ -4144,11 +4196,13 @@ static bool codegen_gen(Codegen *cg, const char *ext_module_name, const char *ex
     w_line(&cg->w, "@autoreleasepool {");
     cg->w.indent++;
     w_line(&cg->w, "yis_runtime_init();");
+    if (cg->has_exit) w_line(&cg->w, "atexit(yis_exit_fn);");
     w_line(&cg->w, "yis_entry();");
     cg->w.indent--;
     w_line(&cg->w, "}");
     w_line(&cg->w, "#else");
     w_line(&cg->w, "yis_runtime_init();");
+    if (cg->has_exit) w_line(&cg->w, "atexit(yis_exit_fn);");
     w_line(&cg->w, "yis_entry();");
     w_line(&cg->w, "#endif");
     w_line(&cg->w, "return 0;");

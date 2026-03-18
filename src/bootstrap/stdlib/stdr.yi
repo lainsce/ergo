@@ -2,7 +2,7 @@ cask stdr
 
 -- Yis Standard Library: stdr.yi
 
-macro is_none() (( bool ))
+!: is_none() (( bool ))
   this == null
 ;
 
@@ -32,7 +32,7 @@ macro is_none() (( bool ))
   __writef(fmt, args)
   let line = __read_line()
   let parsed = __readf_parse(fmt, line, args)
-  return (line, parsed)
+  <- (line, parsed)
 ;
 
 -- Print a value
@@ -42,7 +42,7 @@ macro is_none() (( bool ))
 
 -- Check if a value is null
 : is_null(x = any) (( bool ))
-  return x.is_none()
+  <- x.is_none()
 ;
 
 -- Convert a value to a string (compiler intrinsic)
@@ -56,18 +56,18 @@ macro is_none() (( bool ))
 
 -- Get the length of an array or string
 : len(x = any) (( num ))
-  return __len(x)
+  <- __len(x)
 ;
 
 -- Coerce value to num for comparisons and arithmetic (e.g. array index from any)
 : num(x = any) (( num ))
-  return __num(x)
+  <- __num(x)
 ;
 
 -- Substring: slice(s, start, end) is s[start..end), 0-based; indices clamped
 : __slice(s = string, start = num, end = num) (( string )) ;
 : slice(s = string, start = num, end = num) (( string ))
-  return __slice(s, start, end)
+  <- __slice(s, start, end)
 ;
 
 -- Concatenate two arrays; both must be arrays
@@ -84,13 +84,13 @@ macro is_none() (( bool ))
   for (; i < n2; i = i + 1)
     let idx = len(out)
     out[idx] = b[i]
-  return out
+  <- out
 ;
 
 -- Concatenate two values as strings (returns string)
 : __str_concat(a = any, b = any) (( string )) ;
 : str_concat(a = any, b = any) (( string ))
-  return __str_concat(a, b)
+  <- __str_concat(a, b)
 ;
 
 -- Join an array of strings into one string (O(n) total length)
@@ -101,7 +101,7 @@ macro is_none() (( bool ))
   let n = len(arr)
   for (; i < n; i = i + 1)
     out = str_concat(out, str(arr[i]))
-  return out
+  <- out
 ;
 
 -- Push a value onto the end of an array in-place (O(1) amortized)
@@ -115,89 +115,89 @@ macro is_none() (( bool ))
 -- ASCII code of first character of string (0 if empty)
 : __char_code(c = string) (( num )) ;
 : char_code(c = string) (( num ))
-  return __char_code(c)
+  <- __char_code(c)
 ;
 
 -- Create a single-character string from an ASCII code
 : __char_from_code(code = num) (( string )) ;
 : char_from_code(code = num) (( string ))
-  return __char_from_code(code)
+  <- __char_from_code(code)
 ;
 
 -- Character at index (returns single-character string, or "" if out of range)
 : char_at(s = string, idx = num) (( string ))
-  return slice(s, idx, idx + 1)
+  <- slice(s, idx, idx + 1)
 ;
 
 -- Substring from start index to end of string
 : substring(s = string, start = num) (( string ))
-  return slice(s, start, len(s))
+  <- slice(s, start, len(s))
 ;
 
 -- Substring from start index with given length
 : substring_len(s = string, start = num, n = num) (( string ))
-  return slice(s, start, start + n)
+  <- slice(s, start, start + n)
 ;
 
 -- Replace all occurrences of 'from' with 'to' in text
 : __replace(text = string, from = string, to = string) (( string )) ;
 : replace(text = string, from = string, to = string) (( string ))
-  return __replace(text, from, to)
+  <- __replace(text, from, to)
 ;
 
 -- Parse a hexadecimal string to a number (e.g. "ff" → 255, "0x1a" → 26)
 : __parse_hex(s = string) (( num )) ;
 : parse_hex(s = string) (( num ))
-  return __parse_hex(s)
+  <- __parse_hex(s)
 ;
 
 -- Floor: round down to nearest integer
 : __floor(x = num) (( num )) ;
 : floor(x = num) (( num ))
-  return __floor(x)
+  <- __floor(x)
 ;
 
 -- Ceil: round up to nearest integer
 : __ceil(x = num) (( num )) ;
 : ceil(x = num) (( num ))
-  return __ceil(x)
+  <- __ceil(x)
 ;
 
 -- Get all keys of a dict as an array of strings
 : __keys(d = any) (( [string] )) ;
 : keys(d = any) (( [string] ))
-  return __keys(d)
+  <- __keys(d)
 ;
 
 -- Read text file contents; returns null when file cannot be read
 : read_text_file(path = string) (( any ))
-  return __read_text_file(path)
+  <- __read_text_file(path)
 ;
 
 -- Write text to a file; returns true on success
 : write_text_file(path = string, text = string) (( bool ))
-  return __write_text_file(path, text)
+  <- __write_text_file(path, text)
 ;
 
 -- Run a shell command; returns (exit_code, stdout) as (num, string)
 : __run_command(cmd = string) (( num, string )) ;
 
 : run_command(cmd = string) (( num, string ))
-  return __run_command(cmd)
+  <- __run_command(cmd)
 ;
 
 -- Command-line arguments (argv as array of strings)
 : __args() (( [string] )) ;
 : args() (( [string] ))
-  return __args()
+  <- __args()
 ;
 
--- Open native file picker and return selected path or null
+-- Open native file picker and <- selected path or null
 : open_file_dialog(prompt = string, extension = string) (( any ))
-  return __open_file_dialog(prompt, extension)
+  <- __open_file_dialog(prompt, extension)
 ;
 
--- Open native save dialog and return selected path or null
+-- Open native save dialog and <- selected path or null
 : save_file_dialog(prompt = string, default_name = string, extension = string) (( any ))
-  return __save_file_dialog(prompt, default_name, extension)
+  <- __save_file_dialog(prompt, default_name, extension)
 ;

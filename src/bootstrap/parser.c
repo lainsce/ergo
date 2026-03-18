@@ -708,7 +708,7 @@ static FunDecl *parse_fun_decl(Parser *p, bool is_pub) {
 }
 
 static MacroDecl *parse_macro_decl(Parser *p) {
-    Tok *kw = eat(p, TOK_KW_macro);
+    Tok *kw = eat(p, TOK_BANG_COLON);
     if (!p->ok) return NULL;
     Tok *name_tok = eat(p, TOK_IDENT);
     if (!p->ok) return NULL;
@@ -759,16 +759,26 @@ static Decl *parse_macro(Parser *p) {
 }
 
 static Decl *parse_entry(Parser *p) {
-    Tok *kw = eat(p, TOK_KW_entry);
+    Tok *kw = eat(p, TOK_ARROW_RIGHT);
     if (!p->ok) return NULL;
     eat(p, TOK_LPAR);
     eat(p, TOK_RPAR);
-    RetSpec ret = parse_ret_spec(p);
     Stmt *body = at(p, TOK_LBRACE) ? parse_block(p) : parse_block_semi(p);
     Decl *decl = new_decl(p, DECL_ENTRY, kw);
     if (!decl) return NULL;
-    decl->as.entry.ret = ret;
     decl->as.entry.body = body;
+    return decl;
+}
+
+static Decl *parse_exit(Parser *p) {
+    Tok *kw = eat(p, TOK_ARROW_LEFT);
+    if (!p->ok) return NULL;
+    eat(p, TOK_LPAR);
+    eat(p, TOK_RPAR);
+    Stmt *body = at(p, TOK_LBRACE) ? parse_block(p) : parse_block_semi(p);
+    Decl *decl = new_decl(p, DECL_EXIT, kw);
+    if (!decl) return NULL;
+    decl->as.exit.body = body;
     return decl;
 }
 
@@ -1009,8 +1019,8 @@ static Stmt *parse_stmt(Parser *p) {
         st->as.for_s.body = body;
         return st;
     }
-    if (at(p, TOK_KW_return)) {
-        eat(p, TOK_KW_return);
+    if (at(p, TOK_ARROW_LEFT)) {
+        eat(p, TOK_ARROW_LEFT);
         if (at(p, TOK_SEMI) || at(p, TOK_NEWLINE_SEMI) || at(p, TOK_RBRACE)) {
             Stmt *st = new_stmt(p, STMT_RETURN, t);
             if (!st) return NULL;
@@ -1091,6 +1101,12 @@ static Decl *parse_nominal(Parser *p) {
         eat(p, TOK_COMMA_COLON);
         kind = CLASS_KIND_CLASS;
         use_semi_class = true;
+    } else if (at(p, TOK_EQ_COLON)) {
+        eat(p, TOK_EQ_COLON);
+        kind = CLASS_KIND_STRUCT;
+    } else if (at(p, TOK_BAR_COLON)) {
+        eat(p, TOK_BAR_COLON);
+        kind = CLASS_KIND_ENUM;
     } else {
         if (at(p, TOK_KW_pub)) {
             eat(p, TOK_KW_pub);
@@ -1110,22 +1126,22 @@ static Decl *parse_nominal(Parser *p) {
         } else if (at(p, TOK_KW_class)) {
             eat(p, TOK_KW_class);
             kind = CLASS_KIND_CLASS;
-        } else if (at(p, TOK_KW_struct)) {
-            eat(p, TOK_KW_struct);
+        } else if (at(p, TOK_EQ_COLON)) {
+            eat(p, TOK_EQ_COLON);
             kind = CLASS_KIND_STRUCT;
             if (is_seal) {
                 parser_set_error(p, t, "seal is only valid on class declarations");
                 return NULL;
             }
-        } else if (at(p, TOK_KW_enum)) {
-            eat(p, TOK_KW_enum);
+        } else if (at(p, TOK_BAR_COLON)) {
+            eat(p, TOK_BAR_COLON);
             kind = CLASS_KIND_ENUM;
             if (is_seal) {
                 parser_set_error(p, t, "seal is only valid on class declarations");
                 return NULL;
             }
         } else {
-            parser_set_error(p, peek(p, 0), "expected class/struct/enum");
+            parser_set_error(p, peek(p, 0), "expected class/,:/=:/|:");
             return NULL;
         }
     }
@@ -1159,7 +1175,23 @@ static Decl *parse_nominal(Parser *p) {
     PtrVec methods = {0};
     skip_semi(p);
     while (!at(p, body_close) && p->ok) {
-        if (at(p, TOK_COLONCOLON)) {
+        if (at(p, TOK_ARROW_LEFT)) {
+            // Destructor: <- () body
+            Tok *dtor_tok = eat(p, TOK_ARROW_LEFT);
+            eat(p, TOK_LPAR);
+            eat(p, TOK_RPAR);
+            Stmt *dtor_body = at(p, TOK_LBRACE) ? parse_block(p) : parse_block_semi(p);
+            FunDecl *fun = (FunDecl *)ast_alloc(p->arena, sizeof(FunDecl));
+            if (!fun) { parser_set_oom(p); return NULL; }
+            fun->name = str_from_c("__dtor");
+            fun->params = NULL;
+            fun->params_len = 0;
+            fun->ret = (RetSpec){0};
+            fun->body = dtor_body;
+            fun->is_pub = false;
+            ptrvec_push(p, &methods, fun);
+            (void)dtor_tok;
+        } else if (at(p, TOK_COLONCOLON)) {
             eat(p, TOK_COLONCOLON);
             FunDecl *fun = parse_fun_decl(p, true);
             if (!p->ok) return NULL;
@@ -2047,8 +2079,12 @@ Module *parse_cask(Tok *toks, size_t len, const char *path, Arena *arena, Diag *
             Import *imp = parse_import(&p);
             if (!p.ok) return NULL;
             ptrvec_push(&p, &imports, imp);
-        } else if (at(&p, TOK_KW_entry)) {
+        } else if (at(&p, TOK_ARROW_RIGHT)) {
             Decl *decl = parse_entry(&p);
+            if (!p.ok) return NULL;
+            ptrvec_push(&p, &decls, decl);
+        } else if (at(&p, TOK_ARROW_LEFT) && peek(&p, 1)->kind == TOK_LPAR) {
+            Decl *decl = parse_exit(&p);
             if (!p.ok) return NULL;
             ptrvec_push(&p, &decls, decl);
         } else if (at(&p, TOK_COLON)) {
@@ -2056,7 +2092,7 @@ Module *parse_cask(Tok *toks, size_t len, const char *path, Arena *arena, Diag *
             Decl *decl = parse_fun(&p, false);
             if (!p.ok) return NULL;
             ptrvec_push(&p, &decls, decl);
-        } else if (at(&p, TOK_KW_macro)) {
+        } else if (at(&p, TOK_BANG_COLON)) {
             Decl *decl = parse_macro(&p);
             if (!p.ok) return NULL;
             ptrvec_push(&p, &decls, decl);
@@ -2084,7 +2120,8 @@ Module *parse_cask(Tok *toks, size_t len, const char *path, Arena *arena, Diag *
             if (!p.ok) return NULL;
             ptrvec_push(&p, &decls, decl);
         } else if (at(&p, TOK_KW_pub) || at(&p, TOK_KW_lock) || at(&p, TOK_KW_seal) ||
-                   at(&p, TOK_KW_class) || at(&p, TOK_KW_struct) || at(&p, TOK_KW_enum) ||
+                   at(&p, TOK_KW_class) ||
+                   at(&p, TOK_EQ_COLON) || at(&p, TOK_BAR_COLON) ||
                    at(&p, TOK_COMMA_COLON)) {
             Decl *decl = parse_nominal(&p);
             if (!p.ok) return NULL;

@@ -81,6 +81,11 @@ static const char *tok_name_default(TokKind kind) {
         case TOK_QMARK: return "QMARK";
         case TOK_QQ: return "?" "?";
         case TOK_HASH: return "#";
+        case TOK_ARROW_RIGHT: return "->";
+        case TOK_ARROW_LEFT: return "<-";
+        case TOK_BANG_COLON: return "!:";
+        case TOK_EQ_COLON: return "=:";
+        case TOK_BAR_COLON: return "|:";
         case TOK_RET_L: return "((";
         case TOK_RET_R: return "))";
         case TOK_RET_VOID: return "--";
@@ -88,11 +93,7 @@ static const char *tok_name_default(TokKind kind) {
         case TOK_KW_cask: return "KW_cask";
         case TOK_KW_bring: return "KW_bring";
         case TOK_KW_fun: return "KW_fun";
-        case TOK_KW_macro: return "KW_macro";
-        case TOK_KW_entry: return "KW_entry";
         case TOK_KW_class: return "KW_class";
-        case TOK_KW_struct: return "KW_struct";
-        case TOK_KW_enum: return "KW_enum";
         case TOK_KW_pub: return "KW_pub";
         case TOK_KW_lock: return "KW_lock";
         case TOK_KW_seal: return "KW_seal";
@@ -102,7 +103,6 @@ static const char *tok_name_default(TokKind kind) {
         case TOK_KW_if: return "KW_if";
         case TOK_KW_else: return "KW_else";
         case TOK_KW_elif: return "KW_elif";
-        case TOK_KW_return: return "KW_return";
         case TOK_KW_true: return "KW_true";
         case TOK_KW_false: return "KW_false";
         case TOK_KW_null: return "KW_null";
@@ -172,6 +172,13 @@ const char *tok_kind_desc(TokKind kind) {
         case TOK_QQ: return "'?" "?'";
         case TOK_HASH: return "'#'";
         
+        // New syntax tokens
+        case TOK_ARROW_RIGHT: return "'->'";
+        case TOK_ARROW_LEFT: return "'<-'";
+        case TOK_BANG_COLON: return "'!:'";
+        case TOK_EQ_COLON: return "'=:'";
+        case TOK_BAR_COLON: return "'|:'";
+        
         // Return syntax
         case TOK_RET_L: return "'(('";
         case TOK_RET_R: return "'))'";
@@ -182,11 +189,7 @@ const char *tok_kind_desc(TokKind kind) {
         case TOK_KW_cask: return "'cask'";
         case TOK_KW_bring: return "'bring'";
         case TOK_KW_fun: return "'fun'";
-        case TOK_KW_macro: return "'macro'";
-        case TOK_KW_entry: return "'entry'";
         case TOK_KW_class: return "'class'";
-        case TOK_KW_struct: return "'struct'";
-        case TOK_KW_enum: return "'enum'";
         case TOK_KW_pub: return "'pub'";
         case TOK_KW_lock: return "'lock'";
         case TOK_KW_seal: return "'seal'";
@@ -196,7 +199,6 @@ const char *tok_kind_desc(TokKind kind) {
         case TOK_KW_if: return "'if'";
         case TOK_KW_else: return "'else'";
         case TOK_KW_elif: return "'elif'";
-        case TOK_KW_return: return "'return'";
         case TOK_KW_true: return "'true'";
         case TOK_KW_false: return "'false'";
         case TOK_KW_null: return "'null'";
@@ -406,7 +408,7 @@ static bool is_stmt_end(TokKind kind) {
         case TOK_KW_null:
         case TOK_KW_break:
         case TOK_KW_continue:
-        case TOK_KW_return:
+        case TOK_ARROW_LEFT:
             return true;
         default:
             return false;
@@ -676,6 +678,15 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             continue;
         }
 
+        if (two0 == '-' && two1 == '>' && lx.ret_depth == 0) {
+            if (!emit_simple(&lx, out, err, TOK_ARROW_RIGHT, STR_LIT("->"), lx.line, lx.col)) {
+                return false;
+            }
+            adv(&lx, 2);
+            set_last(&lx, TOK_ARROW_RIGHT);
+            continue;
+        }
+
         if (two0 == '-' && two1 == '-' && lx.ret_depth > 0) {
             if (!emit_simple(&lx, out, err, TOK_RET_VOID, STR_LIT("--"), lx.line, lx.col)) {
                 return false;
@@ -701,6 +712,14 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             set_last(&lx, TOK_EQEQ);
             continue;
         }
+        if (two0 == '=' && two1 == ':') {
+            if (!emit_simple(&lx, out, err, TOK_EQ_COLON, STR_LIT("=:"), lx.line, lx.col)) {
+                return false;
+            }
+            adv(&lx, 2);
+            set_last(&lx, TOK_EQ_COLON);
+            continue;
+        }
         if (two0 == '!' && two1 == '=') {
             if (!emit_simple(&lx, out, err, TOK_NEQ, STR_LIT("!="), lx.line, lx.col)) {
                 return false;
@@ -709,12 +728,28 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             set_last(&lx, TOK_NEQ);
             continue;
         }
+        if (two0 == '!' && two1 == ':') {
+            if (!emit_simple(&lx, out, err, TOK_BANG_COLON, STR_LIT("!:"), lx.line, lx.col)) {
+                return false;
+            }
+            adv(&lx, 2);
+            set_last(&lx, TOK_BANG_COLON);
+            continue;
+        }
         if (two0 == '<' && two1 == '=') {
             if (!emit_simple(&lx, out, err, TOK_LTE, STR_LIT("<="), lx.line, lx.col)) {
                 return false;
             }
             adv(&lx, 2);
             set_last(&lx, TOK_LTE);
+            continue;
+        }
+        if (two0 == '<' && two1 == '-') {
+            if (!emit_simple(&lx, out, err, TOK_ARROW_LEFT, STR_LIT("<-"), lx.line, lx.col)) {
+                return false;
+            }
+            adv(&lx, 2);
+            set_last(&lx, TOK_ARROW_LEFT);
             continue;
         }
         if (two0 == '>' && two1 == '=') {
@@ -739,6 +774,14 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             }
             adv(&lx, 2);
             set_last(&lx, TOK_OROR);
+            continue;
+        }
+        if (two0 == '|' && two1 == ':') {
+            if (!emit_simple(&lx, out, err, TOK_BAR_COLON, STR_LIT("|:"), lx.line, lx.col)) {
+                return false;
+            }
+            adv(&lx, 2);
+            set_last(&lx, TOK_BAR_COLON);
             continue;
         }
         if (two0 == '=' && two1 == '>') {
@@ -1156,7 +1199,6 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             case 4:
                 // Use memcmp with length check already done by case
                 if (memcmp(word.data, "cask", 4) == 0) kw = TOK_KW_cask;
-                else if (memcmp(word.data, "enum", 4) == 0) kw = TOK_KW_enum;
                 else if (memcmp(word.data, "lock", 4) == 0) kw = TOK_KW_lock;
                 else if (memcmp(word.data, "seal", 4) == 0) kw = TOK_KW_seal;
                 else if (memcmp(word.data, "else", 4) == 0) kw = TOK_KW_else;
@@ -1166,17 +1208,11 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
                 break;
             case 5:
                 if (memcmp(word.data, "bring", 5) == 0) kw = TOK_KW_bring;
-                else if (memcmp(word.data, "entry", 5) == 0) kw = TOK_KW_entry;
                 else if (memcmp(word.data, "class", 5) == 0) kw = TOK_KW_class;
                 else if (memcmp(word.data, "const", 5) == 0) kw = TOK_KW_const;
                 else if (memcmp(word.data, "false", 5) == 0) kw = TOK_KW_false;
                 else if (memcmp(word.data, "match", 5) == 0) kw = TOK_KW_match;
-                else if (memcmp(word.data, "macro", 5) == 0) kw = TOK_KW_macro;
                 else if (memcmp(word.data, "break", 5) == 0) kw = TOK_KW_break;
-                break;
-            case 6:
-                if (memcmp(word.data, "struct", 6) == 0) kw = TOK_KW_struct;
-                else if (memcmp(word.data, "return", 6) == 0) kw = TOK_KW_return;
                 break;
             case 8:
                 if (memcmp(word.data, "continue", 8) == 0) kw = TOK_KW_continue;

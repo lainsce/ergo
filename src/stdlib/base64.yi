@@ -11,7 +11,7 @@ bring stdr
   cmd = stdr.str_concat(cmd, _shell_quote(text))
   cmd = stdr.str_concat(cmd, " | base64")
   let result = stdr.str(stdr.run_command(cmd) ?? "")
-  return _strip_newlines(result)
+  <- _strip_newlines(result)
 ;
 
 -- Decode a base64 string back to plain text.
@@ -20,7 +20,7 @@ bring stdr
   cmd = stdr.str_concat(cmd, _shell_quote(encoded))
   cmd = stdr.str_concat(cmd, " | base64 -d 2>/dev/null || base64 -D 2>/dev/null")
   let result = stdr.str(stdr.run_command(cmd) ?? "")
-  return result
+  <- result
 ;
 
 -- Encode a file's contents to base64. Returns the base64 string.
@@ -28,14 +28,14 @@ bring stdr
   let ?cmd = "base64 < "
   cmd = stdr.str_concat(cmd, _shell_quote(path))
   let result = stdr.str(stdr.run_command(cmd) ?? "")
-  return _strip_newlines(result)
+  <- _strip_newlines(result)
 ;
 
 -- Check if a string is valid base64.
 :: is_valid(text = string) (( bool ))
   let n = stdr.len(text)
-  if n == 0 { return true }
-  if n % 4 != 0 { return false }
+  if n == 0 { <- true }
+  if n % 4 != 0 { <- false }
   let ?i = 0
   for (; i < n; i += 1)
     let c = stdr.char_code(stdr.slice(text, i, i + 1))
@@ -44,8 +44,8 @@ bring stdr
     if c >= 48 && c <= 57 { continue }
     if c == 43 || c == 47 { continue }
     if c == 61 && i >= n - 2 { continue }
-    return false
-  return true
+    <- false
+  <- true
 ;
 
 : _shell_quote(text = string) (( string ))
@@ -61,7 +61,7 @@ bring stdr
       chunk_start = i + 1
   if chunk_start < n { stdr.push(parts, stdr.slice(text, chunk_start, n)) }
   stdr.push(parts, "'")
-  return stdr.join(parts)
+  <- stdr.join(parts)
 ;
 
 : _strip_newlines(text = string) (( string ))
@@ -75,5 +75,5 @@ bring stdr
       if chunk_start < i { stdr.push(parts, stdr.slice(text, chunk_start, i)) }
       chunk_start = i + 1
   if chunk_start < n { stdr.push(parts, stdr.slice(text, chunk_start, n)) }
-  return stdr.join(parts)
+  <- stdr.join(parts)
 ;
