@@ -3586,6 +3586,18 @@ def ?g_last_line_num = 0
   <- sanitize_filename_component(stdr.slice(rest, 0, close))
 ;
 
+-- Extract set_app_name("...") from source text without parsing
+: extract_app_display_name(source = string) (( string ))
+  let marker = "set_app_name(\""
+  let pos = str_find(source, marker)
+  if pos < 0 { <- "" }
+  let start = pos + stdr.len(marker)
+  let rest = stdr.slice(source, start, start + 200)
+  let close = str_find(rest, "\"")
+  if close <= 0 { <- "" }
+  <- stdr.slice(rest, 0, close)
+;
+
 -- Compute the manifest path for a run-mode entry file
 -- For ext-module apps with a .app bundle, put it inside the bundle.
 : run_manifest_path(entry_path = string, source_raw = string, ext_module = string) (( string ))
@@ -3932,10 +3944,12 @@ def ?g_last_line_num = 0
   <- code == 0
 ;
 
-: prepare_macos_app_bundle(exe_path = string, bundle_id = string, bundle_name = string) (( bool ))
+: prepare_macos_app_bundle(exe_path = string, bundle_id = string, bundle_name = string, display_name = string) (( bool ))
   if stdr.len(exe_path) == 0 { <- false }
   if stdr.len(bundle_id) == 0 { <- false }
   if stdr.len(bundle_name) == 0 { <- false }
+  let ?dn = display_name
+  if stdr.len(dn) == 0 { dn = bundle_name }
 
   let marker = "/Contents/MacOS/"
   let m = str_find(exe_path, marker)
@@ -4068,7 +4082,7 @@ def ?g_last_line_num = 0
   plist = stdr.str_concat(plist, lt)
   plist = stdr.str_concat(plist, "string")
   plist = stdr.str_concat(plist, gt)
-  plist = stdr.str_concat(plist, bundle_name)
+  plist = stdr.str_concat(plist, dn)
   plist = stdr.str_concat(plist, lt)
   plist = stdr.str_concat(plist, "/string")
   plist = stdr.str_concat(plist, gt)
@@ -4085,7 +4099,7 @@ def ?g_last_line_num = 0
   plist = stdr.str_concat(plist, lt)
   plist = stdr.str_concat(plist, "string")
   plist = stdr.str_concat(plist, gt)
-  plist = stdr.str_concat(plist, bundle_name)
+  plist = stdr.str_concat(plist, dn)
   plist = stdr.str_concat(plist, lt)
   plist = stdr.str_concat(plist, "/string")
   plist = stdr.str_concat(plist, gt)
@@ -5636,10 +5650,12 @@ def ?g_last_line_num = 0
 
   let ?app_name = sanitize_filename_component(stem_name(entry_path))
   if stdr.len(app_name) == 0 { app_name = "main" }
+  let ?macos_display_name = ""
   if uses_ext_module
     let appid_name = find_appid_name(opt_ast)
     if stdr.len(appid_name) > 0
       app_name = appid_name
+    macos_display_name = extract_app_display_name(source_raw)
 
   let ?c_path = stdr.str_concat(app_name, ".c")
   if is_self_host
@@ -5752,7 +5768,7 @@ def ?g_last_line_num = 0
         cc_cmd = stdr.str_concat(cc_cmd, mod_ldflags)
         cc_cmd = stdr.str_concat(cc_cmd, " ")
     if uses_ext_module && is_macos
-      if !prepare_macos_app_bundle(out_path, macos_bundle_id, app_name)
+      if !prepare_macos_app_bundle(out_path, macos_bundle_id, app_name, macos_display_name)
         stdr.write("ERR: failed to prepare macOS app bundle\n")
 
     -- Embed SVG resources as base64 into a header in .app/Contents/Resources
