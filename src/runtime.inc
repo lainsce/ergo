@@ -443,6 +443,18 @@ static YisVal stdr_open_file_dialog(YisVal promptv, YisVal extv) {
            "osascript -e 'set _p to POSIX path of (choose file of type {\"%s\"} with prompt \"%s\")' -e 'return _p' 2>/dev/null",
            ext ? ext->data : "", prompt ? prompt->data : "");
   return stdr_capture_shell_first_line(cmd);
+#elif defined(__linux__)
+  char cmd[8192];
+  if (ext && ext->data && ext->data[0]) {
+    snprintf(cmd, sizeof(cmd),
+             "zenity --file-selection --title=\"%s\" --file-filter=\"*.%s\" 2>/dev/null",
+             prompt ? prompt->data : "Open", ext->data);
+  } else {
+    snprintf(cmd, sizeof(cmd),
+             "zenity --file-selection --title=\"%s\" 2>/dev/null",
+             prompt ? prompt->data : "Open");
+  }
+  return stdr_capture_shell_first_line(cmd);
 #else
   (void)prompt;
   (void)ext;
@@ -465,6 +477,13 @@ static YisVal stdr_save_file_dialog(YisVal promptv, YisVal default_namev, YisVal
   YisVal out = stdr_capture_shell_first_line(cmd);
   (void)ext;
   return out;
+#elif defined(__linux__)
+  char cmd[8192];
+  snprintf(cmd, sizeof(cmd),
+           "zenity --file-selection --save --confirm-overwrite --title=\"%s\" --filename=\"%s\" 2>/dev/null",
+           prompt ? prompt->data : "Save", def ? def->data : "");
+  (void)ext;
+  return stdr_capture_shell_first_line(cmd);
 #else
   (void)prompt;
   (void)def;
