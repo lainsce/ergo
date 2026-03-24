@@ -371,15 +371,43 @@ def ?g_diag_file_map = []: [string => any]
 : _hint_for_translated_error(msg = string) (( string ))
   if stdr.contains(msg, "no such function or method")
     <- "Yis cannot find this function name. Check spelling, make sure the module is imported, and call it as module.name(...)."
+  if stdr.contains(msg, "undeclared identifier")
+    <- "This name was never defined before use. Declare it first, or fix the spelling to match an existing variable."
   if stdr.contains(msg, "expects") && stdr.contains(msg, "argument(s)")
     <- "This call has the wrong number of values inside parentheses. Count what you passed, then match that count to the function definition."
+  if stdr.contains(msg, "too few arguments") || stdr.contains(msg, "too many arguments")
+    <- "This function call has too many or too few values in parentheses. Compare the call with the function definition and make them match."
   if stdr.contains(msg, "redefinition of")
     <- "This name is already used earlier in the same block. Rename one of them or delete the duplicate definition."
+  if stdr.contains(msg, "no member named")
+    <- "You are accessing a field or method that does not exist on this value. Check the value's type and the member name."
+  if stdr.contains(msg, "called object type") || stdr.contains(msg, "is not a function")
+    <- "This value is not callable. Make sure you are calling a function, not a plain value like text, number, or object."
+  if stdr.contains(msg, "array subscript is not an integer")
+    <- "Array indexes must be whole numbers like 0, 1, 2. Convert the index to an integer before indexing."
+  if stdr.contains(msg, "subscripted value is not an array") || stdr.contains(msg, "subscripted value is not")
+    <- "Only arrays and dictionaries can be indexed with [ ]. Check that the value on the left side is the right kind."
+  if stdr.contains(msg, "expected expression")
+    <- "Something is missing in this statement, such as a value or function call. Check this line for incomplete code."
+  if stdr.contains(msg, "expected ';'")
+    <- "A statement separator is missing before this point in generated C output. Check the Yis code around this line for malformed expressions."
+  if stdr.contains(msg, "expected ')'")
+    <- "A closing parenthesis is missing. Count opening and closing parentheses and add the missing one."
+  if stdr.contains(msg, "expected '")
+    <- "A required token is missing here (for example a bracket, parenthesis, or separator). Check nearby punctuation carefully."
   if stdr.contains(msg, "closure") && stdr.contains(msg, "does not return")
     <- "One code path does not return a value. Add a return in every if/else path, or make this function return nothing with (( -- ))."
+  if stdr.contains(msg, "should return a value") || stdr.contains(msg, "non-void function")
+    <- "This function says it returns a value, but one path returns nothing. Add a return value on every path."
   if stdr.contains(msg, "type mismatch") || stdr.contains(msg, "incompatible")
     <- "Two values here are different kinds (for example text vs number). Convert one value to match the other, and if null is possible, give a fallback first."
-  <- ""
+  if stdr.contains(msg, "Undefined symbols for architecture") || stdr.contains(msg, "undefined symbol")
+    <- "A required function or global value was referenced but not found. Check function names and ensure the defining module/library is included."
+  if stdr.contains(msg, "library not found") || stdr.contains(msg, "framework not found")
+    <- "A required native library/framework is missing from link flags or system paths. Install it and add the correct linker flags."
+  if stdr.contains(msg, "linker command failed")
+    <- "Linking failed after compilation. Read the lines above this error for missing symbols or libraries, then fix the first missing item."
+  <- "Fix this first error, then run again. Later errors are often side effects of the first one."
 ;
 
 : _write_err_details(loc = string, msg = string) (( -- ))
@@ -644,6 +672,7 @@ def ?g_diag_file_map = []: [string => any]
 
     -- 1) Undeclared function → "no such function or method"
     if stdr.contains(msg, "undeclared function")
+      let ?handled = false
       let cname = _extract_single_quoted(msg)
       if stdr.len(cname) > 0
         if stdr.is_null(seen[cname])
@@ -657,10 +686,25 @@ def ?g_diag_file_map = []: [string => any]
           stdr.write(pretty)
           stdr.write("\n")
           _write_err_details(loc, pretty)
+          handled = true
+      if !handled
+        let ?pretty = _demangle_error_message(msg)
+        let ?dedup_key = "undeclared_fn_raw:"
+        dedup_key = stdr.str_concat(dedup_key, loc)
+        dedup_key = stdr.str_concat(dedup_key, ":")
+        dedup_key = stdr.str_concat(dedup_key, pretty)
+        if stdr.is_null(seen[dedup_key])
+          seen[dedup_key] = true
+          err_count = err_count + 1
+          _write_err_prefix(loc)
+          stdr.write(pretty)
+          stdr.write("\n")
+          _write_err_details(loc, pretty)
       continue
 
     -- 2) Too few / too many arguments → "expects N argument(s), but M given"
     if stdr.contains(msg, "too few arguments") || stdr.contains(msg, "too many arguments")
+      let ?handled = false
       -- Look ahead for note: line with function name
       let ?fname = ""
       let ?k = j + 1
@@ -683,9 +727,11 @@ def ?g_diag_file_map = []: [string => any]
         if stdr.is_null(seen[dedup_key])
           seen[dedup_key] = true
           let yname = _demangle_c_name(fname)
-          let ?pretty = "'"
-          pretty = stdr.str_concat(pretty, yname)
-          pretty = stdr.str_concat(pretty, "' expects ")
+          let ?target = yname
+          if stdr.len(target) == 0
+            target = "this function"
+          let ?pretty = target
+          pretty = stdr.str_concat(pretty, " expects ")
           pretty = stdr.str_concat(pretty, stdr.str(expected))
           pretty = stdr.str_concat(pretty, " argument(s), but ")
           pretty = stdr.str_concat(pretty, stdr.str(have))
@@ -695,10 +741,25 @@ def ?g_diag_file_map = []: [string => any]
           stdr.write(pretty)
           stdr.write("\n")
           _write_err_details(loc, pretty)
+          handled = true
+      if !handled
+        let ?pretty = _demangle_error_message(msg)
+        let ?dedup_key = "args_raw:"
+        dedup_key = stdr.str_concat(dedup_key, loc)
+        dedup_key = stdr.str_concat(dedup_key, ":")
+        dedup_key = stdr.str_concat(dedup_key, pretty)
+        if stdr.is_null(seen[dedup_key])
+          seen[dedup_key] = true
+          err_count = err_count + 1
+          _write_err_prefix(loc)
+          stdr.write(pretty)
+          stdr.write("\n")
+          _write_err_details(loc, pretty)
       continue
 
     -- 3) Redefinition of variable → strip v_ prefix
     if stdr.contains(msg, "redefinition of")
+      let ?handled = false
       let cname = _extract_single_quoted(msg)
       if stdr.len(cname) > 0
         let yname = _demangle_c_name(cname)
@@ -712,10 +773,37 @@ def ?g_diag_file_map = []: [string => any]
           stdr.write(pretty)
           stdr.write("\n")
           _write_err_details(loc, pretty)
+          handled = true
+      if !handled
+        let ?pretty = _demangle_error_message(msg)
+        let ?dedup_key = "redef_raw:"
+        dedup_key = stdr.str_concat(dedup_key, loc)
+        dedup_key = stdr.str_concat(dedup_key, ":")
+        dedup_key = stdr.str_concat(dedup_key, pretty)
+        if stdr.is_null(seen[dedup_key])
+          seen[dedup_key] = true
+          err_count = err_count + 1
+          _write_err_prefix(loc)
+          stdr.write(pretty)
+          stdr.write("\n")
+          _write_err_details(loc, pretty)
       continue
 
-    -- 4) Skip cascaded type mismatch errors (side-effects of above)
-    if stdr.contains(msg, "incompatible type") { continue }
+    -- 4) Incompatible type details
+    if stdr.contains(msg, "incompatible type")
+      let ?pretty = _demangle_error_message(msg)
+      let ?dedup_key = "incompat:"
+      dedup_key = stdr.str_concat(dedup_key, loc)
+      dedup_key = stdr.str_concat(dedup_key, ":")
+      dedup_key = stdr.str_concat(dedup_key, pretty)
+      if !stdr.is_null(seen[dedup_key]) { continue }
+      seen[dedup_key] = true
+      err_count = err_count + 1
+      _write_err_prefix(loc)
+      stdr.write(pretty)
+      stdr.write("\n")
+      _write_err_details(loc, pretty)
+      continue
 
     -- 5) Non-void function <-: translate __lambda_N to "closure"
     if stdr.contains(msg, "should return a value") || stdr.contains(msg, "non-void function")
@@ -743,6 +831,12 @@ def ?g_diag_file_map = []: [string => any]
     if fb_bracket >= 0
       fallback_msg = stdr.slice(fallback_msg, 0, fb_bracket)
     fallback_msg = _demangle_error_message(fallback_msg)
+    let ?fallback_key = "fallback:"
+    fallback_key = stdr.str_concat(fallback_key, loc)
+    fallback_key = stdr.str_concat(fallback_key, ":")
+    fallback_key = stdr.str_concat(fallback_key, fallback_msg)
+    if !stdr.is_null(seen[fallback_key]) { continue }
+    seen[fallback_key] = true
     err_count = err_count + 1
     _write_err_prefix(loc)
     stdr.write(fallback_msg)
