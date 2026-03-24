@@ -32,6 +32,9 @@ def ?g_tmp_counter = 0
 def ?g_src_dir = ""
 def ?g_emit_file_path = ""
 def ?g_last_line_num = 0
+def ?g_demangle_mods = []: [string => any]
+def ?g_demangle_mod_list = []: [any]
+def ?g_diag_file_map = []: [string => any]
 
 -- ============================================================
 -- C code emitter: walks AST and produces C using the Yis runtime.
@@ -267,6 +270,148 @@ def ?g_last_line_num = 0
   <- stdr.slice(text, a, b)
 ;
 
+: _basename(path = string) (( string ))
+  let p = stdr.str(path)
+  let n = stdr.len(p)
+  let ?i = n - 1
+  for (; i >= 0; i = i - 1)
+    let ch = stdr.slice(p, i, i + 1)
+    if ch == "/" || ch == "\\"
+      <- stdr.slice(p, i + 1, n)
+  <- p
+;
+
+: _reset_diag_demangle_context() (( -- ))
+  g_demangle_mods = []: [string => any]
+  g_demangle_mod_list = []: [any]
+  g_diag_file_map = []: [string => any]
+;
+
+: _remember_demangle_module(mod = string) (( -- ))
+  let m = stdr.trim(stdr.str(mod))
+  if stdr.len(m) == 0 { <- }
+  if stdr.is_null(g_demangle_mods[m])
+    g_demangle_mods[m] = true
+    stdr.push(g_demangle_mod_list, m)
+;
+
+: _register_diag_file(path = string) (( -- ))
+  if stdr.is_null(path) { <- }
+  let p = stdr.trim(stdr.str(path))
+  if stdr.len(p) == 0 { <- }
+  let b = _basename(p)
+  if stdr.len(b) > 0
+    g_diag_file_map[b] = p
+;
+
+: _resolve_diag_file(fname = string) (( string ))
+  let p = g_diag_file_map[fname]
+  if stdr.is_null(p) { <- fname }
+  <- stdr.str(p)
+;
+
+: _best_demangle_split(rest = string) (( any ))
+  let ?best_mod = ""
+  let ?best_tail = ""
+  let ?best_len = -1
+  let ?i = 0
+  let n = stdr.len(g_demangle_mod_list)
+  for (; i < n; i = i + 1)
+    let mod = g_demangle_mod_list[i] ?? ""
+    let ml = stdr.len(mod)
+    if ml == 0 { continue }
+    let pref = stdr.str_concat(mod, "_")
+    if stdr.starts_with(rest, pref) && ml > best_len
+      best_len = ml
+      best_mod = mod
+      best_tail = stdr.slice(rest, ml + 1, stdr.len(rest))
+  if best_len >= 0
+    <- pair(best_mod, best_tail)
+  <- null
+;
+
+: _source_line_at(path = string, line_no = num) (( string ))
+  if line_no <= 0 { <- "" }
+  let raw = stdr.read_text_file(path)
+  if stdr.is_null(raw) { <- "" }
+  let text = stdr.str(raw)
+  let n = stdr.len(text)
+  let ?cur_line = 1
+  let ?start = 0
+  let ?i = 0
+  for (; i <= n; i = i + 1)
+    if i == n || stdr.slice(text, i, i + 1) == "\n"
+      if cur_line == line_no
+        let ?line = stdr.slice(text, start, i)
+        let ln = stdr.len(line)
+        if ln > 0 && stdr.slice(line, ln - 1, ln) == "\r"
+          line = stdr.slice(line, 0, ln - 1)
+        <- line
+      cur_line = cur_line + 1
+      start = i + 1
+  <- ""
+;
+
+: _source_line_from_loc(loc = string) (( string ))
+  if stdr.len(loc) == 0 { <- "" }
+  let c1 = stdr.index_of(loc, ":")
+  if c1 < 0 { <- "" }
+  let fname = stdr.slice(loc, 0, c1)
+  let rest = stdr.slice(loc, c1 + 1, stdr.len(loc))
+  let c2 = stdr.index_of(rest, ":")
+  let ?line_txt = rest
+  if c2 >= 0
+    line_txt = stdr.slice(rest, 0, c2)
+  let line_no = stdr.num(line_txt)
+  if line_no <= 0 { <- "" }
+  let full_path = _resolve_diag_file(fname)
+  <- _source_line_at(full_path, line_no)
+;
+
+: _hint_for_translated_error(msg = string) (( string ))
+  if stdr.contains(msg, "no such function or method")
+    <- "Check spelling and imported modules; call functions as module.name(...)."
+  if stdr.contains(msg, "expects") && stdr.contains(msg, "argument(s)")
+    <- "Match the call arity with the declaration, including optional/method receiver rules."
+  if stdr.contains(msg, "redefinition of")
+    <- "This name was declared earlier in the same scope; rename one binding or remove the duplicate."
+  if stdr.contains(msg, "closure") && stdr.contains(msg, "does not return")
+    <- "Ensure all closure branches return a value, or change the return type to (( -- ))."
+  if stdr.contains(msg, "type mismatch") || stdr.contains(msg, "incompatible")
+    <- "Check operand and return types at this location; add explicit conversion or null coalescing when needed."
+  <- ""
+;
+
+: _write_err_details(loc = string, msg = string) (( -- ))
+  let src_line = _source_line_from_loc(loc)
+  if stdr.len(src_line) > 0
+    stdr.write("       line: ")
+    stdr.write(src_line)
+    stdr.write("\n")
+  let hint = _hint_for_translated_error(msg)
+  if stdr.len(hint) > 0
+    stdr.write("       hint: ")
+    stdr.write(hint)
+    stdr.write("\n")
+;
+
+: _find_nearby_yi_location(lines = any, idx = num, nlines = num) (( string ))
+  let ?from = idx - 2
+  if from < 0 { from = 0 }
+  let ?to = idx + 8
+  if to > nlines { to = nlines }
+  let ?k = from
+  for (; k < to; k = k + 1)
+    let line = lines[k] ?? ""
+    let ?mark = stdr.index_of(line, ": error: ")
+    if mark < 0
+      mark = stdr.index_of(line, ": note: ")
+    if mark < 0 { continue }
+    let loc = _extract_yi_location(line, mark)
+    if stdr.len(loc) > 0 { <- loc }
+  <- ""
+;
+
 -- ============================================================
 -- C compiler error translation: demangle C names → Yis names
 -- ============================================================
@@ -308,7 +453,7 @@ def ?g_last_line_num = 0
 -- Local variables: v_foo or foo__N           → foo
 -- Methods:         yis_m_<mod>_<Class>_<meth> → Class.method()
 -- Globals:         yis_g_<mod>_<name>         → <name>
--- Functions:       yis_<mod>_<name>           → <mod>.<name>()
+-- Functions:       yis_<mod>_<name>           → <mod>.<name>() (module-aware split)
 : _demangle_c_name(name = string) (( string ))
   if stdr.starts_with(name, "v_")
     <- _strip_local_suffix(stdr.slice(name, 2, stdr.len(name)))
@@ -346,17 +491,26 @@ def ?g_last_line_num = 0
     <- r
 
   if stdr.starts_with(name, "yis_g_")
-    <- stdr.slice(name, 6, stdr.len(name))
+    let rest = stdr.slice(name, 6, stdr.len(name))
+    let split = _best_demangle_split(rest)
+    if !stdr.is_null(split)
+      let vname = split[1] ?? ""
+      if stdr.len(vname) > 0 { <- vname }
+    <- rest
 
   if stdr.starts_with(name, "yis_")
     let rest = stdr.slice(name, 4, stdr.len(name))
-    let idx = stdr.index_of(rest, "_")
-    if idx >= 0
-      let ?r = stdr.slice(rest, 0, idx)
-      r = stdr.str_concat(r, ".")
-      r = stdr.str_concat(r, stdr.slice(rest, idx + 1, stdr.len(rest)))
-      r = stdr.str_concat(r, "()")
-      <- r
+    let split = _best_demangle_split(rest)
+    if !stdr.is_null(split)
+      let mod = split[0] ?? ""
+      let fun = split[1] ?? ""
+      if stdr.len(mod) > 0 && stdr.len(fun) > 0
+        let ?r = mod
+        r = stdr.str_concat(r, ".")
+        r = stdr.str_concat(r, fun)
+        r = stdr.str_concat(r, "()")
+        <- r
+    -- If the module split is ambiguous, keep underscores intact.
     <- stdr.str_concat(rest, "()")
 
   <- name
@@ -415,7 +569,7 @@ def ?g_last_line_num = 0
 -- Translate raw C compiler output into Yis-friendly error messages.
 -- Extract "file.yi:LINE" location prefix from a C compiler error line.
 -- Input line format: "/path/to/file.yi:6:12: error: ..."
--- Returns short location like "file.yi:6" or "" if not a .yi source.
+-- Returns short location like "file.yi:6:12" or "" if not a .yi source.
 : _extract_yi_location(line = string, err_idx = num) (( string ))
   let prefix = stdr.slice(line, 0, err_idx)
   -- prefix is like "/path/to/file.yi:6:12"
@@ -433,6 +587,7 @@ def ?g_last_line_num = 0
   if second_colon < 0 { <- "" }
   let fpath = stdr.slice(prefix, 0, second_colon)
   let line_num = stdr.slice(prefix, second_colon + 1, last_colon)
+  let col_num = stdr.slice(prefix, last_colon + 1, stdr.len(prefix))
   -- Only show .yi files, not .c files
   if !stdr.ends_with(fpath, ".yi") { <- "" }
   -- Extract just the filename from the path
@@ -443,6 +598,9 @@ def ?g_last_line_num = 0
   let ?loc = fname
   loc = stdr.str_concat(loc, ":")
   loc = stdr.str_concat(loc, line_num)
+  if stdr.len(col_num) > 0
+    loc = stdr.str_concat(loc, ":")
+    loc = stdr.str_concat(loc, col_num)
   <- loc
 ;
 
@@ -480,7 +638,9 @@ def ?g_last_line_num = 0
     if err_idx < 0 { continue }
 
     let msg = stdr.slice(line, err_idx + 9, stdr.len(line))
-    let loc = _extract_yi_location(line, err_idx)
+    let ?loc = _extract_yi_location(line, err_idx)
+    if stdr.len(loc) == 0
+      loc = _find_nearby_yi_location(lines, j, nlines)
 
     -- 1) Undeclared function → "no such function or method"
     if stdr.contains(msg, "undeclared function")
@@ -489,11 +649,14 @@ def ?g_last_line_num = 0
         if stdr.is_null(seen[cname])
           seen[cname] = true
           let yname = _demangle_c_name(cname)
+          let ?pretty = "no such function or method '"
+          pretty = stdr.str_concat(pretty, yname)
+          pretty = stdr.str_concat(pretty, "'")
           err_count = err_count + 1
           _write_err_prefix(loc)
-          stdr.write("no such function or method '")
-          stdr.write(yname)
-          stdr.write("'\n")
+          stdr.write(pretty)
+          stdr.write("\n")
+          _write_err_details(loc, pretty)
       continue
 
     -- 2) Too few / too many arguments → "expects N argument(s), but M given"
@@ -520,15 +683,18 @@ def ?g_last_line_num = 0
         if stdr.is_null(seen[dedup_key])
           seen[dedup_key] = true
           let yname = _demangle_c_name(fname)
+          let ?pretty = "'"
+          pretty = stdr.str_concat(pretty, yname)
+          pretty = stdr.str_concat(pretty, "' expects ")
+          pretty = stdr.str_concat(pretty, stdr.str(expected))
+          pretty = stdr.str_concat(pretty, " argument(s), but ")
+          pretty = stdr.str_concat(pretty, stdr.str(have))
+          pretty = stdr.str_concat(pretty, " given")
           err_count = err_count + 1
           _write_err_prefix(loc)
-          stdr.write("'")
-          stdr.write(yname)
-          stdr.write("' expects ")
-          stdr.write(stdr.str(expected))
-          stdr.write(" argument(s), but ")
-          stdr.write(stdr.str(have))
-          stdr.write(" given\n")
+          stdr.write(pretty)
+          stdr.write("\n")
+          _write_err_details(loc, pretty)
       continue
 
     -- 3) Redefinition of variable → strip v_ prefix
@@ -538,11 +704,14 @@ def ?g_last_line_num = 0
         let yname = _demangle_c_name(cname)
         if stdr.is_null(seen[cname])
           seen[cname] = true
+          let ?pretty = "redefinition of '"
+          pretty = stdr.str_concat(pretty, yname)
+          pretty = stdr.str_concat(pretty, "'")
           err_count = err_count + 1
           _write_err_prefix(loc)
-          stdr.write("redefinition of '")
-          stdr.write(yname)
-          stdr.write("'\n")
+          stdr.write(pretty)
+          stdr.write("\n")
+          _write_err_details(loc, pretty)
       continue
 
     -- 4) Skip cascaded type mismatch errors (side-effects of above)
@@ -564,6 +733,7 @@ def ?g_last_line_num = 0
       _write_err_prefix(loc)
       stdr.write(cleaned)
       stdr.write("\n")
+      _write_err_details(loc, cleaned)
       continue
 
     -- 6) Generic fallback for unrecognized errors
@@ -577,6 +747,7 @@ def ?g_last_line_num = 0
     _write_err_prefix(loc)
     stdr.write(fallback_msg)
     stdr.write("\n")
+    _write_err_details(loc, fallback_msg)
 
   if err_count > 0
     stdr.write(stdr.str(err_count))
@@ -5400,6 +5571,8 @@ def ?g_last_line_num = 0
 
   g_next_lambda_id = 1
   g_src_dir = src_dir
+  _reset_diag_demangle_context()
+  _register_diag_file(entry_path)
 
   let ?p = []: [any]
   if stdr.len(runtime_src) > 0
@@ -5466,11 +5639,13 @@ def ?g_last_line_num = 0
     for (; bk_i < bk_n; bk_i = bk_i + 1)
       if stdr.slice(bname, bk_i, bk_i + 1) == "."
         bring_key = stdr.slice(bname, bk_i + 1, bk_n)
+    _remember_demangle_module(bring_key)
     g_bring_names[bring_key] = true
     if stdr.len(ext_module_name) == 0 && is_external_module(bname)
       ext_module_name = bname
     -- Parse and build class info for this module
     let mod_fpath = resolve_bring(bname, bdir)
+    _register_diag_file(mod_fpath)
     let mod_ast3 = load_module(mod_fpath)
     if !stdr.is_null(mod_ast3)
       let mod_decls = mod_ast3[decls_key] ?? []: [any]
@@ -5481,6 +5656,7 @@ def ?g_last_line_num = 0
       for (; mi < mdn; mi = mi + 1)
         let md2 = mod_decls[mi]
         if md2[tag] == "cask" { mod_cask = md2[name_key] ?? bring_key }
+      _remember_demangle_module(mod_cask)
       build_class_info(mod_decls, mod_cask)
   -- Build class info for main unit too
   build_class_info(decls, "")
@@ -5520,6 +5696,7 @@ def ?g_last_line_num = 0
   for (; i < n; i = i + 1)
     let d = decls[i]
     if d[tag] == "cask" { main_cask = d[name_key] ?? "init" }
+  _remember_demangle_module(main_cask)
   build_class_info(decls, main_cask)
 
   stdr.push(p, "\n/* begin main unit */\n")
