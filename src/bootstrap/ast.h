@@ -158,6 +158,7 @@ typedef struct {
 typedef struct {
     Str name;
     char *cname;
+    char *rname;
     void *ty;
 } Capture;
 

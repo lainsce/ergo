@@ -104,6 +104,11 @@ typedef struct YisFn {
   int env_size;
 } YisFn;
 
+typedef struct YisRef {
+  int ref;
+  YisVal val;
+} YisRef;
+
 static int stdr_len(YisVal v);
 static int64_t stdr_num(YisVal v);
 
@@ -126,6 +131,9 @@ static void yis_trap(const char* msg) {
 static void yis_retain_val(YisVal v);
 static void yis_release_val(YisVal v);
 static int64_t yis_as_int(YisVal v);
+static YisRef* yis_ref_new(void);
+static void yis_ref_retain(YisRef* r);
+static void yis_ref_release(YisRef* r);
 
 // Static constant strings (ref=INT32_MAX means never freed)
 static YisStr yis_static_empty    = { INT32_MAX, 0, "" };
@@ -758,8 +766,8 @@ static void yis_release_val(YisVal v) {
     YisFn* f = (YisFn*)v.as.p;
     if (--f->ref == 0) {
       if (f->env && f->env_size > 0) {
-        YisVal* caps = (YisVal*)f->env;
-        for (int i = 0; i < f->env_size; i++) yis_release_val(caps[i]);
+        YisRef** caps = (YisRef**)f->env;
+        for (int i = 0; i < f->env_size; i++) yis_ref_release(caps[i]);
         free(f->env);
       }
       free(f);
@@ -1036,6 +1044,26 @@ static YisObj* yis_obj_new(size_t size, void (*drop)(YisObj*)) {
   o->ref = 1;
   o->drop = drop;
   return o;
+}
+
+static YisRef* yis_ref_new(void) {
+  YisRef* r = (YisRef*)malloc(sizeof(YisRef));
+  if (!r) yis_trap("out of memory");
+  r->ref = 1;
+  r->val = YV_NULLV;
+  return r;
+}
+
+static void yis_ref_retain(YisRef* r) {
+  if (r) r->ref++;
+}
+
+static void yis_ref_release(YisRef* r) {
+  if (!r) return;
+  if (--r->ref == 0) {
+    yis_release_val(r->val);
+    free(r);
+  }
 }
 
 static YisFn* yi_fn_new(YisVal (*fn)(void* env, int argc, YisVal* argv), int arity) {

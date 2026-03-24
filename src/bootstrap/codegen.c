@@ -378,6 +378,7 @@ static void split_qname(Str qname, Str *mod, Str *name) {
 typedef struct {
     Str name;
     char *cname;
+    char *rname;
 } NameBinding;
 
 typedef struct {
@@ -387,7 +388,12 @@ typedef struct {
 } NameScope;
 
 typedef struct {
-    char **items;
+    char *cname;
+    bool is_ref;
+} LocalBinding;
+
+typedef struct {
+    LocalBinding *items;
     size_t len;
     size_t cap;
 } LocalList;
@@ -505,7 +511,7 @@ static bool scope_reserve_locals(LocalList *list, size_t need) {
     if (list->cap >= need) return true;
     size_t next = list->cap ? list->cap * 2 : 8;
     while (next < need) next *= 2;
-    char **items = (char **)realloc(list->items, next * sizeof(char *));
+    LocalBinding *items = (LocalBinding *)realloc(list->items, next * sizeof(LocalBinding));
     if (!items) return false;
     list->items = items;
     list->cap = next;
@@ -553,21 +559,24 @@ static LocalList codegen_pop_scope(Codegen *cg) {
     return out;
 }
 
-static bool codegen_add_name(Codegen *cg, Str name, char *cname) {
+static bool codegen_add_name(Codegen *cg, Str name, char *cname, char *rname) {
     if (cg->scopes_len == 0) return false;
     NameScope *ns = &cg->scopes[cg->scopes_len - 1];
     if (!scope_reserve_names(ns, ns->len + 1)) return false;
     ns->items[ns->len].name = name;
     ns->items[ns->len].cname = cname;
+    ns->items[ns->len].rname = rname;
     ns->len++;
     return true;
 }
 
-static bool codegen_add_local(Codegen *cg, char *cname) {
+static bool codegen_add_local(Codegen *cg, char *cname, bool is_ref) {
     if (cg->scope_locals_len == 0) return false;
     LocalList *ll = &cg->scope_locals[cg->scope_locals_len - 1];
     if (!scope_reserve_locals(ll, ll->len + 1)) return false;
-    ll->items[ll->len++] = cname;
+    ll->items[ll->len].cname = cname;
+    ll->items[ll->len].is_ref = is_ref;
+    ll->len++;
     return true;
 }
 
@@ -623,24 +632,29 @@ static char *codegen_define_local(Codegen *cg, Str name, Ty *ty, bool is_mut, bo
     buf[name.len] = '_';
     buf[name.len + 1] = '_';
     snprintf(buf + name.len + 2, n_digits + 1, "%d", cg->var_id);
+    char *slot = arena_printf(cg->arena, "%s->val", buf);
 
     Binding b = { ty, is_mut, is_const, false };
     locals_define(&cg->ty_loc, name, b);
-    if (!codegen_add_name(cg, name, buf)) return NULL;
-    if (!codegen_add_local(cg, buf)) return NULL;
+    if (!codegen_add_name(cg, name, slot, buf)) return NULL;
+    if (!codegen_add_local(cg, buf, true)) return NULL;
     return buf;
 }
 
 static bool codegen_bind_temp(Codegen *cg, Str name, char *cname, Ty *ty) {
     Binding b = { ty, false, false, false };
     locals_define(&cg->ty_loc, name, b);
-    return codegen_add_name(cg, name, cname);
+    return codegen_add_name(cg, name, cname, NULL);
 }
 
 static void codegen_release_scope(Codegen *cg, LocalList locals) {
     if (!cg) return;
     for (size_t i = locals.len; i-- > 0;) {
-        w_line(&cg->w, "yis_release_val(%s);", locals.items[i]);
+        if (locals.items[i].is_ref) {
+            w_line(&cg->w, "yis_ref_release(%s);", locals.items[i].cname);
+        } else {
+            w_line(&cg->w, "yis_release_val(%s);", locals.items[i].cname);
+        }
     }
     free(locals.items);
 }
@@ -1757,11 +1771,13 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                 Str name = free_vars.data[fi];
                 // Check local scopes only (not cask globals/functions - those are always accessible)
                 char *cname = NULL;
+                char *rname = NULL;
                 for (size_t si = cg->scopes_len; si-- > 0;) {
                     NameScope *ns = &cg->scopes[si];
                     for (size_t ni = 0; ni < ns->len; ni++) {
                         if (str_eq(ns->items[ni].name, name)) {
                             cname = ns->items[ni].cname;
+                            rname = ns->items[ni].rname;
                             goto found_local;
                         }
                     }
@@ -1772,6 +1788,7 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                 Capture *cap = (Capture *)arena_alloc(cg->arena, sizeof(Capture));
                 cap->name = name;
                 cap->cname = cname;
+                cap->rname = rname;
                 cap->ty = b ? (void *)b->ty : NULL;
                 caps = (Capture **)realloc(caps, (cap_count + 1) * sizeof(Capture *));
                 caps[cap_count++] = cap;
@@ -1784,9 +1801,14 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
             char *t = codegen_new_tmp(cg);
             if (cap_count > 0) {
                 char *env_name = codegen_new_sym(cg, "env");
-                w_line(&cg->w, "YisVal* %s = (YisVal*)malloc(sizeof(YisVal) * %zu);", env_name, cap_count);
+                w_line(&cg->w, "YisRef** %s = (YisRef**)malloc(sizeof(YisRef*) * %zu);", env_name, cap_count);
                 for (size_t ci = 0; ci < cap_count; ci++) {
-                    w_line(&cg->w, "%s[%zu] = %s; yis_retain_val(%s[%zu]);", env_name, ci, caps[ci]->cname, env_name, ci);
+                    if (caps[ci]->rname) {
+                        w_line(&cg->w, "%s[%zu] = %s; yis_ref_retain(%s[%zu]);", env_name, ci, caps[ci]->rname, env_name, ci);
+                    } else {
+                        w_line(&cg->w, "%s[%zu] = yis_ref_new();", env_name, ci);
+                        w_line(&cg->w, "yis_move_into(&%s[%zu]->val, %s);", env_name, ci, caps[ci]->cname);
+                    }
                 }
                 w_line(&cg->w, "YisVal %s = YV_FN(yi_fn_new_with_env(%s, %zu, %s, %zu));", t, li->name, e->as.lambda.params_len, env_name, cap_count);
             } else {
@@ -3184,10 +3206,12 @@ static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err) {
             if (!ty) return false;
             char *cvar = codegen_define_local(cg, s->as.let_s.name, ty, s->as.let_s.is_mut, false);
             if (!cvar) return cg_set_err(err, path, "out of memory");
-            w_line(&cg->w, "YisVal %s = YV_NULLV;", cvar);
+            char *slot = codegen_cname_of(cg, s->as.let_s.name);
+            if (!slot) return cg_set_err(err, path, "missing local slot");
+            w_line(&cg->w, "YisRef* %s = yis_ref_new();", cvar);
             GenExpr ge;
             if (!gen_expr(cg, path, s->as.let_s.expr, &ge, err)) return false;
-            w_line(&cg->w, "yis_move_into(&%s, %s);", cvar, ge.tmp);
+            w_line(&cg->w, "yis_move_into(&%s, %s);", slot, ge.tmp);
             gen_expr_release_except(cg, &ge, ge.tmp);
             gen_expr_free(&ge);
             return true;
@@ -3197,10 +3221,12 @@ static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err) {
             if (!ty) return false;
             char *cvar = codegen_define_local(cg, s->as.const_s.name, ty, false, true);
             if (!cvar) return cg_set_err(err, path, "out of memory");
-            w_line(&cg->w, "YisVal %s = YV_NULLV;", cvar);
+            char *slot = codegen_cname_of(cg, s->as.const_s.name);
+            if (!slot) return cg_set_err(err, path, "missing local slot");
+            w_line(&cg->w, "YisRef* %s = yis_ref_new();", cvar);
             GenExpr ge;
             if (!gen_expr(cg, path, s->as.const_s.expr, &ge, err)) return false;
-            w_line(&cg->w, "yis_move_into(&%s, %s);", cvar, ge.tmp);
+            w_line(&cg->w, "yis_move_into(&%s, %s);", slot, ge.tmp);
             gen_expr_release_except(cg, &ge, ge.tmp);
             gen_expr_free(&ge);
             return true;
@@ -3462,7 +3488,10 @@ static bool gen_method(Codegen *cg, Str path, ClassDecl *cls, FunDecl *fn, Diag 
 
     // receiver
     if (fn->params_len > 0) {
-        codegen_add_name(cg, fn->params[0]->name, "self");
+        char *self_ref = arena_printf(cg->arena, "__self_ref");
+        char *self_slot = arena_printf(cg->arena, "%s->val", self_ref);
+        codegen_add_name(cg, fn->params[0]->name, self_slot, self_ref);
+        codegen_add_local(cg, self_ref, true);
         Ty *self_ty = (Ty *)arena_alloc(cg->arena, sizeof(Ty));
         if (!self_ty) return cg_set_err(err, path, "out of memory");
         memset(self_ty, 0, sizeof(Ty));
@@ -3486,8 +3515,10 @@ static bool gen_method(Codegen *cg, Str path, ClassDecl *cls, FunDecl *fn, Diag 
     // params after this
     for (size_t i = 1; i < fn->params_len; i++) {
         Param *p = fn->params[i];
-        char *cname = arena_printf(cg->arena, "a%zu", i - 1);
-        codegen_add_name(cg, p->name, cname);
+        char *arg_ref = arena_printf(cg->arena, "__argref%zu", i - 1);
+        char *arg_slot = arena_printf(cg->arena, "%s->val", arg_ref);
+        codegen_add_name(cg, p->name, arg_slot, arg_ref);
+        codegen_add_local(cg, arg_ref, true);
         Ty *pty = sig ? sig->params[i - 1] : NULL;
         Binding b = { pty, p->is_mut, false, false };
         locals_define(&cg->ty_loc, p->name, b);
@@ -3499,6 +3530,17 @@ static bool gen_method(Codegen *cg, Str path, ClassDecl *cls, FunDecl *fn, Diag 
     char *mangled = mangle_method(cg->arena, cg->current_cask, cls->name, fn->name);
     w_line(&cg->w, "static %s %s(YisVal self%s) {", ret_ty, mangled, params ? params : "");
     cg->w.indent++;
+
+    if (fn->params_len > 0) {
+        w_line(&cg->w, "YisRef* __self_ref = yis_ref_new();");
+        w_line(&cg->w, "yis_move_into(&__self_ref->val, self);");
+    }
+    for (size_t i = 1; i < fn->params_len; i++) {
+        char *arg_ref = arena_printf(cg->arena, "__argref%zu", i - 1);
+        w_line(&cg->w, "YisRef* %s = yis_ref_new();", arg_ref);
+        w_line(&cg->w, "yis_move_into(&%s->val, a%zu);", arg_ref, i - 1);
+    }
+
     if (!ret_void) {
         w_line(&cg->w, "YisVal __ret = YV_NULLV;");
     }
@@ -3533,8 +3575,10 @@ static bool gen_fun(Codegen *cg, Str path, FunDecl *fn, Diag *err) {
 
     for (size_t i = 0; i < fn->params_len; i++) {
         Param *p = fn->params[i];
-        char *cname = arena_printf(cg->arena, "a%zu", i);
-        codegen_add_name(cg, p->name, cname);
+        char *arg_ref = arena_printf(cg->arena, "__argref%zu", i);
+        char *arg_slot = arena_printf(cg->arena, "%s->val", arg_ref);
+        codegen_add_name(cg, p->name, arg_slot, arg_ref);
+        codegen_add_local(cg, arg_ref, true);
         Ty *pty = sig ? sig->params[i] : NULL;
         Binding b = { pty, p->is_mut, false, false };
         locals_define(&cg->ty_loc, p->name, b);
@@ -3546,6 +3590,13 @@ static bool gen_fun(Codegen *cg, Str path, FunDecl *fn, Diag *err) {
     char *mangled = mangle_global(cg->arena, cg->current_cask, fn->name);
     w_line(&cg->w, "static %s %s(%s) {", ret_ty, mangled, params ? params : "void");
     cg->w.indent++;
+
+    for (size_t i = 0; i < fn->params_len; i++) {
+        char *arg_ref = arena_printf(cg->arena, "__argref%zu", i);
+        w_line(&cg->w, "YisRef* %s = yis_ref_new();", arg_ref);
+        w_line(&cg->w, "yis_move_into(&%s->val, a%zu);", arg_ref, i);
+    }
+
     if (!ret_void) {
         w_line(&cg->w, "YisVal __ret = YV_NULLV;");
     }
@@ -4118,12 +4169,13 @@ static bool codegen_gen(Codegen *cg, const char *ext_module_name, const char *ex
 
         // Unpack captured variables from env
         if (li->lam->as.lambda.captures_len > 0) {
-            w_line(&cg->w, "YisVal* __caps = (YisVal*)env;");
+            w_line(&cg->w, "YisRef** __caps = (YisRef**)env;");
             for (size_t c = 0; c < li->lam->as.lambda.captures_len; c++) {
                 Capture *cap = li->lam->as.lambda.captures[c];
                 char *cname = arena_printf(cg->arena, "__cap%zu", c);
-                w_line(&cg->w, "YisVal %s = __caps[%zu];", cname, c);
-                codegen_add_name(cg, cap->name, cname);
+                char *slot = arena_printf(cg->arena, "%s->val", cname);
+                w_line(&cg->w, "YisRef* %s = __caps[%zu];", cname, c);
+                codegen_add_name(cg, cap->name, slot, cname);
                 Binding b = { (Ty*)cap->ty, false, false, false };
                 locals_define(&cg->ty_loc, cap->name, b);
             }
@@ -4134,9 +4186,12 @@ static bool codegen_gen(Codegen *cg, const char *ext_module_name, const char *ex
         w_line(&cg->w, "if (argc != %zu) yis_trap(\"lambda arity mismatch\");", li->lam->as.lambda.params_len);
         for (size_t p = 0; p < li->lam->as.lambda.params_len; p++) {
             Param *param = li->lam->as.lambda.params[p];
-            char *cname = arena_printf(cg->arena, "arg%zu", p);
-            w_line(&cg->w, "YisVal %s = argv[%zu];", cname, p);
-            codegen_add_name(cg, param->name, cname);
+            char *rname = arena_printf(cg->arena, "__argref%zu", p);
+            char *slot = arena_printf(cg->arena, "%s->val", rname);
+            w_line(&cg->w, "YisRef* %s = yis_ref_new();", rname);
+            w_line(&cg->w, "yis_move_into(&%s, argv[%zu]);", slot, p);
+            codegen_add_name(cg, param->name, slot, rname);
+            codegen_add_local(cg, rname, true);
             Ty *pty = NULL;
             if (param->typ) {
                 pty = cg_ty_from_type_ref(cg, param->typ, cg->current_cask, cg->current_imports, cg->current_imports_len, err);
