@@ -11,10 +11,15 @@
 #include <time.h>
 #include <sys/stat.h>
 #include <stddef.h>
+#include <errno.h>
 
 #if defined(_WIN32)
 #include <windows.h>
 #include <io.h>
+#include <direct.h>
+#endif
+#if !defined(_WIN32)
+#include <dirent.h>
 #endif
 #include <unistd.h>
 
@@ -327,6 +332,262 @@ static YisVal stdr_write_text_file(YisVal pathv, YisVal textv) {
   return YV_BOOL(ok);
 }
 
+static bool stdr_is_dir_path(const char* path) {
+  if (!path || !path[0]) return false;
+  struct stat st;
+  if (stat(path, &st) != 0) return false;
+  return S_ISDIR(st.st_mode);
+}
+
+static int stdr_mkdir_single(const char* path) {
+#if defined(_WIN32)
+  if (_mkdir(path) == 0) return 0;
+#else
+  if (mkdir(path, 0755) == 0) return 0;
+#endif
+  if (errno == EEXIST && stdr_is_dir_path(path)) return 0;
+  return -1;
+}
+
+static YisVal stdr_ensure_dir(YisVal pathv) {
+  if (pathv.tag != EVT_STR) yis_trap("ensure_dir expects string path");
+  YisStr* path = (YisStr*)pathv.as.p;
+  if (!path || path->len == 0) return YV_BOOL(false);
+
+  size_t len = path->len;
+  char* buf = (char*)malloc(len + 2);
+  if (!buf) yis_trap("out of memory");
+  memcpy(buf, path->data, len);
+  buf[len] = 0;
+
+  while (len > 1 && (buf[len - 1] == '/' || buf[len - 1] == '\\')) {
+    buf[len - 1] = 0;
+    len--;
+  }
+  if (len == 0) {
+    free(buf);
+    return YV_BOOL(false);
+  }
+
+  size_t start = 0;
+#if defined(_WIN32)
+  if (len >= 2 &&
+      (((buf[0] >= 'A' && buf[0] <= 'Z') || (buf[0] >= 'a' && buf[0] <= 'z')) &&
+       buf[1] == ':')) {
+    start = 2;
+  }
+#endif
+  if (buf[0] == '/' || buf[0] == '\\') start = 1;
+
+  for (size_t i = start; i <= len; i++) {
+    char ch = buf[i];
+    if (ch != '/' && ch != '\\' && ch != 0) continue;
+    buf[i] = 0;
+    if (buf[0] != 0) {
+      if (stdr_mkdir_single(buf) != 0) {
+        free(buf);
+        return YV_BOOL(false);
+      }
+    }
+    buf[i] = ch;
+  }
+
+  free(buf);
+  return YV_BOOL(true);
+}
+
+static YisVal stdr_remove_file(YisVal pathv) {
+  if (pathv.tag != EVT_STR) yis_trap("remove_file expects string path");
+  YisStr* path = (YisStr*)pathv.as.p;
+  if (!path || path->len == 0) return YV_BOOL(false);
+#if defined(_WIN32)
+  if (_unlink(path->data) == 0) return YV_BOOL(true);
+#else
+  if (unlink(path->data) == 0) return YV_BOOL(true);
+#endif
+  if (errno == ENOENT) return YV_BOOL(true);
+  return YV_BOOL(false);
+}
+
+static YisVal stdr_move_file(YisVal srcv, YisVal dstv) {
+  if (srcv.tag != EVT_STR) yis_trap("move_file expects source path string");
+  if (dstv.tag != EVT_STR) yis_trap("move_file expects destination path string");
+  YisStr* src = (YisStr*)srcv.as.p;
+  YisStr* dst = (YisStr*)dstv.as.p;
+  if (!src || src->len == 0 || !dst || dst->len == 0) return YV_BOOL(false);
+#if defined(_WIN32)
+  _unlink(dst->data);
+#endif
+  if (rename(src->data, dst->data) == 0) return YV_BOOL(true);
+  return YV_BOOL(false);
+}
+
+static bool stdr_ends_with_ci(const char* text, const char* suffix) {
+  if (!text || !suffix) return false;
+  size_t tn = strlen(text);
+  size_t sn = strlen(suffix);
+  if (sn == 0 || sn > tn) return false;
+  const char* t = text + (tn - sn);
+  for (size_t i = 0; i < sn; i++) {
+    unsigned char a = (unsigned char)t[i];
+    unsigned char b = (unsigned char)suffix[i];
+    if ((unsigned char)tolower(a) != (unsigned char)tolower(b)) return false;
+  }
+  return true;
+}
+
+static bool stdr_name_matches_exts(const char* name, YisArr* exts) {
+  if (!name || !exts) return false;
+  for (size_t i = 0; i < exts->len; i++) {
+    YisVal ev = exts->items[i];
+    if (ev.tag != EVT_STR) continue;
+    YisStr* ext = (YisStr*)ev.as.p;
+    if (!ext || ext->len == 0) continue;
+    if (stdr_ends_with_ci(name, ext->data)) return true;
+  }
+  return false;
+}
+
+static char* stdr_join_path_c(const char* dir, const char* name) {
+  if (!dir || !name) return NULL;
+  size_t dl = strlen(dir);
+  size_t nl = strlen(name);
+  bool need_sep = (dl > 0 && dir[dl - 1] != '/');
+  size_t total = dl + (need_sep ? 1 : 0) + nl + 1;
+  char* out = (char*)malloc(total);
+  if (!out) return NULL;
+  memcpy(out, dir, dl);
+  size_t p = dl;
+  if (need_sep) out[p++] = '/';
+  memcpy(out + p, name, nl);
+  out[p + nl] = 0;
+  return out;
+}
+
+static int stdr_cmp_paths(const void* a, const void* b) {
+  const YisVal* va = (const YisVal*)a;
+  const YisVal* vb = (const YisVal*)b;
+  if (va->tag != EVT_STR || vb->tag != EVT_STR) return 0;
+  YisStr* sa = (YisStr*)va->as.p;
+  YisStr* sb = (YisStr*)vb->as.p;
+  const char* pa = (sa && sa->data) ? sa->data : "";
+  const char* pb = (sb && sb->data) ? sb->data : "";
+  return strcmp(pa, pb);
+}
+
+#if !defined(_WIN32)
+static int64_t stdr_stat_mtime_secs(const struct stat* st) {
+#if defined(__APPLE__)
+  return (int64_t)st->st_mtimespec.tv_sec;
+#elif defined(_WIN32)
+  return (int64_t)st->st_mtime;
+#else
+  return (int64_t)st->st_mtim.tv_sec;
+#endif
+}
+
+static void stdr_find_files_walk(const char* dir, YisArr* exts, YisArr* out) {
+  DIR* dp = opendir(dir);
+  if (!dp) return;
+  struct dirent* ent = NULL;
+  while ((ent = readdir(dp)) != NULL) {
+    const char* name = ent->d_name;
+    if (!name) continue;
+    if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) continue;
+
+    char* full = stdr_join_path_c(dir, name);
+    if (!full) continue;
+
+    struct stat st;
+    if (lstat(full, &st) == 0) {
+      if (S_ISDIR(st.st_mode)) {
+        stdr_find_files_walk(full, exts, out);
+      } else if (S_ISREG(st.st_mode) && stdr_name_matches_exts(name, exts)) {
+        yis_arr_add(out, YV_STR(stdr_str_from_slice(full, strlen(full))));
+      }
+    }
+    free(full);
+  }
+  closedir(dp);
+}
+
+static void stdr_prune_old_files_walk(const char* dir, int64_t cutoff, int64_t* removed) {
+  DIR* dp = opendir(dir);
+  if (!dp) return;
+  struct dirent* ent = NULL;
+  while ((ent = readdir(dp)) != NULL) {
+    const char* name = ent->d_name;
+    if (!name) continue;
+    if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) continue;
+
+    char* full = stdr_join_path_c(dir, name);
+    if (!full) continue;
+
+    struct stat st;
+    if (lstat(full, &st) == 0) {
+      if (S_ISDIR(st.st_mode)) {
+        stdr_prune_old_files_walk(full, cutoff, removed);
+      } else if (S_ISREG(st.st_mode)) {
+        int64_t mt = stdr_stat_mtime_secs(&st);
+        if (mt <= cutoff && unlink(full) == 0) {
+          if (removed) (*removed)++;
+        }
+      }
+    }
+    free(full);
+  }
+  closedir(dp);
+}
+#endif
+
+static YisVal stdr_find_files(YisVal rootv, YisVal extsv) {
+  if (rootv.tag != EVT_STR) yis_trap("find_files expects root path string");
+  if (extsv.tag != EVT_ARR) yis_trap("find_files expects extensions array");
+  YisStr* root = (YisStr*)rootv.as.p;
+  YisArr* exts = (YisArr*)extsv.as.p;
+  YisArr* out = stdr_arr_new(8);
+  if (!root || root->len == 0 || !exts) return YV_ARR(out);
+
+#if !defined(_WIN32)
+  struct stat st;
+  if (stat(root->data, &st) == 0 && S_ISDIR(st.st_mode)) {
+    stdr_find_files_walk(root->data, exts, out);
+  }
+#else
+  (void)root;
+  (void)exts;
+#endif
+
+  if (out->len > 1) {
+    qsort(out->items, out->len, sizeof(YisVal), stdr_cmp_paths);
+  }
+  return YV_ARR(out);
+}
+
+static YisVal stdr_prune_files_older_than(YisVal dirv, YisVal daysv) {
+  if (dirv.tag != EVT_STR) yis_trap("prune_files_older_than expects directory path string");
+  YisStr* dir = (YisStr*)dirv.as.p;
+  int64_t days = stdr_num(daysv);
+  if (!dir || dir->len == 0 || days <= 0) return YV_INT(0);
+
+  time_t now = time(NULL);
+  if (now == (time_t)-1) return YV_INT(0);
+  int64_t cutoff = (int64_t)now - (days * 86400);
+  int64_t removed = 0;
+
+#if !defined(_WIN32)
+  struct stat st;
+  if (stat(dir->data, &st) == 0 && S_ISDIR(st.st_mode)) {
+    stdr_prune_old_files_walk(dir->data, cutoff, &removed);
+  }
+#else
+  (void)dir;
+  (void)cutoff;
+#endif
+
+  return YV_INT(removed);
+}
+
 static YisVal stdr_run_command(YisVal cmdv) {
   if (cmdv.tag != EVT_STR) yis_trap("run_command expects string");
   YisStr* cmd = (YisStr*)cmdv.as.p;
@@ -412,6 +673,162 @@ static YisVal stdr_getcwd(void) {
   return YV_STR(stdr_str_from_slice("", 0));
 }
 
+static YisVal stdr_home_dir(void) {
+  const char* home = getenv("HOME");
+#if defined(_WIN32)
+  if (!home || !home[0]) home = getenv("USERPROFILE");
+#endif
+  if (!home) home = "";
+  return YV_STR(stdr_str_from_slice(home, strlen(home)));
+}
+
+static bool stdr_localtime_safe(time_t ts, struct tm* out_tm) {
+  if (!out_tm) return false;
+#if defined(_WIN32)
+  return localtime_s(out_tm, &ts) == 0;
+#else
+  return localtime_r(&ts, out_tm) != NULL;
+#endif
+}
+
+static YisVal stdr_unix_time(void) {
+  time_t now = time(NULL);
+  if (now == (time_t)-1) return YV_INT(-1);
+  return YV_INT((int64_t)now);
+}
+
+static YisVal stdr_current_year(void) {
+  time_t now = time(NULL);
+  struct tm tmv;
+  if (now == (time_t)-1 || !stdr_localtime_safe(now, &tmv)) return YV_INT(0);
+  return YV_INT((int64_t)(tmv.tm_year + 1900));
+}
+
+static YisVal stdr_current_month(void) {
+  time_t now = time(NULL);
+  struct tm tmv;
+  if (now == (time_t)-1 || !stdr_localtime_safe(now, &tmv)) return YV_INT(0);
+  return YV_INT((int64_t)(tmv.tm_mon + 1));
+}
+
+static YisVal stdr_current_day(void) {
+  time_t now = time(NULL);
+  struct tm tmv;
+  if (now == (time_t)-1 || !stdr_localtime_safe(now, &tmv)) return YV_INT(0);
+  return YV_INT((int64_t)tmv.tm_mday);
+}
+
+static YisVal stdr_weekday(YisVal yearv, YisVal monthv, YisVal dayv) {
+  int y = (int)stdr_num(yearv);
+  int m = (int)stdr_num(monthv);
+  int d = (int)stdr_num(dayv);
+  if (y < 1 || m < 1 || m > 12 || d < 1 || d > 31) return YV_INT(0);
+
+  struct tm tmv;
+  memset(&tmv, 0, sizeof(tmv));
+  tmv.tm_year = y - 1900;
+  tmv.tm_mon = m - 1;
+  tmv.tm_mday = d;
+  tmv.tm_hour = 12;
+  tmv.tm_isdst = -1;
+
+  time_t ts = mktime(&tmv);
+  if (ts == (time_t)-1) return YV_INT(0);
+  struct tm out_tm;
+  if (!stdr_localtime_safe(ts, &out_tm)) return YV_INT(0);
+  return YV_INT((int64_t)out_tm.tm_wday);
+}
+
+static bool stdr_parse_iso_ymdhm(const char* s, int* y, int* m, int* d, int* hh, int* mm) {
+  if (!s || !y || !m || !d || !hh || !mm) return false;
+  if (strlen(s) < 16) return false;
+  if (s[4] != '-' || s[7] != '-' || s[10] != 'T' || s[13] != ':') return false;
+
+  for (int i = 0; i < 16; i++) {
+    if (i == 4 || i == 7 || i == 10 || i == 13) continue;
+    if (!isdigit((unsigned char)s[i])) return false;
+  }
+
+  *y = (s[0] - '0') * 1000 + (s[1] - '0') * 100 + (s[2] - '0') * 10 + (s[3] - '0');
+  *m = (s[5] - '0') * 10 + (s[6] - '0');
+  *d = (s[8] - '0') * 10 + (s[9] - '0');
+  *hh = (s[11] - '0') * 10 + (s[12] - '0');
+  *mm = (s[14] - '0') * 10 + (s[15] - '0');
+
+  if (*m < 1 || *m > 12 || *d < 1 || *d > 31 || *hh < 0 || *hh > 23 || *mm < 0 || *mm > 59) {
+    return false;
+  }
+  return true;
+}
+
+static int64_t stdr_mktime_with_tz(struct tm* tmv, const char* tz_name) {
+  if (!tmv) return -1;
+#if defined(_WIN32)
+  if (tz_name && tz_name[0]) {
+    _putenv_s("TZ", tz_name);
+  } else {
+    _putenv_s("TZ", "");
+  }
+  _tzset();
+  time_t ts = mktime(tmv);
+  _putenv_s("TZ", "");
+  _tzset();
+  if (ts == (time_t)-1) return -1;
+  return (int64_t)ts;
+#else
+  char* old_tz = getenv("TZ");
+  char* old_copy = old_tz ? strdup(old_tz) : NULL;
+  if (tz_name && tz_name[0]) {
+    setenv("TZ", tz_name, 1);
+  } else {
+    unsetenv("TZ");
+  }
+  tzset();
+
+  time_t ts = mktime(tmv);
+
+  if (old_copy) {
+    setenv("TZ", old_copy, 1);
+    free(old_copy);
+  } else {
+    unsetenv("TZ");
+  }
+  tzset();
+
+  if (ts == (time_t)-1) return -1;
+  return (int64_t)ts;
+#endif
+}
+
+static YisVal stdr_iso_to_epoch(YisVal isov, YisVal tzv) {
+  if (isov.tag != EVT_STR) yis_trap("iso_to_epoch expects iso string");
+  if (tzv.tag != EVT_STR && tzv.tag != EVT_NULL) yis_trap("iso_to_epoch expects timezone string");
+
+  YisStr* iso = (YisStr*)isov.as.p;
+  if (!iso || iso->len == 0) return YV_INT(-1);
+
+  int y = 0, m = 0, d = 0, hh = 0, mm = 0;
+  if (!stdr_parse_iso_ymdhm(iso->data, &y, &m, &d, &hh, &mm)) return YV_INT(-1);
+
+  struct tm tmv;
+  memset(&tmv, 0, sizeof(tmv));
+  tmv.tm_year = y - 1900;
+  tmv.tm_mon = m - 1;
+  tmv.tm_mday = d;
+  tmv.tm_hour = hh;
+  tmv.tm_min = mm;
+  tmv.tm_sec = 0;
+  tmv.tm_isdst = -1;
+
+  const char* tz_name = "";
+  if (tzv.tag == EVT_STR) {
+    YisStr* tz = (YisStr*)tzv.as.p;
+    if (tz && tz->len > 0) tz_name = tz->data;
+  }
+
+  return YV_INT(stdr_mktime_with_tz(&tmv, tz_name));
+}
+
 static YisVal stdr_capture_shell_first_line(const char* cmd) {
   if (!cmd || !cmd[0]) return YV_NULLV;
 #if defined(_WIN32)
@@ -466,6 +883,27 @@ static YisVal stdr_open_file_dialog(YisVal promptv, YisVal extv) {
 #else
   (void)prompt;
   (void)ext;
+  return YV_NULLV;
+#endif
+}
+
+static YisVal stdr_open_folder_dialog(YisVal promptv) {
+  if (promptv.tag != EVT_STR) yis_trap("open_folder_dialog expects prompt string");
+  YisStr* prompt = (YisStr*)promptv.as.p;
+#if defined(__APPLE__)
+  char cmd[8192];
+  snprintf(cmd, sizeof(cmd),
+           "osascript -e 'set _p to POSIX path of (choose folder with prompt \"%s\")' -e 'return _p' 2>/dev/null",
+           prompt ? prompt->data : "");
+  return stdr_capture_shell_first_line(cmd);
+#elif defined(__linux__)
+  char cmd[8192];
+  snprintf(cmd, sizeof(cmd),
+           "zenity --file-selection --directory --title=\"%s\" 2>/dev/null",
+           prompt ? prompt->data : "Open Folder");
+  return stdr_capture_shell_first_line(cmd);
+#else
+  (void)prompt;
   return YV_NULLV;
 #endif
 }
@@ -788,6 +1226,7 @@ static int64_t yis_as_int(YisVal v) {
   if (v.tag == EVT_INT) return v.as.i;
   if (v.tag == EVT_BOOL) return v.as.b ? 1 : 0;
   if (v.tag == EVT_FLOAT) return (int64_t)v.as.f;
+  if (v.tag == EVT_NULL) return 0;
   if (v.tag == EVT_STR) {
     /* Coerce string to int when possible; otherwise 0 (avoids trap until codegen is fully audited) */
     YisStr *s = (YisStr*)v.as.p;

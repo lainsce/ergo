@@ -1577,8 +1577,38 @@ def ?g_last_line_num = 0
         r = emit_args(args, r, cask_name)
         r = stdr.str_concat(r, ")")
         <- r
+      if fname == "__ensure_dir"
+        let ?r = "stdr_ensure_dir("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, ")")
+        <- r
+      if fname == "__remove_file"
+        let ?r = "stdr_remove_file("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, ")")
+        <- r
+      if fname == "__move_file"
+        let ?r = "stdr_move_file("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, ")")
+        <- r
+      if fname == "__find_files"
+        let ?r = "stdr_find_files("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, ")")
+        <- r
+      if fname == "__prune_files_older_than"
+        let ?r = "stdr_prune_files_older_than("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, ")")
+        <- r
       if fname == "__open_file_dialog"
         let ?r = "stdr_open_file_dialog("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, ")")
+        <- r
+      if fname == "__open_folder_dialog"
+        let ?r = "stdr_open_folder_dialog("
         r = emit_args(args, r, cask_name)
         r = stdr.str_concat(r, ")")
         <- r
@@ -1604,6 +1634,26 @@ def ?g_last_line_num = 0
         <- r
       if fname == "__getcwd"
         <- "stdr_getcwd()"
+      if fname == "__home_dir"
+        <- "stdr_home_dir()"
+      if fname == "__unix_time"
+        <- "stdr_unix_time()"
+      if fname == "__current_year"
+        <- "stdr_current_year()"
+      if fname == "__current_month"
+        <- "stdr_current_month()"
+      if fname == "__current_day"
+        <- "stdr_current_day()"
+      if fname == "__weekday"
+        let ?r = "stdr_weekday("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, ")")
+        <- r
+      if fname == "__iso_to_epoch"
+        let ?r = "stdr_iso_to_epoch("
+        r = emit_args(args, r, cask_name)
+        r = stdr.str_concat(r, ")")
+        <- r
       if fname == "__args"
         <- "stdr_args()"
       -- Extern stub: __ prefix → call by raw name (no mangling)

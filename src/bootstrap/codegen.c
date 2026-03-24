@@ -2748,6 +2748,84 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__home_dir")) {
+                        if (e->as.call.args_len != 0) return cg_set_err(err, path, "__home_dir expects 0 args");
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_home_dir();", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__unix_time")) {
+                        if (e->as.call.args_len != 0) return cg_set_err(err, path, "__unix_time expects 0 args");
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_unix_time();", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__current_year")) {
+                        if (e->as.call.args_len != 0) return cg_set_err(err, path, "__current_year expects 0 args");
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_current_year();", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__current_month")) {
+                        if (e->as.call.args_len != 0) return cg_set_err(err, path, "__current_month expects 0 args");
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_current_month();", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__current_day")) {
+                        if (e->as.call.args_len != 0) return cg_set_err(err, path, "__current_day expects 0 args");
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_current_day();", t);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__weekday")) {
+                        if (e->as.call.args_len != 3) return cg_set_err(err, path, "__weekday expects 3 args");
+                        GenExpr yv, mv, dv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &yv, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &mv, err)) { gen_expr_free(&yv); return false; }
+                        if (!gen_expr(cg, path, e->as.call.args[2], &dv, err)) { gen_expr_free(&yv); gen_expr_free(&mv); return false; }
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_weekday(%s, %s, %s);", t, yv.tmp, mv.tmp, dv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", yv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", mv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", dv.tmp);
+                        gen_expr_release_except(cg, &yv, yv.tmp);
+                        gen_expr_release_except(cg, &mv, mv.tmp);
+                        gen_expr_release_except(cg, &dv, dv.tmp);
+                        gen_expr_free(&yv);
+                        gen_expr_free(&mv);
+                        gen_expr_free(&dv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__iso_to_epoch")) {
+                        if (e->as.call.args_len != 2) return cg_set_err(err, path, "__iso_to_epoch expects 2 args");
+                        GenExpr isov, tzv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &isov, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &tzv, err)) { gen_expr_free(&isov); return false; }
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_iso_to_epoch(%s, %s);", t, isov.tmp, tzv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", isov.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", tzv.tmp);
+                        gen_expr_release_except(cg, &isov, isov.tmp);
+                        gen_expr_release_except(cg, &tzv, tzv.tmp);
+                        gen_expr_free(&isov);
+                        gen_expr_free(&tzv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__read_text_file")) {
                         if (e->as.call.args_len != 1) return cg_set_err(err, path, "__read_text_file expects 1 arg");
                         GenExpr pathv;
@@ -2932,6 +3010,83 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         out->tmp = t;
                         return true;
                     }
+                    if (str_eq_c(fname, "__ensure_dir")) {
+                        if (e->as.call.args_len != 1) return cg_set_err(err, path, "__ensure_dir expects 1 arg");
+                        GenExpr pathv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &pathv, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_ensure_dir(%s);", t, pathv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", pathv.tmp);
+                        gen_expr_release_except(cg, &pathv, pathv.tmp);
+                        gen_expr_free(&pathv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__remove_file")) {
+                        if (e->as.call.args_len != 1) return cg_set_err(err, path, "__remove_file expects 1 arg");
+                        GenExpr pathv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &pathv, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_remove_file(%s);", t, pathv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", pathv.tmp);
+                        gen_expr_release_except(cg, &pathv, pathv.tmp);
+                        gen_expr_free(&pathv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__move_file")) {
+                        if (e->as.call.args_len != 2) return cg_set_err(err, path, "__move_file expects 2 args");
+                        GenExpr srcv, dstv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &srcv, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &dstv, err)) { gen_expr_free(&srcv); return false; }
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_move_file(%s, %s);", t, srcv.tmp, dstv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", srcv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", dstv.tmp);
+                        gen_expr_release_except(cg, &srcv, srcv.tmp);
+                        gen_expr_release_except(cg, &dstv, dstv.tmp);
+                        gen_expr_free(&srcv);
+                        gen_expr_free(&dstv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__find_files")) {
+                        if (e->as.call.args_len != 2) return cg_set_err(err, path, "__find_files expects 2 args");
+                        GenExpr rootv, extsv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &rootv, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &extsv, err)) { gen_expr_free(&rootv); return false; }
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_find_files(%s, %s);", t, rootv.tmp, extsv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", rootv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", extsv.tmp);
+                        gen_expr_release_except(cg, &rootv, rootv.tmp);
+                        gen_expr_release_except(cg, &extsv, extsv.tmp);
+                        gen_expr_free(&rootv);
+                        gen_expr_free(&extsv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__prune_files_older_than")) {
+                        if (e->as.call.args_len != 2) return cg_set_err(err, path, "__prune_files_older_than expects 2 args");
+                        GenExpr dirv, daysv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &dirv, err)) return false;
+                        if (!gen_expr(cg, path, e->as.call.args[1], &daysv, err)) { gen_expr_free(&dirv); return false; }
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_prune_files_older_than(%s, %s);", t, dirv.tmp, daysv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", dirv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", daysv.tmp);
+                        gen_expr_release_except(cg, &dirv, dirv.tmp);
+                        gen_expr_release_except(cg, &daysv, daysv.tmp);
+                        gen_expr_free(&dirv);
+                        gen_expr_free(&daysv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
                     if (str_eq_c(fname, "__open_file_dialog")) {
                         if (e->as.call.args_len != 2) return cg_set_err(err, path, "__open_file_dialog expects 2 args");
                         GenExpr promptv, extv;
@@ -2945,6 +3100,19 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         gen_expr_release_except(cg, &extv, extv.tmp);
                         gen_expr_free(&promptv);
                         gen_expr_free(&extv);
+                        gen_expr_add(out, t);
+                        out->tmp = t;
+                        return true;
+                    }
+                    if (str_eq_c(fname, "__open_folder_dialog")) {
+                        if (e->as.call.args_len != 1) return cg_set_err(err, path, "__open_folder_dialog expects 1 arg");
+                        GenExpr promptv;
+                        if (!gen_expr(cg, path, e->as.call.args[0], &promptv, err)) return false;
+                        char *t = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = stdr_open_folder_dialog(%s);", t, promptv.tmp);
+                        w_line(&cg->w, "yis_release_val(%s);", promptv.tmp);
+                        gen_expr_release_except(cg, &promptv, promptv.tmp);
+                        gen_expr_free(&promptv);
                         gen_expr_add(out, t);
                         out->tmp = t;
                         return true;

@@ -205,6 +205,53 @@ bring stdr
   <- resp
 ;
 
+-- Download URL directly to a file path.
+-- Returns { ok, curl_exit, error, url, path }.
+:: download_file(url = string, dest_path = string, headers = any, timeout_secs = num) (( any ))
+  let ?cmd = "curl -sS -L"
+
+  if timeout_secs > 0
+    cmd = stdr.str_concat(cmd, " --max-time ")
+    cmd = stdr.str_concat(cmd, stdr.str(timeout_secs))
+
+  let ?i = 0
+  let hn = stdr.len(headers)
+  for (; i < hn; i = i + 1)
+    let pair = headers[i]
+    let hk = _pair_key(pair)
+    let hv = _pair_val(pair)
+    if stdr.len(hk) == 0 { continue }
+    let hline = stdr.str_concat(stdr.str_concat(hk, ": "), hv)
+    cmd = stdr.str_concat(cmd, " -H ")
+    cmd = stdr.str_concat(cmd, _shell_quote(hline))
+
+  cmd = stdr.str_concat(cmd, " -o ")
+  cmd = stdr.str_concat(cmd, _shell_quote(dest_path))
+  cmd = stdr.str_concat(cmd, " ")
+  cmd = stdr.str_concat(cmd, _shell_quote(url))
+  cmd = stdr.str_concat(cmd, " 2>&1")
+
+  let run = stdr.run_command(cmd)
+  let curl_exit = stdr.num(run[0] ?? 1)
+  let text = stdr.str(run[1] ?? "")
+  let ok = curl_exit == 0 && stdr.file_exists(dest_path)
+
+  let ?resp = []: [string => any]
+  resp["url"] = url
+  resp["path"] = dest_path
+  resp["curl_exit"] = curl_exit
+  resp["ok"] = ok
+
+  if ok
+    resp["error"] = null
+  elif curl_exit != 0
+    resp["error"] = text
+  else
+    resp["error"] = "download failed"
+
+  <- resp
+;
+
 :: get(url = string, params = any, headers = any, timeout_secs = num) (( any ))
   <- request("GET", url, null, headers, params, timeout_secs, true)
 ;

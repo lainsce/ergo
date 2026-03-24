@@ -62,5 +62,7 @@ install_data(
   'src/stdlib/base64.yi',
   'src/stdlib/datetime.yi',
   'src/stdlib/regex.yi',
+  'src/stdlib/ffmpeg.yi',
+  'src/stdlib/poppler.yi',
   install_dir : get_option('datadir') / 'yis' / 'stdlib'
 )

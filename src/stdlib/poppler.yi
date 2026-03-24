@@ -1,0 +1,101 @@
+cask poppler
+
+bring stdr
+
+: _pdfinfo_bin() (( string ))
+  let preferred = "/opt/homebrew/bin/pdfinfo"
+  if stdr.file_exists(preferred)
+    <- preferred
+  <- "pdfinfo"
+;
+
+: _pdftoppm_bin() (( string ))
+  let preferred = "/opt/homebrew/bin/pdftoppm"
+  if stdr.file_exists(preferred)
+    <- preferred
+  <- "pdftoppm"
+;
+
+: _parse_info_field(output = string, field = string) (( string ))
+  let idx = stdr.index_of(output, field)
+  if idx < 0 { <- "" }
+  let after = stdr.slice(output, idx + stdr.len(field), stdr.len(output))
+  let ?nl = stdr.index_of(after, "\n")
+  if nl < 0 { nl = stdr.len(after) }
+  <- stdr.trim(stdr.slice(after, 0, nl))
+;
+
+:: get_page_count(path = string) (( num ))
+  let p = stdr.trim(path)
+  if stdr.len(p) == 0
+    <- 0
+
+  let qp = stdr.shell_quote(p)
+  let bin = _pdfinfo_bin()
+  let result = stdr.run_command("$$bin$$ $$qp$$")
+  let code = stdr.num(result[0] ?? -1)
+  if code != 0 { <- 0 }
+
+  let output = stdr.str(result[1] ?? "")
+  let pages_str = _parse_info_field(output, "Pages:")
+  let ?pages = stdr.num(pages_str)
+  if pages < 0 { pages = 0 }
+  <- pages
+;
+
+:: get_title(path = string) (( string ))
+  let p = stdr.trim(path)
+  if stdr.len(p) == 0
+    <- ""
+
+  let qp = stdr.shell_quote(p)
+  let bin = _pdfinfo_bin()
+  let result = stdr.run_command("$$bin$$ $$qp$$")
+  let code = stdr.num(result[0] ?? -1)
+  if code != 0 { <- "" }
+
+  let output = stdr.str(result[1] ?? "")
+  <- _parse_info_field(output, "Title:")
+;
+
+:: render_page(path = string, page = num, dpi = num, output_prefix = string) (( bool ))
+  let p = stdr.trim(path)
+  let out = stdr.trim(output_prefix)
+  if stdr.len(p) == 0 || stdr.len(out) == 0
+    <- false
+
+  let qp = stdr.shell_quote(p)
+  let qo = stdr.shell_quote(out)
+  let bin = _pdftoppm_bin()
+  let result = stdr.run_command("$$bin$$ -png -r $$dpi$$ -f $$page$$ -l $$page$$ -singlefile $$qp$$ $$qo$$")
+  let code = stdr.num(result[0] ?? -1)
+  <- code == 0
+;
+
+:: get_page_pixel_size(path = string, page = num, dpi = num) (( [num] ))
+  let p = stdr.trim(path)
+  if stdr.len(p) == 0
+    <- [0, 0]
+
+  let qp = stdr.shell_quote(p)
+  let bin = _pdfinfo_bin()
+  let result = stdr.run_command("$$bin$$ -f $$page$$ -l $$page$$ $$qp$$")
+  let code = stdr.num(result[0] ?? -1)
+  if code != 0 { <- [0, 0] }
+
+  let output = stdr.str(result[1] ?? "")
+  let size_str = _parse_info_field(output, "Page size:")
+  let x_idx = stdr.index_of(size_str, " x ")
+  if x_idx < 0 { <- [0, 0] }
+
+  let w_pts = stdr.num(stdr.trim(stdr.slice(size_str, 0, x_idx)))
+  let after_x = stdr.slice(size_str, x_idx + 3, stdr.len(size_str))
+  let sp_idx = stdr.index_of(after_x, " ")
+  let ?h_str = after_x
+  if sp_idx >= 0 { h_str = stdr.slice(after_x, 0, sp_idx) }
+
+  let h_pts = stdr.num(stdr.trim(h_str))
+  let pw = stdr.floor(w_pts * dpi / 72)
+  let ph = stdr.floor(h_pts * dpi / 72)
+  <- [pw, ph]
+;

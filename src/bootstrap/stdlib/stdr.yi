@@ -19,7 +19,20 @@ cask stdr
 : __readf_parse(fmt = string, line = string, args = any) (( any )) ;
 : __read_text_file(path = string) (( any )) ;
 : __write_text_file(path = string, text = string) (( bool )) ;
+: __ensure_dir(path = string) (( bool )) ;
+: __remove_file(path = string) (( bool )) ;
+: __move_file(src = string, dst = string) (( bool )) ;
+: __find_files(root = string, exts = any) (( [string] )) ;
+: __prune_files_older_than(dir = string, days = num) (( num )) ;
+: __home_dir() (( string )) ;
+: __unix_time() (( num )) ;
+: __current_year() (( num )) ;
+: __current_month() (( num )) ;
+: __current_day() (( num )) ;
+: __weekday(year = num, month = num, day = num) (( num )) ;
+: __iso_to_epoch(iso = string, tz = string) (( num )) ;
 : __open_file_dialog(prompt = string, extension = string) (( any )) ;
+: __open_folder_dialog(prompt = string) (( any )) ;
 : __save_file_dialog(prompt = string, default_name = string, extension = string) (( any )) ;
 
 -- Print formatted output
@@ -179,11 +192,64 @@ cask stdr
   <- __write_text_file(path, text)
 ;
 
+-- Ensure a directory exists, creating parent directories as needed
+: ensure_dir(path = string) (( bool ))
+  <- __ensure_dir(path)
+;
+
+-- Remove a file; returns true if removed or already missing
+: remove_file(path = string) (( bool ))
+  <- __remove_file(path)
+;
+
+-- Move/rename a file; returns true on success
+: move_file(src = string, dst = string) (( bool ))
+  <- __move_file(src, dst)
+;
+
+-- Recursively list files under root matching any extension in exts
+: find_files(root = string, exts = any) (( [string] ))
+  <- __find_files(root, exts)
+;
+
+-- Recursively delete files older than N days; returns removed count
+: prune_files_older_than(dir = string, days = num) (( num ))
+  <- __prune_files_older_than(dir, days)
+;
+
 -- Run a shell command; returns (exit_code, stdout) as (num, string)
 : __run_command(cmd = string) (( num, string )) ;
 
 : run_command(cmd = string) (( num, string ))
   <- __run_command(cmd)
+;
+
+: home_dir() (( string ))
+  <- __home_dir()
+;
+
+: unix_time() (( num ))
+  <- __unix_time()
+;
+
+: current_year() (( num ))
+  <- __current_year()
+;
+
+: current_month() (( num ))
+  <- __current_month()
+;
+
+: current_day() (( num ))
+  <- __current_day()
+;
+
+: weekday(year = num, month = num, day = num) (( num ))
+  <- __weekday(year, month, day)
+;
+
+: iso_to_epoch(iso = string, tz = string) (( num ))
+  <- __iso_to_epoch(iso, tz)
 ;
 
 -- Command-line arguments (argv as array of strings)
@@ -195,6 +261,11 @@ cask stdr
 -- Open native file picker and <- selected path or null
 : open_file_dialog(prompt = string, extension = string) (( any ))
   <- __open_file_dialog(prompt, extension)
+;
+
+-- Open native folder picker and <- selected path or null
+: open_folder_dialog(prompt = string) (( any ))
+  <- __open_folder_dialog(prompt)
 ;
 
 -- Open native save dialog and <- selected path or null
