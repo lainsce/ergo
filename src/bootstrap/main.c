@@ -23,7 +23,6 @@
 #include "file.h"
 #include "platform.h"
 #include "project.h"
-#include "sum_validate.h"
 #include "str.h"
 #include "typecheck.h"
 
@@ -210,31 +209,28 @@ static bool sanitize_filename_component(const char *src, size_t src_len, char *o
 static bool verbose_mode = false;
 
 static void print_usage(FILE *out) {
-    fprintf(out, "Usage: yis [OPTIONS] <source.yi>\n");
-    fprintf(out, "       yis run [OPTIONS] <source.yi>\n");
-    fprintf(out, "       yis lint [--mode warn|strict] <source.yi>\n");
-    fprintf(out, "       yis sum validate [--mode off|warn|strict] <path>\n");
+    fprintf(out, "Usage: yis-bootstrap [OPTIONS] run <path/to/src/init.yi> -- <path/to/src/init.yi>\n");
     fprintf(out, "\n");
     fprintf(out, "Options:\n");
     fprintf(out, "  -h, --help       Show this help message\n");
     fprintf(out, "  -v, --version    Show version information\n");
     fprintf(out, "  --verbose        Enable verbose error output with more context\n");
     fprintf(out, "\n");
-    fprintf(out, "Examples:\n");
-    fprintf(out, "  yis init.yi              # Compile and check init.yi\n");
-    fprintf(out, "  yis run init.yi          # Compile and run init.yi\n");
-    fprintf(out, "  yis lint --mode strict init.yi\n");
-    fprintf(out, "  yis sum validate theme.sum # Validate one SUM file\n");
-    fprintf(out, "  yis --help                 # Show this help\n");
+    fprintf(out, "Bootstrap scope:\n");
+    fprintf(out, "  This binary is only for building the self-hosted compiler from src/init.yi.\n");
+    fprintf(out, "  Other user-facing commands (lint, sum, generic run/compile) are intentionally disabled here.\n");
+    fprintf(out, "\n");
+    fprintf(out, "Example:\n");
+    fprintf(out, "  yis-bootstrap run src/init.yi -- src/init.yi\n");
     fprintf(out, "\n");
     fprintf(out, "Environment Variables:\n");
     fprintf(out, "  YIS_STDLIB      Path to standard library (default: auto-detected, fallback: yis/src/stdlib)\n");
     fprintf(out, "  YIS_CACHE_DIR   Cache directory for compiled binaries\n");
     fprintf(out, "  YIS_NO_CACHE    Set to 1 to disable caching\n");
     fprintf(out, "  YIS_KEEP_C      Set to 1 to keep generated C files\n");
-    fprintf(out, "  CC               C compiler to use (default: cc)\n");
+    fprintf(out, "  CC              C compiler to use (default: cc)\n");
     fprintf(out, "  YIS_CC_FLAGS    Additional C compiler flags\n");
-    fprintf(out, "  NO_COLOR         Set to disable colored output\n");
+    fprintf(out, "  NO_COLOR        Set to disable colored output\n");
     fprintf(out, "\n");
     fprintf(out, "External Module Environment Variables (replace <NAME> with module name, e.g. COGITO):\n");
     fprintf(out, "    YIS_<NAME>_PATH     Directory or file path for module .yi resolution\n");
@@ -250,6 +246,16 @@ static void print_version(void) {
 
 static int is_flag(const char *arg, const char *flag) {
     return arg && flag && strcmp(arg, flag) == 0;
+}
+
+static bool is_self_host_entry_path(const char *entry) {
+    if (!entry) return false;
+    size_t entry_len = strlen(entry);
+    return strcmp(entry, "src/init.yi") == 0 ||
+           (entry_len >= strlen("/src/init.yi") &&
+            strcmp(entry + (entry_len - strlen("/src/init.yi")), "/src/init.yi") == 0) ||
+           (entry_len >= strlen("\\src\\init.yi") &&
+            strcmp(entry + (entry_len - strlen("\\src\\init.yi")), "\\src\\init.yi") == 0);
 }
 
 static const char *cc_path(void) {
@@ -741,70 +747,9 @@ int main(int argc, char **argv) {
         return 2;
     }
 
-    if (is_flag(argv[1], "sum")) {
-        return sum_validate_cli(argc, argv);
-    }
-
-    if (is_flag(argv[1], "lint")) {
-        YisLintMode lint_mode = YIS_LINT_WARN;
-        const char *entry = NULL;
-        for (int i = 2; i < argc; i++) {
-            if (strcmp(argv[i], "--mode") == 0) {
-                if (i + 1 >= argc) {
-                    fprintf(stderr, "error: --mode requires one of warn|strict\n");
-                    return 2;
-                }
-                i++;
-                if (strcmp(argv[i], "warn") == 0) {
-                    lint_mode = YIS_LINT_WARN;
-                } else if (strcmp(argv[i], "strict") == 0) {
-                    lint_mode = YIS_LINT_STRICT;
-                } else {
-                    fprintf(stderr, "error: unknown lint mode '%s'\n", argv[i]);
-                    return 2;
-                }
-                continue;
-            }
-            if (argv[i][0] == '-') {
-                fprintf(stderr, "error: unknown option %s\n", argv[i]);
-                return 2;
-            }
-            if (entry) {
-                fprintf(stderr, "error: multiple source paths provided\n");
-                return 2;
-            }
-            entry = argv[i];
-        }
-        if (!entry) {
-            fprintf(stderr, "error: lint needs a source path\n");
-            return 2;
-        }
-        Arena arena;
-        arena_init(&arena);
-        Diag err = {0};
-        Program *prog = NULL;
-        if (!load_project(entry, &arena, &prog, NULL, &err)) {
-            diag_print_enhanced(&err, verbose_mode);
-            arena_free(&arena);
-            return 1;
-        }
-        prog = lower_program(prog, &arena, &err);
-        if (!prog || err.message) {
-            diag_print_enhanced(&err, verbose_mode);
-            arena_free(&arena);
-            return 1;
-        }
-        if (!typecheck_program(prog, &arena, &err)) {
-            diag_print_enhanced(&err, verbose_mode);
-            arena_free(&arena);
-            return 1;
-        }
-        int warnings = 0;
-        int errors = 0;
-        bool ok = lint_program(prog, &arena, lint_mode, &warnings, &errors);
-        fprintf(stderr, "lint summary: %d warning(s), %d error(s)\n", warnings, errors);
-        arena_free(&arena);
-        return ok ? 0 : 1;
+    if (!is_flag(argv[1], "run")) {
+        fprintf(stderr, "error: bootstrap mode only supports: yis-bootstrap run src/init.yi -- src/init.yi\n");
+        return 2;
     }
 
     if (is_flag(argv[1], "run")) {
@@ -829,6 +774,14 @@ int main(int argc, char **argv) {
         }
         if (!entry) {
             fprintf(stderr, "error: run needs a source path\n");
+            return 2;
+        }
+        if (!is_self_host_entry_path(entry)) {
+            fprintf(stderr, "error: bootstrap mode only supports src/init.yi as the source path\n");
+            return 2;
+        }
+        if (run_argc != 1 || !run_argv || !is_self_host_entry_path(run_argv[0])) {
+            fprintf(stderr, "error: bootstrap mode requires '-- src/init.yi' as run arguments\n");
             return 2;
         }
         Arena arena;
@@ -887,13 +840,7 @@ int main(int argc, char **argv) {
             entry_basename = strrchr(entry, '\\');
         }
         entry_basename = entry_basename ? entry_basename + 1 : entry;
-        size_t entry_len = strlen(entry);
-        bool is_self_host_entry =
-            strcmp(entry, "src/init.yi") == 0 ||
-            (entry_len >= strlen("/src/init.yi") &&
-             strcmp(entry + (entry_len - strlen("/src/init.yi")), "/src/init.yi") == 0) ||
-            (entry_len >= strlen("\\src\\init.yi") &&
-             strcmp(entry + (entry_len - strlen("\\src\\init.yi")), "\\src\\init.yi") == 0);
+        bool is_self_host_entry = is_self_host_entry_path(entry);
 
         // Remove .yi extension if present
         char name_source[256];
@@ -1121,49 +1068,15 @@ int main(int argc, char **argv) {
 #endif
         const char *emit_c_to = getenv("YIS_EMIT_C_TO");
         if (emit_c_to && emit_c_to[0]) {
-            if (!path_is_file(c_path)) {
-                fprintf(stderr, "error: C file was not written\n");
-                free(ext_bindings_alloc);
-                free(ext_packager_alloc);
-                free(cache_base);
-                free(cache_dir);
-                free(cache_c);
-                free(cache_bin);
-                arena_free(&arena);
-                return 1;
-            }
-            // Copy to user-requested path for inspection (e.g. debugging codegen)
-            FILE *src = fopen(c_path, "rb");
-            FILE *dst = fopen(emit_c_to, "wb");
-            if (!src || !dst) {
-                if (src) fclose(src);
-                if (dst) fclose(dst);
-                fprintf(stderr, "error: cannot copy C to %s\n", emit_c_to);
-                free(ext_bindings_alloc);
-                free(ext_packager_alloc);
-                free(cache_base);
-                free(cache_dir);
-                free(cache_c);
-                free(cache_bin);
-                arena_free(&arena);
-                return 1;
-            }
-            char buf[4096];
-            size_t n;
-            while ((n = fread(buf, 1, sizeof(buf), src)) > 0)
-                fwrite(buf, 1, n, dst);
-            fclose(src);
-            fclose(dst);
-            (void)remove(c_path);
+            fprintf(stderr, "error: YIS_EMIT_C_TO is disabled in bootstrap mode\n");
             free(ext_bindings_alloc);
             free(ext_packager_alloc);
-            arena_free(&arena);
             free(cache_base);
             free(cache_dir);
             free(cache_c);
             free(cache_bin);
-            fprintf(stderr, "Emitted C to %s (skip run)\n", emit_c_to);
-            return 0;
+            arena_free(&arena);
+            return 2;
         }
         const char *keep_c = getenv("YIS_KEEP_C");
         if (!(keep_c && keep_c[0] && keep_c[0] != '0')) {
@@ -1182,36 +1095,6 @@ int main(int argc, char **argv) {
         return rc == 0 ? 0 : 1;
     }
 
-    if (argv[1][0] == '-') {
-        fprintf(stderr, "error: unknown option %s\n", argv[1]);
-        return 2;
-    }
-
-    if (argc > 2) {
-        fprintf(stderr, "error: unexpected extra arguments\n");
-        return 2;
-    }
-
-    Arena arena;
-    arena_init(&arena);
-    Diag err = {0};
-    Program *prog = NULL;
-    if (!load_project(argv[1], &arena, &prog, NULL, &err)) {
-        diag_print_enhanced(&err, verbose_mode);
-        arena_free(&arena);
-        return 1;
-    }
-    prog = lower_program(prog, &arena, &err);
-    if (!prog || err.message) {
-        diag_print_enhanced(&err, verbose_mode);
-        arena_free(&arena);
-        return 1;
-    }
-    if (!typecheck_program(prog, &arena, &err)) {
-        diag_print_enhanced(&err, verbose_mode);
-        arena_free(&arena);
-        return 1;
-    }
-    arena_free(&arena);
-    return 0;
+    fprintf(stderr, "error: bootstrap mode internal flow error\n");
+    return 2;
 }

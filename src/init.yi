@@ -665,10 +665,41 @@ def ?g_diag_file_map = []: [string => any]
     let err_idx = stdr.index_of(line, ": error: ")
     if err_idx < 0 { continue }
 
-    let msg = stdr.slice(line, err_idx + 9, stdr.len(line))
-    let ?loc = _extract_yi_location(line, err_idx)
+    let ?msg = stdr.slice(line, err_idx + 9, stdr.len(line))
+    let msg_bracket = stdr.index_of(msg, " [-W")
+    if msg_bracket >= 0
+      msg = stdr.slice(msg, 0, msg_bracket)
+
+    let direct_loc = _extract_yi_location(line, err_idx)
+    let ?loc = direct_loc
     if stdr.len(loc) == 0
       loc = _find_nearby_yi_location(lines, j, nlines)
+
+    -- Clang spillover: keep only Yis-facing function lookup message.
+    if stdr.contains(msg, "implicit function declaration") ||
+       stdr.contains(msg, "ISO C99 and later do not support implicit function declarations")
+      -- If this came only from generated C (no direct .yi location), suppress it.
+      if stdr.len(direct_loc) == 0 { continue }
+      let cname = _extract_single_quoted(msg)
+      let ?pretty = ""
+      if stdr.len(cname) > 0
+        pretty = "no such function or method '"
+        pretty = stdr.str_concat(pretty, _demangle_c_name(cname))
+        pretty = stdr.str_concat(pretty, "'")
+      else
+        pretty = "no such function or method in this call"
+      let ?dedup_key = "implicit_decl:"
+      dedup_key = stdr.str_concat(dedup_key, loc)
+      dedup_key = stdr.str_concat(dedup_key, ":")
+      dedup_key = stdr.str_concat(dedup_key, pretty)
+      if stdr.is_null(seen[dedup_key])
+        seen[dedup_key] = true
+        err_count = err_count + 1
+        _write_err_prefix(loc)
+        stdr.write(pretty)
+        stdr.write("\n")
+        _write_err_details(loc, pretty)
+      continue
 
     -- 1) Undeclared function → "no such function or method"
     if stdr.contains(msg, "undeclared function")
@@ -808,10 +839,6 @@ def ?g_diag_file_map = []: [string => any]
     -- 5) Non-void function <-: translate __lambda_N to "closure"
     if stdr.contains(msg, "should return a value") || stdr.contains(msg, "non-void function")
       let ?cleaned = msg
-      -- Strip [-Wfoo-bar] diagnostic suffix
-      let bracket = stdr.index_of(cleaned, " [-W")
-      if bracket >= 0
-        cleaned = stdr.slice(cleaned, 0, bracket)
       -- Deduplicate: only show "a closure does not return a value on all paths" once
       if stdr.contains(cleaned, "__lambda_")
         if !stdr.is_null(seen["closure_return"]) { continue }
