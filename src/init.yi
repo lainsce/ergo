@@ -370,15 +370,15 @@ def ?g_diag_file_map = []: [string => any]
 
 : _hint_for_translated_error(msg = string) (( string ))
   if stdr.contains(msg, "no such function or method")
-    <- "Check spelling and imported modules; call functions as module.name(...)."
+    <- "Yis cannot find this function name. Check spelling, make sure the module is imported, and call it as module.name(...)."
   if stdr.contains(msg, "expects") && stdr.contains(msg, "argument(s)")
-    <- "Match the call arity with the declaration, including optional/method receiver rules."
+    <- "This call has the wrong number of values inside parentheses. Count what you passed, then match that count to the function definition."
   if stdr.contains(msg, "redefinition of")
-    <- "This name was declared earlier in the same scope; rename one binding or remove the duplicate."
+    <- "This name is already used earlier in the same block. Rename one of them or delete the duplicate definition."
   if stdr.contains(msg, "closure") && stdr.contains(msg, "does not return")
-    <- "Ensure all closure branches return a value, or change the return type to (( -- ))."
+    <- "One code path does not return a value. Add a return in every if/else path, or make this function return nothing with (( -- ))."
   if stdr.contains(msg, "type mismatch") || stdr.contains(msg, "incompatible")
-    <- "Check operand and return types at this location; add explicit conversion or null coalescing when needed."
+    <- "Two values here are different kinds (for example text vs number). Convert one value to match the other, and if null is possible, give a fallback first."
   <- ""
 ;
 
