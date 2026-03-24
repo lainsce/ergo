@@ -352,12 +352,160 @@ def ?g_diag_file_map = []: [string => any]
   <- ""
 ;
 
-: _source_line_from_loc(loc = string) (( string ))
-  if stdr.len(loc) == 0 { <- "" }
+: _is_code_line_text(line = string) (( bool ))
+  let t = stdr.trim(line)
+  if stdr.len(t) == 0 { <- false }
+  if stdr.starts_with(t, "--") { <- false }
+  if t == ";" { <- false }
+  <- true
+;
+
+: _nearest_code_line_in_file(path = string, target = num) (( num ))
+  let ?want = target
+  if want <= 0
+    want = 1
+
+  let raw = stdr.read_text_file(path)
+  if stdr.is_null(raw) { <- want }
+
+  let text = stdr.str(raw)
+  let n = stdr.len(text)
+  let ?cur_line = 1
+  let ?start = 0
+  let ?i = 0
+  let ?max_line = 1
+  let ?best_after = 0
+  let ?best_before = 0
+
+  for (; i <= n; i = i + 1)
+    if i == n || stdr.slice(text, i, i + 1) == "\n"
+      let ?line = stdr.slice(text, start, i)
+      let ln = stdr.len(line)
+      if ln > 0 && stdr.slice(line, ln - 1, ln) == "\r"
+        line = stdr.slice(line, 0, ln - 1)
+
+      if _is_code_line_text(line)
+        if cur_line >= want && best_after == 0
+          best_after = cur_line
+        if cur_line <= want
+          best_before = cur_line
+
+      max_line = cur_line
+      cur_line = cur_line + 1
+      start = i + 1
+
+  if best_after > 0 { <- best_after }
+  if best_before > 0 { <- best_before }
+  if want > max_line { <- max_line }
+  <- want
+;
+
+: _declaration_loc_for_symbol(fname = string, symbol = string) (( string ))
+  if stdr.len(fname) == 0 || stdr.len(symbol) == 0 { <- "" }
+  let full_path = _resolve_diag_file(fname)
+  let raw = stdr.read_text_file(full_path)
+  if stdr.is_null(raw) { <- "" }
+
+  let text = stdr.str(raw)
+  let n = stdr.len(text)
+  let ?line_no = 1
+  let ?start = 0
+  let ?i = 0
+  let ?first = 0
+  let ?second = 0
+
+  for (; i <= n; i = i + 1)
+    if i == n || stdr.slice(text, i, i + 1) == "\n"
+      let ?line = stdr.slice(text, start, i)
+      let ln = stdr.len(line)
+      if ln > 0 && stdr.slice(line, ln - 1, ln) == "\r"
+        line = stdr.slice(line, 0, ln - 1)
+      let t = stdr.trim(line)
+      if _is_code_line_text(t) && stdr.contains(t, symbol)
+        if stdr.starts_with(t, "def ") ||
+           stdr.starts_with(t, "let ") ||
+           stdr.starts_with(t, "pub ")
+          if first == 0
+            first = line_no
+          elif second == 0
+            second = line_no
+            break
+      line_no = line_no + 1
+      start = i + 1
+
+  let ?chosen = second
+  if chosen == 0 { chosen = first }
+  if chosen <= 0 { <- "" }
+
+  let ?loc = fname
+  loc = stdr.str_concat(loc, ":")
+  loc = stdr.str_concat(loc, stdr.str(chosen))
+  loc = stdr.str_concat(loc, ":1")
+  <- loc
+;
+
+: _refine_redefinition_loc(loc = string, symbol = string) (( string ))
+  if stdr.len(loc) == 0 || stdr.len(symbol) == 0 { <- loc }
   let c1 = stdr.index_of(loc, ":")
-  if c1 < 0 { <- "" }
+  if c1 < 0 { <- loc }
   let fname = stdr.slice(loc, 0, c1)
   let rest = stdr.slice(loc, c1 + 1, stdr.len(loc))
+  let c2 = stdr.index_of(rest, ":")
+  let ?line_txt = rest
+  if c2 >= 0
+    line_txt = stdr.slice(rest, 0, c2)
+  let line_no = stdr.num(line_txt)
+  if line_no > 0
+    let cur = _source_line_at(_resolve_diag_file(fname), line_no)
+    if _is_code_line_text(cur) && stdr.contains(cur, symbol)
+      <- _normalize_loc_to_code_line(loc)
+
+  let decl_loc = _declaration_loc_for_symbol(fname, symbol)
+  if stdr.len(decl_loc) > 0
+    <- decl_loc
+  <- _normalize_loc_to_code_line(loc)
+;
+
+: _normalize_loc_to_code_line(loc = string) (( string ))
+  if stdr.len(loc) == 0 { <- "" }
+  let c1 = stdr.index_of(loc, ":")
+  if c1 < 0 { <- loc }
+  let fname = stdr.slice(loc, 0, c1)
+  let rest = stdr.slice(loc, c1 + 1, stdr.len(loc))
+  let c2 = stdr.index_of(rest, ":")
+  let ?line_txt = rest
+  let ?col_txt = ""
+  if c2 >= 0
+    line_txt = stdr.slice(rest, 0, c2)
+    col_txt = stdr.slice(rest, c2 + 1, stdr.len(rest))
+  let line_no = stdr.num(line_txt)
+  if line_no <= 0 { <- loc }
+
+  let full_path = _resolve_diag_file(fname)
+  let cur = _source_line_at(full_path, line_no)
+  -- If the mapped line does not exist, preserve original location.
+  if stdr.len(cur) == 0 { <- loc }
+  if _is_code_line_text(cur)
+    <- loc
+
+  let best = _nearest_code_line_in_file(full_path, line_no)
+
+  let ?out = fname
+  out = stdr.str_concat(out, ":")
+  out = stdr.str_concat(out, stdr.str(best))
+  if stdr.len(col_txt) > 0
+    out = stdr.str_concat(out, ":")
+    out = stdr.str_concat(out, col_txt)
+  <- out
+;
+
+: _source_line_from_loc(loc = string) (( string ))
+  let norm = _normalize_loc_to_code_line(loc)
+  if stdr.len(norm) == 0 { <- "" }
+  let c1 = stdr.index_of(norm, ":")
+  if c1 < 0 { <- "" }
+  let fname = stdr.slice(norm, 0, c1)
+  let rest = stdr.slice(norm, c1 + 1, stdr.len(norm))
   let c2 = stdr.index_of(rest, ":")
   let ?line_txt = rest
   if c2 >= 0
@@ -436,7 +584,9 @@ def ?g_diag_file_map = []: [string => any]
       mark = stdr.index_of(line, ": note: ")
     if mark < 0 { continue }
     let loc = _extract_yi_location(line, mark)
-    if stdr.len(loc) > 0 { <- loc }
+    if stdr.len(loc) > 0
+      let norm = _normalize_loc_to_code_line(loc)
+      if stdr.len(norm) > 0 { <- norm }
   <- ""
 ;
 
@@ -674,6 +824,8 @@ def ?g_diag_file_map = []: [string => any]
     let ?loc = direct_loc
     if stdr.len(loc) == 0
       loc = _find_nearby_yi_location(lines, j, nlines)
+    if stdr.len(loc) > 0
+      loc = _normalize_loc_to_code_line(loc)
 
     -- Clang spillover: keep only Yis-facing function lookup message.
     if stdr.contains(msg, "implicit function declaration") ||
@@ -796,14 +948,15 @@ def ?g_diag_file_map = []: [string => any]
         let yname = _demangle_c_name(cname)
         if stdr.is_null(seen[cname])
           seen[cname] = true
+          let emit_loc = _refine_redefinition_loc(loc, yname)
           let ?pretty = "redefinition of '"
           pretty = stdr.str_concat(pretty, yname)
           pretty = stdr.str_concat(pretty, "'")
           err_count = err_count + 1
-          _write_err_prefix(loc)
+          _write_err_prefix(emit_loc)
           stdr.write(pretty)
           stdr.write("\n")
-          _write_err_details(loc, pretty)
+          _write_err_details(emit_loc, pretty)
           handled = true
       if !handled
         let ?pretty = _demangle_error_message(msg)
