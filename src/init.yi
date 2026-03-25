@@ -1127,6 +1127,30 @@ def ?g_diag_file_map = []: [string => any]
   <- out
 ;
 
+: interp_expr_to_ast(raw = string) (( any ))
+  let src = _trim(unescape_interp_expr(raw))
+  if stdr.len(src) == 0 { <- null }
+
+  let toks = lexer.lex(src)
+  if stdr.is_null(toks) { <- null }
+
+  let parsed = parser.parse_expr(toks, 0, 0)
+  let expr = parsed[1]
+  if stdr.is_null(expr) { <- null }
+
+  let ?j = stdr.num(parsed[0] ?? 0)
+  for (; true; )
+    let t = toks[j] ?? []: [string => any]
+    let k = t["kind"] ?? "eof"
+    if k == "semi" || k == "newline_semi"
+      j = j + 1
+      continue
+    if k == "eof"
+      <- expr
+    <- null
+  <- null
+;
+
 : is_stdlib_module(name = string) (( bool ))
   if name == "stdr" || name == "math" || name == "net" || name == "json" { <- true }
   <- false
@@ -1735,6 +1759,7 @@ def ?g_diag_file_map = []: [string => any]
       let part = iparts[pi]
       let pkind = part["kind"] ?? ""
       let pval = part["val"] ?? ""
+      let ?interp_expr = interp_expr_to_ast(pval)
       r = stdr.str_concat(r, "__ip[")
       r = stdr.str_concat(r, stdr.str(pi))
       r = stdr.str_concat(r, "] = ")
@@ -1743,8 +1768,13 @@ def ?g_diag_file_map = []: [string => any]
         r = stdr.str_concat(r, _c_quote(pval))
         r = stdr.str_concat(r, "))")
       else
-        -- expr part: convert variable to string
-        if stdr.is_null(interp_path_to_c(pval))
+        -- expr part: parse and compile full expression inside $$...$$.
+        if !stdr.is_null(interp_expr)
+          r = stdr.str_concat(r, "YV_STR(stdr_to_string(")
+          r = stdr.str_concat(r, emit_expr(interp_expr, cask_name))
+          r = stdr.str_concat(r, "))")
+        elif stdr.is_null(interp_path_to_c(pval))
+          -- Backward-compatible fallback for malformed interpolation bodies.
           r = stdr.str_concat(r, "YV_STR(stdr_to_string(v_")
           r = stdr.str_concat(r, unescape_interp_expr(pval))
           r = stdr.str_concat(r, "))")
