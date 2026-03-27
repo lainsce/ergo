@@ -148,6 +148,27 @@ static YisStr yis_static_object   = { INT32_MAX, 8, "[object]" };
 static YisStr yis_static_function = { INT32_MAX, 10, "[function]" };
 static YisStr yis_static_unknown  = { INT32_MAX, 3, "<?>" };
 
+static bool yis_static_ascii_init = false;
+static YisStr yis_static_ascii[256];
+static char yis_static_ascii_data[256][2];
+
+static void yis_init_static_ascii(void) {
+  if (yis_static_ascii_init) return;
+  for (int i = 0; i < 256; i++) {
+    yis_static_ascii_data[i][0] = (char)i;
+    yis_static_ascii_data[i][1] = 0;
+    yis_static_ascii[i].ref = INT32_MAX;
+    yis_static_ascii[i].len = 1;
+    yis_static_ascii[i].data = yis_static_ascii_data[i];
+  }
+  yis_static_ascii_init = true;
+}
+
+static YisStr* yis_static_char(unsigned char c) {
+  if (!yis_static_ascii_init) yis_init_static_ascii();
+  return &yis_static_ascii[c];
+}
+
 static YisStr* stdr_str_lit(const char* s) {
   size_t n = strlen(s);
   YisStr* st = (YisStr*)malloc(sizeof(YisStr) + n + 1);
@@ -176,7 +197,7 @@ static YisVal stdr_str_at(YisVal v, int64_t idx) {
   if (v.tag != EVT_STR) yis_trap("str_at expects string");
   YisStr* s = (YisStr*)v.as.p;
   if (idx < 0 || (size_t)idx >= s->len) return YV_STR(&yis_static_empty);
-  return YV_STR(stdr_str_from_slice(s->data + idx, 1));
+  return YV_STR(yis_static_char((unsigned char)s->data[idx]));
 }
 
 static YisVal stdr_slice(YisVal sv, int64_t start, int64_t end) {
@@ -189,6 +210,7 @@ static YisVal stdr_slice(YisVal sv, int64_t start, int64_t end) {
   if ((size_t)end > len) end = (int64_t)len;
   size_t n = (size_t)(end - start);
   if (n == 0) return YV_STR(&yis_static_empty);
+  if (n == 1) return YV_STR(yis_static_char((unsigned char)s->data[start]));
   return YV_STR(stdr_str_from_slice(s->data + start, n));
 }
 

@@ -4006,47 +4006,51 @@ static bool codegen_gen(Codegen *cg, const char *ext_module_name, const char *ex
     const char *runtime_path = runtime_forced ? runtime_override : NULL;
     char *exe_runtime_path = NULL;  // heap-allocated, freed below
     if (!runtime_path) {
-        const char *runtime_candidates[] = {
-            "src/bootstrap/runtime.inc",
-            "src/runtime.inc",
-            "yis/src/bootstrap/runtime.inc",
-            "yis/src/runtime.inc",
-            "../src/bootstrap/runtime.inc",
-            "../src/runtime.inc",
-            "../yis/src/bootstrap/runtime.inc",
-            "../yis/src/runtime.inc",
-            "../../yis/src/bootstrap/runtime.inc",
-            "../../yis/src/runtime.inc",
-        };
         runtime_path = NULL;
-        for (size_t i = 0; i < sizeof(runtime_candidates) / sizeof(runtime_candidates[0]); i++) {
-            if (path_is_file(runtime_candidates[i])) {
-                runtime_path = runtime_candidates[i];
-                break;
-            }
-        }
-        // If not found via cwd-relative paths, try relative to the executable.
-        // The binary is typically at <project>/yis/build/yis, so runtime is at
-        // <exe_dir>/../src/bootstrap/runtime.inc.
-        if (!runtime_path) {
-            char *exe_dir = yis_exe_dir();
-            if (exe_dir) {
-                const char *exe_rel[] = {
-                    "../src/bootstrap/runtime.inc",
-                    "../src/runtime.inc",
-                    "../../yis/src/bootstrap/runtime.inc",
-                    "../../yis/src/runtime.inc",
-                };
-                for (size_t i = 0; i < sizeof(exe_rel) / sizeof(exe_rel[0]); i++) {
-                    char *candidate = path_join(exe_dir, exe_rel[i]);
-                    if (candidate && path_is_file(candidate)) {
-                        exe_runtime_path = candidate;
-                        runtime_path = exe_runtime_path;
-                        break;
-                    }
-                    free(candidate);
+
+        // Prefer runtime paths relative to the executable so installed yis
+        // reliably picks up installed runtime updates.
+        char *exe_dir = yis_exe_dir();
+        if (exe_dir) {
+            const char *exe_rel[] = {
+                "../share/yis/runtime.inc",
+                "../../share/yis/runtime.inc",
+                "../src/bootstrap/runtime.inc",
+                "../src/runtime.inc",
+                "../../yis/src/bootstrap/runtime.inc",
+                "../../yis/src/runtime.inc",
+            };
+            for (size_t i = 0; i < sizeof(exe_rel) / sizeof(exe_rel[0]); i++) {
+                char *candidate = path_join(exe_dir, exe_rel[i]);
+                if (candidate && path_is_file(candidate)) {
+                    exe_runtime_path = candidate;
+                    runtime_path = exe_runtime_path;
+                    break;
                 }
-                free(exe_dir);
+                free(candidate);
+            }
+            free(exe_dir);
+        }
+
+        // Fallback for source-tree/dev invocations from various cwd values.
+        if (!runtime_path) {
+            const char *runtime_candidates[] = {
+                "src/bootstrap/runtime.inc",
+                "src/runtime.inc",
+                "yis/src/bootstrap/runtime.inc",
+                "yis/src/runtime.inc",
+                "../src/bootstrap/runtime.inc",
+                "../src/runtime.inc",
+                "../yis/src/bootstrap/runtime.inc",
+                "../yis/src/runtime.inc",
+                "../../yis/src/bootstrap/runtime.inc",
+                "../../yis/src/runtime.inc",
+            };
+            for (size_t i = 0; i < sizeof(runtime_candidates) / sizeof(runtime_candidates[0]); i++) {
+                if (path_is_file(runtime_candidates[i])) {
+                    runtime_path = runtime_candidates[i];
+                    break;
+                }
             }
         }
     }
