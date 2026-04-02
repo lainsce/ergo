@@ -1,536 +1,307 @@
 # Yis Language Reference
 
-This document describes the language behavior currently implemented in this repository.
-It is intended as an implementation-facing reference, not a future design document.
+This reference tracks what the current compiler accepts in this repository.
+It focuses on working syntax and conventions used in real Yis code.
 
-## 1. Status and Scope
+## 1. Status
 
-- Covers lexer/parser/typechecker/codegen behavior currently shipped.
-- Prioritizes what compiles and runs today.
-- Notes implementation constraints where behavior is incomplete or transitional.
+- This document is implementation-facing.
+- It describes lexer/parser/codegen behavior that compiles today.
+- It prefers current style conventions over older historical forms.
 
-## 2. Lexical Structure
+## 2. Current Syntax Conventions
 
-### 2.1 Identifiers
-
-- Start: letter or `_`
-- Continue: letter, digit, or `_`
-- Case-sensitive.
-
-### 2.2 Keywords
-
-Current reserved words:
-
-`cask`, `bring`, `fun`, `macro`, `entry`, `class`, `struct`, `enum`, `pub`, `lock`, `seal`, `def`, `let`, `const`, `if`, `elif`, `else`, `for`, `match`, `return`, `true`, `false`, `null`, `new`, `in`, `break`, `continue`
-
-`cask` is an optional top-level declaration used to assert module identity.
-
-### 2.3 Comments
-
-- Line comments use `--` and continue to end of line.
-
-### 2.4 Statement Terminators
-
-- `;` is supported explicitly.
-- Newlines also insert statement terminators automatically in statement-ending contexts.
-
-## 3. Literals and Strings
-
-### 3.1 Numeric Literals
-
-- Integer: `42`
-- Float: `3.14`
-- Unary `-` is an operator, not part of the numeric token.
-
-### 3.2 Other Literals
-
-- `true`, `false`
-- `null`
-
-### 3.3 String Forms
-
-All double-quoted strings support interpolation using angle bracket placeholders:
-
-1. String with interpolation: `"Hello <name>!"`
-   - Placeholders use `<...>` syntax.
-   - Format: `<identifier>`, `<obj.member>`, `<arr[index]>`, or `<value:format>`.
-   - Format specifiers follow the format string conventions (e.g., `<num:0.2>` for 2 decimal places).
-   - Escaped characters: `\n`, `\t`, `\r`, `\\`, `\"`, `\<`, `\>`, and `\u{...}`.
-   - Literal `<` or `>` inside strings must be escaped as `\<` and `\>`.
-
-Placeholder grammar:
-```
-path       := identifier ( "." identifier | "[" index "]" )*
-placeholder := "<" path (":" format_spec)? ">"
-```
-
-Allowed in placeholders:
-- Simple identifiers
-- Member access: `<obj.field>`
-- Indexing: `<arr[0]>`, `<dict["key"]>`
-- Optional format suffix: `<value:0.2>`, `<name:*^10>`
-
-Disallowed in placeholders (produces error):
-- Boolean operators: `<a > b>`, `<x == y>`, `<a && b>`
-- Comparisons, arithmetic, assignments
-- Control flow: `if`, `match`, lambdas
-- Any general expression that isn't a simple path
-
-## 4. Modules and Imports
-
-### 4.1 Imports
-
-Use `bring` at module top level:
+Yis uses symbol-first declarations.
 
 ```yis
+cask hello
 bring stdr
-bring math
-bring cogito
-bring utils
-bring utils.yi
+
+: greet(name = string) (( -- ))
+  writef("Hello $$name$$\n")
+;
+
+-> ()
+  greet("World")
+;
 ```
 
-Current behavior:
-
-- Imports are namespaced (`math.sin(...)`, `utils.fn(...)`).
-- Built-in cask names include `stdr`, `math`, and `cogito`.
-- `bring name` resolves to `name.yi` for user casks.
-- `bring name.yi` is accepted.
-- `stdr` is required in non-stdlib casks.
-- Legacy `.e` imports are rejected.
-
-### 4.2 Module Naming
-
-- Module names are derived from file basename (without `.yi`).
-- Optional declaration form:
-
-```yis
-cask mymod
-```
-
-- If present, declared cask name must match the file basename.
-
-### 4.3 Entry Constraints
-
-- Exactly one `entry()` is required in the entry module.
-- Imported modules cannot declare `entry()`.
-- Current diagnostics refer to `init.yi`; this is a toolchain convention reflected in error text.
-
-## 5. Top-Level Declarations
-
-Allowed top-level declarations:
-
-- `fun` (optionally `pub`)
-- `macro`
-- `entry`
-- nominal declarations: `class`, `struct`, `enum` (with optional `pub` / `lock` / `seal` prefixes)
-- interface declarations: `.:` (dot-colon)
-- `def` (module global, optionally `pub`)
-- `const` (module constants, general-purpose, optionally `pub`)
-
-Macro declaration form:
-
-```yis
-macro plus(arg = num) (( num )) {
-    this + arg
-}
-```
-
-Current macro behavior:
-
-- Macros are compile-time only and are removed during lowering.
-- A macro body must lower to a single expression (single expr statement or `return expr`).
-- Parameters are substituted by expression cloning (no runtime call overhead).
-- Expansion depth is capped to avoid runaway recursion.
-- `this` is reserved as the receiver binding inside macro bodies; macro parameters cannot be `this` / `?this`.
-
-## 6. Types
-
-### 6.1 Primitive Types
-
-- `num`
-- `bool`
-- `string`
-- `any`
-- `null` (literal/null type, participates in nullable unification)
-
-### 6.2 Composite Types
-
-- Arrays: `[T]`
-- Dicts: `[K => V]` (key type must be `string`; e.g. `[string => num]`). Literal: `[ "a" => 1, "b" => 2 ]`. Empty: `[]: [string => T]`.
-- Tuples: expression tuples `(a, b, c)` and multi-return tuples
-- Classes: `ClassName` or `mod.ClassName`
-
-### 6.3 Function Signatures
-
-Function return syntax:
-
-- Void: `(( -- ))`
-- Single return: `(( num ))`
-- Multi return tuple: `(( num, string ))` or `(( num; string ))`
-- Delegate / function reference: `(( -> ))`
-
-### 6.4 Generic Type Variables
-
-- Generic placeholders are explicit by naming convention:
-  - unqualified type names matching `^[A-Z][A-Z0-9_]*$` are generic placeholders.
-  - other unknown names are type errors (prevents typo-driven implicit generics).
-
-### 6.5 Nullability
-
-- Unifying a type with `null` produces a nullable form internally.
-- Nullable values are restricted in many operations (member/index/call/arithmetic/comparison).
-- Assignability is strict for nullability:
-  - assigning/passing/returning `T | null` where `T` is required is a type error,
-  - assigning `null` where non-null `T` is required is a type error,
-  - assigning non-null `T` into `T | null` remains allowed.
-- Null-coalescing operator is supported:
-  - `a ?? b` evaluates to `a` when `a != null`, otherwise `b`.
-
-## 7. Variables and Mutability
-
-- `let x = expr` creates immutable local bindings.
-- `let ?x = expr` creates mutable local bindings.
-- `const x = expr` creates immutable local constant bindings.
-- `def x = expr` creates module global bindings.
-- `def ?x = expr` creates mutable module globals.
-
-Assignment requires mutable targets.
-
-## 8. Functions, Methods, and Classes
-
-### 8.1 Functions
-
-```yis
-fun add(a = num, b = num) (( num )) {
-    return a + b
-}
-```
-
-### 8.2 Methods
-
-- Methods are declared inside nominal types (`class` / `struct` / `enum`) with `fun`.
-- First parameter must be `this` or `?this`.
-- `this`/`?this` is implicit receiver syntax and does not use `= Type`.
-- Methods can be declared `pub fun ...` for cross-cask visibility.
-
-### 8.3 Nominal Type Syntax
-
-```yis
-class Point {
-    pub x = num
-    y = num
-
-    fun init(?this, x = num, y = num) (( -- )) {
-        this.x = x
-        this.y = y
-    }
-}
-```
-
-Class inheritance syntax (single base class):
-
-```yis
-class Child : base.Parent {
-    fun init(?this) (( -- )) { }
-}
-```
-
-Struct/enum declarations use `=[ ... ]` field lists:
-
-```yis
-struct Color = [
-    r = num
-    g = num
-    b = num
-]
-
-enum Result = [
-    tag = string
-    value = any
-]
-```
-
-`enum` currently behaves as a nominal field container (same construction model as `struct`), not as tagged-sum variants.
-
-### 8.4 Nominal Modifiers
-
-- `pub class/struct/enum ...` is parsed.
-- `lock class ...` enforces restricted field access (same file or own methods).
-- `seal` is only valid on `class` declarations.
-- `class Child : Base` is supported for class declarations.
-- `seal` acts as a final class restriction for inheritance:
-  - inheriting from a sealed class is a compile-time error.
-- Inheritance currently enforces base-class validity and sealed-class rejection; it does not yet add broader polymorphic dispatch semantics.
-
-### 8.5 Interfaces
-
-Interfaces declare a contract — a set of method signatures that conforming classes must implement. Declared with `.:` (dot-colon):
-
-```yis
-.: Clickable(x = num, y = num) (( bool )) {
-  :: on_hover(x = num) (( -- )) {}
-}
-```
-
-- `.: Name(params) (( ret ))` is the **initiator** — the primary entry point of the contract.
-- `:: method(params) (( ret )) {}` inside the body declares additional required methods.
-- No body implementation is provided in the interface — only signatures.
-
-**Conformance:** A class conforms to an interface via `: InterfaceName`:
-
-```yis
-class Button : Clickable {
-  :: Clickable(x = num, y = num) (( bool )) {
-    return true
-  }
-  :: on_hover(x = num) (( -- )) {
-    -- handle hover
-  }
-}
-```
-
-- The class must implement the initiator method (matching the interface name) AND all `::` methods from the interface body.
-- Missing required methods produce a compile-time error.
-- Conformance is checked at compile time only — no runtime vtable.
-- Interface names can be used as parameter types; they resolve to `any` at the C level.
-
-### 8.6 Visibility (`pub`)
-
-- `pub` controls cross-cask (cross-file module) access.
-- Non-`pub` symbols are cask-private.
-- Enforced entities:
-  - nominal types (`class` / `struct` / `enum`),
-  - top-level `fun`,
-  - top-level `def`,
-  - top-level `const`,
-  - class fields,
-  - class methods.
-
-## 9. Statements and Control Flow
-
-### 9.1 Blocks
-
-- `{ ... }` creates statement blocks and local scopes.
-
-### 9.2 If / Elif / Else
-
-Supported forms:
-
-- Block form: `if cond { ... }`
-- Paren condition: `if (cond) { ... }`
-- Colon single-statement form: `if cond: stmt`
-
-### 9.3 For
-
-1. C-style loop:
-
-```yis
-for (init; cond; step) { ... }
-```
-
-2. Foreach:
-
-```yis
-for (item in expr) { ... }
-```
-
-Foreach currently supports iterating arrays and strings.
-
-Element type:
-
-- `for (x in [T])` binds `x: T`.
-- `for (ch in some_string)` binds `ch: string` (single-character string slices).
-
-### 9.4 Return
-
-- `return` or `return expr`.
-- For non-void functions (including methods and `entry` when non-void), all reachable paths must return.
-- Path-complete return checking is conservative for loops:
-  - loops are not treated as guaranteed-return constructs unless a guaranteed return is proven outside loop uncertainty.
-  - if a loop may exit and execution can fall through, this is a type error.
-- Void-return functions keep existing behavior (no path-complete return requirement).
-- Diagnostics include a fallthrough-path reason (for example, missing `else` or a branch that can fall through).
-
-### 9.5 Loop Control
-
-- `break` exits the nearest loop.
-- `continue` skips to the next iteration of the nearest loop.
-- Using either outside a loop is a type error.
-
-## 10. Expressions
-
-### 10.1 Core Forms
-
-- Literals and identifiers
-- Unary: `!x`, `-x`, `#x`
-- Binary: `+ - * / % == != < <= > >= && || ??`
-- Assignment: `=`, `+=`, `-=`, `*=`, `/=`
-- Call: `fn(args...)`
-- Member: `a.b`
-- Index: `a[i]`
-- Object construction: `new Class(...)`
-- Receiver macro call sugar: `x !plus 2` (lowers to member call form `x.plus(2)` for macro expansion)
-- Named-argument constructor form: `Class(field: value, ...)` (constructor shorthand)
-- Match: `match x: pat => expr, ...` or block-arm form
-- If-expression:
-  - `if cond { expr } else { expr }`
-  - `if cond: expr elif other: expr else: expr`
-- Lambda:
-  - `|x = num| x + 1`
-  - `(x = num) => x + 1`
-  - `(x) => { ... }`
-- Array literal: `[a, b, c]`
-- Typed array literal annotation: `[...]: [T]` (notably supports empty arrays: `[]: [num]`)
-- Tuple literal: `(a, b, c)`
-- Paren grouping: `(expr)`
+Quick map:
+
+- Function declaration: `: name(...) (( ret ))` and `:: name(...) (( ret ))`
+- Entry declaration: `-> ()`
+- Return statement: `<- value`
+- Macro declaration: `!: name(...) (( ret ))`
+- Class declaration: `,: Name ... ;`
+- Struct declaration: `=: Name ... ;`
+- Enum declaration: `|: Name ... ;`
+- Interface declaration: `.: Name(...) (( ret ))`
+
+## 3. Lexical Structure
+
+### 3.1 Identifiers
+
+- Start with letter or `_`
+- Continue with letter, digit, or `_`
+- Case-sensitive
+
+### 3.2 Keyword Tokens
+
+Current lexer keywords:
+
+- `let`, `if`, `else`, `elif`
+- `for`, `in`, `match`
+- `bring`, `cask`, `class`, `pub`
+- `def`, `const`
+- `true`, `false`, `null`
+- `break`, `continue`
+- `new` (tokenized)
 
 Notes:
 
-- `if` is supported as both statement and expression.
-- `if` expressions require an `else` branch.
-- Braced `if` expression branches currently accept a single expression.
+- Declaration forms like function, entry, macro, class/struct/enum/interface use punctuation tokens (`:`, `::`, `->`, `!:`, `,:`, `=:`, `|:`, `.:`) instead of keyword starters.
 
-### 10.2 Match Patterns
+### 3.3 Comments
 
-Supported pattern kinds:
+- Line comment: `-- ...`
+- Block comment: `-| ... |-`
+- Block comments are nestable.
 
-- `_` wildcard
+### 3.4 Statement Terminators
+
+- Explicit `;` is supported.
+- Auto semicolon insertion happens on line breaks in statement-ending contexts.
+- Function and type bodies commonly use semicolon-terminated block style.
+
+## 4. Strings and Literals
+
+### 4.1 Literals
+
+- Integers: `42`
+- Floats: `3.14`
+- Booleans: `true`, `false`
+- Null: `null`
+
+### 4.2 Strings
+
+- Strings use double quotes.
+- Interpolation uses `$$ ... $$` inside string literals.
+
+```yis
+writef("value=$$x + 1$$\n")
+```
+
+- Interpolation bodies are parsed as expressions, not just simple paths.
+- Supported escapes include: `\n`, `\t`, `\r`, `\\`, `\"`, `\'`, `\<`, `\>`, `\$`, `\?`, octal escapes, `\xNN`, and `\u{...}`.
+
+## 5. Modules and Imports
+
+### 5.1 `cask`
+
+- `cask name` is optional.
+- It sets module identity used for symbol mangling.
+
+### 5.2 `bring`
+
+- Use `bring module_name`.
+- Dotted brings are supported: `bring foo.bar.baz`.
+- Resolver maps dotted names to file paths and appends `.yi`.
+- Common built-in modules include `stdr` and `math`.
+
+## 6. Declarations
+
+### 6.1 Variables
+
+- Local immutable: `let x = expr`
+- Local mutable: `let ?x = expr`
+- Local constant: `const x = expr`
+- Module immutable: `def x = expr`
+- Module mutable: `def ?x = expr`
+- Public module globals: `pub def x = expr`
+
+### 6.2 Functions and Entry
+
+- Private function: `: name(params) (( ret )) ... ;`
+- Public function: `:: name(params) (( ret )) ... ;`
+- Entry point: `-> (params) (( ret )) ... ;` (typically `-> ()`)
+- Bare `name(params) ...` form is parsed but not preferred as style.
+
+Return statements use `<-`.
+
+```yis
+: add(a = num, b = num) (( num ))
+  <- a + b
+;
+```
+
+### 6.3 Macros
+
+Macros use `!:` declarations.
+
+```yis
+!: mod(divisor = num) (( bool ))
+  this % divisor == 0
+;
+```
+
+Receiver-style call syntax:
+
+```yis
+i !mod 3
+```
+
+Implementation note: macros are emitted as helper functions with receiver `this` in current codegen.
+
+### 6.4 Classes, Structs, Enums, Interfaces
+
+Primary style:
+
+- Class: `,: Name ... ;`
+- Struct: `=: Name ... ;`
+- Enum: `|: Name ... ;`
+- Interface: `.: Name(...) (( ret )) ...`
+
+Methods inside nominal/interface bodies use `:` or `::`.
+
+```yis
+,: Point
+  pub x = num
+  pub y = num
+
+  :: to_string(this) (( string ))
+    <- "($$this.x$$, $$this.y$$)"
+  ;
+;
+```
+
+Additional behavior:
+
+- `class Name { ... }` remains parsed.
+- Optional base/interface name can follow `: BaseName`.
+- Class fields use `[pub] field = Type`.
+- Class and top-level `exit` style blocks are supported via `<- () ... ;`.
+
+## 7. Types
+
+### 7.1 Core Types
+
+- `num`, `bool`, `string`, `any`, `null`
+
+### 7.2 Type Annotations
+
+- Parameter annotation: `name = Type`
+- Return annotation: `(( Type ))`
+- Void return: `(( -- ))`
+- Function/delegate marker: `(( -> ))`
+- Arrays: `[T]`
+- Dict annotation shape: `[string => T]`
+- Empty typed literals are common: `[]: [T]`, `[]: [string => any]`
+
+Implementation note: parser/type tracking still treats several complex annotation forms conservatively as `any`.
+
+## 8. Control Flow
+
+### 8.1 If / Elif / Else
+
+Supported:
+
+- Indentation style in semicolon blocks
+- Braced blocks
+- `elif` chains
+
+```yis
+if cond
+  write("yes\n")
+elif other
+  write("maybe\n")
+else
+  write("no\n")
+```
+
+### 8.2 For
+
+Supported forms:
+
+- C-style: `for (init; cond; step)`
+- Foreach: `for (item in expr)`
+
+### 8.3 Loop Control
+
+- `break`
+- `continue`
+
+## 9. Expressions
+
+### 9.1 Core Forms
+
+- Literals and identifiers
+- Unary: `!`, unary `-`, `#`
+- Binary: `+ - * / % == != < <= > >= && || ??`
+- Assignment: `=`, `+=`, `-=`, `*=`, `/=`, `%=`
+- Call: `fn(args...)`
+- Member: `a.b`
+- Index: `a[i]`
+- Bang-call: `recv !name args...`
+- Lambda: `(x = num) => x + 1`, `(x) => { ... }`
+- Match expression: brace-arm and inline forms
+- If expression: `if cond { expr } else { expr }`
+
+### 9.2 Match Patterns
+
+Current parser patterns:
+
+- `_`
 - identifier bind
 - int literal
 - string literal
 - bool literal
 - `null`
 
-`match` is a general conditional expression/statement form over values and patterns; it is not enum-variant destructuring.
+### 9.3 Operator Precedence
 
-### 10.3 Unary `#`
+Lowest to highest:
 
-- `#x` is lowered to `stdr.len(x)`.
-- Valid for arrays and strings.
+1. Assignment (`=`, `+=`, `-=`, `*=`, `/=`, `%=`), right-associative
+2. `??`
+3. `||`
+4. `&&`
+5. `==`, `!=`
+6. `<`, `<=`, `>`, `>=`
+7. `+`, `-`
+8. `*`, `/`, `%`
+9. Unary (`!`, `-`, `#`)
+10. Postfix (call, member, index, bang-call)
 
-### 10.4 Lambda Capture
+## 10. Runtime and Semantics Notes
 
-- Lambdas capture referenced local bindings.
-- Captures are materialized in closure environment at lambda creation time.
+- Conditions use truthiness at runtime.
+- `&&` and `||` short-circuit.
+- Array indexing can yield `null` when out of bounds.
+- String indexing yields an empty string when out of bounds.
+- Entry function generation uses `->`; if absent, program main still builds but does not call `yis_entry`.
 
-### 10.5 `move(x)`
+## 11. Standard Library Snapshot
 
-- `move(x)` is lowered into a move expression form.
-- Enforced model:
-  - only identifier operands are accepted,
-  - target must be a mutable local binding (`let ?x = ...`),
-  - globals, fields, index targets, temporaries, and immutable locals are rejected by typechecking.
-- Source invalidation:
-  - after `move(x)`, `x` is marked moved and direct use is a type error (`use of moved value`),
-  - assigning to `x` reinitializes the binding and clears moved state.
-- Interaction rules:
-  - passing/returning/field-assignment are supported by using `move(local_ident)` as an expression,
-  - closure/typecheck behavior follows normal local-binding analysis with moved-state checks.
+Common `stdr` functions used by current code:
 
-### 10.6 Operator Precedence and Associativity
+- `write`, `writef`, `readf`
+- `len`, `str`, `num`, `is_null`
+- `read_text_file`, `write_text_file`
+- `run_command`
+- `open_file_dialog`, `save_file_dialog`, `open_folder_dialog`
 
-Parser precedence is explicit (lowest to highest):
+Common `math` functions:
 
-1. Assignment: `=`, `+=`, `-=`, `*=`, `/=` (right-associative)
-2. Null-coalescing: `??` (left-associative)
-3. Logical OR: `||` (left-associative)
-4. Logical AND: `&&` (left-associative)
-5. Equality: `==`, `!=` (left-associative)
-6. Relational: `<`, `<=`, `>`, `>=` (left-associative)
-7. Additive: `+`, `-` (left-associative)
-8. Multiplicative: `*`, `/`, `%` (left-associative)
-9. Unary: `!`, unary `-`, `#` (prefix)
-10. Postfix: call `()`, index `[]`, member `.`, macro-call sugar `!name` (highest)
+- `sin`, `cos`, `tan`, `sqrt`, `abs`, `min`, `max`
 
-## 11. Runtime/Type Semantics
+## 12. Compatibility Notes
 
-### 11.1 Condition Evaluation
+The following older descriptions are not current conventions in this repository:
 
-- `if`/`for` conditions are accepted if non-void.
-- Runtime boolean conversion uses truthiness:
-  - `null` false
-  - `false` false
-  - numeric zero false
-  - empty string false
-  - empty array false
-  - others true
-- Lint mode can report non-`bool` conditions as warnings (or errors in strict lint mode).
+- Keyword-first declaration style (`fun`, `macro`, `entry`, `return`) as primary syntax
+- Angle-bracket string interpolation (`<expr>`) style
+- `lock` and `seal` modifiers
+- `move(x)` language feature
+- `-- @include` pre-lex include directive
 
-### 11.2 Logical Operators
-
-- `&&` and `||` are short-circuiting.
-- Operand evaluation uses truthiness (same model as `if` / `for` conditions).
-- Result type is `bool`.
-
-### 11.3 Indexing Behavior
-
-Typing rule (semantic model):
-
-- For arrays, `a[i] : T | null` when `a : [T]` (out-of-bounds reads yield `null`).
-- Practical handling patterns:
-  - coalesce: `let v = a[i] ?? fallback`
-  - null test: `if stdr.is_null(a[i]) { ... }`
-  - explicit compare: `if a[i] != null { ... }`
-
-- Arrays:
-  - read out-of-bounds -> `null`
-  - write out-of-bounds -> ignored
-  - `remove(i)` out-of-bounds -> `null`
-- Strings:
-  - `s[i]` out-of-bounds -> `""`
-- Tuples:
-  - index must be integer literal and in range (compile-time checked)
-
-### 11.4 Empty Array Literals
-
-- `[]` without annotation is rejected because element type cannot be inferred.
-- Use `[]: [T]` to declare element type.
-
-## 12. Standard Library Modules
-
-### 12.1 `stdr`
-
-Current core functions:
-
-- `writef(fmt, ...)`
-- `readf(fmt, ...hints)` -> `(string, any)`
-- `write(x)`
-- `len(x)` -> `num` (arrays, strings, dicts)
-- `is_null(x)` -> `bool`
-- `str(x)` -> `string`
-- `read_text_file(path)` -> `any` (`null` on failure)
-- `write_text_file(path, text)` -> `bool`
-- `run_command(cmd)` -> `(num, string)` (exit code and stdout)
-- `open_file_dialog(prompt, extension)` -> `any`
-- `save_file_dialog(prompt, default_name, extension)` -> `any`
-
-When `stdr` is brought, core prelude helpers are available unqualified and via `stdr.*`.
-
-### 12.2 `math`
-
-Includes constants and numeric helpers such as:
-
-- constants: `PI`, `TAU`, `E`, ...
-- functions: `sin`, `cos`, `tan`, `sqrt`, `abs`, `min`, `max`
-
-## 13. Build-Time Include Directive
-
-The loader supports source inclusion via comment directive:
-
-```yis
--- @include "relative/path.yi"
-```
-
-This is processed before lexing/parsing.
-
-## 14. Diagnostics
-
-- Lexer/parser diagnostics include path/line/column.
-- Typecheck diagnostics include module path and location for most semantic errors.
-- Common enforced checks include:
-  - unknown names/types/members
-  - assignment mutability violations
-  - arity mismatches
-  - nullable misuse in restricted contexts
-  - invalid `entry()` placement/count
+Use the symbol-first forms in this document for new code.
