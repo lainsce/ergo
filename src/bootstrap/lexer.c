@@ -466,6 +466,70 @@ static bool emit_float(Lexer *lx, TokVec *out, Diag *err, Str text, double value
     return true;
 }
 
+static bool is_hex_alpha_char(char ch) {
+    return (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F');
+}
+
+static bool is_hex_alpha_upper_char(char ch) {
+    return ch >= 'A' && ch <= 'F';
+}
+
+static bool is_hex_digit_char(char ch) {
+    return isdigit((unsigned char)ch) || is_hex_alpha_char(ch);
+}
+
+static size_t bare_hex_literal_len(Lexer *lx) {
+    const size_t shapes[2] = {4, 2};
+    for (size_t si = 0; si < 2; si++) {
+        size_t want = shapes[si];
+        if (lx->i + want > lx->len) {
+            continue;
+        }
+        bool has_digit = false;
+        bool has_alpha = false;
+        bool ok = true;
+        for (size_t off = 0; off < want; off++) {
+            char c = peek(lx, off);
+            if (!is_hex_digit_char(c)) {
+                ok = false;
+                break;
+            }
+            if (isdigit((unsigned char)c)) {
+                has_digit = true;
+            } else if (is_hex_alpha_char(c)) {
+                has_alpha = true;
+            }
+        }
+        if (!ok || !has_digit) {
+            continue;
+        }
+        if (!isdigit((unsigned char)peek(lx, 0))) {
+            if (!is_hex_alpha_upper_char(peek(lx, 0))) {
+                continue;
+            }
+            bool upper_alpha = true;
+            for (size_t off = 0; off < want; off++) {
+                char c = peek(lx, off);
+                if (is_hex_alpha_char(c) && !is_hex_alpha_upper_char(c)) {
+                    upper_alpha = false;
+                    break;
+                }
+            }
+            if (!upper_alpha) {
+                continue;
+            }
+        } else if (peek(lx, 0) != '0' && !has_alpha) {
+            continue;
+        }
+        char next = peek(lx, want);
+        if (next != '\0' && is_ident_mid(next)) {
+            continue;
+        }
+        return want;
+    }
+    return 0;
+}
+
 static bool emit_str(Lexer *lx, TokVec *out, Diag *err, Str text, StrParts *parts, int line, int col) {
     Tok t;
     if (!emit_tok(lx, out, err, TOK_STR, text, line, col, &t)) {
@@ -1111,6 +1175,32 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             }
             strpartvec_free(&parts);
             charvec_free(&buf);
+            continue;
+        }
+
+        size_t bare_hex_len = bare_hex_literal_len(&lx);
+        if (bare_hex_len > 0) {
+            int start_line = lx.line;
+            int start_col = lx.col;
+            size_t start = lx.i;
+            unsigned long long val = 0;
+            for (size_t k = 0; k < bare_hex_len; k++) {
+                char hc = peek(&lx, 0);
+                int digit = 0;
+                if (hc >= '0' && hc <= '9') digit = hc - '0';
+                else if (hc >= 'a' && hc <= 'f') digit = 10 + (hc - 'a');
+                else digit = 10 + (hc - 'A');
+                val = (val << 4) | (unsigned long long)digit;
+                adv(&lx, 1);
+            }
+            Str text = str_from_slice(&lx.src[start], bare_hex_len);
+            if (val > (unsigned long long)LLONG_MAX) {
+                return set_error(&lx, err, start_line, start_col, "integer literal is too large");
+            }
+            if (!emit_int(&lx, out, err, text, (long long)val, start_line, start_col)) {
+                return false;
+            }
+            set_last(&lx, TOK_INT);
             continue;
         }
 

@@ -78,6 +78,9 @@ Notes:
 ### 4.1 Literals
 
 - Integers: `42`
+- Bare hex integers: exact `xx` or `xxxx` forms like `7f`, `00ff`, `0070`, `FF00`
+  - Accepted conservatively: the token must be exactly 2 or 4 hex digits, must include at least one decimal digit, and must either start with a decimal digit or use uppercase `A-F` if it starts with a letter
+  - This keeps ordinary decimals like `42` and `1234` decimal, and keeps lowercase identifier-like names such as `ff` and `b0` from being reinterpreted as numbers
 - Floats: `3.14`
 - Booleans: `true`, `false`
 - Null: `null`

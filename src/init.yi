@@ -102,6 +102,15 @@ def ?g_diag_file_map = []: [string => any]
   <- p
 ;
 
+: array_has_string(arr = any, value = string) (( bool ))
+  let ?i = 0
+  let n = stdr.len(arr)
+  for (; i < n; i = i + 1)
+    if stdr.str(arr[i] ?? "") == value
+      <- true
+  <- false
+;
+
 : unescape_interp_expr(text = string) (( string ))
   let ?out = ""
   let ?i = 0
@@ -4406,13 +4415,14 @@ def ?g_diag_file_map = []: [string => any]
 ;
 
 : find_ext_module_packager(mod_name = string, module_yi_path = string) (( string ))
-  if stdr.len(mod_name) == 0 { <- "" }
-  let upper = str_to_upper(mod_name)
+  let ?native_mod = ext_module_native_owner(mod_name)
+  if stdr.len(native_mod) == 0 { <- "" }
+  let upper = str_to_upper(native_mod)
   let env_name = stdr.str_concat(stdr.str_concat("YIS_", upper), "_PACKAGER")
   let env_val = _env_value(env_name)
   if stdr.len(env_val) > 0 && file_exists(env_val) == 0 { <- env_val }
 
-  let script = stdr.str_concat(mod_name, "_packager.sh")
+  let script = stdr.str_concat(native_mod, "_packager.sh")
   let ?p = ""
   if stdr.len(module_yi_path) > 0
     let mod_dir = dir_of(module_yi_path)
@@ -4421,11 +4431,11 @@ def ?g_diag_file_map = []: [string => any]
     p = stdr.str_concat(mod_dir, script)
     if file_exists(p) == 0 { <- p }
 
-  p = stdr.str_concat(stdr.str_concat("/opt/homebrew/share/yis/", mod_name), stdr.str_concat("/", script))
+  p = stdr.str_concat(stdr.str_concat("/opt/homebrew/share/yis/", native_mod), stdr.str_concat("/", script))
   if file_exists(p) == 0 { <- p }
-  p = stdr.str_concat(stdr.str_concat("/usr/local/share/yis/", mod_name), stdr.str_concat("/", script))
+  p = stdr.str_concat(stdr.str_concat("/usr/local/share/yis/", native_mod), stdr.str_concat("/", script))
   if file_exists(p) == 0 { <- p }
-  p = stdr.str_concat(stdr.str_concat("/usr/share/yis/", mod_name), stdr.str_concat("/", script))
+  p = stdr.str_concat(stdr.str_concat("/usr/share/yis/", native_mod), stdr.str_concat("/", script))
   if file_exists(p) == 0 { <- p }
 
   p = stdr.str_concat("src/yis/", script)
@@ -4434,12 +4444,12 @@ def ?g_diag_file_map = []: [string => any]
   if file_exists(p) == 0 { <- p }
   p = stdr.str_concat("../../src/yis/", script)
   if file_exists(p) == 0 { <- p }
-  p = stdr.str_concat(stdr.str_concat("../", mod_name), stdr.str_concat("/src/yis/", script))
+  p = stdr.str_concat(stdr.str_concat("../", native_mod), stdr.str_concat("/src/yis/", script))
   if file_exists(p) == 0 { <- p }
-  p = stdr.str_concat(stdr.str_concat("../../", mod_name), stdr.str_concat("/src/yis/", script))
+  p = stdr.str_concat(stdr.str_concat("../../", native_mod), stdr.str_concat("/src/yis/", script))
   if file_exists(p) == 0 { <- p }
 
-  let cap_name = stdr.str_concat(str_to_upper(stdr.slice(mod_name, 0, 1)), stdr.slice(mod_name, 1, stdr.len(mod_name)))
+  let cap_name = stdr.str_concat(str_to_upper(stdr.slice(native_mod, 0, 1)), stdr.slice(native_mod, 1, stdr.len(native_mod)))
   p = stdr.str_concat(stdr.str_concat("../", cap_name), stdr.str_concat("/src/yis/", script))
   if file_exists(p) == 0 { <- p }
   p = stdr.str_concat(stdr.str_concat("../../", cap_name), stdr.str_concat("/src/yis/", script))
@@ -5798,25 +5808,30 @@ def ?g_diag_file_map = []: [string => any]
   <- ""
 ;
 
+: ext_module_native_owner(mod_name = string) (( string ))
+  <- mod_name
+;
+
 -- Auto-detect C compiler include flags (-I...) for an external module.
 -- Probes installed system paths, then dev-relative paths.
 : detect_module_cflags(mod_name = string) (( string ))
-  if stdr.len(mod_name) == 0 { <- "" }
-  let hfile = stdr.str_concat(mod_name, ".h")
+  let ?native_mod = ext_module_native_owner(mod_name)
+  if stdr.len(native_mod) == 0 { <- "" }
+  let hfile = stdr.str_concat(native_mod, ".h")
   -- System installed: /opt/homebrew/include/{name}/{name}.h etc
   let sys_inc = ["/opt/homebrew/include", "/usr/local/include", "/usr/include"]
   let ?si = 0
   let sn = stdr.len(sys_inc)
   for (; si < sn; si = si + 1)
     let sd = sys_inc[si] ?? ""
-    let p = stdr.str_concat(sd, stdr.str_concat("/", stdr.str_concat(mod_name, stdr.str_concat("/", hfile))))
-    if stdr.file_exists(p) { <- stdr.str_concat("-I", stdr.str_concat(sd, stdr.str_concat("/", mod_name))) }
+    let p = stdr.str_concat(sd, stdr.str_concat("/", stdr.str_concat(native_mod, stdr.str_concat("/", hfile))))
+    if stdr.file_exists(p) { <- stdr.str_concat("-I", stdr.str_concat(sd, stdr.str_concat("/", native_mod))) }
   -- Dev-relative paths: ../{name}/src/src, ../{name}/src
   let dev_paths = [
-    stdr.str_concat("../", stdr.str_concat(mod_name, "/src/src")),
-    stdr.str_concat("../", stdr.str_concat(mod_name, "/src")),
-    stdr.str_concat("../../", stdr.str_concat(mod_name, "/src/src")),
-    stdr.str_concat("../../", stdr.str_concat(mod_name, "/src"))
+    stdr.str_concat("../", stdr.str_concat(native_mod, "/src/src")),
+    stdr.str_concat("../", stdr.str_concat(native_mod, "/src")),
+    stdr.str_concat("../../", stdr.str_concat(native_mod, "/src/src")),
+    stdr.str_concat("../../", stdr.str_concat(native_mod, "/src"))
   ]
   let ?di = 0
   let dn = stdr.len(dev_paths)
@@ -5830,8 +5845,9 @@ def ?g_diag_file_map = []: [string => any]
 -- Auto-detect linker flags for an external module.
 -- Probes installed system paths, then dev-relative build dirs.
 : detect_module_ldflags(mod_name = string) (( string ))
-  if stdr.len(mod_name) == 0 { <- "" }
-  let lib_name = stdr.str_concat("lib", stdr.str_concat(mod_name, ".dylib"))
+  let ?native_mod = ext_module_native_owner(mod_name)
+  if stdr.len(native_mod) == 0 { <- "" }
+  let lib_name = stdr.str_concat("lib", stdr.str_concat(native_mod, ".dylib"))
   -- System installed
   let sys_dirs = ["/opt/homebrew/lib", "/usr/local/lib", "/usr/lib"]
   let ?si = 0
@@ -5841,15 +5857,15 @@ def ?g_diag_file_map = []: [string => any]
     let p = stdr.str_concat(sd, stdr.str_concat("/", lib_name))
     if stdr.file_exists(p)
       let ?flags = stdr.str_concat("-L", sd)
-      flags = stdr.str_concat(flags, stdr.str_concat(" -l", mod_name))
+      flags = stdr.str_concat(flags, stdr.str_concat(" -l", native_mod))
       flags = stdr.str_concat(flags, stdr.str_concat(" -Wl,-rpath,", sd))
       <- flags
   -- Dev-relative build dirs
   let dev_dirs = [
-    stdr.str_concat("../", stdr.str_concat(mod_name, "/build")),
-    stdr.str_concat("../", stdr.str_concat(mod_name, "/_build")),
-    stdr.str_concat("../../", stdr.str_concat(mod_name, "/build")),
-    stdr.str_concat("../../", stdr.str_concat(mod_name, "/_build"))
+    stdr.str_concat("../", stdr.str_concat(native_mod, "/build")),
+    stdr.str_concat("../", stdr.str_concat(native_mod, "/_build")),
+    stdr.str_concat("../../", stdr.str_concat(native_mod, "/build")),
+    stdr.str_concat("../../", stdr.str_concat(native_mod, "/_build"))
   ]
   let ?di = 0
   let dn = stdr.len(dev_dirs)
@@ -5858,11 +5874,11 @@ def ?g_diag_file_map = []: [string => any]
     let p = stdr.str_concat(dd, stdr.str_concat("/", lib_name))
     if stdr.file_exists(p)
       let ?flags = stdr.str_concat("-L", dd)
-      flags = stdr.str_concat(flags, stdr.str_concat(" -l", mod_name))
+      flags = stdr.str_concat(flags, stdr.str_concat(" -l", native_mod))
       flags = stdr.str_concat(flags, stdr.str_concat(" -Wl,-rpath,", dd))
       <- flags
   -- Fallback: just -l{name}
-  <- stdr.str_concat("-l", mod_name)
+  <- stdr.str_concat("-l", native_mod)
 ;
 
 -- Main emit_c: walks the full AST, emits modules, then current unit, and wraps with runtime+main.
@@ -5926,7 +5942,7 @@ def ?g_diag_file_map = []: [string => any]
   n = stdr.len(decls)
   let ?i = 0
   let ?has_entry = false
-  let ?ext_module_name = ""
+  let ?ext_module_names = []: [any]
   let brings = collect_brings(decls, src_dir)
   let nb = stdr.len(brings)
   g_bring_names = []: [string => any]
@@ -5945,8 +5961,9 @@ def ?g_diag_file_map = []: [string => any]
         bring_key = stdr.slice(bname, bk_i + 1, bk_n)
     _remember_demangle_module(bring_key)
     g_bring_names[bring_key] = true
-    if stdr.len(ext_module_name) == 0 && is_external_module(bname)
-      ext_module_name = bname
+    if is_external_module(bname)
+      if !array_has_string(ext_module_names, bname)
+        stdr.push(ext_module_names, bname)
     -- Parse and build class info for this module
     let mod_fpath = resolve_bring(bname, bdir)
     _register_diag_file(mod_fpath)
@@ -5966,7 +5983,10 @@ def ?g_diag_file_map = []: [string => any]
   build_class_info(decls, "")
 
   -- Include external module bindings if needed
-  if stdr.len(ext_module_name) > 0
+  let ?ext_bi = 0
+  let ext_bn = stdr.len(ext_module_names)
+  for (; ext_bi < ext_bn; ext_bi = ext_bi + 1)
+    let ext_module_name = ext_module_names[ext_bi] ?? ""
     let bind_path = find_ext_module_bindings(ext_module_name)
     if stdr.len(bind_path) > 0
       let bind_src = stdr.read_text_file(bind_path)
@@ -6157,6 +6177,7 @@ def ?g_diag_file_map = []: [string => any]
 
   -- Detect external module usage by scanning AST for 'bring <ext_module>'
   let ?ext_mod_name = ""
+  let ?ext_mod_names = []: [any]
   let ?uses_ext_module = false
   let decls_key2 = "decls"
   let ast_decls2 = opt_ast[decls_key2] ?? []: [any]
@@ -6166,9 +6187,12 @@ def ?g_diag_file_map = []: [string => any]
     let d2 = ast_decls2[di]
     if d2["tag"] == "bring"
       let bname2 = d2["name"] ?? ""
-      if stdr.len(ext_mod_name) == 0 && is_external_module(bname2)
-        ext_mod_name = bname2
-        uses_ext_module = true
+      if is_external_module(bname2)
+        if !array_has_string(ext_mod_names, bname2)
+          stdr.push(ext_mod_names, bname2)
+          if stdr.len(ext_mod_name) == 0
+            ext_mod_name = bname2
+          uses_ext_module = true
 
   let uname_res = stdr.run_command("uname")
   let ?uname_out = uname_res[1] ?? ""
@@ -6268,23 +6292,33 @@ def ?g_diag_file_map = []: [string => any]
     if uses_ext_module
       let ?mod_cflags = ""
       let ?mod_ldflags = ""
-      -- Check env var YIS_<NAME>_CFLAGS first
-      let upper_mod = str_to_upper(ext_mod_name)
-      let cflags_env = stdr.str_concat(stdr.str_concat("YIS_", upper_mod), "_CFLAGS")
-      let cflags_val = _env_value(cflags_env)
-      if stdr.len(cflags_val) > 0
-        mod_cflags = cflags_val
-      else
-        -- Auto-detect include path
-        mod_cflags = detect_module_cflags(ext_mod_name)
-      -- Check env var YIS_<NAME>_FLAGS first
-      let flags_env = stdr.str_concat(stdr.str_concat("YIS_", upper_mod), "_FLAGS")
-      let flags_val = _env_value(flags_env)
-      if stdr.len(flags_val) > 0
-        mod_ldflags = flags_val
-      else
-        -- Auto-detect library path
-        mod_ldflags = detect_module_ldflags(ext_mod_name)
+      let ?emi = 0
+      let emn = stdr.len(ext_mod_names)
+      for (; emi < emn; emi = emi + 1)
+        let one_mod_name = ext_mod_names[emi] ?? ""
+        let upper_mod = str_to_upper(one_mod_name)
+        let cflags_env = stdr.str_concat(stdr.str_concat("YIS_", upper_mod), "_CFLAGS")
+        let cflags_val = _env_value(cflags_env)
+        let ?one_cflags = ""
+        if stdr.len(cflags_val) > 0
+          one_cflags = cflags_val
+        else
+          one_cflags = detect_module_cflags(one_mod_name)
+        let flags_env = stdr.str_concat(stdr.str_concat("YIS_", upper_mod), "_FLAGS")
+        let flags_val = _env_value(flags_env)
+        let ?one_ldflags = ""
+        if stdr.len(flags_val) > 0
+          one_ldflags = flags_val
+        else
+          one_ldflags = detect_module_ldflags(one_mod_name)
+        if stdr.len(one_cflags) > 0
+          if stdr.len(mod_cflags) > 0
+            mod_cflags = stdr.str_concat(mod_cflags, " ")
+          mod_cflags = stdr.str_concat(mod_cflags, one_cflags)
+        if stdr.len(one_ldflags) > 0
+          if stdr.len(mod_ldflags) > 0
+            mod_ldflags = stdr.str_concat(mod_ldflags, " ")
+          mod_ldflags = stdr.str_concat(mod_ldflags, one_ldflags)
       cc_cmd = "cc -o \""
       cc_cmd = stdr.str_concat(cc_cmd, out_path)
       cc_cmd = stdr.str_concat(cc_cmd, "\" \"")

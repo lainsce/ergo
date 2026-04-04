@@ -31,6 +31,54 @@ bring stdr
   <- code >= 48 && code <= 57
 ;
 
+: is_hex_alpha(c = string) (( bool ))
+  if stdr.is_null(c) || stdr.len(c) == 0 { <- false }
+  let code = stdr.char_code(c)
+  <- (code >= 97 && code <= 102) || (code >= 65 && code <= 70)
+;
+
+: is_hex_alpha_upper(c = string) (( bool ))
+  if stdr.is_null(c) || stdr.len(c) == 0 { <- false }
+  let code = stdr.char_code(c)
+  <- code >= 65 && code <= 70
+;
+
+: bare_hex_literal_len(source = string, i = num) (( num ))
+  let n = stdr.len(source)
+  for (let ?want = 4; want >= 2; want -= 2)
+    if i + want > n { continue }
+    let ?ok = true
+    let ?has_digit = false
+    let ?has_alpha = false
+    for (let ?off = 0; off < want; off += 1)
+      let ch = stdr.slice(source, i + off, i + off + 1)
+      if hex_value(ch) < 0
+        ok = false
+        break
+      if is_digit(ch)
+        has_digit = true
+      elif is_hex_alpha(ch)
+        has_alpha = true
+    if !ok { continue }
+    if !has_digit { continue }
+    let first = stdr.slice(source, i, i + 1)
+    if !is_digit(first)
+      if !is_hex_alpha_upper(first) { continue }
+      let ?upper_alpha = true
+      for (let ?off = 0; off < want; off += 1)
+        let ch = stdr.slice(source, i + off, i + off + 1)
+        if is_hex_alpha(ch) && !is_hex_alpha_upper(ch)
+          upper_alpha = false
+          break
+      if !upper_alpha { continue }
+    elif first != "0" && !has_alpha { continue }
+    if i + want < n
+      let next = stdr.slice(source, i + want, i + want + 1)
+      if is_ident_mid(next) { continue }
+    <- want
+  <- 0
+;
+
 : is_ident_start(c = string) (( bool ))
   if stdr.is_null(c) || stdr.len(c) == 0 { <- false }
   let code = stdr.char_code(c)
@@ -237,6 +285,11 @@ bring stdr
   if i >= n
     <- [tok("eof", line, col, "", 0, ""), n, line, col]
   let c = stdr.slice(source, i, i + 1)
+  let hex_len = bare_hex_literal_len(source, i)
+  if hex_len > 0
+    let raw = stdr.slice(source, i, i + hex_len)
+    let value = stdr.parse_hex(raw)
+    <- [tok("int", line, col, raw, value, ""), i + hex_len, line, col + hex_len]
   if c == ";" { <- [tok("semi", line, col, "", 0, ""), i + 1, line, col + 1] }
   if c == "(" { <- [tok("lpar", line, col, "", 0, ""), i + 1, line, col + 1] }
   if c == ")" { <- [tok("rpar", line, col, "", 0, ""), i + 1, line, col + 1] }
@@ -344,8 +397,8 @@ bring stdr
           j = j + 1
     let raw = stdr.slice(source, i, j)
     if is_float
-      <- [tok("float", line, col, raw, 0, ""), j, line, col + (j - i)]
-    <- [tok("int", line, col, raw, 0, ""), j, line, col + (j - i)]
+      <- [tok("float", line, col, raw, num(raw), ""), j, line, col + (j - i)]
+    <- [tok("int", line, col, raw, num(raw), ""), j, line, col + (j - i)]
   if is_ident_start(c)
     let ?j = i
     for (; j < n; )

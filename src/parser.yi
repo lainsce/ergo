@@ -114,7 +114,7 @@ def ?brace_depth = 0
     let ?n = []: [string => any]
     n[tag] = "int"
     let vk = "value"
-    n[vk] = t[text] ?? "0"
+    n[vk] = stdr.str(t["int_val"] ?? (t[text] ?? "0"))
     <- pair(i + 1, n)
 
   -- Float literal
@@ -440,7 +440,7 @@ def ?brace_depth = 0
     let ?n = []: [string => any]
     n[tag] = "pat_int"
     let vk = "value"
-    n[vk] = t[text] ?? "0"
+    n[vk] = stdr.str(t["int_val"] ?? (t[text] ?? "0"))
     <- pair(i + 1, n)
   if tk == "str"
     let ?n = []: [string => any]
