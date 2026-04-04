@@ -22,6 +22,33 @@
 #include <dirent.h>
 #endif
 #include <unistd.h>
+#if defined(__APPLE__)
+#include <dlfcn.h>
+typedef void *yis_objc_id;
+typedef void *yis_objc_sel;
+typedef void *yis_objc_cls;
+typedef signed char yis_objc_bool;
+typedef yis_objc_id  (*yis_objc_msgSend_t)(void);
+typedef yis_objc_cls (*yis_objc_getClass_t)(const char*);
+typedef yis_objc_sel (*yis_objc_selRegister_t)(const char*);
+static yis_objc_msgSend_t     yis_objc_msgSend_fn;
+static yis_objc_getClass_t    yis_objc_getClass_fn;
+static yis_objc_selRegister_t yis_objc_selRegister_fn;
+static int yis_objc_loaded = 0;
+static int yis_objc_load(void) {
+  if (yis_objc_loaded) return yis_objc_msgSend_fn != NULL;
+  yis_objc_loaded = 1;
+  void *lib = dlopen("/usr/lib/libobjc.A.dylib", RTLD_LAZY);
+  if (!lib) return 0;
+  yis_objc_msgSend_fn     = (yis_objc_msgSend_t)dlsym(lib, "objc_msgSend");
+  yis_objc_getClass_fn    = (yis_objc_getClass_t)dlsym(lib, "objc_getClass");
+  yis_objc_selRegister_fn = (yis_objc_selRegister_t)dlsym(lib, "sel_registerName");
+  return yis_objc_msgSend_fn && yis_objc_getClass_fn && yis_objc_selRegister_fn;
+}
+#define OBJC_CLS(name)       yis_objc_getClass_fn(name)
+#define OBJC_SEL(name)       yis_objc_selRegister_fn(name)
+#define OBJC_SEND(ret, ...) ((ret(*)(__VA_ARGS__))yis_objc_msgSend_fn)
+#endif
 
 static int yis_stdout_isatty = 0;
 
@@ -885,11 +912,38 @@ static YisVal stdr_open_file_dialog(YisVal promptv, YisVal extv) {
   YisStr* prompt = (YisStr*)promptv.as.p;
   YisStr* ext = (YisStr*)extv.as.p;
 #if defined(__APPLE__)
-  char cmd[8192];
-  snprintf(cmd, sizeof(cmd),
-           "osascript -e 'set _p to POSIX path of (choose file of type {\"%s\"} with prompt \"%s\")' -e 'return _p' 2>/dev/null",
-           ext ? ext->data : "", prompt ? prompt->data : "");
-  return stdr_capture_shell_first_line(cmd);
+  if (!yis_objc_load()) return YV_NULLV;
+  yis_objc_id cls = (yis_objc_id)OBJC_CLS("NSOpenPanel");
+  if (!cls) return YV_NULLV;
+  yis_objc_id panel = OBJC_SEND(yis_objc_id, yis_objc_id, yis_objc_sel)(cls, OBJC_SEL("openPanel"));
+  if (!panel) return YV_NULLV;
+  if (prompt && prompt->data && prompt->data[0]) {
+    yis_objc_id ns = OBJC_SEND(yis_objc_id, yis_objc_id, yis_objc_sel, const char*)(
+        (yis_objc_id)OBJC_CLS("NSString"), OBJC_SEL("stringWithUTF8String:"), prompt->data);
+    OBJC_SEND(void, yis_objc_id, yis_objc_sel, yis_objc_id)(panel, OBJC_SEL("setMessage:"), ns);
+  }
+  if (ext && ext->data && ext->data[0]) {
+    yis_objc_id es = OBJC_SEND(yis_objc_id, yis_objc_id, yis_objc_sel, const char*)(
+        (yis_objc_id)OBJC_CLS("NSString"), OBJC_SEL("stringWithUTF8String:"), ext->data);
+    yis_objc_id UTType = (yis_objc_id)OBJC_CLS("UTType");
+    if (UTType) {
+      yis_objc_id ut = OBJC_SEND(yis_objc_id, yis_objc_id, yis_objc_sel, yis_objc_id)(UTType, OBJC_SEL("typeWithFilenameExtension:"), es);
+      if (ut) {
+        yis_objc_id arr = OBJC_SEND(yis_objc_id, yis_objc_id, yis_objc_sel, yis_objc_id)((yis_objc_id)OBJC_CLS("NSArray"), OBJC_SEL("arrayWithObject:"), ut);
+        OBJC_SEND(void, yis_objc_id, yis_objc_sel, yis_objc_id)(panel, OBJC_SEL("setAllowedContentTypes:"), arr);
+      }
+    }
+  }
+  long result = OBJC_SEND(long, yis_objc_id, yis_objc_sel)(panel, OBJC_SEL("runModal"));
+  if (result != 1) return YV_NULLV;
+  yis_objc_id urls = OBJC_SEND(yis_objc_id, yis_objc_id, yis_objc_sel)(panel, OBJC_SEL("URLs"));
+  yis_objc_id url = OBJC_SEND(yis_objc_id, yis_objc_id, yis_objc_sel)(urls, OBJC_SEL("firstObject"));
+  if (!url) return YV_NULLV;
+  yis_objc_id path = OBJC_SEND(yis_objc_id, yis_objc_id, yis_objc_sel)(url, OBJC_SEL("path"));
+  if (!path) return YV_NULLV;
+  const char *cp = OBJC_SEND(const char*, yis_objc_id, yis_objc_sel)(path, OBJC_SEL("UTF8String"));
+  if (!cp || !cp[0]) return YV_NULLV;
+  return YV_STR(stdr_str_from_slice(cp, strlen(cp)));
 #elif defined(__linux__)
   char cmd[8192];
   if (ext && ext->data && ext->data[0]) {
@@ -913,11 +967,28 @@ static YisVal stdr_open_folder_dialog(YisVal promptv) {
   if (promptv.tag != EVT_STR) yis_trap("open_folder_dialog expects prompt string");
   YisStr* prompt = (YisStr*)promptv.as.p;
 #if defined(__APPLE__)
-  char cmd[8192];
-  snprintf(cmd, sizeof(cmd),
-           "osascript -e 'set _p to POSIX path of (choose folder with prompt \"%s\")' -e 'return _p' 2>/dev/null",
-           prompt ? prompt->data : "");
-  return stdr_capture_shell_first_line(cmd);
+  if (!yis_objc_load()) return YV_NULLV;
+  yis_objc_id cls = (yis_objc_id)OBJC_CLS("NSOpenPanel");
+  if (!cls) return YV_NULLV;
+  yis_objc_id panel = OBJC_SEND(yis_objc_id, yis_objc_id, yis_objc_sel)(cls, OBJC_SEL("openPanel"));
+  if (!panel) return YV_NULLV;
+  OBJC_SEND(void, yis_objc_id, yis_objc_sel, yis_objc_bool)(panel, OBJC_SEL("setCanChooseDirectories:"), (yis_objc_bool)1);
+  OBJC_SEND(void, yis_objc_id, yis_objc_sel, yis_objc_bool)(panel, OBJC_SEL("setCanChooseFiles:"), (yis_objc_bool)0);
+  if (prompt && prompt->data && prompt->data[0]) {
+    yis_objc_id ns = OBJC_SEND(yis_objc_id, yis_objc_id, yis_objc_sel, const char*)(
+        (yis_objc_id)OBJC_CLS("NSString"), OBJC_SEL("stringWithUTF8String:"), prompt->data);
+    OBJC_SEND(void, yis_objc_id, yis_objc_sel, yis_objc_id)(panel, OBJC_SEL("setMessage:"), ns);
+  }
+  long result = OBJC_SEND(long, yis_objc_id, yis_objc_sel)(panel, OBJC_SEL("runModal"));
+  if (result != 1) return YV_NULLV;
+  yis_objc_id urls = OBJC_SEND(yis_objc_id, yis_objc_id, yis_objc_sel)(panel, OBJC_SEL("URLs"));
+  yis_objc_id url = OBJC_SEND(yis_objc_id, yis_objc_id, yis_objc_sel)(urls, OBJC_SEL("firstObject"));
+  if (!url) return YV_NULLV;
+  yis_objc_id path = OBJC_SEND(yis_objc_id, yis_objc_id, yis_objc_sel)(url, OBJC_SEL("path"));
+  if (!path) return YV_NULLV;
+  const char *cp = OBJC_SEND(const char*, yis_objc_id, yis_objc_sel)(path, OBJC_SEL("UTF8String"));
+  if (!cp || !cp[0]) return YV_NULLV;
+  return YV_STR(stdr_str_from_slice(cp, strlen(cp)));
 #elif defined(__linux__)
   char cmd[8192];
   snprintf(cmd, sizeof(cmd),
@@ -938,13 +1009,42 @@ static YisVal stdr_save_file_dialog(YisVal promptv, YisVal default_namev, YisVal
   YisStr* def = (YisStr*)default_namev.as.p;
   YisStr* ext = (YisStr*)extv.as.p;
 #if defined(__APPLE__)
-  char cmd[8192];
-  snprintf(cmd, sizeof(cmd),
-           "osascript -e 'set _p to POSIX path of (choose file name with prompt \"%s\" default name \"%s\")' -e 'return _p' 2>/dev/null",
-           prompt ? prompt->data : "", def ? def->data : "");
-  YisVal out = stdr_capture_shell_first_line(cmd);
-  (void)ext;
-  return out;
+  if (!yis_objc_load()) return YV_NULLV;
+  yis_objc_id cls = (yis_objc_id)OBJC_CLS("NSSavePanel");
+  if (!cls) return YV_NULLV;
+  yis_objc_id panel = OBJC_SEND(yis_objc_id, yis_objc_id, yis_objc_sel)(cls, OBJC_SEL("savePanel"));
+  if (!panel) return YV_NULLV;
+  if (prompt && prompt->data && prompt->data[0]) {
+    yis_objc_id ns = OBJC_SEND(yis_objc_id, yis_objc_id, yis_objc_sel, const char*)(
+        (yis_objc_id)OBJC_CLS("NSString"), OBJC_SEL("stringWithUTF8String:"), prompt->data);
+    OBJC_SEND(void, yis_objc_id, yis_objc_sel, yis_objc_id)(panel, OBJC_SEL("setMessage:"), ns);
+  }
+  if (def && def->data && def->data[0]) {
+    yis_objc_id ns = OBJC_SEND(yis_objc_id, yis_objc_id, yis_objc_sel, const char*)(
+        (yis_objc_id)OBJC_CLS("NSString"), OBJC_SEL("stringWithUTF8String:"), def->data);
+    OBJC_SEND(void, yis_objc_id, yis_objc_sel, yis_objc_id)(panel, OBJC_SEL("setNameFieldStringValue:"), ns);
+  }
+  if (ext && ext->data && ext->data[0]) {
+    yis_objc_id es = OBJC_SEND(yis_objc_id, yis_objc_id, yis_objc_sel, const char*)(
+        (yis_objc_id)OBJC_CLS("NSString"), OBJC_SEL("stringWithUTF8String:"), ext->data);
+    yis_objc_id UTType = (yis_objc_id)OBJC_CLS("UTType");
+    if (UTType) {
+      yis_objc_id ut = OBJC_SEND(yis_objc_id, yis_objc_id, yis_objc_sel, yis_objc_id)(UTType, OBJC_SEL("typeWithFilenameExtension:"), es);
+      if (ut) {
+        yis_objc_id arr = OBJC_SEND(yis_objc_id, yis_objc_id, yis_objc_sel, yis_objc_id)((yis_objc_id)OBJC_CLS("NSArray"), OBJC_SEL("arrayWithObject:"), ut);
+        OBJC_SEND(void, yis_objc_id, yis_objc_sel, yis_objc_id)(panel, OBJC_SEL("setAllowedContentTypes:"), arr);
+      }
+    }
+  }
+  long result = OBJC_SEND(long, yis_objc_id, yis_objc_sel)(panel, OBJC_SEL("runModal"));
+  if (result != 1) return YV_NULLV;
+  yis_objc_id url = OBJC_SEND(yis_objc_id, yis_objc_id, yis_objc_sel)(panel, OBJC_SEL("URL"));
+  if (!url) return YV_NULLV;
+  yis_objc_id path = OBJC_SEND(yis_objc_id, yis_objc_id, yis_objc_sel)(url, OBJC_SEL("path"));
+  if (!path) return YV_NULLV;
+  const char *cp = OBJC_SEND(const char*, yis_objc_id, yis_objc_sel)(path, OBJC_SEL("UTF8String"));
+  if (!cp || !cp[0]) return YV_NULLV;
+  return YV_STR(stdr_str_from_slice(cp, strlen(cp)));
 #elif defined(__linux__)
   char cmd[8192];
   snprintf(cmd, sizeof(cmd),
