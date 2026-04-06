@@ -380,6 +380,20 @@ bring stdr
       if c2 == "\>" { <- [tok("arrow_right", line, col, "", 0, ""), i + 2, line, col + 2] }
     <- [tok("minus", line, col, "", 0, ""), i + 1, line, col + 1]
   if is_digit(c)
+    if c == "0" && i + 2 < n
+      let nx = stdr.slice(source, i + 1, i + 2)
+      if nx == "x" || nx == "X"
+        let first_hex = stdr.slice(source, i + 2, i + 3)
+        if hex_value(first_hex) >= 0
+          let ?j = i + 2
+          for (; j < n; )
+            let ch = stdr.slice(source, j, j + 1)
+            if hex_value(ch) < 0 { break }
+            j = j + 1
+          let raw = stdr.slice(source, i, j)
+          let hex_digits = stdr.slice(source, i + 2, j)
+          let value = stdr.parse_hex(hex_digits)
+          <- [tok("int", line, col, raw, value, ""), j, line, col + (j - i)]
     let ?j = i
     for (; j < n; )
       let ch = stdr.slice(source, j, j + 1)

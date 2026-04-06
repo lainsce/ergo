@@ -1208,6 +1208,37 @@ bool lex_source(const char *path, const char *src, size_t len, Arena *arena, Tok
             int start_line = lx.line;
             int start_col = lx.col;
             size_t start = lx.i;
+
+            if (ch == '0' && (peek(&lx, 1) == 'x' || peek(&lx, 1) == 'X')) {
+                adv(&lx, 2); // skip '0x'
+                if (lx.i >= lx.len || !isxdigit((unsigned char)peek(&lx, 0))) {
+                    return set_error(&lx, err, start_line, start_col, "expected hex digits after 0x");
+                }
+                unsigned long long val = 0;
+                while (lx.i < lx.len && isxdigit((unsigned char)peek(&lx, 0))) {
+                    char hc = peek(&lx, 0);
+                    int digit = 0;
+                    if (hc >= '0' && hc <= '9') digit = hc - '0';
+                    else if (hc >= 'a' && hc <= 'f') digit = 10 + (hc - 'a');
+                    else digit = 10 + (hc - 'A');
+                    if (val > (ULLONG_MAX >> 4)) {
+                        return set_error(&lx, err, start_line, start_col, "hex literal is too large");
+                    }
+                    val = (val << 4) | (unsigned long long)digit;
+                    adv(&lx, 1);
+                }
+                size_t end = lx.i;
+                Str text = str_from_slice(&lx.src[start], end - start);
+                if (val > (unsigned long long)LLONG_MAX) {
+                    return set_error(&lx, err, start_line, start_col, "hex literal is too large");
+                }
+                if (!emit_int(&lx, out, err, text, (long long)val, start_line, start_col)) {
+                    return false;
+                }
+                set_last(&lx, TOK_INT);
+                continue;
+            }
+
             while (lx.i < lx.len && isdigit((unsigned char)peek(&lx, 0))) {
                 adv(&lx, 1);
             }
