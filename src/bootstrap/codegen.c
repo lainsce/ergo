@@ -659,6 +659,22 @@ static void codegen_release_scope(Codegen *cg, LocalList locals) {
     free(locals.items);
 }
 
+// Emit release calls for all locals in all current scopes without
+// popping them.  Used by STMT_RETURN so that an early 'return' does
+// not skip cleanup of scope-tracked locals (YisRef* from let/const/params).
+static void codegen_emit_all_scope_releases(Codegen *cg) {
+    for (size_t s = cg->scope_locals_len; s-- > 0;) {
+        LocalList *ll = &cg->scope_locals[s];
+        for (size_t i = ll->len; i-- > 0;) {
+            if (ll->items[i].is_ref) {
+                w_line(&cg->w, "yis_ref_release(%s);", ll->items[i].cname);
+            } else {
+                w_line(&cg->w, "yis_release_val(%s);", ll->items[i].cname);
+            }
+        }
+    }
+}
+
 static bool codegen_loop_push(Codegen *cg, char *continue_label) {
     if (cg->loop_stack_len + 1 > cg->loop_stack_cap) {
         size_t next = cg->loop_stack_cap ? cg->loop_stack_cap * 2 : 8;
@@ -2384,7 +2400,6 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                     gen_expr_free(&vt);
                     return cg_set_err(err, path, "unsupported assignment target");
                 }
-                w_line(&cg->w, "yis_release_val(%s);", vt.tmp);
             }
             gen_expr_release_except(cg, &vt, vt.tmp);
             gen_expr_free(&vt);
@@ -3412,10 +3427,10 @@ static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err) {
                 if (s->as.ret_s.expr) {
                     GenExpr ge;
                     if (!gen_expr(cg, path, s->as.ret_s.expr, &ge, err)) return false;
-                    w_line(&cg->w, "yis_release_val(%s);", ge.tmp);
-                    gen_expr_release_except(cg, &ge, ge.tmp);
+                    gen_expr_release_except(cg, &ge, NULL);
                     gen_expr_free(&ge);
                 }
+                codegen_emit_all_scope_releases(cg);
                 w_line(&cg->w, "return;");
             } else {
                 if (!s->as.ret_s.expr) {
@@ -3427,6 +3442,7 @@ static bool gen_stmt(Codegen *cg, Str path, Stmt *s, bool ret_void, Diag *err) {
                     gen_expr_release_except(cg, &ge, ge.tmp);
                     gen_expr_free(&ge);
                 }
+                codegen_emit_all_scope_releases(cg);
                 w_line(&cg->w, "return __ret;");
             }
             return true;
@@ -4377,6 +4393,7 @@ static bool codegen_gen(Codegen *cg, const char *ext_module_name, const char *ex
         GenExpr ge;
         if (!gen_expr(cg, li->path, li->lam->as.lambda.body, &ge, err)) return false;
         w_line(&cg->w, "yis_move_into(&__ret, %s);", ge.tmp);
+        w_line(&cg->w, "yis_release_val(%s);", ge.tmp);
         gen_expr_release_except(cg, &ge, ge.tmp);
         gen_expr_free(&ge);
         {

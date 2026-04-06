@@ -21,6 +21,7 @@ def ?g_opt_ast_cache = []: [string => any]
 def ?g_inline_map = []: [string => any]
 def ?g_scope_names = []: [string => any]
 def ?g_scope_order = []: [any]
+def ?g_owned_names = []: [string => any]
 def ?g_global_def_names = []: [string => any]
 def ?g_def_types = []: [string => any]
 def ?g_bring_names = []: [string => any]
@@ -2889,6 +2890,7 @@ def ?g_diag_file_map = []: [string => any]
     r = stdr.str_concat(r, name)
     r = stdr.str_concat(r, ");\n")
     scope_mark(name)
+    g_owned_names[name] = true
     <- r
 
   if st == "const"
@@ -2908,18 +2910,35 @@ def ?g_diag_file_map = []: [string => any]
     r = stdr.str_concat(r, name)
     r = stdr.str_concat(r, ");\n")
     scope_mark(name)
+    g_owned_names[name] = true
     <- r
 
   if st == "return"
     let vk = "value"
     let val = s[vk]
     let ?r = indent
+    -- Build release string for all owned locals
+    let ?rel = ""
+    let ?ri = 0
+    let rn = stdr.len(g_scope_order)
+    for (; ri < rn; ri = ri + 1)
+      let rname = g_scope_order[ri] ?? ""
+      if !stdr.is_null(g_owned_names[rname])
+        rel = stdr.str_concat(rel, indent)
+        rel = stdr.str_concat(rel, "yis_release_val(v_")
+        rel = stdr.str_concat(rel, rname)
+        rel = stdr.str_concat(rel, ");\n")
     if stdr.is_null(val)
+      r = stdr.str_concat(r, rel)
+      r = stdr.str_concat(r, indent)
       r = stdr.str_concat(r, "return;\n")
     else
-      r = stdr.str_concat(r, "return ")
+      r = stdr.str_concat(r, "{ YisVal __ret = ")
       r = stdr.str_concat(r, emit_expr(val, cask_name))
       r = stdr.str_concat(r, ";\n")
+      r = stdr.str_concat(r, rel)
+      r = stdr.str_concat(r, indent)
+      r = stdr.str_concat(r, "return __ret; }\n")
     <- r
 
   if st == "break"
@@ -2944,6 +2963,7 @@ def ?g_diag_file_map = []: [string => any]
   if st == "if"
     let prev_scope_names_if = g_scope_names
     let prev_scope_order_if = g_scope_order
+    let prev_owned_if = g_owned_names
     let ck = "cond"
     let tk = "then"
     let ek = "else"
@@ -2956,6 +2976,9 @@ def ?g_diag_file_map = []: [string => any]
     r = stdr.str_concat(r, cond_c)
     r = stdr.str_concat(r, ")) {\n")
     r = stdr.str_concat(r, emit_stmts(then_stmts, inner, cask_name))
+    g_scope_names = prev_scope_names_if
+    g_scope_order = prev_scope_order_if
+    g_owned_names = prev_owned_if
     r = stdr.str_concat(r, indent)
     r = stdr.str_concat(r, "}")
     if !stdr.is_null(else_stmts)
@@ -2984,11 +3007,13 @@ def ?g_diag_file_map = []: [string => any]
     r = stdr.str_concat(r, "\n")
     g_scope_names = prev_scope_names_if
     g_scope_order = prev_scope_order_if
+    g_owned_names = prev_owned_if
     <- r
 
   if st == "for"
     let prev_scope_names_for = g_scope_names
     let prev_scope_order_for = g_scope_order
+    let prev_owned_for = g_owned_names
     let ck = "cond"
     let bk = "body"
     let sk = "step"
@@ -3027,11 +3052,13 @@ def ?g_diag_file_map = []: [string => any]
     r = stdr.str_concat(r, "\n")
     g_scope_names = prev_scope_names_for
     g_scope_order = prev_scope_order_for
+    g_owned_names = prev_owned_for
     <- r
 
   if st == "foreach"
     let prev_scope_names_foreach = g_scope_names
     let prev_scope_order_foreach = g_scope_order
+    let prev_owned_foreach = g_owned_names
     let ik = "item"
     let itk = "iter"
     let bk = "body"
@@ -3054,6 +3081,7 @@ def ?g_diag_file_map = []: [string => any]
     r = stdr.str_concat(r, "} }\n")
     g_scope_names = prev_scope_names_foreach
     g_scope_order = prev_scope_order_foreach
+    g_owned_names = prev_owned_foreach
     <- r
 
   -- Unknown statement type; emit as comment
@@ -3077,7 +3105,13 @@ def ?g_diag_file_map = []: [string => any]
   let ?r = "if (yis_as_bool("
   r = stdr.str_concat(r, cond_c)
   r = stdr.str_concat(r, ")) {\n")
+  let prev_scope_names_eif = g_scope_names
+  let prev_scope_order_eif = g_scope_order
+  let prev_owned_eif = g_owned_names
   r = stdr.str_concat(r, emit_stmts(then_stmts, inner, cask_name))
+  g_scope_names = prev_scope_names_eif
+  g_scope_order = prev_scope_order_eif
+  g_owned_names = prev_owned_eif
   r = stdr.str_concat(r, indent)
   r = stdr.str_concat(r, "}")
   if !stdr.is_null(else_stmts)
@@ -3115,9 +3149,11 @@ def ?g_diag_file_map = []: [string => any]
 
   let prev_scope = g_scope_names
   let prev_scope_order = g_scope_order
+  let prev_owned = g_owned_names
   let prev_var_types = g_var_types
   g_scope_names = []: [string => any]
   g_scope_order = []: [any]
+  g_owned_names = []: [string => any]
   g_var_types = []: [string => any]
 
   let ?out = "YisVal "
@@ -3168,6 +3204,7 @@ def ?g_diag_file_map = []: [string => any]
 
   g_scope_names = prev_scope
   g_scope_order = prev_scope_order
+  g_owned_names = prev_owned
   g_var_types = prev_var_types
   <- out
 ;
@@ -3189,9 +3226,11 @@ def ?g_diag_file_map = []: [string => any]
   let prev_var_types = g_var_types
   let prev_scope_names = g_scope_names
   let prev_scope_order = g_scope_order
+  let prev_owned_fun = g_owned_names
   g_var_types = []: [string => any]
   g_scope_names = []: [string => any]
   g_scope_order = []: [any]
+  g_owned_names = []: [string => any]
   let ?np = 0
   np = stdr.len(params)
   let ?pi = 0
@@ -3236,6 +3275,7 @@ def ?g_diag_file_map = []: [string => any]
   g_var_types = prev_var_types
   g_scope_names = prev_scope_names
   g_scope_order = prev_scope_order
+  g_owned_names = prev_owned_fun
   <- out
 ;
 
@@ -3327,9 +3367,11 @@ def ?g_diag_file_map = []: [string => any]
   let prev_var_types = g_var_types
   let prev_scope_names = g_scope_names
   let prev_scope_order = g_scope_order
+  let prev_owned_method = g_owned_names
   g_var_types = []: [string => any]
   g_scope_names = []: [string => any]
   g_scope_order = []: [any]
+  g_owned_names = []: [string => any]
   g_var_types["this"] = class_name
   scope_mark("this")
   let ?pi = 0
@@ -3370,6 +3412,7 @@ def ?g_diag_file_map = []: [string => any]
   g_var_types = prev_var_types
   g_scope_names = prev_scope_names
   g_scope_order = prev_scope_order
+  g_owned_names = prev_owned_method
   <- out
 ;
 
