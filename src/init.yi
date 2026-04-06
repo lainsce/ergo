@@ -36,6 +36,9 @@ def ?g_last_line_num = 0
 def ?g_demangle_mods = []: [string => any]
 def ?g_demangle_mod_list = []: [any]
 def ?g_diag_file_map = []: [string => any]
+def ?g_flat_names = []: [any]
+def ?g_flat_exprs = []: [any]
+def ?g_flat_counter = 0
 
 -- ============================================================
 -- C code emitter: walks AST and produces C using the Yis runtime.
@@ -2806,7 +2809,8 @@ def ?g_diag_file_map = []: [string => any]
   let ?k = 0
   for (; k < n; k = k + 1)
     if k > 0 { stdr.push(parts, ", ") }
-    stdr.push(parts, emit_expr(args[k], cask_name))
+    let ac = emit_expr(args[k], cask_name)
+    stdr.push(parts, emit_flat_arg(args[k], ac))
   <- join_parts(parts)
 ;
 
@@ -2829,7 +2833,8 @@ def ?g_diag_file_map = []: [string => any]
     stdr.push(parts, "__argv[")
     stdr.push(parts, stdr.str(k))
     stdr.push(parts, "] = ")
-    stdr.push(parts, emit_expr(args[k], cask_name))
+    let ac = emit_expr(args[k], cask_name)
+    stdr.push(parts, emit_flat_arg(args[k], ac))
     stdr.push(parts, "; ")
   stdr.push(parts, "yis_call(")
   stdr.push(parts, func_expr)
@@ -2862,8 +2867,83 @@ def ?g_diag_file_map = []: [string => any]
   <- join_parts(parts)
 ;
 
+-- Check whether an expression produces a fresh +1 value (caller owns).
+-- Fresh expressions: function calls, literals, array/dict/lambda constructors.
+-- For these, the let binding does NOT need yis_retain_val (already ref=1).
+: is_fresh_expr(e = any) (( bool ))
+    if stdr.is_null(e) { <- false }
+    let tk = "tag"
+    let et = e[tk] ?? ""
+    if et == "call" { <- true }
+    if et == "bang_call" { <- true }
+    if et == "str" { <- true }
+    if et == "interp" { <- true }
+    if et == "array" { <- true }
+    if et == "dict" { <- true }
+    if et == "lambda" { <- true }
+    <- false
+;
+
+-- Register a fresh call-arg into the flat-temp accumulator.
+-- Returns a temp name (__ft0, __ft1, ...) for fresh args; otherwise returns arg_c as-is.
+: emit_flat_arg(arg_ast = any, arg_c = string) (( string ))
+    if !is_fresh_expr(arg_ast) { <- arg_c }
+    let n = g_flat_counter
+    g_flat_counter = g_flat_counter + 1
+    let ?tname = "__ft"
+    tname = stdr.str_concat(tname, stdr.str(n))
+    stdr.push(g_flat_names, tname)
+    stdr.push(g_flat_exprs, arg_c)
+    <- tname
+;
+
+-- Emit YisVal declarations for all accumulated flat temps.
+: flat_decls(indent = string) (( string ))
+    let ?r = ""
+    let n = stdr.len(g_flat_names)
+    let ?i = 0
+    for (; i < n; i = i + 1)
+      r = stdr.str_concat(r, indent)
+      r = stdr.str_concat(r, "YisVal ")
+      r = stdr.str_concat(r, g_flat_names[i] ?? "")
+      r = stdr.str_concat(r, " = ")
+      r = stdr.str_concat(r, g_flat_exprs[i] ?? "")
+      r = stdr.str_concat(r, ";\n")
+    <- r
+;
+
+-- Emit yis_release_val for all accumulated flat temps (reverse order).
+: flat_releases(indent = string) (( string ))
+    let ?r = ""
+    let n = stdr.len(g_flat_names)
+    let ?i = n - 1
+    for (; i >= 0; i = i - 1)
+      r = stdr.str_concat(r, indent)
+      r = stdr.str_concat(r, "yis_release_val(")
+      r = stdr.str_concat(r, g_flat_names[i] ?? "")
+      r = stdr.str_concat(r, ");\n")
+    <- r
+;
+
 -- Emit one C statement from a stmt AST node.
 : emit_stmt(s = any, indent = string, cask_name = string) (( string ))
+  if stdr.is_null(s) { <- "" }
+  let prev_fn_w = g_flat_names
+  let prev_fe_w = g_flat_exprs
+  g_flat_names = []: [any]
+  g_flat_exprs = []: [any]
+  let r_w = emit_stmt_core(s, indent, cask_name)
+  let decls_w = flat_decls(indent)
+  let frels_w = flat_releases(indent)
+  g_flat_names = prev_fn_w
+  g_flat_exprs = prev_fe_w
+  let ?out_w = decls_w
+  out_w = stdr.str_concat(out_w, r_w)
+  out_w = stdr.str_concat(out_w, frels_w)
+  <- out_w
+;
+
+: emit_stmt_core(s = any, indent = string, cask_name = string) (( string ))
   if stdr.is_null(s) { <- "" }
   let tag = "tag"
   let st = s[tag] ?? ""
@@ -2886,9 +2966,12 @@ def ?g_diag_file_map = []: [string => any]
       r = stdr.str_concat(r, "YV_NULLV")
     else
       r = stdr.str_concat(r, emit_expr(init, cask_name))
-    r = stdr.str_concat(r, "; yis_retain_val(v_")
-    r = stdr.str_concat(r, name)
-    r = stdr.str_concat(r, ");\n")
+    if stdr.is_null(init) || !is_fresh_expr(init)
+      r = stdr.str_concat(r, "; yis_retain_val(v_")
+      r = stdr.str_concat(r, name)
+      r = stdr.str_concat(r, ");\n")
+    else
+      r = stdr.str_concat(r, ";\n")
     scope_mark(name)
     g_owned_names[name] = true
     <- r
@@ -2906,9 +2989,12 @@ def ?g_diag_file_map = []: [string => any]
       r = stdr.str_concat(r, "YV_NULLV")
     else
       r = stdr.str_concat(r, emit_expr(init, cask_name))
-    r = stdr.str_concat(r, "; yis_retain_val(v_")
-    r = stdr.str_concat(r, name)
-    r = stdr.str_concat(r, ");\n")
+    if stdr.is_null(init) || !is_fresh_expr(init)
+      r = stdr.str_concat(r, "; yis_retain_val(v_")
+      r = stdr.str_concat(r, name)
+      r = stdr.str_concat(r, ");\n")
+    else
+      r = stdr.str_concat(r, ";\n")
     scope_mark(name)
     g_owned_names[name] = true
     <- r
@@ -2916,7 +3002,6 @@ def ?g_diag_file_map = []: [string => any]
   if st == "return"
     let vk = "value"
     let val = s[vk]
-    let ?r = indent
     -- Build release string for all owned locals
     let ?rel = ""
     let ?ri = 0
@@ -2929,16 +3014,32 @@ def ?g_diag_file_map = []: [string => any]
         rel = stdr.str_concat(rel, rname)
         rel = stdr.str_concat(rel, ");\n")
     if stdr.is_null(val)
+      let ?r = indent
       r = stdr.str_concat(r, rel)
       r = stdr.str_concat(r, indent)
       r = stdr.str_concat(r, "return;\n")
-    else
-      r = stdr.str_concat(r, "{ YisVal __ret = ")
-      r = stdr.str_concat(r, emit_expr(val, cask_name))
-      r = stdr.str_concat(r, ";\n")
-      r = stdr.str_concat(r, rel)
+      <- r
+    let prev_fn_r = g_flat_names
+    let prev_fe_r = g_flat_exprs
+    g_flat_names = []: [any]
+    g_flat_exprs = []: [any]
+    let val_c = emit_expr(val, cask_name)
+    let decls_r = flat_decls(indent)
+    let frels_r = flat_releases(indent)
+    g_flat_names = prev_fn_r
+    g_flat_exprs = prev_fe_r
+    let ?r = decls_r
+    r = stdr.str_concat(r, indent)
+    r = stdr.str_concat(r, "{ YisVal __ret = ")
+    r = stdr.str_concat(r, val_c)
+    r = stdr.str_concat(r, ";\n")
+    if !is_fresh_expr(val)
       r = stdr.str_concat(r, indent)
-      r = stdr.str_concat(r, "return __ret; }\n")
+      r = stdr.str_concat(r, "yis_retain_val(__ret);\n")
+    r = stdr.str_concat(r, frels_r)
+    r = stdr.str_concat(r, rel)
+    r = stdr.str_concat(r, indent)
+    r = stdr.str_concat(r, "return __ret; }\n")
     <- r
 
   if st == "break"

@@ -1323,8 +1323,8 @@ static void yis_release_val(YisVal v) {
     YisFn* f = (YisFn*)v.as.p;
     if (--f->ref == 0) {
       if (f->env && f->env_size > 0) {
-        YisRef** caps = (YisRef**)f->env;
-        for (int i = 0; i < f->env_size; i++) yis_ref_release(caps[i]);
+        YisVal* caps = (YisVal*)f->env;
+        for (int i = 0; i < f->env_size; i++) yis_release_val(caps[i]);
         free(f->env);
       }
       free(f);
