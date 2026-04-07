@@ -55,6 +55,16 @@ def ?g_flat_counter = 0
   <- r
 ;
 
+-- Mangle a module-level def variable name: v_<cask>_<name>
+: mangle_def(cask_name = string, def_name = string) (( string ))
+  let ?r = "v_"
+  if stdr.len(cask_name) > 0
+    r = stdr.str_concat(r, cask_name)
+    r = stdr.str_concat(r, "_")
+  r = stdr.str_concat(r, def_name)
+  <- r
+;
+
 -- Mangle a class method name: yis_m_<mod>_<class>_<method>
 : mangle_method(mod_name = string, class_name = string, method_name = string) (( string ))
   -- Defensive: tolerate null/empty parts to avoid crashes when upstream names are missing
@@ -1055,7 +1065,11 @@ def ?g_flat_counter = 0
   for (; j < n; j = j + 1)
     if !_is_ident_mid_char(stdr.slice(s, j, j + 1)) { break }
   let head = stdr.slice(s, 0, j)
-  let ?out = stdr.str_concat("v_", head)
+  let ?out = ""
+  if !stdr.is_null(g_global_def_names[head])
+    out = mangle_def(g_cur_mod, head)
+  else
+    out = stdr.str_concat("v_", head)
   i = j
 
   for (; i < n; )
@@ -1804,10 +1818,12 @@ def ?g_flat_counter = 0
   if et == "ident"
     let nk = "name"
     let name = e[nk] ?? ""
-    if !stdr.is_null(g_scope_names[name]) || !stdr.is_null(g_def_types[name])
+    if !stdr.is_null(g_scope_names[name])
       let ?r = "v_"
       r = stdr.str_concat(r, name)
       <- r
+    if !stdr.is_null(g_global_def_names[name]) || !stdr.is_null(g_def_types[name])
+      <- mangle_def(cask_name, name)
     -- Check if this ident is a known function (used as a value, not called)
     let ?fkey = cask_name
     fkey = stdr.str_concat(fkey, ".")
@@ -1911,10 +1927,12 @@ def ?g_flat_counter = 0
     if func_tag == "ident"
       let nk = "name"
       let fname = func[nk] ?? ""
-      if !stdr.is_null(g_scope_names[fname]) || !stdr.is_null(g_global_def_names[fname]) || !stdr.is_null(g_def_types[fname])
+      if !stdr.is_null(g_scope_names[fname])
         let ?fexpr = "v_"
         fexpr = stdr.str_concat(fexpr, fname)
         <- emit_value_call(fexpr, args, cask_name)
+      if !stdr.is_null(g_global_def_names[fname]) || !stdr.is_null(g_def_types[fname])
+        <- emit_value_call(mangle_def(cask_name, fname), args, cask_name)
       if fname == "write"
         let ?r = "stdr_write("
         r = emit_args(args, r, cask_name)
@@ -2274,9 +2292,7 @@ def ?g_flat_counter = 0
     if mem_obj_tag == "ident"
       let mem_obj_name = dict_get_or(obj_raw, "name", "") ?? ""
       if !stdr.is_null(g_bring_names[mem_obj_name]) && mem_obj_name != cask_name
-        let ?r = "v_"
-        r = stdr.str_concat(r, field)
-        <- r
+        <- mangle_def(mem_obj_name, field)
     -- Check if receiver is a class with struct fields
     let mem_recv_type = type_of_expr(obj_raw, cask_name)
     let mem_cls_info = g_classes[mem_recv_type] ?? []: [string => any]
@@ -2327,12 +2343,17 @@ def ?g_flat_counter = 0
     if lhs_tag == "ident"
       let nk = "name"
       let name = lhs[nk] ?? ""
-      let ?r = "(yis_move_into(&v_"
-      r = stdr.str_concat(r, name)
+      let ?lhs_cname = ""
+      if !stdr.is_null(g_global_def_names[name]) && stdr.is_null(g_scope_names[name])
+        lhs_cname = mangle_def(cask_name, name)
+      else
+        lhs_cname = stdr.str_concat("v_", name)
+      let ?r = "(yis_move_into(&"
+      r = stdr.str_concat(r, lhs_cname)
       r = stdr.str_concat(r, ", ")
       r = stdr.str_concat(r, rhs_c)
-      r = stdr.str_concat(r, "), v_")
-      r = stdr.str_concat(r, name)
+      r = stdr.str_concat(r, "), ")
+      r = stdr.str_concat(r, lhs_cname)
       r = stdr.str_concat(r, ")")
       <- r
     if lhs_tag == "index"
@@ -3328,6 +3349,8 @@ def ?g_flat_counter = 0
   let prev_scope_names = g_scope_names
   let prev_scope_order = g_scope_order
   let prev_owned_fun = g_owned_names
+  let prev_mod_fun = g_cur_mod
+  g_cur_mod = cask_name
   g_var_types = []: [string => any]
   g_scope_names = []: [string => any]
   g_scope_order = []: [any]
@@ -3377,6 +3400,7 @@ def ?g_flat_counter = 0
   g_scope_names = prev_scope_names
   g_scope_order = prev_scope_order
   g_owned_names = prev_owned_fun
+  g_cur_mod = prev_mod_fun
   <- out
 ;
 
@@ -3808,8 +3832,8 @@ def ?g_flat_counter = 0
         let dtype = type_of_expr(dinit, cask_name)
         if stdr.len(dtype) > 0
           g_def_types[dname] = dtype
-      stdr.push(p, "static YisVal v_")
-      stdr.push(p, dname)
+      stdr.push(p, "static YisVal ")
+      stdr.push(p, mangle_def(cask_name, dname))
       stdr.push(p, " = YV_NULLV;\n")
   stdr.push(p, "\n")
 
@@ -3896,8 +3920,8 @@ def ?g_flat_counter = 0
         let dname = d[name_key] ?? ""
         let dinit = d[init_key]
         if !stdr.is_null(dinit)
-          stdr.push(p, "  yis_move_into(&v_")
-          stdr.push(p, dname)
+          stdr.push(p, "  yis_move_into(&")
+          stdr.push(p, mangle_def(cask_name, dname))
           stdr.push(p, ", ")
           stdr.push(p, emit_expr(dinit, cask_name))
           stdr.push(p, ");\n")
