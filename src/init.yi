@@ -6027,6 +6027,7 @@ def ?g_flat_counter = 0
       let ?flags = stdr.str_concat("-L", sd)
       flags = stdr.str_concat(flags, stdr.str_concat(" -l", native_mod))
       flags = stdr.str_concat(flags, stdr.str_concat(" -Wl,-rpath,", sd))
+      flags = stdr.str_concat(flags, " -Wl,-rpath,@executable_path/../Frameworks")
       <- flags
   -- Dev-relative build dirs
   let dev_dirs = [
@@ -6044,6 +6045,7 @@ def ?g_flat_counter = 0
       let ?flags = stdr.str_concat("-L", dd)
       flags = stdr.str_concat(flags, stdr.str_concat(" -l", native_mod))
       flags = stdr.str_concat(flags, stdr.str_concat(" -Wl,-rpath,", dd))
+      flags = stdr.str_concat(flags, " -Wl,-rpath,@executable_path/../Frameworks")
       <- flags
   -- Fallback: just -l{name}
   <- stdr.str_concat("-l", native_mod)

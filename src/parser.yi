@@ -891,7 +891,7 @@ def ?brace_depth = 0
       j = stdr.num(br2[0] ?? j)
       else_body = br2[1] ?? []: [any]
     elif te2[kind] == "kw_if"
-      -- else if
+      -- elif
       let eif_res = parse_if_stmt(toks, j)
       j = stdr.num(eif_res[0] ?? j)
       let eif_node = eif_res[1]
