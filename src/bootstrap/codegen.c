@@ -1641,6 +1641,30 @@ static bool gen_expr(Codegen *cg, Str path, Expr *e, GenExpr *out, Diag *err) {
                         w_line(&cg->w, "YisVal %s = YV_STR(stdr_str_lit(\"%s\"));", t, esc ? esc : "");
                     } else if (ce->val.ty && ce->val.ty->tag == TY_NULL) {
                         w_line(&cg->w, "YisVal %s = YV_NULLV;", t);
+                    } else if (ce->val.ty && ce->val.ty->tag == TY_ARRAY) {
+                        char *arr_helper = codegen_new_tmp(cg);
+                        w_line(&cg->w, "YisVal %s = yis_arr_new(%zu);", arr_helper, ce->val.arr_len);
+                        for (size_t ai = 0; ai < ce->val.arr_len; ai++) {
+                            ConstVal *elem = (ConstVal *)((char *)ce->val.arr_data + ai * sizeof(ConstVal));
+                            char *elem_t = codegen_new_tmp(cg);
+                            if (elem->ty && elem->ty->tag == TY_PRIM && str_eq_c(elem->ty->name, "num")) {
+                                if (elem->is_float) {
+                                    w_line(&cg->w, "YisVal %s = YV_FLOAT(%.17g);", elem_t, elem->f);
+                                } else {
+                                    w_line(&cg->w, "YisVal %s = YV_INT(%lld);", elem_t, elem->i);
+                                }
+                            } else if (elem->ty && elem->ty->tag == TY_PRIM && str_eq_c(elem->ty->name, "bool")) {
+                                w_line(&cg->w, "YisVal %s = YV_BOOL(%s);", elem_t, elem->b ? "true" : "false");
+                            } else if (elem->ty && elem->ty->tag == TY_PRIM && str_eq_c(elem->ty->name, "string")) {
+                                char *esc = c_escape(cg->arena, elem->s);
+                                w_line(&cg->w, "YisVal %s = YV_STR(stdr_str_lit(\"%s\"));", elem_t, esc ? esc : "");
+                            } else {
+                                w_line(&cg->w, "YisVal %s = YV_NULLV;", elem_t);
+                            }
+                            w_line(&cg->w, "yis_arr_set((YisArr*)%s.as.p, %zu, %s);", arr_helper, ai, elem_t);
+                            w_line(&cg->w, "yis_release_val(%s);", elem_t);
+                        }
+                        w_line(&cg->w, "%s = %s;", t, arr_helper);
                     } else {
                         return cg_set_err(err, path, "unsupported const type");
                     }

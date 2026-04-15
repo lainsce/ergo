@@ -2096,6 +2096,32 @@ static bool eval_const_expr(GlobalEnv *env, Expr *e, ConstVal *out, Diag *err) {
         }
         return true;
     }
+    if (e->kind == EXPR_ARRAY) {
+        size_t n = e->as.array_lit.items_len;
+        if (n == 0) {
+            set_err(err, "empty array constant not supported");
+            return false;
+        }
+        ConstVal *elems = (ConstVal *)arena_alloc(env->arena, n * sizeof(ConstVal));
+        if (!elems) {
+            set_err(err, "out of memory");
+            return false;
+        }
+        Ty *elem_ty = NULL;
+        for (size_t i = 0; i < n; i++) {
+            if (!eval_const_expr(env, e->as.array_lit.items[i], &elems[i], err)) {
+                return false;
+            }
+            if (i == 0) {
+                elem_ty = elems[i].ty;
+            }
+        }
+        out->ty = ty_array(env->arena, elem_ty);
+        out->arr_elem = elem_ty;
+        out->arr_data = elems;
+        out->arr_len = n;
+        return true;
+    }
     set_err(err, "const expression must be a literal or simple numeric expression");
     return false;
 }

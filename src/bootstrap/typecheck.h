@@ -78,6 +78,9 @@ typedef struct {
     double f;
     bool b;
     Str s;
+    Ty *arr_elem;      // element type for array constants
+    void *arr_data;    // pointer to array constant data (for codegen)
+    size_t arr_len;    // number of elements in array constant
 } ConstVal;
 
 typedef struct {
