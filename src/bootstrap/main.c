@@ -26,7 +26,7 @@
 #include "str.h"
 #include "typecheck.h"
 
-#define YIS_CACHE_VERSION __DATE__ " " __TIME__
+#define YIS_CACHE_VERSION "yis-cache-v1"
 
 static uint64_t hash_update(uint64_t h, const void *data, size_t len) {
     const unsigned char *p = (const unsigned char *)data;
@@ -895,7 +895,7 @@ int main(int argc, char **argv) {
         build_hash = hash_cstr(build_hash, YIS_CACHE_VERSION);
 
         const char *no_cache_env = getenv("YIS_NO_CACHE");
-        bool cache_enabled = false;
+        bool cache_enabled = true;
         if (no_cache_env && no_cache_env[0]) {
             cache_enabled = (no_cache_env[0] == '0');
         }
@@ -916,15 +916,6 @@ int main(int argc, char **argv) {
                     cache_c = path_join(cache_dir, cache_c_name);
                     cache_bin = path_join(cache_dir, unique_bin_name);
                 }
-            }
-        }
-
-        if (cache_enabled) {
-            if (cache_bin && path_is_file(cache_bin)) {
-                remove(cache_bin);
-            }
-            if (cache_c && path_is_file(cache_c)) {
-                remove(cache_c);
             }
         }
 

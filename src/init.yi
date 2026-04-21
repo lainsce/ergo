@@ -8,6 +8,7 @@ bring parser
 -- Global type/class tracking state (populated during bring processing)
 def ?g_classes = []: [string => any]
 def ?g_fun_rets = []: [string => any]
+def ?g_fun_voids = []: [string => any]
 def ?g_var_types = []: [string => any]
 def ?g_cur_class = ""
 def ?g_cur_mod = ""
@@ -18,6 +19,7 @@ def ?g_interfaces = []: [string => any]
 def ?g_path_cache = []: [string => any]
 def ?g_ast_cache = []: [string => any]
 def ?g_opt_ast_cache = []: [string => any]
+def ?g_env_cache = []: [string => any]
 def ?g_inline_map = []: [string => any]
 def ?g_scope_names = []: [string => any]
 def ?g_scope_order = []: [any]
@@ -36,6 +38,7 @@ def ?g_last_line_num = 0
 def ?g_demangle_mods = []: [string => any]
 def ?g_demangle_mod_list = []: [any]
 def ?g_diag_file_map = []: [string => any]
+def ?g_diag_source_cache = []: [string => any]
 def ?g_flat_names = []: [any]
 def ?g_flat_exprs = []: [any]
 def ?g_flat_counter = 0
@@ -308,6 +311,19 @@ def ?g_flat_counter = 0
   g_demangle_mods = []: [string => any]
   g_demangle_mod_list = []: [any]
   g_diag_file_map = []: [string => any]
+  g_diag_source_cache = []: [string => any]
+;
+
+: _diag_source_text(path = string) (( string ))
+  let key = stdr.str(path)
+  let cached = g_diag_source_cache[key]
+  if !stdr.is_null(cached)
+    <- stdr.str(cached)
+  let raw = stdr.read_text_file(key)
+  if stdr.is_null(raw) { <- "" }
+  let text = stdr.str(raw)
+  g_diag_source_cache[key] = text
+  <- text
 ;
 
 : _remember_demangle_module(mod = string) (( -- ))
@@ -355,9 +371,8 @@ def ?g_flat_counter = 0
 
 : _source_line_at(path = string, line_no = num) (( string ))
   if line_no <= 0 { <- "" }
-  let raw = stdr.read_text_file(path)
-  if stdr.is_null(raw) { <- "" }
-  let text = stdr.str(raw)
+  let text = _diag_source_text(path)
+  if stdr.len(text) == 0 { <- "" }
   let n = stdr.len(text)
   let ?cur_line = 1
   let ?start = 0
@@ -388,10 +403,8 @@ def ?g_flat_counter = 0
   if want <= 0
     want = 1
 
-  let raw = stdr.read_text_file(path)
-  if stdr.is_null(raw) { <- want }
-
-  let text = stdr.str(raw)
+  let text = _diag_source_text(path)
+  if stdr.len(text) == 0 { <- want }
   let n = stdr.len(text)
   let ?cur_line = 1
   let ?start = 0
@@ -426,10 +439,8 @@ def ?g_flat_counter = 0
 : _declaration_loc_for_symbol(fname = string, symbol = string) (( string ))
   if stdr.len(fname) == 0 || stdr.len(symbol) == 0 { <- "" }
   let full_path = _resolve_diag_file(fname)
-  let raw = stdr.read_text_file(full_path)
-  if stdr.is_null(raw) { <- "" }
-
-  let text = stdr.str(raw)
+  let text = _diag_source_text(full_path)
+  if stdr.len(text) == 0 { <- "" }
   let n = stdr.len(text)
   let ?line_no = 1
   let ?start = 0
@@ -1540,6 +1551,13 @@ def ?g_flat_counter = 0
         let mname = m[name_key] ?? ""
         mdict[mname] = true
         let mret = m[mret_key] ?? ""
+        if mret == "void" || mret == "--"
+          let ?mkey = mod_name
+          mkey = stdr.str_concat(mkey, ".")
+          mkey = stdr.str_concat(mkey, cls_name)
+          mkey = stdr.str_concat(mkey, ".")
+          mkey = stdr.str_concat(mkey, mname)
+          g_fun_voids[mkey] = true
         if stdr.len(mret) > 0
           if mret != "any" && mret != "void" && mret != "--" && mret != "num" && mret != "string" && mret != "bool" && mret != "fn"
             let ?mkey = mod_name
@@ -1629,13 +1647,15 @@ def ?g_flat_counter = 0
     if dt == "fun"
       let fname = d[name_key] ?? ""
       let ret = d[ret_key] ?? ""
+      let ?fkey = mod_name
+      fkey = stdr.str_concat(fkey, ".")
+      fkey = stdr.str_concat(fkey, fname)
+      if ret == "void" || ret == "--"
+        g_fun_voids[fkey] = true
       -- Track function <- types for constructor resolution
       if stdr.len(ret) > 0
         if ret != "any" && ret != "void" && ret != "--" && ret != "num" && ret != "string" && ret != "bool" && ret != "fn"
-          let ?key = mod_name
-          key = stdr.str_concat(key, ".")
-          key = stdr.str_concat(key, fname)
-          g_fun_rets[key] = ret
+          g_fun_rets[fkey] = ret
       -- Track module functions
       let ?mf = g_mod_funs[mod_name] ?? []: [string => any]
       mf[fname] = true
@@ -1644,13 +1664,16 @@ def ?g_flat_counter = 0
       -- Track all functions with arity
       let pk = "params"
       let params = d[pk] ?? []: [any]
-      let ?fkey = mod_name
-      fkey = stdr.str_concat(fkey, ".")
-      fkey = stdr.str_concat(fkey, fname)
       g_all_funs[fkey] = stdr.len(params)
 
     if dt == "macro"
       let fname = d[name_key] ?? ""
+      let ret = d[ret_key] ?? ""
+      if ret == "void" || ret == "--"
+        let ?mkey = mod_name
+        mkey = stdr.str_concat(mkey, ".")
+        mkey = stdr.str_concat(mkey, fname)
+        g_fun_voids[mkey] = true
       let ?mf2 = g_mod_funs[mod_name] ?? []: [string => any]
       mf2[fname] = true
       g_mod_funs[mod_name] = mf2
@@ -1728,6 +1751,141 @@ def ?g_flat_counter = 0
       if stdr.len(ret) > 0 { <- ret }
 
   <- ""
+;
+
+: call_returns_void(e = any, cask_name = string) (( bool ))
+  if stdr.is_null(e) { <- false }
+  let tag = "tag"
+  let et = e[tag] ?? ""
+  if et != "call" { <- false }
+  let func = e["func"]
+  let ft = func[tag] ?? ""
+  if ft == "ident"
+    let fname = func["name"] ?? ""
+    if fname == "write" || fname == "writef" || fname == "push"
+      <- true
+    if fname == "__write" || fname == "__writef"
+      <- true
+    let ?key = cask_name
+    key = stdr.str_concat(key, ".")
+    key = stdr.str_concat(key, fname)
+    if !stdr.is_null(g_fun_voids[key]) { <- true }
+    let origin = stdr.str(g_fun_origin[fname] ?? "")
+    if stdr.len(origin) > 0
+      key = stdr.str_concat(origin, ".")
+      key = stdr.str_concat(key, fname)
+      if !stdr.is_null(g_fun_voids[key]) { <- true }
+    <- false
+  if ft == "member"
+    let obj = func["obj"]
+    let field = func["field"] ?? ""
+    let ot = obj[tag] ?? ""
+    if ot == "ident"
+      let obj_name = obj["name"] ?? ""
+      if obj_name == "stdr"
+        if field == "write" || field == "writef" || field == "push"
+          <- true
+      let ?key = obj_name
+      key = stdr.str_concat(key, ".")
+      key = stdr.str_concat(key, field)
+      if !stdr.is_null(g_fun_voids[key]) { <- true }
+      let vtype = g_var_types[obj_name] ?? ""
+      if stdr.len(vtype) > 0
+        let cls_info = g_classes[vtype]
+        if !stdr.is_null(cls_info)
+          let cls_mod = dict_get_or(cls_info, "mod", "") ?? ""
+          key = stdr.str_concat(cls_mod, ".")
+          key = stdr.str_concat(key, vtype)
+          key = stdr.str_concat(key, ".")
+          key = stdr.str_concat(key, field)
+          if !stdr.is_null(g_fun_voids[key]) { <- true }
+  <- false
+;
+
+: emit_array_literal(elems = any, cask_name = string) (( string ))
+  let n = stdr.len(elems)
+  let id = g_tmp_counter
+  g_tmp_counter = g_tmp_counter + 1
+  let arr_name = stdr.str_concat("__arr", stdr.str(id))
+  let val_base = stdr.str_concat("__arrv", stdr.str(id))
+  let ?parts = []: [any]
+  stdr.push(parts, "({ YisArr *")
+  stdr.push(parts, arr_name)
+  stdr.push(parts, " = stdr_arr_new(")
+  stdr.push(parts, stdr.str(n))
+  stdr.push(parts, "); ")
+  let ?i = 0
+  for (; i < n; i = i + 1)
+    let item = elems[i]
+    let ?val_name = stdr.str_concat(val_base, "_")
+    val_name = stdr.str_concat(val_name, stdr.str(i))
+    stdr.push(parts, "YisVal ")
+    stdr.push(parts, val_name)
+    stdr.push(parts, " = ")
+    stdr.push(parts, emit_expr(item, cask_name))
+    stdr.push(parts, "; ")
+    if !is_fresh_expr(item)
+      stdr.push(parts, "yis_retain_val(")
+      stdr.push(parts, val_name)
+      stdr.push(parts, "); ")
+    stdr.push(parts, "yis_arr_add(")
+    stdr.push(parts, arr_name)
+    stdr.push(parts, ", ")
+    stdr.push(parts, val_name)
+    stdr.push(parts, "); ")
+  stdr.push(parts, "YV_ARR(")
+  stdr.push(parts, arr_name)
+  stdr.push(parts, "); })")
+  <- join_parts(parts)
+;
+
+: emit_dict_literal(entries = any, cask_name = string) (( string ))
+  let n = stdr.len(entries)
+  let id = g_tmp_counter
+  g_tmp_counter = g_tmp_counter + 1
+  let dict_name = stdr.str_concat("__dict", stdr.str(id))
+  let key_base = stdr.str_concat("__dictk", stdr.str(id))
+  let val_base = stdr.str_concat("__dictv", stdr.str(id))
+  let ?parts = []: [any]
+  stdr.push(parts, "({ YisDict *")
+  stdr.push(parts, dict_name)
+  stdr.push(parts, " = stdr_dict_new(); ")
+  let ?i = 0
+  for (; i < n; i = i + 1)
+    let ent = entries[i]
+    let key_expr = ent["key"]
+    let val_expr = ent["value"]
+    let ?key_name = stdr.str_concat(key_base, "_")
+    key_name = stdr.str_concat(key_name, stdr.str(i))
+    let ?val_name = stdr.str_concat(val_base, "_")
+    val_name = stdr.str_concat(val_name, stdr.str(i))
+    stdr.push(parts, "YisVal ")
+    stdr.push(parts, key_name)
+    stdr.push(parts, " = ")
+    stdr.push(parts, emit_expr(key_expr, cask_name))
+    stdr.push(parts, "; YisVal ")
+    stdr.push(parts, val_name)
+    stdr.push(parts, " = ")
+    stdr.push(parts, emit_expr(val_expr, cask_name))
+    stdr.push(parts, "; yis_dict_set(")
+    stdr.push(parts, dict_name)
+    stdr.push(parts, ", ")
+    stdr.push(parts, key_name)
+    stdr.push(parts, ", ")
+    stdr.push(parts, val_name)
+    stdr.push(parts, "); ")
+    if is_fresh_expr(key_expr)
+      stdr.push(parts, "yis_release_val(")
+      stdr.push(parts, key_name)
+      stdr.push(parts, "); ")
+    if is_fresh_expr(val_expr)
+      stdr.push(parts, "yis_release_val(")
+      stdr.push(parts, val_name)
+      stdr.push(parts, "); ")
+  stdr.push(parts, "YV_DICT(")
+  stdr.push(parts, dict_name)
+  stdr.push(parts, "); })")
+  <- join_parts(parts)
 ;
 
 -- Emit a C expression string from an expr AST node.
@@ -2410,37 +2568,12 @@ def ?g_flat_counter = 0
   if et == "array"
     let ek = "elems"
     let elems = e[ek] ?? []: [any]
-    let ?n = 0
-    n = stdr.len(elems)
-    if n == 0 { <- "yis_arr_lit(0)" }
-    let ?r = "yis_arr_lit("
-    r = stdr.str_concat(r, stdr.str(n))
-    let ?k = 0
-    for (; k < n; k = k + 1)
-      r = stdr.str_concat(r, ", ")
-      r = stdr.str_concat(r, emit_expr(elems[k], cask_name))
-    r = stdr.str_concat(r, ")")
-    <- r
+    <- emit_array_literal(elems, cask_name)
 
   if et == "dict"
     let ek = "entries"
     let entries = e[ek] ?? []: [any]
-    let ?n = 0
-    n = stdr.len(entries)
-    if n == 0 { <- "yis_dict_lit(0)" }
-    let ?r = "yis_dict_lit("
-    r = stdr.str_concat(r, stdr.str(n))
-    let ?k = 0
-    for (; k < n; k = k + 1)
-      let ent = entries[k]
-      let kk = "key"
-      let vk = "value"
-      r = stdr.str_concat(r, ", ")
-      r = stdr.str_concat(r, emit_expr(ent[kk], cask_name))
-      r = stdr.str_concat(r, ", ")
-      r = stdr.str_concat(r, emit_expr(ent[vk], cask_name))
-    r = stdr.str_concat(r, ")")
-    <- r
+    <- emit_dict_literal(entries, cask_name)
 
   if et == "if_expr"
     let ck = "cond"
@@ -3075,11 +3208,21 @@ def ?g_flat_counter = 0
 
   if st == "expr_stmt"
     let ek = "expr"
-    let expr_c = emit_expr(s[ek], cask_name)
+    let expr_ast = s[ek]
+    let expr_c = emit_expr(expr_ast, cask_name)
     let ?r = indent
-    r = stdr.str_concat(r, "(void)(")
-    r = stdr.str_concat(r, expr_c)
-    r = stdr.str_concat(r, ");\n")
+    if call_returns_void(expr_ast, cask_name)
+      r = stdr.str_concat(r, "(void)(")
+      r = stdr.str_concat(r, expr_c)
+      r = stdr.str_concat(r, ");\n")
+    elif is_fresh_expr(expr_ast)
+      r = stdr.str_concat(r, "{ YisVal __expr_tmp = ")
+      r = stdr.str_concat(r, expr_c)
+      r = stdr.str_concat(r, "; yis_release_val(__expr_tmp); }\n")
+    else
+      r = stdr.str_concat(r, "(void)(")
+      r = stdr.str_concat(r, expr_c)
+      r = stdr.str_concat(r, ");\n")
     <- r
 
   if st == "if"
@@ -3199,6 +3342,10 @@ def ?g_flat_counter = 0
     r = stdr.str_concat(r, item)
     r = stdr.str_concat(r, " = yis_index(__iter, YV_INT(__i));\n")
     r = stdr.str_concat(r, emit_stmts(body, inner, cask_name))
+    r = stdr.str_concat(r, inner)
+    r = stdr.str_concat(r, "yis_release_val(v_")
+    r = stdr.str_concat(r, item)
+    r = stdr.str_concat(r, ");\n")
     r = stdr.str_concat(r, indent)
     r = stdr.str_concat(r, "} }\n")
     g_scope_names = prev_scope_names_foreach
@@ -4891,9 +5038,9 @@ def ?g_flat_counter = 0
 ;
 
 : find_runtime_src(argv = any) (( string ))
-  let ?runtime_src = stdr.read_text_file("src/bootstrap/runtime.inc")
+  let ?runtime_src = stdr.read_text_file("src/runtime.inc")
   if !stdr.is_null(runtime_src) { <- runtime_src }
-  runtime_src = stdr.read_text_file("src/runtime.inc")
+  runtime_src = stdr.read_text_file("src/bootstrap/runtime.inc")
   if !stdr.is_null(runtime_src) { <- runtime_src }
 
   let ?exe0_in = argv[0] ?? ""
@@ -4913,19 +5060,19 @@ def ?g_flat_counter = 0
   if stdr.len(exe_path) > 0
     let exe_dir = dir_of(exe_path)
     if stdr.len(exe_dir) > 0
-      let ?p = stdr.str_concat(exe_dir, "../src/bootstrap/runtime.inc")
+      let ?p = stdr.str_concat(exe_dir, "../src/runtime.inc")
       if file_exists(p) == 0
         runtime_src = stdr.read_text_file(p)
         if !stdr.is_null(runtime_src) { <- runtime_src }
-      p = stdr.str_concat(exe_dir, "../src/runtime.inc")
-      if file_exists(p) == 0
-        runtime_src = stdr.read_text_file(p)
-        if !stdr.is_null(runtime_src) { <- runtime_src }
-      p = stdr.str_concat(exe_dir, "../../src/bootstrap/runtime.inc")
+      p = stdr.str_concat(exe_dir, "../src/bootstrap/runtime.inc")
       if file_exists(p) == 0
         runtime_src = stdr.read_text_file(p)
         if !stdr.is_null(runtime_src) { <- runtime_src }
       p = stdr.str_concat(exe_dir, "../../src/runtime.inc")
+      if file_exists(p) == 0
+        runtime_src = stdr.read_text_file(p)
+        if !stdr.is_null(runtime_src) { <- runtime_src }
+      p = stdr.str_concat(exe_dir, "../../src/bootstrap/runtime.inc")
       if file_exists(p) == 0
         runtime_src = stdr.read_text_file(p)
         if !stdr.is_null(runtime_src) { <- runtime_src }
@@ -4945,9 +5092,9 @@ def ?g_flat_counter = 0
 ;
 
 : runtime_dep_fresh(out_path = string, argv = any) (( bool ))
-  let ?p = "src/bootstrap/runtime.inc"
+  let ?p = "src/runtime.inc"
   if file_exists(p) == 0 { <- output_newer_than(out_path, p) }
-  p = "src/runtime.inc"
+  p = "src/bootstrap/runtime.inc"
   if file_exists(p) == 0 { <- output_newer_than(out_path, p) }
 
   let ?exe0_in = argv[0] ?? ""
@@ -4967,13 +5114,13 @@ def ?g_flat_counter = 0
   if stdr.len(exe_path) > 0
     let exe_dir = dir_of(exe_path)
     if stdr.len(exe_dir) > 0
-      p = stdr.str_concat(exe_dir, "../src/bootstrap/runtime.inc")
-      if file_exists(p) == 0 { <- output_newer_than(out_path, p) }
       p = stdr.str_concat(exe_dir, "../src/runtime.inc")
       if file_exists(p) == 0 { <- output_newer_than(out_path, p) }
-      p = stdr.str_concat(exe_dir, "../../src/bootstrap/runtime.inc")
+      p = stdr.str_concat(exe_dir, "../src/bootstrap/runtime.inc")
       if file_exists(p) == 0 { <- output_newer_than(out_path, p) }
       p = stdr.str_concat(exe_dir, "../../src/runtime.inc")
+      if file_exists(p) == 0 { <- output_newer_than(out_path, p) }
+      p = stdr.str_concat(exe_dir, "../../src/bootstrap/runtime.inc")
       if file_exists(p) == 0 { <- output_newer_than(out_path, p) }
       p = stdr.str_concat(exe_dir, "../share/yis/runtime.inc")
       if file_exists(p) == 0 { <- output_newer_than(out_path, p) }
@@ -4996,14 +5143,20 @@ def ?g_flat_counter = 0
 ;
 
 : _env_value(name = string) (( string ))
+  let cached = g_env_cache[name]
+  if !stdr.is_null(cached) { <- cached ?? "" }
   let ?cmd = "printenv "
   cmd = stdr.str_concat(cmd, name)
   cmd = stdr.str_concat(cmd, " 2>/dev/null")
   let res = stdr.run_command(cmd)
   let code = res[0] ?? 1
-  if code != 0 { <- "" }
+  if code != 0
+    g_env_cache[name] = ""
+    <- ""
   let out = res[1] ?? ""
-  <- _chomp_newline(out)
+  let val = _chomp_newline(out)
+  g_env_cache[name] = val
+  <- val
 ;
 
 : resolve_stdlib_module_path(bname = string) (( string ))
@@ -6069,7 +6222,7 @@ def ?g_flat_counter = 0
     stdr.push(p, runtime_src)
     stdr.push(p, "\n")
   else
-    stdr.push(p, "#include \"src/bootstrap/runtime.inc\"\n\n")
+    stdr.push(p, "#include \"src/runtime.inc\"\n\n")
   stdr.push(p, "/* inlined runtime helpers */\n")
   stdr.push(p, "static YisVal yis_index(YisVal obj, YisVal idx) {\n")
   stdr.push(p, "  if (obj.tag == EVT_ARR) return yis_arr_get((YisArr*)obj.as.p, yis_as_int(idx));\n")
@@ -6082,31 +6235,6 @@ def ?g_flat_counter = 0
   stdr.push(p, "  if (obj.tag == EVT_DICT) { yis_dict_set((YisDict*)obj.as.p, idx, val); return val; }\n")
   stdr.push(p, "  return YV_NULLV;\n")
   stdr.push(p, "}\n\n")
-  stdr.push(p, "static YisVal yis_arr_lit(int n, ...) {\n")
-  stdr.push(p, "  YisArr *a = stdr_arr_new(n);\n")
-  stdr.push(p, "  va_list ap; va_start(ap, n);\n")
-  stdr.push(p, "  for (int i = 0; i ")
-  stdr.push(p, "\<")
-  stdr.push(p, " n; i++) yis_arr_add(a, va_arg(ap, YisVal));\n")
-  stdr.push(p, "  va_end(ap);\n")
-  stdr.push(p, "  YisVal av; av.tag = EVT_ARR; av.as.p = a;\n")
-  stdr.push(p, "  return av;\n")
-  stdr.push(p, "}\n\n")
-  stdr.push(p, "static YisVal yis_dict_lit(int n, ...) {\n")
-  stdr.push(p, "  YisDict *d = stdr_dict_new();\n")
-  stdr.push(p, "  va_list ap; va_start(ap, n);\n")
-  stdr.push(p, "  for (int i = 0; i ")
-  stdr.push(p, "\<")
-  stdr.push(p, " n; i++) {\n")
-  stdr.push(p, "    YisVal k = va_arg(ap, YisVal);\n")
-  stdr.push(p, "    YisVal v = va_arg(ap, YisVal);\n")
-  stdr.push(p, "    yis_dict_set(d, k, v);\n")
-  stdr.push(p, "  }\n")
-  stdr.push(p, "  va_end(ap);\n")
-  stdr.push(p, "  YisVal dv; dv.tag = EVT_DICT; dv.as.p = d;\n")
-  stdr.push(p, "  return dv;\n")
-  stdr.push(p, "}\n\n")
-
   -- Build class info for all brought modules (before emitting code)
   let ?n = 0
   n = stdr.len(decls)

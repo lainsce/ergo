@@ -198,6 +198,8 @@ static YisStr* yis_static_char(unsigned char c) {
 
 static YisStr* stdr_str_lit(const char* s) {
   size_t n = strlen(s);
+  if (n == 0) return &yis_static_empty;
+  if (n == 1) return yis_static_char((unsigned char)s[0]);
   YisStr* st = (YisStr*)malloc(sizeof(YisStr) + n + 1);
   st->ref = 1;
   st->len = n;
