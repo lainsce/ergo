@@ -18,9 +18,7 @@ def ?g_interfaces = []: [string => any]
 -- Module cache: resolved paths and parsed ASTs (avoid re-reading/re-parsing)
 def ?g_path_cache = []: [string => any]
 def ?g_ast_cache = []: [string => any]
-def ?g_opt_ast_cache = []: [string => any]
 def ?g_env_cache = []: [string => any]
-def ?g_inline_map = []: [string => any]
 def ?g_scope_names = []: [string => any]
 def ?g_scope_order = []: [any]
 def ?g_owned_names = []: [string => any]
@@ -92,24 +90,6 @@ def ?g_flat_counter = 0
   let v = d[k ?? ""]
   if stdr.is_null(v) { <- fallback }
   <- v
-;
-
-: join_parts(parts = any) (( string ))
-  let ?len = stdr.len(parts)
-  if len == 0 { <- "" }
-  if len == 1 { <- stdr.str(parts[0]) }
-  let ?arr = []: [any]
-  let ?i = 0
-  for (; i < len; i = i + 1) { stdr.push(arr, stdr.str(parts[i])) }
-  for (; len > 1; )
-    let ?j = 0
-    let ?k = 0
-    for (; j + 1 < len; j = j + 2)
-      arr[k] = stdr.str_concat(arr[j], arr[j + 1])
-      k = k + 1
-    if j < len { arr[k] = arr[j]; k = k + 1 }
-    len = k
-  <- arr[0]
 ;
 
 : pair(a = any, b = any) (( any ))
@@ -280,20 +260,7 @@ def ?g_flat_counter = 0
       chunk_start = i + 1
   if chunk_start < n { stdr.push(parts, stdr.slice(text, chunk_start, n)) }
   stdr.push(parts, "\"")
-  <- join_parts(parts)
-;
-
-: _trim(text = string) (( string ))
-  let n = stdr.len(text)
-  let ?a = 0
-  let ?b = n
-  for (; a < n; a = a + 1)
-    let c = stdr.slice(text, a, a + 1)
-    if c != " " && c != "\t" && c != "\n" && c != "\r" { break }
-  for (; b > a; b = b - 1)
-    let c = stdr.slice(text, b - 1, b)
-    if c != " " && c != "\t" && c != "\n" && c != "\r" { break }
-  <- stdr.slice(text, a, b)
+  <- stdr.join(parts)
 ;
 
 : _basename(path = string) (( string ))
@@ -1064,7 +1031,7 @@ def ?g_flat_counter = 0
 ;
 
 : interp_path_to_c(raw = string) (( any ))
-  let s = _trim(unescape_interp_expr(raw))
+  let s = stdr.trim(unescape_interp_expr(raw))
   let n = stdr.len(s)
   if n == 0 { <- null }
 
@@ -1131,7 +1098,7 @@ def ?g_flat_counter = 0
           depth = depth - 1
           if depth == 0 { break }
       if k >= n || depth != 0 { <- null }
-      let inner = _trim(stdr.slice(s, i + 1, k))
+      let inner = stdr.trim(stdr.slice(s, i + 1, k))
       let ?idxc = ""
       let in_n = stdr.len(inner)
       if in_n >= 2
@@ -1166,7 +1133,7 @@ def ?g_flat_counter = 0
 ;
 
 : interp_expr_to_ast(raw = string) (( any ))
-  let src = _trim(unescape_interp_expr(raw))
+  let src = stdr.trim(unescape_interp_expr(raw))
   if stdr.len(src) == 0 { <- null }
 
   let toks = lexer.lex(src)
@@ -1225,7 +1192,7 @@ def ?g_flat_counter = 0
       stdr.push(parts, stdr.char_from_code(code - 32))
     else
       stdr.push(parts, stdr.slice(text, i, i + 1))
-  <- join_parts(parts)
+  <- stdr.join(parts)
 ;
 
 : is_capture_excluded(name = string) (( bool ))
@@ -1836,7 +1803,7 @@ def ?g_flat_counter = 0
   stdr.push(parts, "YV_ARR(")
   stdr.push(parts, arr_name)
   stdr.push(parts, "); })")
-  <- join_parts(parts)
+  <- stdr.join(parts)
 ;
 
 : emit_dict_literal(entries = any, cask_name = string) (( string ))
@@ -1885,7 +1852,7 @@ def ?g_flat_counter = 0
   stdr.push(parts, "YV_DICT(")
   stdr.push(parts, dict_name)
   stdr.push(parts, "); })")
-  <- join_parts(parts)
+  <- stdr.join(parts)
 ;
 
 -- Emit a C expression string from an expr AST node.
@@ -2965,7 +2932,7 @@ def ?g_flat_counter = 0
     if k > 0 { stdr.push(parts, ", ") }
     let ac = emit_expr(args[k], cask_name)
     stdr.push(parts, emit_flat_arg(args[k], ac))
-  <- join_parts(parts)
+  <- stdr.join(parts)
 ;
 
 -- Helper: call a function value expression via runtime yis_call.
@@ -2977,7 +2944,7 @@ def ?g_flat_counter = 0
     stdr.push(parts0, "yis_call(")
     stdr.push(parts0, func_expr)
     stdr.push(parts0, ", 0, NULL)")
-    <- join_parts(parts0)
+    <- stdr.join(parts0)
   let ?parts = []: [any]
   stdr.push(parts, "({ YisVal __argv[")
   stdr.push(parts, stdr.str(n))
@@ -2995,7 +2962,7 @@ def ?g_flat_counter = 0
   stdr.push(parts, ", ")
   stdr.push(parts, stdr.str(n))
   stdr.push(parts, ", __argv); })")
-  <- join_parts(parts)
+  <- stdr.join(parts)
 ;
 
 -- Emit C statements from a list of stmt AST nodes.
@@ -3018,7 +2985,7 @@ def ?g_flat_counter = 0
         ld = stdr.str_concat(ld, "\"\n")
         stdr.push(parts, ld)
     stdr.push(parts, emit_stmt(s, indent, cask_name))
-  <- join_parts(parts)
+  <- stdr.join(parts)
 ;
 
 -- Check whether an expression produces a fresh +1 value (caller owns).
@@ -4082,7 +4049,7 @@ def ?g_flat_counter = 0
     if !stdr.is_null(lmeta2)
       stdr.push(p, emit_lambda_wrapper(lmeta2))
 
-  <- join_parts(p)
+  <- stdr.join(p)
 ;
 
 -- Extract directory from a file path (everything before the last /)
@@ -4112,26 +4079,6 @@ def ?g_flat_counter = 0
     let c = stdr.slice(b, i, i + 1)
     if c == "." { <- stdr.slice(b, 0, i) }
   <- b
-;
-
-: str_find(hay = string, needle = string) (( num ))
-  let hn = stdr.len(hay)
-  let nn = stdr.len(needle)
-  if nn == 0 { <- 0 }
-  if nn > hn { <- -1 }
-  let ?i = 0
-  let lim = hn - nn
-  for (; i <= lim; i = i + 1)
-    if stdr.slice(hay, i, i + nn) == needle { <- i }
-  <- -1
-;
-
-: has_char(s = string, ch = string) (( bool ))
-  let n = stdr.len(s)
-  let ?i = 0
-  for (; i < n; i = i + 1)
-    if stdr.slice(s, i, i + 1) == ch { <- true }
-  <- false
 ;
 
 : is_ascii_alnum(code = num) (( bool ))
@@ -4164,19 +4111,6 @@ def ?g_flat_counter = 0
       break
   out = stdr.slice(out, 0, m)
   <- out
-;
-
-: trim_ws(s = string) (( string ))
-  let n = stdr.len(s)
-  let ?a = 0
-  for (; a < n; a = a + 1)
-    let c = stdr.slice(s, a, a + 1)
-    if c != " " && c != "\t" && c != "\n" && c != "\r" { break }
-  let ?b = n
-  for (; b > a; b = b - 1)
-    let c = stdr.slice(s, b - 1, b)
-    if c != " " && c != "\t" && c != "\n" && c != "\r" { break }
-  <- stdr.slice(s, a, b)
 ;
 
 : strip_line_comments(src = string) (( string ))
@@ -4244,74 +4178,11 @@ def ?g_flat_counter = 0
       chunk_start = i + 1
       continue
   if chunk_start < n { stdr.push(parts, stdr.slice(src, chunk_start, n)) }
-  <- join_parts(parts)
-;
-
-: normalize_typed_lambda_params(src = string) (( string ))
-  let n = stdr.len(src)
-  let ?parts = []: [any]
-  let ?chunk_start = 0
-  let ?i = 0
-  let ?in_str = false
-  for (; i < n; i = i + 1)
-    let c = stdr.slice(src, i, i + 1)
-    if in_str
-      if c == "\\"
-        i = i + 1
-      elif c == "\""
-        in_str = false
-      continue
-    if c == "\""
-      in_str = true
-      continue
-
-    if c == "("
-      let ?j = i + 1
-      let ?depth = 1
-      let ?ok = false
-      for (; j < n; j = j + 1)
-        let d = stdr.slice(src, j, j + 1)
-        if d == "\""
-          j = j + 1
-          for (; j < n; j = j + 1)
-            let q = stdr.slice(src, j, j + 1)
-            if q == "\\" { j = j + 1; continue }
-            if q == "\"" { break }
-          continue
-        if d == "(" { depth = depth + 1 }
-        elif d == ")"
-          depth = depth - 1
-          if depth == 0 { ok = true; break }
-      if ok
-        let ?k = j + 1
-        for (; k < n; k = k + 1)
-          let w = stdr.slice(src, k, k + 1)
-          if w == " " || w == "\t" || w == "\n" || w == "\r" { continue }
-          break
-        if k + 1 < n && stdr.slice(src, k, k + 2) == "=>"
-          let inside = stdr.slice(src, i + 1, j)
-          let eq = str_find(inside, "=")
-          let comma = str_find(inside, ",")
-          if eq > 0 && comma < 0
-            let lhs = trim_ws(stdr.slice(inside, 0, eq))
-            if chunk_start < i { stdr.push(parts, stdr.slice(src, chunk_start, i)) }
-            stdr.push(parts, "(")
-            stdr.push(parts, lhs)
-            stdr.push(parts, ")")
-            chunk_start = j + 1
-            i = j
-            continue
-  if chunk_start < n { stdr.push(parts, stdr.slice(src, chunk_start, n)) }
-  <- join_parts(parts)
-;
-
-: preprocess_source(src = string) (( string ))
-  let ?s = strip_line_comments(src)
-  <- s
+  <- stdr.join(parts)
 ;
 
 : detect_first_external_module_from_source(entry_path = string, source_raw = string) (( string ))
-  let source = preprocess_source(source_raw)
+  let source = strip_line_comments(source_raw)
   let toks = lexer.lex_with_escapes(source, should_decode_escapes(entry_path))
   let ast = parser.parse(toks)
   if stdr.is_null(ast) { <- "" }
@@ -4340,7 +4211,7 @@ def ?g_flat_counter = 0
       chunk_start = i
   if chunk_start < n { stdr.push(parts, stdr.slice(arg, chunk_start, n)) }
   stdr.push(parts, "\"")
-  <- join_parts(parts)
+  <- stdr.join(parts)
 ;
 
 : find_bootstrap_compiler(argv = any) (( string ))
@@ -4367,34 +4238,6 @@ def ?g_flat_counter = 0
     <- out
 
   <- ""
-;
-
-: contains_callback_lambda_arrow(src = string) (( bool ))
-  let n = stdr.len(src)
-  let ?i = 0
-  let ?in_str = false
-  for (; i + 1 < n; i = i + 1)
-    let c = stdr.slice(src, i, i + 1)
-    if in_str
-      if c == "\\"
-        i = i + 1
-        continue
-      if c == "\"" { in_str = false }
-      continue
-
-    if c == "\""
-      in_str = true
-      continue
-
-    if c == "=" && stdr.slice(src, i + 1, i + 2) == ">"
-      let ?b = i - 1
-      for (; b >= 0; b = b - 1)
-        let wb = stdr.slice(src, b, b + 1)
-        if wb == " " || wb == "\t" || wb == "\n" || wb == "\r" { continue }
-        break
-      if b >= 0 && stdr.slice(src, b, b + 1) == ")"
-        <- true
-  <- false
 ;
 
 : rm_file_quiet(path = string) (( -- ))
@@ -4426,11 +4269,11 @@ def ?g_flat_counter = 0
 -- Extract set_appid("...") from source text without parsing
 : extract_appid_from_source(source = string) (( string ))
   let marker = "set_appid(\""
-  let pos = str_find(source, marker)
+  let pos = stdr.index_of(source, marker)
   if pos < 0 { <- "" }
   let start = pos + stdr.len(marker)
   let rest = stdr.slice(source, start, start + 200)
-  let close = str_find(rest, "\"")
+  let close = stdr.index_of(rest, "\"")
   if close <= 0 { <- "" }
   <- sanitize_filename_component(stdr.slice(rest, 0, close))
 ;
@@ -4438,11 +4281,11 @@ def ?g_flat_counter = 0
 -- Extract set_app_name("...") from source text without parsing
 : extract_app_display_name(source = string) (( string ))
   let marker = "set_app_name(\""
-  let pos = str_find(source, marker)
+  let pos = stdr.index_of(source, marker)
   if pos < 0 { <- "" }
   let start = pos + stdr.len(marker)
   let rest = stdr.slice(source, start, start + 200)
-  let close = str_find(rest, "\"")
+  let close = stdr.index_of(rest, "\"")
   if close <= 0 { <- "" }
   <- stdr.slice(rest, 0, close)
 ;
@@ -4459,21 +4302,6 @@ def ?g_flat_counter = 0
     if stdr.file_exists(plist)
       <- stdr.str_concat(app_name, ".app/Contents/.yis_manifest")
   <- stdr.str_concat(".", stdr.str_concat(app_name, ".yis_manifest"))
-;
-
--- Read a manifest file and <- the cached out_path (first line), or ""
-: read_manifest_out_path(manifest_path = string) (( string ))
-  if !stdr.file_exists(manifest_path) { <- "" }
-  let raw = stdr.read_text_file(manifest_path)
-  if stdr.is_null(raw) { <- "" }
-  let n = stdr.len(raw)
-  if n == 0 { <- "" }
-  -- Find first newline to get the out_path line
-  let ?i = 0
-  for (; i < n; i = i + 1)
-    if stdr.slice(raw, i, i + 1) == "\n" { break }
-  if i == 0 { <- "" }
-  <- stdr.slice(raw, 0, i)
 ;
 
 -- Write run manifest after successful compilation
@@ -4535,7 +4363,7 @@ def ?g_flat_counter = 0
   if stdr.len(app_name) == 0 { app_name = "main" }
 
   -- Try to resolve custom app id from source (best effort)
-  let ?src = preprocess_source(source_raw)
+  let ?src = strip_line_comments(source_raw)
   let toks = lexer.lex_with_escapes(src, should_decode_escapes(entry_path))
   let ast = parser.parse(toks)
   if !stdr.is_null(ast)
@@ -4802,13 +4630,13 @@ def ?g_flat_counter = 0
   if stdr.len(dn) == 0 { dn = bundle_name }
 
   let marker = "/Contents/MacOS/"
-  let m = str_find(exe_path, marker)
+  let m = stdr.index_of(exe_path, marker)
   if m < 0 { <- false }
   let marker_n = stdr.len(marker)
   let exe_n = stdr.len(exe_path)
   let exec_name = stdr.slice(exe_path, m + marker_n, exe_n)
   if stdr.len(exec_name) == 0 { <- false }
-  if has_char(exec_name, "/") { <- false }
+  if stdr.contains(exec_name, "/") { <- false }
 
   let bundle_root = stdr.slice(exe_path, 0, m)
   if stdr.len(bundle_root) == 0 { <- false }
@@ -5308,12 +5136,6 @@ def ?g_flat_counter = 0
   <- n
 ;
 
-: lit_null() (( any ))
-  let ?n = []: [string => any]
-  n["tag"] = "null"
-  <- n
-;
-
 : is_lit(e = any) (( bool ))
   if stdr.is_null(e) { <- false }
   let t = e["tag"] ?? ""
@@ -5375,29 +5197,6 @@ def ?g_flat_counter = 0
   <- out
 ;
 
-: expr_size(e = any) (( num ))
-  if stdr.is_null(e) { <- 0 }
-  let t = e["tag"] ?? ""
-  if t == "int" || t == "bool" || t == "str" || t == "null" || t == "ident" { <- 1 }
-  if t == "unary"
-    <- 1 + expr_size(e["operand"])
-  if t == "binop"
-    <- 1 + expr_size(e["left"]) + expr_size(e["right"])
-  if t == "call"
-    let ?s = 1 + expr_size(e["func"])
-    let args = e["args"] ?? []: [any]
-    let ?i = 0
-    let n = stdr.len(args)
-    for (; i < n; i = i + 1)
-      s = s + expr_size(args[i])
-    <- s
-  if t == "member"
-    <- 1 + expr_size(e["obj"])
-  if t == "index"
-    <- 1 + expr_size(e["obj"]) + expr_size(e["idx"])
-  <- 8
-;
-
 : expr_has_side_effect(e = any) (( bool ))
   if stdr.is_null(e) { <- false }
   let t = e["tag"] ?? ""
@@ -5423,116 +5222,6 @@ def ?g_flat_counter = 0
   if t == "if_expr"
     <- expr_has_side_effect(e["cond"]) || expr_has_side_effect(e["then"]) || expr_has_side_effect(e["else"])
   <- false
-;
-
-: subst_expr(e = any, binds = any) (( any ))
-  if stdr.is_null(e) { <- null }
-  let t = e["tag"] ?? ""
-  if t == "ident"
-    let name = e["name"] ?? ""
-    let v = binds[name]
-    if !stdr.is_null(v) { <- v }
-    <- e
-  if t == "unary"
-    let ?n = []: [string => any]
-    n["tag"] = "unary"
-    n["op"] = e["op"]
-    n["operand"] = subst_expr(e["operand"], binds)
-    <- n
-  if t == "binop"
-    let ?n = []: [string => any]
-    n["tag"] = "binop"
-    n["op"] = e["op"]
-    n["left"] = subst_expr(e["left"], binds)
-    n["right"] = subst_expr(e["right"], binds)
-    <- n
-  if t == "call"
-    let ?n = []: [string => any]
-    n["tag"] = "call"
-    n["func"] = subst_expr(e["func"], binds)
-    let args = e["args"] ?? []: [any]
-    let ?out = []: [any]
-    let ?i = 0
-    let an = stdr.len(args)
-    for (; i < an; i = i + 1) { stdr.push(out, subst_expr(args[i], binds)) }
-    n["args"] = out
-    <- n
-  if t == "member"
-    let ?n = []: [string => any]
-    n["tag"] = "member"
-    n["obj"] = subst_expr(e["obj"], binds)
-    n["field"] = e["field"]
-    <- n
-  if t == "index"
-    let ?n = []: [string => any]
-    n["tag"] = "index"
-    n["obj"] = subst_expr(e["obj"], binds)
-    n["idx"] = subst_expr(e["idx"], binds)
-    <- n
-  if t == "array"
-    let xs = e["elems"] ?? []: [any]
-    let ?out = []: [any]
-    let ?i = 0
-    let n = stdr.len(xs)
-    for (; i < n; i = i + 1) { stdr.push(out, subst_expr(xs[i], binds)) }
-    let ?r = []: [string => any]
-    r["tag"] = "array"
-    r["elems"] = out
-    <- r
-  if t == "dict"
-    let xs = e["entries"] ?? []: [any]
-    let ?out = []: [any]
-    let ?i = 0
-    let n = stdr.len(xs)
-    for (; i < n; i = i + 1)
-      let it = xs[i]
-      let ?u = []: [string => any]
-      u["key"] = subst_expr(it["key"], binds)
-      u["value"] = subst_expr(it["value"], binds)
-      stdr.push(out, u)
-    let ?r = []: [string => any]
-    r["tag"] = "dict"
-    r["entries"] = out
-    <- r
-  if t == "if_expr"
-    let ?n = []: [string => any]
-    n["tag"] = "if_expr"
-    n["cond"] = subst_expr(e["cond"], binds)
-    n["then"] = subst_expr(e["then"], binds)
-    n["else"] = subst_expr(e["else"], binds)
-    <- n
-  <- e
-;
-
-: build_inline_map(ast = any) (( -- ))
-  g_inline_map = []: [string => any]
-  if stdr.is_null(ast) { <- }
-  let decls = ast["decls"] ?? []: [any]
-  let ?i = 0
-  let n = stdr.len(decls)
-  for (; i < n; i = i + 1)
-    let d = decls[i]
-    let dt = d["tag"] ?? ""
-    if dt != "fun" { continue }
-    let name = d["name"] ?? ""
-    let params = d["params"] ?? []: [any]
-    let ret = d["ret"] ?? "any"
-    let body = d["body"] ?? []: [any]
-    if ret == "void" || ret == "--" { continue }
-    if stdr.len(params) > 4 { continue }
-    if stdr.len(body) != 1 { continue }
-    let s = body[0]
-    let st = s["tag"] ?? ""
-    let ?expr = null
-    if st == "return" { expr = s["value"] }
-    elif st == "expr_stmt" { expr = s["expr"] }
-    if stdr.is_null(expr) { continue }
-    if expr_has_side_effect(expr) { continue }
-    if expr_size(expr) > 28 { continue }
-    let ?inl = []: [string => any]
-    inl["params"] = params
-    inl["expr"] = expr
-    g_inline_map[name] = inl
 ;
 
 : opt_expr(e = any, env = any) (( any ))
@@ -5625,23 +5314,7 @@ def ?g_flat_counter = 0
     let an = stdr.len(args)
     for (; i < an; i = i + 1) { stdr.push(out_args, opt_expr(args[i], env)) }
 
-    -- Phase 3: selective small-function inlining
     let fnt = fn["tag"] ?? ""
-    if false && fnt == "ident"
-      let fname = fn["name"] ?? ""
-      let inl = g_inline_map[fname]
-      if !stdr.is_null(inl)
-        let params = dict_get_or(inl, "params", []: [any])
-        if stdr.len(params) == stdr.len(out_args)
-          let ?binds = []: [string => any]
-          let ?pi = 0
-          let pn = stdr.len(params)
-          for (; pi < pn; pi = pi + 1)
-            let p = params[pi]
-            let pname = p["name"] ?? ""
-            binds[pname] = out_args[pi]
-          let in_expr = subst_expr(dict_get_or(inl, "expr", null), binds)
-          <- opt_expr(in_expr, env)
 
     -- Phase 2: peepholes for stdr calls
     if fnt == "member"
@@ -5997,16 +5670,6 @@ def ?g_flat_counter = 0
   <- optimize_program_once(ast)
 ;
 
-: load_module_opt(fpath = string) (( any ))
-  let cached = g_opt_ast_cache[fpath]
-  if !stdr.is_null(cached) { <- cached }
-  let ast = load_module(fpath)
-  if stdr.is_null(ast) { <- null }
-  let o = optimize_program(ast)
-  g_opt_ast_cache[fpath] = o
-  <- o
-;
-
 -- Emit a single brought module. Returns the emitted C code string.
 : emit_one_bring(bname = string, src_dir = string) (( string ))
   let decls_key = "decls"
@@ -6026,7 +5689,7 @@ def ?g_flat_counter = 0
   stdr.push(parts, "/* end embedded module: ")
   stdr.push(parts, bname)
   stdr.push(parts, " */\n")
-  <- join_parts(parts)
+  <- stdr.join(parts)
 ;
 
 -- Collect all bring names from a decl list (non-builtin)
@@ -6363,7 +6026,7 @@ def ?g_flat_counter = 0
   if has_entry { stdr.push(p, "  yis_entry();\n") }
   stdr.push(p, "  return 0;\n")
   stdr.push(p, "}\n")
-  <- join_parts(p)
+  <- stdr.join(p)
 ;
 
 -> ()
@@ -6463,7 +6126,7 @@ def ?g_flat_counter = 0
 
   let ?source = source_raw
   if !is_self_host
-    source = preprocess_source(source_raw)
+    source = strip_line_comments(source_raw)
 
   let toks = lexer.lex_with_escapes(source, should_decode_escapes(entry_path))
   let ast = parser.parse(toks)
@@ -6529,7 +6192,7 @@ def ?g_flat_counter = 0
     bundle_dir = stdr.str_concat(app_name, ".app")
     out_path = stdr.str_concat(bundle_dir, "/Contents/MacOS/")
     out_path = stdr.str_concat(out_path, app_name)
-    if has_char(app_name, ".")
+    if stdr.contains(app_name, ".")
       macos_bundle_id = app_name
     else
       macos_bundle_id = stdr.str_concat("org.yi.", app_name)
